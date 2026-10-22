@@ -48,8 +48,16 @@ def check_environment(r):
     v = sys.version_info
     r.add(g, "python", "ok" if v >= (3, 9) else "fail", f"{v.major}.{v.minor}.{v.micro}",
           None if v >= (3, 9) else "install Python 3.9+ (hooks and scripts need it)")
+    # hooks.json starts the hooks with a bare `python3`; a missing or Microsoft Store stub python3 makes every
+    # hookify guardrail fail open (Claude Code treats any exit other than 2 as non-blocking)
+    code, out = run(["python3", "-c", "import sys; print(sys.version_info[0])"])
+    ok = code == 0 and out == "3"
+    r.add(g, "python3", "ok" if ok else "fail",
+          shutil.which("python3") if ok else f"`python3` is missing or does not run (exit {code}); hooks start with it",
+          None if ok else "put a real python3 on PATH (on Windows, copy python.exe to python3.exe)")
     for tool, needed_for, status in (("git", "worktrees, freshness hook, commits", "fail"),
-                                     ("gh", "/sdlc:code-review and PR commands", "warn")):
+                                     ("gh", "/sdlc:code-review and PR commands", "warn"),
+                                     ("jq", "the /sdlc:ralph-loop stop hook (it silently stops looping without it)", "warn")):
         found = shutil.which(tool)
         r.add(g, tool, "ok" if found else status, found or f"not found (needed for {needed_for})",
               None if found else f"install {tool}")

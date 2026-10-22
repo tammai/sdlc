@@ -276,7 +276,7 @@ def cmd_render(p, a):
     full = p.path(dest)
     os.makedirs(os.path.dirname(full), exist_ok=True)
     before = sha256(full)
-    with open(full, "w", encoding="utf-8") as f:
+    with open(full, "w", encoding="utf-8", newline="\n") as f:  # LF on Windows too: upgrade-plan hashes the LF render
         f.write(text)
     after = sha256(full)
     lock["files"][dest] = {"class": a.cls, "sha256": after, "template": template}

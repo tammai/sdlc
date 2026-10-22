@@ -84,6 +84,8 @@ FILES = [
     ("sdlc-protect-guardrails-file", "templates/project/hookify/sdlc-dangerous-rm.md", "x", False),
     ("sdlc-sensitive-files", "config/.env", "X=1", True),
     ("sdlc-sensitive-files", ".env.local", "X=1", True),
+    ("sdlc-sensitive-files", "config\\.env", "X=1", True),
+    ("sdlc-sensitive-files", ".ssh\\id_rsa", "x", True),
     ("sdlc-sensitive-files", "certs/server.pem", "x", True),
     ("sdlc-sensitive-files", "src/environment.ts", "x", False),
     ("sdlc-secret-values", "src/a.ts", 'const k = "sk-ant-api03-abcdefghijklmnopqrstuvwxyz"', True),

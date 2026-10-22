@@ -46,10 +46,18 @@ class DoctorTest(ProjectTestCase):
 
     def test_environment_and_plugin_checks_always_run(self):
         checks, _ = self.doctor()
-        for key in [("environment", "python"), ("environment", "git"), ("environment", "gh"),
-                    ("environment", "security reviewer env"), ("plugin", "version"), ("plugin", "hook scripts")]:
+        for key in [("environment", "python"), ("environment", "python3"), ("environment", "git"),
+                    ("environment", "gh"), ("environment", "jq"), ("environment", "security reviewer env"),
+                    ("plugin", "version"), ("plugin", "hook scripts")]:
             self.assertIn(key, checks)
         self.assertEqual(checks[("plugin", "hook scripts")]["status"], "ok")
+
+    def test_missing_python3_fails(self):
+        p = subprocess.run([sys.executable, DOCTOR, "--root", self.root], capture_output=True, text=True,
+                           env={**os.environ, "CLAUDE_PLUGIN_ROOT": PLUGIN_ROOT, "PATH": ""})
+        checks = {(c["group"], c["check"]): c for c in json.loads(p.stdout)["checks"]}
+        self.assertEqual(checks[("environment", "python3")]["status"], "fail")
+        self.assertEqual(p.returncode, 1)
 
     def test_repo_not_set_up_is_a_warning_not_a_failure(self):
         checks, code = self.doctor(expect=0)

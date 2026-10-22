@@ -8,6 +8,8 @@ import unittest
 
 PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOOKS = os.path.join(PLUGIN_ROOT, "hooks")
+# Bare "bash" on Windows resolves to System32\bash.exe (WSL) before PATH; shutil.which follows PATH, so it finds Git Bash.
+BASH = shutil.which("bash") or "bash"
 
 
 def run_hook(argv, payload, cwd, env_extra=None):

@@ -71,7 +71,7 @@ Run `/sdlc:doctor` when something feels off, after installing or upgrading, or b
 
 | Group | What it checks |
 |---|---|
-| environment | Python ≥ 3.9, git, gh, the security reviewer's environment (built in the state directory on first session) |
+| environment | Python ≥ 3.9, a working `python3`, git, gh, jq, the security reviewer's environment (built in the state directory on first session) |
 | plugin | version; every script `hooks.json` references exists |
 | repo | setup state and version drift; config and lock parse; plugin files missing or hand-edited; project commands defined (per package) and their tools found on PATH; baseline present (brownfield); `.sdlc/.work/` git-ignored; rules whose `paths:` match no files; hookify rules that don't parse or have a bad regex; CLAUDE.md over 60 lines; broken links in `knowledge/index.md`; malformed or several active `state.md`; corrupt freshness state |
 
