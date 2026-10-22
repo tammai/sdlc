@@ -172,6 +172,14 @@ class DiffStatsTest(ProjectTestCase):
         self.assertIn("### Diff stats", md)
         self.assertIn("- unused export: never", md)
 
+    def test_non_ascii_diff_survives_a_non_utf8_locale(self):
+        # U+FF10 is EF BC 90 in UTF-8; 0x90 has no cp1252 mapping, which crashed the git read on Windows
+        self.write("src/a.ts", "export const total０ = 1\n")
+        env = {**os.environ, "PYTHONIOENCODING": "cp1252"}
+        p = subprocess.run([sys.executable, SCRIPT, "--root", self.root, "--format", "md"], capture_output=True, env=env)
+        self.assertEqual(p.returncode, 0, p.stderr.decode("utf-8", "replace"))
+        self.assertIn("- unused export: total０", p.stdout.decode("utf-8"))
+
     def test_no_changes(self):
         r = self.stats()
         self.assertEqual((r["flags"], r["totals"]["new_files"]), ([], 0))

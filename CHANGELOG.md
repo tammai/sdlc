@@ -8,7 +8,11 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 - Setup can add the sdlc marketplace and `enabledPlugins` to `.claude/settings.json` (`scaffold.py enable-plugin`, asked first) so teammates who trust the repo are offered the plugin. Keys you already set are left alone, and eject removes only what setup added. Repos set up earlier can run `scaffold.py enable-plugin` by hand.
 - Stage 5 has a `qa-tester` agent on M and L tracks. It never sees the code, runs the feature against the spec's scenarios and edge cases the way a user would, and writes `qa-report.md`. A failed scenario fails the round. The model router holds it to `opus` on `Risk: high`.
 - The verifier checks red-green: in a throwaway worktree with the feature's code put back to `Base:`, the feature's tests must fail. A test that still passes doesn't count as evidence.
+- A later verify round reruns the qa-tester only when non-test code changed since its last PASS.
 - `analyzing-consistency` maps each acceptance scenario to a named test in the plan and flags a scenario with none as HIGH.
+
+### Fixed
+- `diff_stats.py` crashed on Windows when the diff had characters outside the code page (found by a live Stage 6 run); it now reads git output and writes its report as UTF-8.
 
 ## 1.4.0 — 2026-10-22
 

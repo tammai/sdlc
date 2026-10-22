@@ -25,7 +25,7 @@ Stage 5 decides whether the work does what the spec says, using evidence that is
 | VER-FR-003 | The verifier writes only `test-report.md` and may only remove passing items from the baseline. | `[instructed]` verifier.md |
 | VER-FR-004 | Failures are classified new or baseline; only new failures fail the round; a lint/type count that rises counts as new; adding to the baseline needs the user and a Deviation. | `[instructed]` verifier.md, orchestrator §5 |
 | VER-FR-005 | M and L: fresh `qa-tester`, `pr-test-analyzer` and `silent-failure-hunter` in parallel each round. S: verifier only, with the repro test among the evidence and failing on Base. | `[instructed]` orchestrator §5 |
-| VER-FR-006 | Gate: latest round's verifier and (M, L) qa-tester PASS on the current commit, every criterion evidenced, no test gap rated ≥ 8, no high-severity silent failure, no skipped or retried-until-green test touching the feature. | `[instructed]` orchestrator §5 |
+| VER-FR-006 | Gate: latest round's verifier PASS on the current commit and (M, L) a qa-tester PASS on a commit with the same non-test files, every criterion evidenced, no test gap rated ≥ 8, no high-severity silent failure, no skipped or retried-until-green test touching the feature. | `[instructed]` orchestrator §5 |
 | VER-FR-007 | At most 3 rounds, then stop and report to the user. Each round is logged in `state.md`. | `[instructed]` orchestrator §5 |
 
 ### Red-green and QA
@@ -36,9 +36,10 @@ Stage 5 decides whether the work does what the spec says, using evidence that is
 | VER-FR-031 | The `qa-tester` is briefed with the feature dir, round, commands and whether a browser tool exists, never the diff, plan or tests, and is told not to read source. | `[instructed]` orchestrator §5, qa-tester.md |
 | VER-FR-032 | It runs every acceptance scenario and spec edge case against the running software (CLI, HTTP, browser, or a script against the public API) and up to five probes of its own, recording steps and observed output. | `[instructed]` qa-tester.md |
 | VER-FR-033 | It writes only `qa-report.md` (a `## Round N` section) and scratch files under `.sdlc/.work/qa/`; never installs anything; reports "not run: <reason>" when it can't run a scenario. | `[instructed]` qa-tester.md |
-| VER-FR-036 | The qa-tester leaves the working tree as it found it: files the running software created are removed, and any it couldn't remove are reported. | `[instructed]` qa-tester.md |
 | VER-FR-034 | Its verdict fails on a failed scenario or spec edge case, or a Blocker probe (crash, hang, data loss, leaked internals or wrong result, on an input the spec covers). Probes stay inside the spec's stated limits and never touch Non-Goals; a failure that needs a new requirement is Major and goes to the user. "Not run" doesn't fail the round but is named at the gate. Major findings go to `review.md`. | `[instructed]` qa-tester.md, orchestrator §5 |
 | VER-FR-035 | The model router denies `qa-tester` below `opus` on `Risk: high`, like the verifier. | `[enforced]` test_model_router › test_qa_tester_below_opus_is_denied_on_high_risk |
+| VER-FR-036 | The qa-tester leaves the working tree as it found it: files the running software created are removed, and any it couldn't remove are reported. | `[instructed]` qa-tester.md |
+| VER-FR-037 | A later round reruns the qa-tester only when non-test files changed since its last PASS; otherwise that PASS carries over and the round's log line says so. | `[instructed]` orchestrator §5 |
 
 ### Freshness hook
 

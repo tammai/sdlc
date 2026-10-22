@@ -33,7 +33,7 @@ COMMENT_RATIO_MIN_LINES = 20
 
 
 def git(root, *args, check=True):
-    p = subprocess.run(["git", "-C", root, *args], capture_output=True, text=True)
+    p = subprocess.run(["git", "-C", root, *args], capture_output=True, encoding="utf-8", errors="replace")
     if check and p.returncode != 0:
         raise RuntimeError(f"git {' '.join(args)}: {p.stderr.strip()}")
     return p.stdout if p.returncode == 0 else None
@@ -327,6 +327,7 @@ def main(argv=None):
     ap.add_argument("--plan", help="plan.md whose '## Public Surface' the diff is checked against")
     ap.add_argument("--format", choices=["json", "md"], default="json")
     a = ap.parse_args(argv)
+    sys.stdout.reconfigure(encoding="utf-8")
     root = os.path.abspath(a.root)
     try:
         top = git(root, "rev-parse", "--show-toplevel").strip()

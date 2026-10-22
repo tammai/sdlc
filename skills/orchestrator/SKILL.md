@@ -87,7 +87,7 @@ Set `Current: Stage 5 – Verify` in state.md first — that switches on the fre
 
 Each round:
 1. **Spawn a NEW `sdlc:verifier` agent.** Always a fresh spawn — never resume or message a verifier from an earlier round, and never verify inline in this context. Brief it with: feature dir, round number, the build/lint/typecheck/test commands from state.md. It runs everything fresh, proves each acceptance criterion, and appends `## Round N — <time> — commit <hash>` to `test-report.md`.
-2. In parallel (M and L tracks), spawn fresh `sdlc:pr-test-analyzer` (gaps rated 1–10) and `sdlc:silent-failure-hunter` on the current diff, and a fresh `sdlc:qa-tester`. Brief the qa-tester with the feature dir, round number, the commands and whether a browser tool is available. Give it no diff, plan or test files: it runs the feature against the spec as a user would and appends to `qa-report.md`.
+2. In parallel (M and L tracks), spawn fresh `sdlc:pr-test-analyzer` (gaps rated 1–10) and `sdlc:silent-failure-hunter` on the current diff, and a fresh `sdlc:qa-tester`. Brief the qa-tester with the feature dir, round number, the commands and whether a browser tool is available. Give it no diff, plan or test files: it runs the feature against the spec as a user would and appends to `qa-report.md`. In a later round, rerun it only if non-test files changed since its last PASS (`git diff --name-only <its commit>`); otherwise its PASS carries over: say so in the round's log line.
 3. Log the round in state.md under `## Verify rounds`: `Round N — <commit> — PASS/FAIL — <one-line reason>`.
 4. Verdict:
    - Verifier PASS, qa-tester PASS (scenarios it reports as "not run" don't fail it), no test gap rated ≥ 8, no high-severity silent failure → gate passes. qa-tester Major findings go into `review.md` for Stage 6. PASS means no *new* failures: failures listed in `.sdlc/baseline.md` don't fail the round. If the verifier asks to baseline a failure, that's a user decision, recorded under Deviations; it's never added silently.
@@ -97,7 +97,7 @@ Each round:
 You (the orchestrator) may run commands to investigate, but the verdict always comes from that round's fresh verifier — `sdlc:verification-before-completion` applies to anything you claim yourself.
 
 - S track: one verifier per round (no analyzer, hunter or qa-tester); the bug's repro test must be among the evidence and must fail on Base (the verifier's red-green check).
-- **Gate:** latest round's verifier (and, M and L, qa-tester) verdict PASS on the current commit (no code edits since — the hook enforces this); every acceptance criterion has evidence; no gap ≥ 8; no skipped or retried-until-green test touching this feature. Name any acceptance scenario the qa-tester couldn't run, and why, when you report the gate.
+- **Gate:** latest round's verifier verdict PASS on the current commit, and (M and L) a qa-tester PASS on a commit whose non-test files match the current one (no code edits since — the hook enforces this); every acceptance criterion has evidence; no gap ≥ 8; no skipped or retried-until-green test touching this feature. Name any acceptance scenario the qa-tester couldn't run, and why, when you report the gate.
 
 ### 6 · Review
 - The reviewer must not be the context that wrote the code.
