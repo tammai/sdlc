@@ -16,6 +16,7 @@ One line per doc: path — what it answers (≤12 words). Keep this file under ~
 
 ## Gotchas
 - [gotchas/crlf-checkout.md](gotchas/crlf-checkout.md) — exact-match edits fail on Windows checkouts with CRLF
+- [gotchas/windows-stdout-encoding.md](gotchas/windows-stdout-encoding.md) — why scripts crash printing non-ASCII on Windows; write UTF-8
 
 ## Runbooks
 - [../docs/runbook.md](../docs/runbook.md) — maintainer and user procedures, including releases

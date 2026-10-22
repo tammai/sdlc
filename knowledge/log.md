@@ -5,3 +5,4 @@
 - 2026-10-22 add .claude/rules/skills.md, .claude/rules/hooks.md — tier-2 rules for the plugin's own areas (from model-router)
 - 2026-10-22 remove CLAUDE.md release-distill line — duplicated runbook release step 5 (from CLAUDE.md audit)
 - 2026-10-22 remove CLAUDE.md CRLF line — Windows-only, scripted edits only; reachable via the index (from CLAUDE.md audit)
+- 2026-10-22 add knowledge/gotchas/windows-stdout-encoding.md, .claude/rules/scripts.md; update .claude/rules/hooks.md — doctor and scaffold crashed on cp1252 output (from scaffold UTF-8 fix)
