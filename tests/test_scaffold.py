@@ -252,6 +252,15 @@ class ScaffoldTest(ProjectTestCase):
         ids = [m["id"] for m in self.sc("migrations")["pending"]]
         self.assertEqual(ids, ["1.4.0-a-first", "1.4.0-b-second", "1.10.0-later"])
 
+    def test_non_ascii_output_survives_a_non_utf8_pipe(self):
+        self.migration("1.4.0-move", summary="rules → .claude/rules")
+        self.init()
+        self.set_plugin_version("1.4.0")
+        code, out, raw, err = run_hook([sys.executable, SCRIPT, "--root", self.root, "migrations"], "", self.root,
+                                       env_extra={"CLAUDE_PLUGIN_ROOT": self.plugin, "PYTHONIOENCODING": "cp1252"})
+        self.assertEqual(code, 0, err)
+        self.assertEqual(out["pending"][0]["summary"], "rules → .claude/rules")
+
     def test_applied_and_skipped_migrations_are_not_pending(self):
         self.migration("1.4.0-a")
         self.migration("1.4.0-b")

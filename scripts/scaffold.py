@@ -764,6 +764,7 @@ def main(argv=None):
         result, code = {"refused": str(e)}, 2
     except (ValueError, OSError) as e:
         result, code = {"error": str(e)}, 1
+    sys.stdout.reconfigure(encoding="utf-8")  # a cp1252 pipe (Windows) can't encode non-ASCII paths or summaries
     print(json.dumps(result, indent=2, ensure_ascii=False))
     return code
 

@@ -18,7 +18,8 @@ def run_hook(argv, payload, cwd, env_extra=None):
     env.update(CLAUDE_PLUGIN_ROOT=PLUGIN_ROOT, CLAUDE_PROJECT_DIR=cwd)
     env.update(env_extra or {})
     stdin = payload if isinstance(payload, str) else json.dumps(payload)
-    p = subprocess.run(argv, input=stdin, capture_output=True, text=True, cwd=cwd, env=env, timeout=30)
+    p = subprocess.run(argv, input=stdin, capture_output=True, text=True, encoding="utf-8", cwd=cwd, env=env,
+                       timeout=30)
     out = p.stdout.strip()
     try:
         parsed = json.loads(out) if out else None
