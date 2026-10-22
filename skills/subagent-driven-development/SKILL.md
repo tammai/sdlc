@@ -157,7 +157,8 @@ opts into it. Escalation stops at the top tier.
 
 **Architecture and design tasks**: use the top tier.
 The final whole-branch review is one of these — dispatch it on the top
-tier, not the session default.
+tier, not the session default. Under the orchestrator it happens in
+Stage 6, still on the top tier.
 
 **Review tasks**: choose the model with the same judgment, scaled to the
 diff's size, complexity, and risk. A small mechanical diff does not need the

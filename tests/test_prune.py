@@ -48,6 +48,13 @@ class PruneTest(ProjectTestCase):
         self.assertEqual(out["refused"][0]["skip"], "not done on main")
         self.assertIn("plan.md", self.left("2026-01-01-login"))
 
+    def test_uncommitted_work_is_never_pruned(self):
+        self.write(".sdlc/2026-01-01-month-filter/plan.md", "edited, not committed\n")
+        code, out = self.prune("apply", "2026-01-01-month-filter")
+        self.assertEqual(code, 1)
+        self.assertIn("uncommitted", out["refused"][0]["skip"])
+        self.assertIn("plan.md", self.left("2026-01-01-month-filter"))
+
 
 if __name__ == "__main__":
     unittest.main()

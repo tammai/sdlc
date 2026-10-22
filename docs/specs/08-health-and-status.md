@@ -41,7 +41,7 @@ Tell the user what state their machine, the plugin and the repo are in, and what
 
 | ID | Requirement | Guarantee |
 |---|---|---|
-| HLT-FR-030 | A feature qualifies only when its `state.md` on the main branch (`main`, else `master`, or `--main`) says `Status: done` and hasn't changed for `--older-than` days (default 45). Anything else is skipped with the reason, and `apply` refuses it. | `[enforced]` test_prune › test_active_feature_is_never_pruned |
+| HLT-FR-030 | A feature qualifies only when its `state.md` on the main branch (`main`, else `master`, or `--main`) says `Status: done` and hasn't changed for `--older-than` days (default 45). It's also skipped when its folder has uncommitted changes or its working-tree `state.md` no longer says done, so only what git already holds is deleted. Anything else is skipped with the reason, and `apply` refuses it. | `[enforced]` test_prune › test_active_feature_is_never_pruned, test_uncommitted_work_is_never_pruned |
 | HLT-FR-031 | It deletes `plan.md`, `test-report.md`, `qa-report.md`, `review.md`, `checklists/`, and `security.md` unless `Risk: high`; everything else in the folder stays. | `[enforced]` test_prune › test_done_merged_feature_keeps_only_its_record |
 | HLT-FR-032 | The command lists first, asks which features to prune, and commits the deletions in one commit without pushing. | `[instructed]` commands/prune.md |
 

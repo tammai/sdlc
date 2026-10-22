@@ -36,7 +36,7 @@ Anything touching auth, payments, secrets, PII or schema migrations is at least 
 | | Implementers | Verifier, reviewers | Security pass |
 |---|---|---|---|
 | S, risk low | cheap | standard | hooks only |
-| M, risk low | cheap or standard, per task | standard; final review top | light |
+| M, risk low | cheap or standard, per task | standard; Stage 6 whole-branch review top | light |
 | L, or risk high | standard | top | top, full Stage 7 |
 
 The top tier is `opus`. Use `fable` only when the user asks for it; record it as `Top model: fable`.
@@ -77,7 +77,7 @@ At the start of every stage print exactly:
 ### 4 · Implement
 - Isolation: `sdlc:using-git-worktrees` (L track, or whenever the working tree is dirty)
 - Execution: `sdlc:subagent-driven-development` (default for L) or `sdlc:executing-plans` (inline); `sdlc:dispatching-parallel-agents` for truly independent tasks
-- One whole-branch review per feature, in Stage 6: tell the execution skill to skip its own final whole-branch review ("Stage 6 reviews the branch"). Per-task reviews still run. Record the `Ruling:` lines it reports in state.md under Deviations, so Stage 6 sees them.
+- One whole-branch review per feature, in Stage 6: tell the execution skill to skip its own final whole-branch review ("Stage 6 reviews the branch"). Per-task reviews still run. Record the `Ruling:` lines it reports in state.md's Gate log, so Stage 6 sees them.
 - Always on: `sdlc:test-driven-development`; `sdlc:systematic-debugging` the moment something fails unexpectedly
 - Optional loop for a single well-specified task with a machine-checkable finish: `/sdlc:ralph-loop "<task>" --completion-promise "DONE" --max-iterations 15`
 - Background: the security-guidance hooks warn on risky edits; hookify rules (if any) enforce team rules
@@ -89,7 +89,7 @@ Set `Current: Stage 5 – Verify` in state.md first — that switches on the fre
 
 Each round:
 1. **Spawn a NEW `sdlc:verifier` agent.** Always a fresh spawn — never resume or message a verifier from an earlier round, and never verify inline in this context. Brief it with: feature dir, round number, the build/lint/typecheck/test commands from state.md. It runs everything fresh, proves each acceptance criterion, and appends `## Round N — <time> — commit <hash>` to `test-report.md`.
-2. In parallel (M and L tracks), spawn fresh `sdlc:pr-test-analyzer` (gaps rated 1–10) and `sdlc:silent-failure-hunter` on the current diff, and a fresh `sdlc:qa-tester`. Brief the qa-tester with the feature dir, round number, the commands and whether a browser tool is available. Give it no diff, plan or test files: it runs the feature against the spec as a user would and appends to `qa-report.md`. In a later round, rerun it only if non-test files changed since its last PASS (`git diff --name-only <its commit>`); otherwise its PASS carries over: say so in the round's log line.
+2. In parallel (M and L tracks), spawn fresh `sdlc:pr-test-analyzer` (gaps rated 1–10) and `sdlc:silent-failure-hunter` on the current diff, and a fresh `sdlc:qa-tester`. Brief the qa-tester with the feature dir, round number, the commands and whether a browser tool is available. Give it no diff, plan or test files: it runs the feature against the spec as a user would and appends to `qa-report.md`. In a later round, rerun it only if non-test files changed since its last PASS (`git diff --name-only <its commit>`, ignoring `.sdlc/` and docs); otherwise its PASS carries over: say so in the round's log line.
 3. Log the round in state.md under `## Verify rounds`: `Round N — <commit> — PASS/FAIL — <one-line reason>`.
 4. Verdict:
    - Verifier PASS, qa-tester PASS (scenarios it reports as "not run" don't fail it), no test gap rated ≥ 8, no high-severity silent failure → gate passes. qa-tester Major findings go into `review.md` for Stage 6. PASS means no *new* failures: failures listed in `.sdlc/baseline.md` don't fail the round. If the verifier asks to baseline a failure, that's a user decision, recorded under Deviations; it's never added silently.
@@ -107,7 +107,8 @@ You (the orchestrator) may run commands to investigate, but the verdict always c
 - On the GitHub PR (after Stage 8 opens it): `/sdlc:code-review`
 - Handling feedback: `sdlc:receiving-code-review` (verify before agreeing; push back with evidence)
 - Polish: `sdlc:code-simplifier` agent on the changed files
-- This is the feature's only whole-branch review (Stage 4 skipped its own). Every reviewer's brief includes the plan's Review Focus section verbatim, if it has one, and the Rulings recorded in state.md.
+- This is the feature's only whole-branch review (Stage 4 skipped its own), so on M and L the whole-branch `code-reviewer` runs on the top tier (S keeps the standard tier). Every reviewer's brief includes the plan's Review Focus section verbatim, if it has one, and the Rulings recorded in state.md.
+- Any code change made to fix a finding sends the feature back to Stage 5 for another round before this gate passes (the qa-tester rerun rule still applies). Fixes to tests or docs alone don't.
 - Facts first: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/diff_stats.py" --format md --plan .sdlc/<feature>/plan.md` (omit `--plan` on S track) goes into every reviewer's prompt; exports and dependencies missing from the plan's Public Surface are flagged as undeclared (comment share, single-use exports, single-implementation abstractions, new dependencies).
 - S track ("light"): `sdlc:code-reviewer` then `sdlc:code-simplifier`, both with the diff stats.
 - Severity: unrequested public surface (export, file, endpoint, option, config, dependency not in the spec/plan, with no stated reason) is high. Comment noise flagged by the stats or hookify warnings is medium and fixed in this stage, not ticketed.

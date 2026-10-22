@@ -9,3 +9,4 @@
 - 2026-10-22 add knowledge/gotchas/windows-bash-is-wsl.md, .claude/rules/tests.md — ralph tests ran WSL bash on Windows (from 1.4.0 release distill)
 - 2026-10-22 add knowledge/gotchas/frontmatter-colon-breaks-yaml.md; update .claude/rules/skills.md — silent-failure-hunter frontmatter failed validate since 1.2.0 (from 1.4.0 release distill)
 - 2026-10-22 update knowledge/gotchas/windows-stdout-encoding.md — Python 3.15 UTF-8 mode hid the cp1252 crashes (from 1.4.0 release distill)
+- 2026-10-22 update knowledge/gotchas/windows-stdout-encoding.md — subprocess text=True decoding crashed diff_stats.py on a non-ASCII diff (from the QA live run)

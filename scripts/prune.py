@@ -50,6 +50,13 @@ def candidate(root, ref, name, older_than):
     age = int((time.time() - changed) // 86400)
     if age < older_than:
         return {"feature": name, "skip": f"done {age} days ago (under {older_than})"}
+    # Deleting from the working tree is only safe when it matches what git already holds.
+    if git(root, "status", "--porcelain", "--", f".sdlc/{name}"):
+        return {"feature": name, "skip": "uncommitted changes in its folder"}
+    local = os.path.join(root, ".sdlc", name, "state.md")
+    with open(local, encoding="utf-8", errors="replace") as f:
+        if not re.search(r"^Status:\s*done\b", f.read(), re.M | re.I):
+            return {"feature": name, "skip": "not done in the working tree (reopened?)"}
     delete = list(DELETE)
     if not re.search(r"^Risk:\s*high\b", state, re.M | re.I):
         delete.append("security.md")
