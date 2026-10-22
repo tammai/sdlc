@@ -18,7 +18,7 @@ On Windows, Python encodes stdout to a pipe or console with the locale code page
 Call `sys.stdout.reconfigure(encoding="utf-8")` before printing, as `scripts/doctor.py` and `scripts/scaffold.py` do. Claude Code reads hook and script output as UTF-8. Plain `json.dumps` (ASCII escapes) is safe without it.
 
 ## How to detect early
-Run the script with `PYTHONIOENCODING=cp1252`; a test that sets it reproduces the crash on any OS (`test_doctor` › test_markdown_output, `test_scaffold` › test_non_ascii_output_survives_a_non_utf8_pipe).
+Run the script with `PYTHONIOENCODING=cp1252`; a test that sets it reproduces the crash on any OS (`test_doctor` › test_markdown_output, `test_scaffold` › test_non_ascii_output_survives_a_non_utf8_pipe). Python 3.15 defaults to UTF-8 mode and hides the crash, so on Windows also run the suite with an older Python.
 
 ## Related
 - [CRLF checkouts break exact-match edits](crlf-checkout.md)
