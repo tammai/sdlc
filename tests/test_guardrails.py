@@ -110,6 +110,7 @@ FILES = [
     ("sdlc-ui-hardcoded-values", "src/index.css", "@theme {\n  --color-brand: #1a2b3c;\n}", False),
     ("sdlc-ui-hardcoded-values", "src/Button.tsx", '<a href="#top" className="text-primary p-4" />', False),
     ("sdlc-ui-hardcoded-values", "scripts/plot.py", 'color = "#1a2b3c"', False),
+    ("sdlc-ui-hardcoded-values", "src/Card.tsx", "<View style={styles.card} />", False),
     ("sdlc-focused-tests", "src/a.test.ts", "it.only('works', () => {})", True),
     ("sdlc-focused-tests", "src/a.test.ts", "describe.skip('x', () => {})", True),
     ("sdlc-focused-tests", "tests/test_a.py", "@pytest.mark.skip\ndef test_a(): ...", True),

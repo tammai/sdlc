@@ -13,6 +13,7 @@ Docs: [guidebook](docs/guidebook.md) (how it works) · [playbook](docs/playbook.
 - **Independent verification.** A fresh verifier agent each round, a hook that won't let a turn finish on stale test results, and a baseline so old failures don't block new work.
 - **Scope kept in check.** Requirements are traced from spec to diff: inferred requirements are dropped unless you keep them, every new abstraction or dependency cites a requirement, and undeclared public surface is flagged in review.
 - **Conventions enforced where they happen.** Policy rules load while code is written, guardrails warn or block in real time (narrating comments, focused tests, secrets, force-push to main), and review gets measured facts from `diff_stats.py`.
+- **UI that follows your design system.** UI work reads the project's design system, a guardrail warns on hard-coded colors and inline styles, and a UI reviewer flags off-system components and generic "AI look" styling before merge.
 - **Knowledge that stays small.** Three loading tiers keep `CLAUDE.md` short; lessons are promoted from retros, and corrections that repeat become rules.
 - **Any stack, any repo shape.** Setup records the commands your repo already uses, per package in a monorepo (TS, Go, Rust, Dart, Python, shell, …), and generates CI from them. Upgrades are versioned and never overwrite your edits.
 
@@ -53,10 +54,10 @@ One row per check (✅ / ⚠️ / ❌) for your machine, the plugin and the curr
 - Works on a `sdlc/setup` branch, one commit per step; rerun it to resume if interrupted. Needs a clean working tree.
 - **New repo:** a few stack questions, then a proposal you approve; the ecosystem's own generators build a skeleton whose commands pass on day one.
 - **Existing repo:** records the commands you already use (`pnpm test`, `go test ./...`, `make lint`, …) per package, writes a **baseline** of what already fails so features aren't blamed for it, and drafts conventions, gotchas and per-area rules from the code and git history. Nothing from that audit is written until you approve it.
-- Both get policy rules, guardrails (hookify), lint snippets, a permission allowlist for your commands, CI generated from those commands, a constitution and a knowledge folder.
+- Both get policy rules, guardrails (hookify), lint snippets, a permission allowlist for your commands, CI generated from those commands, a constitution and a knowledge folder. Projects with UI also get a **design system** record: the library, tokens and components you already use, or a mainstream library and minimal tokens you approve.
 - Ends by asking: open a PR, or merge locally.
 
-What lands in the repo: `.sdlc/config.json` (your commands; to change one later, see [Configuration](docs/guidebook.md#configuration)), `.sdlc/constitution.md`, `.claude/rules/sdlc-*.md`, `.claude/hookify/sdlc-*.md`, `.github/workflows/sdlc-verify.yml`, `knowledge/`, and for existing code `.sdlc/baseline.md`. Your `CLAUDE.md` is never touched.
+What lands in the repo: `.sdlc/config.json` (your commands; to change one later, see [Configuration](docs/guidebook.md#configuration)), `.sdlc/constitution.md`, `.sdlc/design-system.md` (UI projects), `.claude/rules/sdlc-*.md`, `.claude/hookify/sdlc-*.md`, `.github/workflows/sdlc-verify.yml`, `knowledge/`, and for existing code `.sdlc/baseline.md`. Your `CLAUDE.md` is never touched.
 
 ### 3. Start a piece of work
 
@@ -138,7 +139,7 @@ Skills such as `sdlc:writing-specs` or `sdlc:test-driven-development` are used b
 | 3 | Plan | `writing-plans`, `analyzing-consistency` |
 | 4 | Implement | `using-git-worktrees`, `subagent-driven-development` / `executing-plans`, `dispatching-parallel-agents`, `test-driven-development`, `systematic-debugging`, `/sdlc:ralph-loop` |
 | 5 | Verify | fresh `verifier` agent each round (max 3), `pr-test-analyzer`, `silent-failure-hunter`, freshness hook |
-| 6 | Review | `/sdlc:review-pr`, `/sdlc:code-review`, `requesting-code-review`, `receiving-code-review`, `code-reviewer`, `feature-reviewer`, `comment-analyzer`, `type-design-analyzer`, `code-simplifier`, `diff_stats.py` |
+| 6 | Review | `/sdlc:review-pr`, `/sdlc:code-review`, `requesting-code-review`, `receiving-code-review`, `code-reviewer`, `feature-reviewer`, `comment-analyzer`, `type-design-analyzer`, `code-simplifier`, `ui-reviewer` (UI diffs), `diff_stats.py` |
 | 7 | Security | security-guidance hooks (always on), reviewer agents with a security brief, dependency audit |
 | 8 | PR / CI | `finishing-a-development-branch`, `/sdlc:commit`, `/sdlc:commit-push-pr`, `/sdlc:clean_gone` |
 | 9 | Deploy | project's own deploy path + `release.md` |
