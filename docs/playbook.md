@@ -15,6 +15,7 @@ Situation-by-situation plays. Each says what to say or run, what the orchestrato
 | Build something new or unclear | [3](#3-build-a-new-service-or-module-l-track) |
 | Change auth, payments, secrets, PII or migrations | [4](#4-change-something-risky) |
 | Pick up where you left off | [5](#5-resume-or-check-status) |
+| Something feels broken | `/sdlc:doctor`, then the [runbook](runbook.md#health-check) procedure it names |
 | Get out of a failing Verify | [6](#6-verify-keeps-failing) |
 | Get unblocked when a turn won't finish | [7](#7-the-stop-hook-says-re-run-tests) |
 | Answer review comments | [8](#8-handle-review-feedback) |
@@ -96,7 +97,7 @@ Each round, a **new** verifier runs everything fresh, so flaky results show up a
 
 ## 7. The stop hook says "re-run tests"
 
-Cause: you are in Stage 5 and code changed after the last full test run (or no full run happened). Fix: run the **full** suite (for example `just verify`, or the `test:` command in `state.md`). A filtered run, single file or single package doesn't count.
+Cause: you are in Stage 5 and code changed after the last full test run (or no full run happened). Fix: run the **full** suite: the `test` command from `.sdlc/config.json` (in a monorepo, the stale package's own, from its directory; the message names it), or the `test:` command in `state.md`. A filtered run, single file or single package doesn't count.
 
 If the change was only to docs (`.md`, `.sdlc/`, `knowledge/`, `docs/`) it doesn't mark results stale. For a hook that misbehaves, see [runbook R4](runbook.md#r4-blocked-at-stop-with-re-run-tests).
 
@@ -158,13 +159,13 @@ Start with `warn`. Move to `block` once the pattern has no false positives.
 
 ## 14. Adopt sdlc in an existing repo
 
-1. Install the plugin (see the [runbook](runbook.md#install)) and make sure `just` is installed (≥ 1.31 for monorepos).
+1. Install the plugin (see the [runbook](runbook.md#install)).
 2. Commit or stash your work, then run `/sdlc:setup`. It detects brownfield on its own and works on a `sdlc/setup` branch.
-3. **Justfile:** it wraps the commands you already have (`just test` → `pnpm test`, `make test`, …). You approve the diff.
+3. **Commands:** it records the commands you already use (`pnpm test`, `make lint`, `./gradlew build`, …) in `.sdlc/config.json`, per package in a monorepo. Missing steps stay `null` rather than being invented. You approve the list.
 4. **Baseline:** it runs lint, typecheck, build and tests and records what already fails in `.sdlc/baseline.md`. Read it: features will only be judged on new failures. A failing install or build stops setup instead.
 5. **Audit:** explorer agents draft conventions, gotchas from git history, decisions and per-area rules. You approve, edit or drop each item; nothing is written otherwise.
 6. **Existing AI config** (long CLAUDE.md, AGENTS.md, Cursor rules, ADRs): one migration diff per source; originals stay unless you say delete.
-7. Rules, guardrails, lint snippets, allowlist, constitution and knowledge follow. Existing CI is left alone (it suggests switching it to `just` recipes); a repo without CI is offered the sdlc workflow.
+7. Rules, guardrails, lint snippets, allowlist, constitution and knowledge follow. Existing CI is left alone (it points out steps that differ from the recorded commands); a repo without CI is offered a workflow generated from them.
 8. At the end: open a PR or merge locally, your choice. Then `/sdlc:start` a small S fix to see the loop end to end.
 
 Interrupted? Run `/sdlc:setup` again; it resumes from the last finished step.
@@ -172,9 +173,9 @@ Interrupted? Run `/sdlc:setup` again; it resumes from the last finished step.
 ## 15. Start a new project
 
 1. Create an empty repo (README and LICENSE are fine) and run `/sdlc:setup what you're building`.
-2. Answer a few stack questions; it proposes the stack, layout and justfile shape. **You approve before anything is generated.** It keeps to what the first feature needs: no auth, database or infra "for later" unless you asked.
-3. The ecosystem's own generators build the skeleton, plus strict types, a test runner, a linter and one passing test per package. `just install` and `just verify` must pass.
-4. CI (`.github/workflows/sdlc-verify.yml`) runs the same `just verify`. Windows teammates: set `"ci": {"os": ["ubuntu-latest", "windows-latest"]}` in `.sdlc/config.json`.
+2. Answer a few stack questions; it proposes the stack, layout and the commands per package. **You approve before anything is generated.** It keeps to what the first feature needs: no auth, database or infra "for later" unless you asked.
+3. The ecosystem's own generators build the skeleton, plus strict types, a test runner, a linter and one passing test per package. Every command must pass.
+4. CI (`.github/workflows/sdlc-verify.yml`) is generated from the same commands. Windows teammates: set `"ci": {"os": ["ubuntu-latest", "windows-latest"]}` in `.sdlc/config.json`.
 5. Rules, guardrails, constitution and knowledge as in [14](#14-adopt-sdlc-in-an-existing-repo). No baseline: nothing fails yet.
 6. PR or local merge, then `/sdlc:start` the first feature.
 
@@ -190,13 +191,13 @@ Interrupted? Run `/sdlc:setup` again; it resumes from the last finished step.
 
 ## 17. Remove sdlc from a repo
 
-`/sdlc:eject` shows a dry run first. It removes the plugin's own files (generated rules, unedited guardrails, CI workflow and lint snippets, the allowlist and `.gitignore` entries it added, the lock) and keeps your specs, knowledge, constitution, justfile, baseline and area rules. Edited plugin files are asked about one by one. It also fixes imports that would point at deleted files, runs `just verify`, and asks PR or local merge. Uninstall the plugin afterwards if you're done with it.
+`/sdlc:eject` shows a dry run first. It removes the plugin's own files (generated rules, unedited guardrails, CI workflow and lint snippets, the allowlist and `.gitignore` entries it added, the lock) and keeps your specs, knowledge, constitution, commands, baseline and area rules. Edited plugin files are asked about one by one. It also fixes imports that would point at deleted files, runs the verify commands, and asks PR or local merge. Uninstall the plugin afterwards if you're done with it.
 
 ## Who decides what
 
 | Decision | Owner |
 |---|---|
-| Running setup, stack choice, justfile diff | You approve |
+| Running setup, stack choice, the recorded commands | You approve |
 | Each audit batch, each AI-config migration | You approve, edit or drop |
 | Upgrade: edited plugin files, migrations | You choose per file / per migration |
 | Adding a failure to the baseline | You, recorded as a Deviation |

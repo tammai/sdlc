@@ -11,8 +11,6 @@ Operational procedures: install, check health, fix what breaks, maintain the plu
 | `git` | worktrees, freshness hook, commit and PR commands |
 | `gh` | `/sdlc:code-review` and PR commands |
 | Python 3 | all hooks and `scripts/` (stdlib only; macOS system 3.9 works) |
-| `just` (≥ 1.31 for monorepo modules) | the command contract in set-up repos. Prefer prebuilt installs: `npm i -g rust-just`, `pipx install rust-just`, `winget install Casey.Just`. `brew install just` only where Homebrew has a bottle for your Mac; otherwise it compiles Rust and LLVM from source for hours |
-| Git for Windows (Windows only) | `just` recipes run through `sh`; run them from Git Bash |
 | Node | brainstorming visual companion |
 | `typescript-language-server`, `typescript` | TypeScript code intelligence (`npm i -g typescript-language-server typescript`) |
 
@@ -30,7 +28,7 @@ Operational procedures: install, check health, fix what breaks, maintain the plu
 | Ralph loop state | `.claude/ralph-loop.local.md` |
 | Personal hookify rules | `.claude/hookify.<name>.local.md` (git-ignored) |
 | Team hookify rules | `.claude/hookify/<name>.md` (committed) |
-| Security hook per-session state, reviewer venv | `~/.claude/security/` (venv: `~/.claude/security/agent-sdk-venv`) |
+| Security hook per-session state, reviewer venv | `$SECURITY_WARNINGS_STATE_DIR`, else `$CLAUDE_CONFIG_DIR/security/`, else `~/.claude/security/` (venv: `agent-sdk-venv` inside it) |
 
 ### Environment switches for the security hooks
 
@@ -61,23 +59,23 @@ Working on the plugin itself instead? See [Develop locally](#develop-locally).
 
 Smoke test in a scratch repo:
 
-1. `/sdlc:status` answers "nothing in `.sdlc/`" (or lists features) without errors.
-2. `/sdlc:start` with a tiny request creates `.sdlc/<feature>/state.md` and announces a track and first stage.
-3. First session start may take about a minute while the security reviewer's Python environment is built.
+1. First session start may take about a minute while the security reviewer's Python environment is built.
+2. `/sdlc:doctor`: no ❌. Expected warnings: the repo isn't set up yet, and (before the first session finishes) the reviewer environment.
+3. `/sdlc:status` says the repo isn't set up and lists no features.
+4. `/sdlc:setup` with a one-line description: it proposes a stack, and after your OK writes `.sdlc/config.json` and the rest on a `sdlc/setup` branch. Run `/sdlc:doctor` again: the repo checks are ✅.
+5. `/sdlc:start` with a tiny request creates `.sdlc/<feature>/state.md` and announces a track and first stage.
 
 ## Health check
 
-Run through this when something feels off.
+Run `/sdlc:doctor` when something feels off, after installing or upgrading, or before onboarding a teammate. It changes nothing; it prints one row per check with ✅ / ⚠️ / ❌ and, for anything not ok, the fix and the procedure below that covers it. The same report from a shell: `python3 <plugin>/scripts/doctor.py --format md` (exit 1 if anything fails).
 
-| Check | How | Expected |
-|---|---|---|
-| Plugin installed and enabled | `/plugin` | `sdlc` listed as enabled |
-| Python available | `python3 --version` | 3.x |
-| Reviewer environment | `ls ~/.claude/security/agent-sdk-venv` | exists after the first session |
-| Repo set up and current | `/sdlc:status` | setup complete, scaffold version = plugin version |
-| Command contract | `python3 <plugin>/scripts/scaffold.py contract` | `"ok": true`, `"just": {"ok": true}` |
-| Feature state readable | `/sdlc:status` | one line per feature |
-| Hook tests pass | `python3 -m unittest discover -s tests -t tests` from the plugin repo | all pass |
+| Group | What it checks |
+|---|---|
+| environment | Python ≥ 3.9, git, gh, the security reviewer's environment (built in the state directory on first session) |
+| plugin | version; every script `hooks.json` references exists |
+| repo | setup state and version drift; config and lock parse; plugin files missing or hand-edited; project commands defined (per package) and their tools found on PATH; baseline present (brownfield); `.sdlc/.work/` git-ignored; rules whose `paths:` match no files; hookify rules that don't parse or have a bad regex; CLAUDE.md over 60 lines; broken links in `knowledge/index.md`; malformed or several active `state.md`; corrupt freshness state |
+
+Not covered by doctor: whether the plugin is enabled (`/plugin`), and the plugin's own test suite (`python3 -m unittest discover -s tests -t tests` in the plugin repo).
 
 ## Procedures
 
@@ -94,7 +92,7 @@ Cause: the SessionStart hook builds a venv with the Claude Agent SDK if it isn't
 
 1. Wait for the first start to finish (timeout is 180 s).
 2. If it failed, check network access to the Python package index, then start a new session to retry.
-3. To rebuild from scratch: remove `~/.claude/security/agent-sdk-venv` and start a new session.
+3. To rebuild from scratch: remove `agent-sdk-venv` from the security state directory (see Where state lives; `/sdlc:doctor` prints it) and start a new session.
 4. The venv lives outside the plugin, so it survives plugin updates.
 
 ### R3. Security hook is too noisy or too slow
@@ -108,10 +106,10 @@ Cause: the SessionStart hook builds a venv with the Claude Agent SDK if it isn't
 
 The verify-freshness hook is active only while `state.md` says `Current: Stage 5 – Verify`.
 
-1. Run the **full** test command (`just verify`/`just test`, or the `test:` command in `state.md`). A filtered run, single test file, pytest node id or single Go package doesn't count.
+1. Run the **full** test command: `commands.test` from `.sdlc/config.json` (monorepo: the stale package's own, from its `path`; the block message names it), or the `test:` command in `state.md`. A filtered run, single test file, pytest node id or single Go package doesn't count.
 2. Make sure no code changed after that run. Formatters, `sed -i` and subagents count as changes; the hook compares the worktree against the tree recorded at the last full run.
 3. Edits to `.md`, `.mdx`, `.txt`, `.rst` and anything under `.sdlc/`, `knowledge/`, `.claude/`, `docs/` don't mark results stale.
-4. If the recorded full-run command is wrong, fix `test:` in `state.md`, or set `verify.full` in `.sdlc/config.json` (a list of commands).
+4. If the recorded test command is wrong, fix `commands.test` (or the package's) in `.sdlc/config.json`, or `test:` in `state.md` for a repo without setup.
 5. If the state file itself is wrong, delete `.sdlc/.work/verify-freshness.json`; the next full run recreates it.
 6. The hook never fails the session on its own error. If it blocks wrongly, run the hook tests (below) and open an issue with the transcript.
 
@@ -164,12 +162,12 @@ This is a decision, not a fault. Say `skip` or `just ship it`; the orchestrator 
 2. Want a clean restart instead: delete the branch, then `python3 <plugin>/scripts/scaffold.py init --kind <greenfield|brownfield> --force` and rerun setup.
 3. "Working tree not clean": commit or stash first; setup won't mix its commits with your changes.
 
-### R13. `just` missing, too old, or "could not find sh"
+### R13. A project command is missing, wrong, or its tool isn't installed
 
-1. `python3 <plugin>/scripts/scaffold.py contract` reports `just.installed`, `just.version`, the minimum (1.31 when the justfile uses modules) and an install command for your OS.
-2. Install a prebuilt binary (see Prerequisites). Linux distro packages are often older than 1.31.
-3. Windows "could not find sh": run `just` from Git Bash, or reinstall Git for Windows with its Unix tools on PATH. CI is unaffected: workflows run every step with `shell: bash`.
-4. `contract` lists missing recipes per justfile (and per package in a monorepo): add them; the names are fixed, the bodies are yours.
+1. `/sdlc:doctor` (repo · commands, command tools) or `python3 <plugin>/scripts/scaffold.py contract` shows, per package, which required commands are missing and which tools aren't on PATH.
+2. Commands live in `.sdlc/config.json`: `commands` for one project, `packages[].commands` per package. Use what the team already runs; set a step to `null` if it doesn't apply to that stack.
+3. A tool not found: install it the way the project expects (the lockfile and toolchain files say which version), or fix the command.
+4. After changing commands, run `/sdlc:upgrade` so the generated CI workflow follows (or review its diff if you edited the workflow).
 
 ### R14. An upgrade won't overwrite a file, or keeps asking about it
 
@@ -190,7 +188,7 @@ This is a decision, not a fault. Say `skip` or `just ship it`; the orchestrator 
 ### R17. Eject left something behind or broke the build
 
 1. `scaffold.py eject` (dry run) shows what it would still remove; edited plugin files are only deleted when you say so.
-2. Imports into deleted files (`eslint.sdlc.mjs` in `eslint.config.*`, `extend = ".sdlc/lint/ruff.sdlc.toml"` in `pyproject.toml`) should have been offered as diffs. If not, remove them by hand and run `just verify`.
+2. Imports into deleted files (`eslint.sdlc.mjs` in `eslint.config.*`, `extend = ".sdlc/lint/ruff.sdlc.toml"` in `pyproject.toml`) should have been offered as diffs. If not, remove them by hand and rerun the verify commands.
 
 ## Maintenance
 
@@ -225,12 +223,70 @@ claude --plugin-dir .                # load it for one session
 ### Release a new version
 
 1. Run the tests and `claude plugin validate .`.
-2. Bump `version` in `.claude-plugin/plugin.json`.
-3. Update README if commands, stages or requirements changed.
+2. Bump `version` in `.claude-plugin/plugin.json`. Repos record this number at setup and upgrade, so every release that changes project files needs a new one.
+3. Move the `Unreleased` notes in `CHANGELOG.md` under the new version, and update the README if commands, stages, configuration or requirements changed.
 4. If the release changes files that live in projects:
    - templates of generated or seeded files: nothing to do, `/sdlc:upgrade` regenerates or replaces them;
-   - anything a project owns (justfile recipes, config keys, knowledge layout, renamed paths): add `migrations/<version>-<slug>.md` with frontmatter `version`, `summary` and, if old plugins must stop, `min_plugin_version`, then the steps in prose.
-5. Commit, tag, and push. Users get the new version by updating the marketplace and the plugin from `/plugin`, then run `/sdlc:upgrade` in each repo.
+   - anything a project owns (required commands, config keys, knowledge layout, renamed paths): add `migrations/<version>-<slug>.md` with frontmatter `version`, `summary` and, if old plugins must stop, `min_plugin_version`, then the steps in prose.
+5. Commit, then run the [smoke test](#smoke-test-before-a-release) against that commit. Every **must** item has to pass.
+6. `claude plugin tag . --dry-run`, then `claude plugin tag . --push` (creates `sdlc--v<version>`, checks that `plugin.json` and the marketplace entry agree, and pushes the tag). Push the branch too. Users get the new version by updating the marketplace and the plugin from `/plugin`, then run `/sdlc:upgrade` in each repo.
+
+### Smoke test before a release
+
+The test suite runs hooks and scripts as subprocesses; this checks the installed plugin in real Claude Code sessions, which the suite can't. About 45 minutes. Use throwaway repos outside any real project, a **fresh session** for each part, and write down anything that doesn't match (what you did, what you saw, the session's transcript path).
+
+**Must** items block the release; **should** items become known issues in the changelog.
+
+**A. Install from the checkout (must)**
+1. In a new terminal: `claude`, then `/plugin marketplace add <path to this checkout>` and `/plugin install sdlc@sdlc`. Restart the session.
+2. `/plugin` lists `sdlc` as enabled, version matching `plugin.json`.
+3. The first session start may pause about a minute while the security reviewer's environment builds.
+
+**B. Doctor in an empty repo (must)**
+1. `mkdir /tmp/sdlc-smoke-green && cd $_ && git init`, start `claude`.
+2. `/sdlc:doctor`: no ❌; the repo check says "not set up"; the security reviewer environment is ✅ (or ⚠️ only if no API credentials).
+
+**C. Greenfield setup (must)**
+1. `/sdlc:setup a tiny TypeScript library that adds two numbers`.
+2. It asks a few stack questions and **waits for your approval** before generating anything.
+3. It works on a `sdlc/setup` branch with one commit per step; `.sdlc/config.json` has the five commands; it runs them and they pass.
+4. The repo has `.claude/rules/sdlc*.md`, `.claude/hookify/sdlc-*.md`, `.github/workflows/sdlc-verify.yml`, `.sdlc/constitution.md`, `knowledge/index.md`, `.sdlc/scaffold.lock.json`; `CLAUDE.md` untouched.
+5. It asks PR or local merge; pick local merge. `/sdlc:doctor` now shows the repo checks ✅.
+6. Interrupt test (should): in a second throwaway repo, stop setup midway (Esc), run `/sdlc:setup` again; it resumes after the last finished step.
+
+**D. Guardrails reach Claude (must)**
+1. Ask: "add a comment `// Step 1: add the numbers` above the add function". A hookify warning shows, **and Claude's reply acknowledges it** (proof the warning reaches Claude, not only you).
+2. Ask: "run `git push --force origin main`". It's blocked, and Claude can say why (the reason reaches Claude).
+3. Ask Claude to write `const k = "sk-ant-api03-…"` with 30+ characters after the prefix: blocked.
+
+**E. An S fix through Verify (must)**
+1. `/sdlc:start fix: add returns a string when given numeric strings`. It proposes track S and creates `.sdlc/<feature>/state.md`.
+2. Stage 4 writes a failing test first, then the fix.
+3. Stage 5 spawns a **fresh** verifier agent, which appends a round to `test-report.md`.
+4. While in Stage 5, ask Claude to change a source file **with a shell command** (e.g. `sed -i`), then end the turn: it's **blocked**, and the message names the test command. Run it; the turn then ends normally.
+5. Stage 6 runs the reviewer with diff stats; Stage 8 stops before merging and asks you.
+
+**F. Security hooks (should)**
+1. Ask Claude to add `eval(input)` to a file: a security warning appears in Claude's context.
+2. At the end of that turn, a security review of the turn's changes runs (or, without credentials, you're told once that it's skipped).
+
+**G. Brownfield setup (must)**
+1. Copy a small real repo (or a sample with two packages in different languages) into `/tmp/sdlc-smoke-brown`, add one deliberately failing test, commit.
+2. `/sdlc:setup`: it records the existing commands per package and **asks you to approve** them; it writes `.sdlc/baseline.md` listing the failing test; audit drafts are shown in batches and nothing is written before you approve.
+3. `/sdlc:start` a small change; in Stage 5 the known failure doesn't fail the round, and a new failure would.
+4. Monorepo (should): edit a file in one package during Stage 5; the block names only that package and its command.
+
+**H. Upgrade and eject (must)**
+1. In the greenfield repo, edit one guardrail file in `.claude/hookify/` and simulate an older scaffold: set `scaffold_version` in `.sdlc/scaffold.lock.json` to `1.2.9` (the only time to edit the lock by hand).
+2. `/sdlc:status` reports the repo as behind and suggests `/sdlc:upgrade`.
+3. `/sdlc:upgrade --dry-run` shows the plan and changes nothing (`git status` clean).
+4. `/sdlc:upgrade` works on its own branch, asks about the guardrail you edited (merge / skip / keep mine), and ends asking PR or local merge.
+5. `/sdlc:eject` shows a dry run first; applied on a branch, it removes the plugin's files, keeps `.sdlc/config.json`, the constitution, knowledge and specs.
+
+**I. Windows (should, if the team uses it)**
+A teammate runs B–E on Windows in Git Bash.
+
+When every must item passes, record the date and commit in the changelog entry's notes (or the PR) and continue with step 6 above.
 
 ### Add or change a stage rule
 
@@ -242,8 +298,27 @@ Stage behavior lives in `skills/orchestrator/SKILL.md`. After editing it, keep t
 | A hard stop | the Rules section of the orchestrator, `docs/playbook.md` |
 | Verify behavior | `agents/verifier.md`, `hooks/verify_freshness.py`, `tests/test_verify_freshness.py` |
 | Scope-tracing rules | `skills/writing-specs`, `designing-solutions`, `writing-plans`, `analyzing-consistency`, `scripts/diff_stats.py` |
-| Setup, upgrade or eject | `skills/setting-up-projects/`, `scripts/scaffold.py`, `templates/project/`, `templates/justfile/`, `tests/test_scaffold.py`, `tests/test_project_templates.py`, `docs/design/setup-and-upgrade.md`, `docs/diagrams/sdlc_setup_phase.svg` |
+| Setup, upgrade or eject | `skills/setting-up-projects/`, `scripts/scaffold.py`, `templates/project/`, `tests/test_scaffold.py`, `tests/test_project_templates.py`, `docs/diagrams/sdlc_setup_phase.svg`; a changed decision gets a new ADR in `docs/adr/` |
 
 ### Setup, upgrade, eject internals
 
-The skill makes the judgment calls; `scripts/scaffold.py` keeps the records (lock, file hashes and classes, keyed merges, migrations, drift). Every command prints JSON; exit 2 means "refused, the user edited this file". Design, ownership model and command reference: `docs/design/setup-and-upgrade.md`.
+The skill makes the judgment calls; `scripts/scaffold.py` keeps the records (lock, file hashes and classes, keyed merges, migrations, drift). Why it works this way: [ADR 0001](adr/0001-project-setup-upgrade-eject.md) and [ADR 0002](adr/0002-record-the-repos-own-commands.md).
+
+Every command prints one JSON object. Exit codes: 0 ok, 1 error, 2 refused because the user edited the file. Run as `python3 <plugin>/scripts/scaffold.py [--root DIR] <command>`.
+
+| Command | Does |
+|---|---|
+| `init --kind greenfield\|brownfield` | start setup: write the lock, plus a minimal `config.json` if none exists |
+| `status` | setup state, steps done, drift (`current` / `behind` / `ahead` / `plugin_too_old`), pending migrations, file states |
+| `config` | effective config: plugin defaults merged with the project's overrides |
+| `step-done <step> [--complete]` | record setup progress (resumable) |
+| `contract` | check the commands per scope: required ones present, package paths exist, tools on PATH |
+| `commands` | scopes plus the install steps and verify plan, each with its directory |
+| `render <template\|builtin:ci> <dest> [--class seeded] [--if-unchanged]` | render a plugin template (`{{config.x.y}}`, `{{plugin_version}}`) or the generated CI, and record its hash |
+| `preview <template\|builtin:ci>` | render without writing |
+| `record <generated\|seeded> <paths…> [--template T]` / `forget <paths…>` | track files Claude wrote / hand them over to the user |
+| `allow --add/--remove … [--from-commands]`, `gitignore --add/--remove …` | keyed merges; only ever removes entries the plugin added |
+| `migrations [--revisit]`, `migration <id> --applied\|--skipped REASON` | pending migrations (scaffold < version ≤ plugin, numeric order) / record the outcome |
+| `set-version <v> [--min-plugin m]` | advance `scaffold_version`; raises the pin, never lowers it |
+| `upgrade-plan` | regenerate / replace / review / restore / template_gone, plus pending migrations |
+| `eject [--apply] [--also <edited files>]` | dry run by default; applying deletes plugin files, removes recorded entries and the lock |

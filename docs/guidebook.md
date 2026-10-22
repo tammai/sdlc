@@ -16,13 +16,13 @@ Three ideas carry the design:
 
 Before the first feature, `/sdlc:setup` prepares the repo once. `/sdlc:start` offers it when a repo isn't set up. See [sdlc_setup_phase.svg](diagrams/sdlc_setup_phase.svg).
 
-- **Greenfield** (no source yet): a short stack interview; you approve; the ecosystem's own generators build the skeleton; a justfile and CI that pass `just verify` on day one.
-- **Brownfield** (existing code): a justfile that wraps the commands you already have; a **baseline** of what already fails; a deep audit (conventions, git-history gotchas, decisions, area rules) drafted by explorer agents and written only as you approve each batch; existing AI configs (long CLAUDE.md, AGENTS.md, Cursor rules, ADRs) migrated into the three knowledge tiers, one diff per source.
-- **Both:** policy rules, hookify guardrails, lint snippets, a permission allowlist for the `just` recipes, `.gitignore` entries, a constitution (with the default Simplicity principle) and the knowledge folder.
+- **Greenfield** (no source yet): a short stack interview; you approve; the ecosystem's own generators build the skeleton; the project's commands and CI pass on day one.
+- **Brownfield** (existing code): the commands you already have, recorded as they are; a **baseline** of what already fails; a deep audit (conventions, git-history gotchas, decisions, area rules) drafted by explorer agents and written only as you approve each batch; existing AI configs (long CLAUDE.md, AGENTS.md, Cursor rules, ADRs) migrated into the three knowledge tiers, one diff per source.
+- **Both:** policy rules, hookify guardrails, lint snippets, a permission allowlist for the project's commands, `.gitignore` entries, a constitution (with the default Simplicity principle) and the knowledge folder.
 
 Setup runs on a `sdlc/setup` branch with one commit per step, resumes where it stopped, and ends by asking whether to open a PR or merge locally.
 
-**The command contract.** Every set-up repo has a root `justfile` with `install`, `test`, `lint`, `typecheck`, `build` and `verify`. Stages, CI, the allowlist and the freshness hook only ever call these, so nothing in the plugin is stack-specific. Recipes wrap your real tools and are yours to edit. Starters exist for node/TS, Python, Go, Rust, Dart, Flutter, shell, Gradle and .NET; a polyglot monorepo gets one justfile per package, loaded as just modules from the root (`just test` runs all, `just test api` runs one). just runs on macOS, Linux and Windows (with Git Bash).
+**The project's commands.** Every set-up repo records its own `install`, `test`, `lint`, `typecheck` and `build` commands in `.sdlc/config.json`, exactly as the team already runs them (`pnpm test`, `go test ./...`, `make lint`, …); a step that doesn't apply is `null`. Stages, the verifier, CI, the allowlist and the freshness hook all read them from there, so nothing in the plugin is stack-specific and there's nothing extra to install. A monorepo lists `packages`, each with a path, a stack and its own commands, run from its directory; a polyglot repo (TS, Go, Rust, Dart, shell, …) is just several packages with different stacks.
 
 **Who owns which file.** Everything the plugin puts in a repo is tracked in `.sdlc/scaffold.lock.json` with one of these classes, which decides what an upgrade may do:
 
@@ -31,7 +31,7 @@ Setup runs on a `sdlc/setup` branch with one commit per step, resumes where it s
 | Generated | `.claude/rules/sdlc*.md` | regenerated |
 | Seeded | `.claude/hookify/sdlc-*.md`, `.github/workflows/sdlc-verify.yml`, `.sdlc/lint/*` | replaced only if you haven't edited it; otherwise you choose: merge, skip, or keep yours for good |
 | Keyed merge | allowlist entries in `.claude/settings.json`, `.gitignore` lines | only the entries the plugin added |
-| Yours | `justfile`, `CLAUDE.md`, constitution, `knowledge/`, baseline, your own rules | changed only by migrations you approve |
+| Yours | the commands in `.sdlc/config.json`, `CLAUDE.md`, constitution, `knowledge/`, baseline, your own rules | changed only by migrations you approve |
 
 Files named `sdlc-*` belong to the plugin; everything else is yours.
 
@@ -94,7 +94,7 @@ Stage 5 is the only stage with a hook that blocks you. While `state.md` says `Cu
 - a **full** test run marks them **fresh**. A run that names a test file, a pytest node id, a single Go package, or a name filter does not count;
 - finishing a turn while stale is blocked with "re-run tests".
 
-In a set-up repo the full run is `just verify` or `just test` (configurable as `verify.full` in `.sdlc/config.json`). Any argument to a recipe (`just test api`, `just test src/a.test.ts`) or running it from inside a package (`cd services/api && just test`) is partial.
+In a set-up repo the full run is the `test` command from `.sdlc/config.json`, with no file, name or package arguments. In a monorepo, freshness is per package: an edit under `services/api/` makes only `api` stale, and `cd services/api && <api's test command>` makes it fresh again; a file outside every package makes all of them stale. A root-level test command in config (e.g. `turbo run test`) counts for every package.
 
 Failures listed in `.sdlc/baseline.md` (recorded at brownfield setup) don't fail a round: the verifier fails only on **new** failures, removes baseline items that now pass, and never adds any. Accepting a new failure into the baseline is your decision, recorded as a Deviation.
 
@@ -132,6 +132,7 @@ Each round spawns a new `verifier`, which runs build, lint, typecheck and tests 
 | `/sdlc:setup [what you're building]` | Set the repo up once (greenfield or brownfield); resumes if interrupted |
 | `/sdlc:upgrade [--dry-run] [--revisit]` | Bring the repo's scaffold up to the installed plugin version |
 | `/sdlc:eject` | Remove the plugin's files from the repo, keeping your work |
+| `/sdlc:doctor` | Health check of the machine, the plugin and the repo, with a fix for each problem. Changes nothing |
 | `/sdlc:status` | Setup state and version drift, then one line per feature in `.sdlc/`: track, stage, last gate; open questions. Changes nothing |
 | `/sdlc:review-pr` | Local pre-PR review with the right agents for the diff |
 | `/sdlc:code-review` | Review a GitHub PR (needs `gh`) |
@@ -153,9 +154,8 @@ Each round spawns a new `verifier`, which runs build, lint, typecheck and tests 
 ## Where things live
 
 ```
-justfile                   command contract: install test lint typecheck build verify (yours)
 .sdlc/
-  config.json              project overrides on the plugin's defaults (yours)
+  config.json              the project's commands (per package in a monorepo) and overrides on the plugin's defaults (yours)
   scaffold.lock.json       what the plugin placed, versions, migrations (machine-only)
   baseline.md              known failures from before setup (yours)
   constitution.md          project principles
@@ -168,7 +168,7 @@ knowledge/                 tier 3, on-demand docs (index.md links everything)
 .claude/rules/<area>.md    tier 2, loads when matching paths are touched (yours)
 .claude/rules/sdlc*.md     plugin policy rules: workflow, code style, tests, migrations, sensitive areas, CI (generated)
 .claude/hookify/*.md       team hookify rules; sdlc-*.md are the plugin's guardrails (seeded)
-.github/workflows/sdlc-verify.yml   CI running `just install` + `just verify` (seeded)
+.github/workflows/sdlc-verify.yml   CI generated from the commands in config (seeded)
 CLAUDE.md                  tier 1, at most 60 lines (never touched by the plugin)
 ```
 
@@ -182,7 +182,7 @@ Resume depends on this file. The orchestrator looks for `.sdlc/*/state.md` with 
 # <feature>
 Status: active
 Track: S | M | L   (sized up because: <named signal, or "—">)
-Commands: verify: `just verify` · test: `just test`   (no setup: the detected native commands)
+Commands: test: `<test command>`   (monorepo: one per package; no setup: the detected command)
 Current: Stage <n> – <name>
 ## Stages / ## Verify rounds / ## Gate log / ## Deviations / ## Open questions
 ```
@@ -197,7 +197,21 @@ Current: Stage <n> – <name>
 
 `retro.md` is history and is not loaded by later sessions. Durable lessons are promoted in Stage 11. Something corrected twice and checkable by machine becomes a hookify rule instead of more text.
 
-The full design, ownership model and `scripts/scaffold.py` reference are in `docs/design/setup-and-upgrade.md`.
+### Configuration
+
+Setup writes `.sdlc/config.json`; it's yours to edit and holds only what differs from the plugin's defaults (`templates/project/config.defaults.json`). Most teams only touch it to change a command.
+
+| Key | Meaning |
+|---|---|
+| `commands` | `install`, `test`, `lint`, `typecheck`, `build` as the team runs them. `null` means the step doesn't apply to this stack |
+| `packages` | Monorepo instead of `commands`: `[{"name", "path", "stack", "commands"}]`, each run from its path. A root `commands.test` (e.g. `turbo run test`) counts for every package |
+| `verify.order` | Order of the verify steps (default lint, typecheck, build, test) |
+| `areas.*` | Path patterns for the policy rules: `source`, `tests`, `migrations`, `sensitive`, `ci` |
+| `ci` | `os` matrix (default `["ubuntu-latest"]`; add `"windows-latest"` if teammates develop on Windows) and toolchain versions for the generated workflow |
+| `baseline` | Where the known-failures baseline lives (default `.sdlc/baseline.md`) |
+| `min_plugin_version` | Teammates on an older plugin get a warning to update |
+
+After changing commands or `ci`, run `/sdlc:upgrade` so the generated CI workflow follows. Don't edit `.sdlc/scaffold.lock.json` by hand. Why it's designed this way: [ADR 0001](adr/0001-project-setup-upgrade-eject.md), [ADR 0002](adr/0002-record-the-repos-own-commands.md); the `scaffold.py` reference is in the [runbook](runbook.md#setup-upgrade-eject-internals).
 
 ## Glossary
 
@@ -211,7 +225,7 @@ The full design, ownership model and `scripts/scaffold.py` reference are in `doc
 | Complexity Tracking | Design table that ties every addition to a requirement |
 | Deviation | A gate you chose to skip, recorded in `state.md` |
 | Constitution | Project principles in `.sdlc/constitution.md`, checked in Stage 2 |
-| Command contract | The six required `just` recipes every set-up repo has |
+| Project commands | `install`, `test`, `lint`, `typecheck`, `build` in `.sdlc/config.json`, per package in a monorepo |
 | Baseline | Failures that existed before setup; Stage 5 only fails on new ones |
 | Scaffold version / drift | The plugin version a repo was set up or upgraded with; "behind" means `/sdlc:upgrade` has work to do |
 | Generated / seeded | Plugin files that upgrades regenerate / replace only while you haven't edited them |

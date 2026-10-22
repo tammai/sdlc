@@ -1,231 +1,63 @@
-# Design: project setup, upgrade and eject
+# ADR 0001: Project setup, upgrade and eject
 
-Status: approved, in progress (`scripts/scaffold.py`, policy rules, guardrails, lint snippets, `diff_stats.py` done) · Target: v1.3.0 · From the 2026-10-22 interview
+- **Status:** Accepted, 2026-10-22. Amended by [ADR 0002](0002-record-the-repos-own-commands.md) (commands).
+- **Deciders:** Tâm Mai, from a design interview.
 
-## Problem
+## Context
 
-Today, "setup" is improvised inside `/sdlc:start` step 0: it adds a `.gitignore` line, offers a constitution, detects the stack into each feature's `state.md`, and offers to set up knowledge. Nothing records which plugin version created which project file, so a plugin update has no safe way to patch what an earlier version scaffolded. Greenfield projects get no skeleton or CI. Brownfield projects get no audit or baseline, so Stage 5 can blame a feature for failures that were already there.
+Before v1.3.0, "setup" was improvised inside `/sdlc:start` step 0: it added a `.gitignore` line, offered a constitution, detected the stack into each feature's `state.md`, and offered to set up knowledge. Nothing recorded which plugin version created which project file, so a plugin update had no safe way to patch what an earlier version scaffolded. Greenfield projects got no skeleton or CI. Brownfield projects got no audit or baseline, so Stage 5 could blame a feature for failures that were already there.
 
-## Decisions (from the interview)
+## Decision
+
+A dedicated setup phase, versioned upgrades and a clean eject, built on an explicit file-ownership model.
 
 | Topic | Decision |
 |---|---|
-| Greenfield scope | SDLC scaffolding + project skeleton + CI (GitHub Actions running verify only) |
-| Greenfield stack | Free-form interview each time; Claude proposes, the user approves, official generators do the work. The plugin maintains no presets. |
-| Brownfield depth | Deep audit: detect, check the commands actually run, seed knowledge with code-explorer agents, mine git history, migrate existing AI config, record a baseline |
-| Existing AI config | Propose a migration per source (CLAUDE.md, AGENTS.md, .cursor/rules, .specify/, ADRs); the user approves each diff; originals are kept unless the user approves deleting them |
-| Baseline | `.sdlc/baseline.md`, committed. Stage 5 fails only on *new* failures. The baseline only shrinks unless the user approves an addition. |
-| Command contract | A root `justfile` in **every** project, with required recipes (polyglot monorepos: one justfile per package, loaded as just modules). Recipes wrap the existing tools (pnpm, make, turbo…) instead of replacing them. The user owns the file; the plugin only checks the contract and proposes missing recipes. |
-| Monorepo | One root (`.sdlc/`, `knowledge/`, justfile). Per-package work goes through recipe arguments. |
-| Triggers | `/sdlc:setup` (explicit, re-runnable), and `/sdlc:start` routes to setup when the project isn't set up (hard stop). No SessionStart hook. |
-| Always-on text | `.claude/rules/sdlc.md`: plugin-owned, regenerated on upgrade. CLAUDE.md belongs to the user and is never touched. |
-| Upgrades | Hybrid: generic material is read from the plugin at runtime; generated files are regenerated; seeded files are replaced only if unmodified; user-owned files change only through versioned migrations |
-| Drift | `/sdlc:start` and `/sdlc:status` compare versions and offer `/sdlc:upgrade`. They never block. |
-| Declined migration | Recorded as skipped and never asked again (`/sdlc:upgrade --revisit` to reconsider). The version still advances. |
-| Team skew | The repo pins `min_plugin_version`. An older plugin gets a warning to update; a newer one gets an offer to upgrade. |
-| Git | Setup, upgrade and eject each run on their own branch, one commit per step, then **ask**: open a PR or merge locally |
-| Guardrails | Dangerous commands, sensitive files, permission allowlist, code-hygiene warnings |
-| Eject | `/sdlc:eject` removes what the plugin owns and keeps the user's work |
+| Greenfield | Free-form stack interview; Claude proposes, the user approves, the ecosystem's official generators build the skeleton. No presets maintained in the plugin. Skeleton, commands and CI pass on day one. |
+| Brownfield | Deep audit: record the commands that exist and run them, record a baseline, seed knowledge with code-explorer agents (conventions, git-history gotchas, decisions, area rules), migrate existing AI config one diff per source. Nothing written without approval. |
+| Baseline | `.sdlc/baseline.md`, committed. Stage 5 fails only on *new* failures. It only shrinks unless the user approves an addition. |
+| Monorepo | One root (`.sdlc/`, `knowledge/`); packages declared in config (see ADR 0002). |
+| Triggers | `/sdlc:setup` (explicit, re-runnable); `/sdlc:start` routes to setup when the repo isn't set up (hard stop). No SessionStart hook. |
+| Always-on text | `.claude/rules/sdlc.md`, plugin-owned and regenerated on upgrade. `CLAUDE.md` belongs to the user and is never touched. |
+| Upgrades | Generic material is read from the plugin at runtime; generated files are regenerated; seeded files are replaced only if unedited; user-owned files change only through versioned migrations the user approves. Declined migrations are recorded and not asked again (`--revisit` to reconsider). |
+| Drift and team skew | `/sdlc:start` and `/sdlc:status` report a repo behind the plugin and offer `/sdlc:upgrade`; they never block. The repo pins `min_plugin_version`; an older plugin gets a warning. |
+| Git | Setup, upgrade and eject each run on their own branch, one commit per step, then ask: open a PR or merge locally. |
+| Eject | Remove what the plugin owns, keep the user's work. |
 
-## File ownership model
+### File ownership
 
-Every file the plugin places in a project falls into exactly one class. That class determines what setup, upgrade and eject may do to it.
+Every file the plugin places in a project is in exactly one class, recorded in `.sdlc/scaffold.lock.json`. The class decides what setup, upgrade and eject may do.
 
 | Class | Files | Setup | Upgrade | Eject |
 |---|---|---|---|---|
-| **Runtime** (never copied) | templates, stage rules, agent prompts, migrations | — | free (comes with the plugin update) | — |
-| **Generated** (plugin-owned) | `.claude/rules/sdlc.md` | render | re-render from config, overwrite | delete |
-| **Seeded** (plugin-owned until edited) | `.github/workflows/sdlc-verify.yml`, `.claude/hookify/sdlc-*.md`, `.sdlc/lint/*` | write, record hash | unchanged hash → replace; changed → show diff, apply or skip | unchanged → delete; changed → ask |
-| **Keyed merge** | `.claude/settings.json` (`permissions.allow` entries), `.gitignore` (lines) | add entries, record which ones | add/remove only the entries it recorded | remove only the entries it recorded |
-| **Contract** | `justfile` | create or wrap (diff approved) | check required recipes; propose missing ones | keep |
-| **User-owned** | `CLAUDE.md`, `.sdlc/constitution.md`, `knowledge/**` (after seeding), `.sdlc/baseline.md`, `.sdlc/<feature>/**` | write once (approved) | migrations only (diff approved; decline → skipped) | keep |
-| **Data** | `.sdlc/config.json` (human), `.sdlc/scaffold.lock.json` (machine) | write | update | delete the lock, keep config |
+| **Runtime** (never copied) | templates, stage rules, agent prompts, migrations | — | arrives with the plugin update | — |
+| **Generated** | `.claude/rules/sdlc*.md` | render | re-render, overwrite | delete |
+| **Seeded** | `.github/workflows/sdlc-verify.yml`, `.claude/hookify/sdlc-*.md`, `.sdlc/lint/*` | write, record hash | unedited → replace; edited → user chooses merge, skip, or keep theirs for good | unedited → delete; edited → ask |
+| **Keyed merge** | `permissions.allow` entries in `.claude/settings.json`, `.gitignore` lines | add, record which | touch only recorded entries | remove only recorded entries |
+| **User-owned** | `CLAUDE.md`, constitution, `knowledge/**`, baseline, area rules, `.sdlc/<feature>/**`, `.sdlc/config.json` | write once, approved | approved migrations only | keep |
 
-Keeping most material in the Runtime class is the main lever: anything generic stays in the plugin, so a plugin update reaches it without touching the project.
+Keeping most material in the Runtime class is the main lever: anything generic stays in the plugin, so a plugin update reaches it without touching the project. Plugin-owned files are named `sdlc-*` (or `sdlc.md`), so ownership is visible at a glance.
 
-### `.sdlc/config.json` (committed, human-editable)
+`.sdlc/config.json` is JSON, not YAML, because the scripts are stdlib-only and must run on macOS's system Python 3.9, which has no YAML or TOML parser. It holds only overrides; defaults live in the plugin (`templates/project/config.defaults.json`), so a new default reaches every repo without a migration.
 
-JSON rather than YAML: the scripts are stdlib-only and must run on macOS's system Python 3.9, which has no YAML or TOML parser.
+### Flows
 
-```json
-{
-  "min_plugin_version": "1.3.0",
-  "project": {
-    "kind": "brownfield",
-    "stack": ["typescript", "node", "pnpm", "vitest"],
-    "packages": ["apps/web", "packages/api"]
-  },
-  "verify": { "full": ["just verify", "just test"] },
-  "ci": { "node_version": "22" },
-  "baseline": ".sdlc/baseline.md"
-}
-```
+**Setup:** detect greenfield (no source files; ask if unclear) or brownfield → stack and commands (greenfield) or commands, baseline, audit and AI-config migration (brownfield) → CI → common steps (policy rules, guardrails, lint snippets, allowlist, `.gitignore`, constitution, knowledge) → PR or local merge. Progress is recorded per step, so a rerun resumes.
 
-`packages` is for monorepos only (just recipes take an optional `pkg` argument). `verify.full` lists the commands that count as a full run for the freshness hook.
+**Upgrade:** plan (regenerate / replace / review / restore / template gone, plus pending migrations) → its own branch → apply bucket by bucket, asking about edited files → migrations in version order, each an approved diff → bump the recorded version → PR or local merge. `--dry-run` writes nothing.
 
-### `.sdlc/scaffold.lock.json` (committed, machine-only)
+**Eject:** dry run first → delete generated and unedited seeded files, ask about edited ones, remove recorded keyed-merge entries and the lock → fix imports left pointing at deleted files → PR or local merge.
 
-```json
-{
-  "scaffold_version": "1.3.0",
-  "files": { ".github/workflows/sdlc-verify.yml": { "class": "seeded", "sha256": "…" } },
-  "merged": { ".claude/settings.json": ["Bash(just test:*)", "…"], ".gitignore": [".sdlc/.work/"] },
-  "migrations": { "applied": ["1.3.0"], "skipped": { "1.4.0-knowledge-folders": "keeping flat layout" } },
-  "setup": { "completed_steps": ["detect", "justfile", "ci", "…"] }
-}
-```
+The procedures are in `skills/setting-up-projects/`; the bookkeeping is `scripts/scaffold.py` (command reference in the [runbook](../runbook.md#setup-upgrade-eject-internals)).
 
-`completed_steps` makes setup resumable: re-running `/sdlc:setup` continues where it stopped.
+### Resolved questions
 
-### Justfile contract
+1. Greenfield detection when unclear (only docs, a spike folder): ask.
+2. Monorepo baseline: one `.sdlc/baseline.md` with a package column.
+3. Force-push guardrail: also blocks `--force-with-lease`, on main/master only.
 
-Required recipes: `install`, `test`, `lint`, `typecheck`, `build`, `verify` (runs lint, typecheck, build, test). Optional: `test-affected`, `fmt`. Stages, CI, the allowlist and the freshness hook all call `just <recipe>`, so none of them need stack-specific logic. A stack without a step (no build for an app, no type checker for shell) keeps the recipe and echoes why. Arguments to a recipe filter it (`just test src/a.test.ts`, `just test api`), and the freshness hook never counts a filtered run as full.
+## Consequences
 
-Starters live in `templates/justfile/` (user-owned once copied, never rendered): `node`, `python`, `go`, `rust`, `dart`, `flutter`, `shell`, `gradle` (Java/Kotlin), `dotnet`. Each works as a repo-root justfile or as one package of a monorepo.
-
-**Polyglot monorepos** (`polyglot-root.just`, needs just ≥ 1.31): each package has its own contract justfile from its stack's starter, loaded at the root with `mod <name> '<path>'`. Root recipes run every package (`just test`) or one (`just test api`); `test-affected` runs only packages with changes since a base ref. A single-language workspace (pnpm/npm/yarn workspaces, cargo workspace, go.work) can stay one justfile using the tool's own workspace flags.
-
-`scaffold.py contract` checks the root and follows `mod` lines into every package (resolved like just does: a file, or `mod.just` / `justfile` in a directory). If `just` isn't installed, setup offers to install it as a hard stop, prebuilt first (`npm i -g rust-just`, `pipx install rust-just`, `winget install Casey.Just`); `brew install just` only where Homebrew has a bottle, since on unsupported (Tier 3) macOS setups it compiles Rust and LLVM from source for hours; CI installs it with `extractions/setup-just`. Without `just`, the contract check falls back to parsing recipe names.
-
-**Platforms.** just runs natively on macOS, Linux and Windows; recipes run through `sh`, so Windows needs Git for Windows (Claude Code on Windows already requires it and runs its shell commands in Git Bash). People run `just` from Git Bash, or install Git with its Unix tools on PATH; plain PowerShell/cmd has no `sh` by default. `scaffold.py contract` reports the installed version and the OS-specific install command, and requires just ≥ 1.31 only when the justfile uses modules (distro packages can be older). CI templates run every step with `shell: bash` (Git Bash on Windows runners) over an OS matrix from `ci.os` in config, default `["ubuntu-latest"]`; add `"windows-latest"` to prove recipes work there. Make was considered and rejected: not installed on Windows, needs the same `sh`, awkward recipe arguments, and macOS ships GNU Make 3.81. If Windows without Git Bash ever becomes a requirement, Taskfile (go-task, built-in shell interpreter) is the fallback, not Make.
-
-The freshness hook treats `cd <dir> && just test` as partial when `<dir>` has its own justfile (one package, not the repo).
-
-## Flows
-
-### `/sdlc:setup`
-
-Mode: **greenfield** when the repo has no source files (ignoring README, LICENSE and dotfiles), otherwise **brownfield**. Creates the branch `sdlc/setup` and makes one commit per step.
-
-**Greenfield**
-1. Interview: what is being built, runtime, package manager, test runner, deploy target. Claude proposes a stack and skeleton → **user approves**.
-2. Generate with the official tools (`pnpm create`, `create-next-app`, …), then apply conventions (strict tsconfig, lint, test runner).
-3. Write the justfile against the generated scripts. Run `just verify` once, which must pass.
-4. CI: `.github/workflows/sdlc-verify.yml` runs `just verify` on PRs and on main.
-5. Common steps (below).
-
-**Brownfield**
-1. Detect: stack, package manager, workspaces, existing scripts/Makefile, CI, AI config.
-2. Justfile: wrap the existing commands → **user approves the diff**. Run every recipe and record the results.
-3. Baseline: failing tests (by ID) and lint/type error counts (per rule and file) → `.sdlc/baseline.md`.
-4. Deep audit, run in parallel by `sdlc:code-explorer` agents:
-   - conventions: naming, layering, error handling, test style → draft `knowledge/conventions/*`
-   - git history: hot files, reverts, recurring fix areas → draft `knowledge/gotchas/*`
-   - existing ADRs/docs → `knowledge/decisions/*` (links, or migration)
-   - existing AI config → one migration proposal per source (tiers; CLAUDE.md ≤ 60 lines)
-   → **user reviews each batch**; nothing is written without approval.
-5. CI: if no CI runs the verify contract, offer the workflow. Existing CI stays untouched.
-6. Common steps (below).
-
-**Common steps**
-- Guardrails (seeded, as `.claude/hookify/sdlc-*.md`):
-  - block `rm -rf`, `git push --force` to main/master, and `git reset --hard` on main
-  - warn on `.env*`, credential and key files
-  - warn on `console.log`, `.only(` in tests, and newly added `@ts-ignore` / `eslint-disable`
-- Allowlist: `Bash(just test:*)`, `Bash(just lint:*)`, `Bash(just typecheck:*)`, `Bash(just build:*)`, `Bash(just verify:*)` → `.claude/settings.json` (keyed merge).
-- `.gitignore` gets `.sdlc/.work/`.
-- Constitution: inferred from the repo and the interview (`sdlc:project-constitution`) → **user approves**.
-- `knowledge/` skeleton (`index.md`, `log.md`, folders) if not created by the audit.
-- Render `.claude/rules/sdlc.md`, then write `config.json` and `scaffold.lock.json`.
-- **Ask:** open a PR, or merge locally.
-
-### `/sdlc:start` changes
-- No `config.json` → "This project isn't set up for sdlc. Run setup first?" (hard stop; yes → setup, then continue with the request).
-- Lock version below the plugin version → one line naming what changed, plus an offer to run `/sdlc:upgrade` (never blocks).
-- Plugin version below `min_plugin_version` → warn: update the plugin.
-- Commands come from the justfile contract, no longer detected per feature.
-
-### `/sdlc:upgrade`
-1. Read `scaffold_version`, list the plugin's `migrations/` newer than it, and summarize. If a feature is mid-stage, warn and recommend finishing it first, or confirm.
-2. Branch `sdlc/upgrade-<from>-<to>`.
-3. Re-render Generated files.
-4. Seeded files: hash matches → replace (`render --if-unchanged`). Hash differs → show a diff of the user's file against the newly rendered template; Claude proposes a merge; the user applies it or skips. No pristine base copies are stored: the old version is in git history if needed. Deleted seeded files are offered for restore, never forced.
-5. Keyed merges: add new entries and remove retired ones (only entries listed in the lock).
-6. Justfile contract: propose any newly required recipes.
-7. Migrations, in version order. Each is `migrations/<version>-<slug>.md`, with frontmatter `version` and `summary`, then the steps in prose. Claude applies it as a diff; the user approves → applied, or declines → skipped, with the reason.
-8. Bump `scaffold_version`, and `min_plugin_version` when a migration says so. Commit, then **ask** whether to open a PR or merge locally.
-
-`--revisit` re-offers skipped migrations. `--dry-run` shows everything and writes nothing.
-
-### `/sdlc:eject`
-On branch `sdlc/eject`:
-- delete Generated files, and Seeded files whose hash is unchanged (ask about edited ones)
-- remove the keyed-merge entries the plugin added
-- delete the lock
-
-Keeps `config.json`, the constitution, `knowledge/`, the baseline, the justfile and all feature artifacts. Then asks whether to open a PR or merge locally.
-
-## Stage 5 and the baseline
-- The verifier reads `.sdlc/baseline.md` and classifies each failure as *new* or *baseline*. The gate fails on new failures only, and the report lists both groups.
-- A baseline failure that now passes is removed from the baseline, and the report says so. Adding an item needs user approval and is recorded under Deviations.
-- `verify_freshness.py` reads its full-run commands from `config.json` `verify.full` (default `just verify`, `just test`), falling back to the current `state.md` `test:` and generic patterns.
-
-## Plugin-side changes
-
-| Change | Notes |
-|---|---|
-| ✅ `commands/setup.md`, `upgrade.md`, `eject.md`; `status` reports setup and drift | thin wrappers around the skill |
-| ✅ `skills/setting-up-projects/` | SKILL.md (flow table, ownership, common steps) + `references/{greenfield,brownfield,upgrade,eject}.md`. Edited seeded files on upgrade: apply merge / skip this time / keep mine (`forget`: never managed again). `knowledge/` is user-owned from the start. |
-| `scripts/scaffold.py` | the deterministic, testable parts: render the generated file, hash and classify files, read and write the lock, keyed merges, list pending migrations, version comparison, eject plan. Claude does the judgment calls; this script does the bookkeeping. |
-| `templates/project/` | ✅ `config.defaults.json`, `rules/*.md`, `hookify/sdlc-*.md`, `lint/*`, `ci/sdlc-verify-{node,python,go}.yml`, `baseline.md`; justfile starters in `templates/justfile/` |
-| `migrations/` | empty in 1.3.0. Projects with a pre-setup `.sdlc/` have no lock, so `/sdlc:start` routes them to setup (brownfield), which adopts what's there. |
-| ✅ orchestrator step 0 | route to setup, drift check, justfile commands |
-| ✅ `agents/verifier.md` | baseline-aware gate; may only remove passing items from the baseline |
-| ✅ `hooks/verify_freshness.py` | full-run commands from `config.json` |
-| `core/config_loader.py` (hookify) | **also** load committed team rules from `.claude/hookify/*.md`. Today it only reads `.claude/hookify.*.local.md`, which hookify's own docs say to git-ignore, so those files are personal. Another vendored patch; record it in NOTICE.md. |
-| `tests/` | scaffold.py ✅ (29 tests), hookify team-rule loading, freshness `config.json` commands |
-
-## Tier 2 rules and conventions
-
-Two kinds of `.claude/rules/` files, with different owners:
-
-| Kind | Files | Class | Where content comes from |
-|---|---|---|---|
-| **Policy rules** (plugin's SDLC rules, by kind of file) | `sdlc.md` (always-on), `sdlc-code-style.md`, `sdlc-tests.md`, `sdlc-migrations.md`, `sdlc-sensitive.md`, `sdlc-ci.md` | Generated | `templates/project/rules/`; `paths:` from `areas.*` in config (defaults in `templates/project/config.defaults.json`, project overrides in `.sdlc/config.json`) |
-| **Area rules** (project knowledge, by area of the codebase) | `api.md`, `payments.md`, … | User-owned | Brownfield: drafted by the deep audit, approved per batch. Greenfield: only what follows from the stack choices; the rest grows from Stage 11. |
-
-Naming makes ownership visible: `sdlc-*` files belong to the plugin, everything else to the project. The same holds for committed hookify team rules in `.claude/hookify/`.
-
-**Comment noise and over-engineering** are handled at three points:
-
-| When | What | Files |
-|---|---|---|
-| Writing | `sdlc-code-style.md` policy rule (why-only comments, doc comments on exports only, one line; smallest diff, no single-implementation abstractions, no unrequested surface); the same lines in the subagent implementer prompt | `templates/project/rules/code-style.md`, `skills/subagent-driven-development/implementer-prompt.md` |
-| Automatic checks | hookify warnings on narration, change-history and long doc comments, suppressions, focused/skipped tests, `console.log`; blocks on dangerous rm, force-push to main, secret values. Lint snippets for complexity, depth, params, function length, TODOs. | `templates/project/hookify/sdlc-*.md`, `templates/project/lint/{eslint.sdlc.mjs,ruff.sdlc.toml}` (seeded into `.sdlc/lint/`) |
-| Review | `scripts/diff_stats.py` facts in every reviewer prompt; unrequested public surface is high severity; comment noise is medium and fixed in Stage 6; S track runs `code-simplifier` too; `comment-analyzer` no longer asks for comments aimed at the least experienced reader; constitution template ships a default **V. Simplicity** principle | `scripts/diff_stats.py`, `skills/orchestrator/SKILL.md`, `commands/review-pr.md`, `agents/comment-analyzer.md`, `templates/constitution-template.md` |
-
-**Upstream: scope is traced to a request in every stage,** because over-engineering usually starts before any code is written:
-
-| Stage | Mechanism |
-|---|---|
-| Sizing | Smallest fitting track; a size-up names its signal in `state.md` |
-| 1 Spec | Every FR/SC tagged `[user]` / `[clarified]` / `[inferred]`; required Non-Goals section; future-proofing words need a measurable requirement. At the gate, `[inferred]` items are listed separately and **dropped unless the user keeps them**; dropped ones move to Non-Goals. |
-| 2 Design | Complexity Tracking always filled: every new module, layer, abstraction, dependency, service, config key and store cites an FR/SC, or comes out. Architect options are minimal / minimal + one named extension / pragmatic; minimal is recommended unless it fails a named requirement. Scale and performance numbers must cite an SC. "Deliberately not built" section. |
-| 3 Plan | Every task has a **Requirements:** line (reverse trace in the self-review, so all tracks get it). **Public Surface** section declares every new export, endpoint, command, config key, env var and dependency. `analyzing-consistency`: leftover `[inferred]` or a Non-Goal planned in is CRITICAL; other scope creep is HIGH. |
-| 6 Review | `diff_stats.py --plan` flags exports and dependencies missing from Public Surface (unrequested surface → high severity) and declared items never built. Endpoints, commands, config and env are listed for a reviewer to check by hand. |
-
-Hookify patches this needed (recorded in NOTICE.md): load `.claude/hookify/*.md`; send warnings to Claude via `additionalContext` and block reasons via `permissionDecisionReason` (upstream used `systemMessage`, which only the user sees); unregister the duplicate PostToolUse evaluation.
-
-## Resolved questions
-1. **Greenfield detection:** when it's unclear (only docs, a spike folder), ask.
-2. **Monorepo baseline:** one `.sdlc/baseline.md` with a package column.
-3. **Force-push guardrail:** also blocks `--force-with-lease`, on main/master only.
-4. **Dogfood:** set up the `sdlc` repo itself once setup works (justfile: `python3 -m unittest discover -s tests -t tests`, `claude plugin validate .`).
-
-## `scripts/scaffold.py` reference
-
-Every command prints one JSON object. Exit codes: 0 ok, 1 error, 2 refused because the user edited the file.
-
-| Command | Does |
-|---|---|
-| `init --kind greenfield\|brownfield` | write the lock, plus a default `config.json` if none exists |
-| `status` | setup state, steps done, drift (`current` / `behind` / `ahead` / `plugin_too_old`), pending migrations, file states |
-| `step-done <step> [--complete]` | record setup progress (resumable) |
-| `render <template> <dest> [--class seeded] [--if-unchanged]` | render a plugin template with `{{config.x.y}}` / `{{plugin_version}}` and record its hash |
-| `preview <template>` | render without writing |
-| `record <generated\|seeded> <paths…> [--template T]` / `forget <paths…>` | track files Claude wrote / hand them over to the user |
-| `allow --add/--remove …`, `gitignore --add/--remove …` | keyed merges; only ever removes entries the plugin added |
-| `migrations [--revisit]`, `migration <id> --applied\|--skipped REASON` | list pending migrations (version window: scaffold < v ≤ plugin, ordered numerically) / record the outcome |
-| `set-version <v> [--min-plugin m]` | advance `scaffold_version`; raises the pin, never lowers it |
-| `upgrade-plan` | regenerate / replace / review / restore / template_gone, plus pending migrations |
-| `eject [--apply] [--also <edited files>]` | dry-run plan by default; applying it deletes plugin files, removes merged entries and the lock, and tidies emptied folders |
+- **Good:** plugin updates can patch projects safely; nothing a user edited is overwritten without asking; existing failures stop blocking new work; setup is resumable and reviewable as a PR.
+- **Costs:** a lock file to keep consistent (only `scaffold.py` writes it); seeded files the user edits need a manual merge on upgrade; migrations must be written for any change to files projects own.
+- **Follow-ups:** dogfood setup on the `sdlc` repo itself; first real migration will exercise the `--revisit` path.
