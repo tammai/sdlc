@@ -18,6 +18,7 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ### Fixed
 - `diff_stats.py` crashed on Windows when the diff had characters outside the code page (found by a live Stage 6 run); it now reads git output and writes its report as UTF-8.
+- The verify-freshness hook switched itself off silently in a repo under a folder with non-ASCII characters in its name, because it decoded git's paths with the Windows code page. It now reads git output as UTF-8, and so does `/sdlc:doctor`.
 
 ## 1.4.0 — 2026-10-22
 

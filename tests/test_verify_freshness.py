@@ -443,6 +443,17 @@ class VerifyFreshnessTest(ProjectTestCase):
         out = self.assertBlocks()
         self.assertIn("src/login.ts", out["reason"])
 
+    def test_repo_under_a_non_ascii_folder_still_tracks_bash_edits(self):
+        # "Đ" is C4 90 in UTF-8, and 0x90 is undefined in cp1252, so decoding git paths with the code page crashes
+        self.root = self.path("Đồ án")
+        os.makedirs(self.root)
+        self.git_repo()
+        self.set_state()
+        self.bash("npm test")
+        self.write("src/login.ts", "export const a = 2\n")
+        out = self.assertBlocks()
+        self.assertIn("src/login.ts", out["reason"])
+
     def test_new_and_deleted_files_make_stale(self):
         self.git_repo()
         self.set_state()

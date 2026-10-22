@@ -36,7 +36,7 @@ class Report:
 
 def run(cmd, cwd=None, timeout=10):
     try:
-        p = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd, timeout=timeout)
+        p = subprocess.run(cmd, capture_output=True, encoding="utf-8", errors="replace", cwd=cwd, timeout=timeout)
         return p.returncode, p.stdout.strip()
     except (OSError, subprocess.SubprocessError):
         return None, ""

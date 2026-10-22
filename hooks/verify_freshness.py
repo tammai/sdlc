@@ -185,14 +185,16 @@ def git_head(root):
     try:
         return subprocess.run(
             ["git", "-C", root, "rev-parse", "--short", "HEAD"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True, encoding="utf-8", errors="replace", timeout=5,
         ).stdout.strip() or None
     except Exception:
         return None
 
 
 def git(root, *args, env=None):
-    p = subprocess.run(["git", "-C", root, *args], capture_output=True, text=True, timeout=5, env=env)
+    # git writes paths as UTF-8; the default (Windows code page) decoding crashes on a non-ASCII repo folder
+    p = subprocess.run(["git", "-C", root, *args], capture_output=True, encoding="utf-8", errors="replace",
+                       timeout=5, env=env)
     return p.stdout.strip() if p.returncode == 0 else None
 
 
