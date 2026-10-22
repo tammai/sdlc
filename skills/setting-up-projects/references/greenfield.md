@@ -1,6 +1,6 @@
 # Greenfield setup
 
-The repo has no source code yet. Goal: a minimal skeleton whose `just verify` passes on day one, so Stage 5 and CI have real commands from the first feature.
+The repo has no source code yet. Goal: a minimal skeleton whose commands all pass on day one, so Stage 5 and CI have real commands from the first feature.
 
 ## `stack` – interview, then propose (hard stop)
 
@@ -10,22 +10,30 @@ Ask only what you can't infer, a few questions at a time, with a suggested answe
 - Runtime and language per part; package manager; test runner. Default to the ecosystem's current mainstream choice and say why in one line.
 - Where it deploys (only if it changes the skeleton, e.g. a Dockerfile).
 
-Propose: the stack per package, the directory layout, the generator command for each package, and the justfile layout (single, or polyglot root + per-package). Keep it to what the first feature needs; no auth, DB, Docker, or infra "for later" unless the user named it. **The user approves before anything is generated.**
+Propose: the stack per package, the directory layout, the generator command for each package, and the five commands per package (below). Keep it to what the first feature needs; no auth, DB, Docker, or infra "for later" unless the user named it. **The user approves before anything is generated.**
 
 ## `skeleton` – generate with the official tools
 
-Use the ecosystem's own generator (`pnpm create vite`, `npx create-next-app`, `uv init`, `cargo new`, `go mod init`, `dart create`, `flutter create`, `dotnet new`, `gradle init`, …) rather than hand-writing project files. Then apply only: strict type checking, the test runner, a lint/format tool, and one passing smoke test per package. Pin the package manager (`packageManager` field for corepack, `.python-version`, `rust-toolchain.toml`, …) so CI matches local.
+Use the ecosystem's own generator (`pnpm create vite`, `npx create-next-app`, `uv init`, `cargo new`, `go mod init`, `dart create`, `flutter create`, `dotnet new`, `gradle init`, …) rather than hand-writing project files. Then apply only: strict type checking, the test runner, a lint/format tool, and one passing smoke test per package. Pin the package manager and toolchain (`packageManager` field for corepack, `.python-version`, `rust-toolchain.toml`, …) so CI matches local.
 
-## `justfile`
+## `commands`
 
-Start from `${CLAUDE_PLUGIN_ROOT}/templates/justfile/<stack>.just` (stacks: node, python, go, rust, dart, flutter, shell, gradle, dotnet). Several stacks or packages → copy `polyglot-root.just` to the root, one stack justfile per package, and keep its `mod` lines and `packages` variable in step. Adapt the recipe bodies to the generated scripts; keep the recipe names.
+Write the project's own commands into `.sdlc/config.json` (only what differs from the defaults goes there):
 
-Check: `$S contract` → `ok: true` (every module too), `just.ok: true`. Run `just install` and `just verify`; both must pass. Fix the skeleton, not the recipe, if they don't.
+```json
+"project": {"kind": "greenfield", "stack": ["typescript"]},
+"commands": {"install": "pnpm install --frozen-lockfile", "test": "pnpm test", "lint": "pnpm lint",
+             "typecheck": "pnpm exec tsc --noEmit", "build": "pnpm build"}
+```
+
+Use the commands the generated project already defines (`package.json` scripts, `pyproject` tool config, `cargo`, `go`, …); add a script to the project rather than a long inline command. A step that doesn't exist for the stack is `null` (e.g. `"build": null` for a Python app, `"typecheck": null` for shell scripts).
+
+Monorepo or several stacks: `packages` instead of `commands`, one entry per package with `name`, `path`, `stack` and its own five commands, each run from its `path`. A workspace tool's root-level test command (`pnpm -r test`, `turbo run test`) can go in root `commands.test`; it then counts as a full run for every package.
+
+Check: `$S contract` → `ok: true` and `tools_ok: true`. Then run every command from `$S commands` (install first, then the verify plan), each in its `cwd`; all must pass. Fix the skeleton, not the command, if they don't.
 
 ## `ci`
 
-Render the workflow for the stack: `$S render templates/project/ci/sdlc-verify-<node|python|go>.yml .github/workflows/sdlc-verify.yml --class seeded`. Windows contributors → set `"ci": {"os": ["ubuntu-latest", "windows-latest"]}` in `.sdlc/config.json` first.
+`$S render builtin:ci .github/workflows/sdlc-verify.yml --class seeded` generates the workflow from the commands: one toolchain setup per stack, then install and the verify steps per package (with `working-directory`), on an OS matrix from `ci.os`. Windows contributors → set `"ci": {"os": ["ubuntu-latest", "windows-latest"]}` in `.sdlc/config.json` first. A stack without a known setup action gets a `# TODO` line in the workflow: fill it in and tell the user.
 
-No template for the stack, or several stacks: write the workflow yourself from the same shape (checkout → `extractions/setup-just@v2` → each toolchain's setup action → `just install` → `just verify`, `defaults.run.shell: bash`, OS matrix from config), then `$S record seeded .github/workflows/sdlc-verify.yml` (no `--template`: upgrades leave it alone).
-
-Then continue with the common steps in `SKILL.md`. Greenfield has no baseline: `just verify` passes, so there are no known failures.
+Then continue with the common steps in `SKILL.md`. Greenfield has no baseline: every command passes, so there are no known failures.

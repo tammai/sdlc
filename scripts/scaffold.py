@@ -18,7 +18,6 @@ import json
 import os
 import re
 import shutil
-import subprocess
 import sys
 
 PLUGIN_ROOT = os.environ.get("CLAUDE_PLUGIN_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -224,7 +223,7 @@ def render_text(template_text, p):
 
     def lookup(m):
         if m.group(1).split(".")[0] not in ctx:
-            return m.group(0)  # not ours: justfile {{args}}, GitHub ${{ github.ref }}, ...
+            return m.group(0)  # not ours: GitHub ${{ github.ref }}, other tools' templates, ...
         node = ctx
         for part in m.group(1).split("."):
             if not isinstance(node, dict) or part not in node:
@@ -242,8 +241,7 @@ def render_text(template_text, p):
 def cmd_render(p, a):
     lock = p.require_lock()
     template = a.template.replace(os.sep, "/")
-    with open(os.path.join(PLUGIN_ROOT, template), encoding="utf-8") as f:
-        text = render_text(f.read(), p)
+    text = render_source(template, p)
     dest = rel(p.root, a.dest)
     entry = lock.setdefault("files", {}).get(dest)
     if a.if_unchanged and entry and p.file_state(dest, entry) == "modified":
@@ -261,111 +259,166 @@ def cmd_render(p, a):
     return {"rendered": dest, "class": a.cls, "changed": before != after}
 
 
-JUST_RECIPE = re.compile(r"^@?([A-Za-z_][\w-]*)(?:\s[^:]*)?:(?!=)")
-JUST_NOT_RECIPE = re.compile(r"^(set|alias|export|import|mod)\b")
-JUST_MOD = re.compile(r"""^mod\??\s+([A-Za-z_][\w-]*)(?:\s+['"]([^'"]+)['"])?\s*$""")
+# --- commands contract -------------------------------------------------------------------
+# The project's own commands live in config: `commands` for a single project, or `packages` (each with name,
+# path, stack and commands) for a monorepo. A command set to null means "not applicable" (e.g. typecheck for
+# shell scripts). Stages, the verifier, CI, the allowlist and the freshness hook all read them from here.
+
+ROOT_SCOPE = "(root)"
 
 
-def justfile_recipes(path):
-    """Recipe names: from `just --summary` when just is installed (handles imports), else parsed."""
-    if shutil.which("just"):
-        p = subprocess.run(["just", "--justfile", path, "--working-directory", os.path.dirname(path), "--summary"],
-                           capture_output=True, text=True, timeout=10)
-        if p.returncode == 0:
-            return p.stdout.split(), "just --summary"
-    names = []
-    with open(path, encoding="utf-8") as f:
-        for line in f:
-            if line[:1].isspace() or line.startswith("#") or JUST_NOT_RECIPE.match(line):
-                continue
-            m = JUST_RECIPE.match(line)
-            if m:
-                names.append(m.group(1))
-    return names, "parsed"
+def scopes(config):
+    """[{name, path, stack, commands}]: one per package, or the root project when there are no packages."""
+    cfg = effective_config(config)
+    pkgs = cfg.get("packages") or []
+    if pkgs:
+        return [{"name": pk.get("name"), "path": (pk.get("path") or ".").rstrip("/") or ".",
+                 "stack": pk.get("stack"), "commands": pk.get("commands") or {}} for pk in pkgs]
+    return [{"name": ROOT_SCOPE, "path": ".", "stack": None, "commands": cfg.get("commands") or {}}]
 
 
-def justfile_modules(path):
-    """[(name, module justfile path or None if not found)] from `mod` lines, resolved the way just does."""
-    base = os.path.dirname(path)
-    mods = []
-    with open(path, encoding="utf-8") as f:
-        for line in f:
-            m = JUST_MOD.match(line.rstrip("\n"))
-            if not m:
-                continue
-            name, target = m.groups()
-            if target:
-                full = os.path.join(base, target)
-                candidates = [full] if os.path.isfile(full) else [os.path.join(full, n) for n in
-                                                                  ("mod.just", "justfile", "Justfile", ".justfile")]
-            else:
-                candidates = [os.path.join(base, name + ".just")] + [os.path.join(base, name, n) for n in
-                                                                    ("mod.just", "justfile", "Justfile", ".justfile")]
-            mods.append((name, next((c for c in candidates if os.path.isfile(c)), None)))
-    return mods
+def executable(cmd):
+    """First word of a command that names a program (skips leading VAR=value assignments)."""
+    for tok in cmd.split():
+        if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", tok):
+            return tok
+    return None
 
 
-def check_contract(p, rel_path, required, seen):
-    path = p.path(rel_path)
-    if not os.path.exists(path):
-        return {"justfile": rel_path, "exists": False, "missing": list(required), "ok": False, "modules": {}}
-    recipes, source = justfile_recipes(path)
-    if source == "just --summary":  # module recipes come back as name::recipe; the root's own are unqualified
-        recipes = [r for r in recipes if "::" not in r]
-    missing = [r for r in required if r not in recipes]
-    out = {"justfile": rel_path, "exists": True, "source": source, "recipes": recipes, "missing": missing,
-           "modules": {}}
-    for name, mod_path in justfile_modules(path):
-        if mod_path is None:
-            out["modules"][name] = {"justfile": None, "exists": False, "missing": list(required), "ok": False,
-                                    "modules": {}}
-        elif mod_path not in seen:
-            seen.add(mod_path)
-            out["modules"][name] = check_contract(p, rel(p.root, mod_path), required, seen)
-    out["ok"] = not missing and all(m["ok"] for m in out["modules"].values())
-    return out
-
-
-# Prebuilt binaries first: Homebrew builds from source on unsupported (Tier 3) macOS setups, which pulls in
-# Rust and LLVM and takes hours
-JUST_INSTALL = {
-    "darwin": "npm i -g rust-just  (or: pipx install rust-just; brew install just only where Homebrew has a bottle "
-              "for this Mac, otherwise it compiles Rust and LLVM from source)",
-    "linux": "npm i -g rust-just  (or: pipx install rust-just, or a prebuilt binary; distro packages may be too old)",
-    "win32": "winget install Casey.Just  (then run just from Git Bash; plain PowerShell/cmd has no `sh` unless Git's "
-             "Unix tools are on PATH)",
-}
-
-
-def just_version():
-    if not shutil.which("just"):
-        return None
-    try:
-        out = subprocess.run(["just", "--version"], capture_output=True, text=True, timeout=10).stdout
-    except (OSError, subprocess.SubprocessError):
-        return None
-    m = re.search(r"(\d+\.\d+\.\d+)", out)
-    return m.group(1) if m else None
+def resolves(exe, cwd):
+    if "/" in exe:
+        return os.path.exists(os.path.normpath(os.path.join(cwd, exe)))
+    return shutil.which(exe) is not None
 
 
 def cmd_contract(p, a):
-    contract = effective_config(p.config).get("contract", {})
-    required = contract.get("required", [])
-    out = check_contract(p, a.justfile, required, {p.path(a.justfile)})
-    out["required"] = required
-    version = just_version()
-    min_just = contract.get("min_just") if out.get("modules") else None  # modules need just >= 1.31
-    just = {"installed": version is not None, "version": version, "min": min_just,
-            "ok": version is not None and (min_just is None or parse_version(version) >= parse_version(min_just))}
-    if not just["ok"]:
-        just["install"] = JUST_INSTALL.get(sys.platform, JUST_INSTALL["linux"])
-    out["just"] = just
+    cfg = effective_config(p.config)
+    required = cfg.get("contract", {}).get("required", [])
+    out = {"required": required, "monorepo": bool(cfg.get("packages")), "scopes": {}}
+    names = set()
+    for sc in scopes(p.config):
+        problems = []
+        if not sc["name"]:
+            problems.append("package without a name")
+        elif sc["name"] in names:
+            problems.append(f"duplicate package name {sc['name']!r}")
+        names.add(sc["name"])
+        cwd = p.path(sc["path"])
+        if not os.path.isdir(cwd):
+            problems.append(f"path {sc['path']!r} does not exist")
+        cmds = sc["commands"]
+        missing = [k for k in required if k not in cmds]
+        not_applicable = [k for k in required if k in cmds and cmds[k] is None]
+        not_found = {}
+        for key, cmd in cmds.items():
+            if cmd and os.path.isdir(cwd):
+                exe = executable(cmd)
+                if exe and not resolves(exe, cwd):
+                    not_found[key] = exe
+        out["scopes"][sc["name"] or "?"] = {"path": sc["path"], "missing": missing, "not_applicable": not_applicable,
+                                            "not_found": not_found, "problems": problems,
+                                            "ok": not missing and not problems}
+    out["ok"] = all(s["ok"] for s in out["scopes"].values())
+    out["tools_ok"] = all(not s["not_found"] for s in out["scopes"].values())
     return out
 
 
+def verify_plan(config):
+    cfg = effective_config(config)
+    order = cfg.get("verify", {}).get("order", ["lint", "typecheck", "build", "test"])
+    plan = {"install": [], "verify": []}
+    for sc in scopes(config):
+        cmds = sc["commands"]
+        if cmds.get("install"):
+            plan["install"].append({"scope": sc["name"], "cwd": sc["path"], "step": "install", "run": cmds["install"]})
+        for step in order:
+            if cmds.get(step):
+                plan["verify"].append({"scope": sc["name"], "cwd": sc["path"], "step": step, "run": cmds[step]})
+    return plan
+
+
+def cmd_commands(p, a):
+    return {"scopes": scopes(p.config), **verify_plan(p.config)}
+
+
+# --- generated CI workflow (template "builtin:ci") -------------------------------------------
+
+STACK_ALIASES = {"typescript": "node", "ts": "node", "javascript": "node", "js": "node", "bun": "node",
+                 "uv": "python", "kotlin": "java", "gradle": "java", "maven": "java",
+                 "csharp": "dotnet", "fsharp": "dotnet", "cargo": "rust", "bash": "shell", "sh": "shell"}
+CI_SETUP = {
+    "node": ["- uses: actions/setup-node@v4", "  with:", '    node-version: "{node_version}"', "- run: corepack enable"],
+    "python": ["- uses: astral-sh/setup-uv@v6"],
+    "go": ["- uses: actions/setup-go@v5", "  with:", "    go-version-file: {go_mod}"],
+    "rust": ["- uses: dtolnay/rust-toolchain@stable", "  with:", "    components: clippy, rustfmt"],
+    "dart": ["- uses: dart-lang/setup-dart@v1"],
+    "flutter": ["- uses: subosito/flutter-action@v2", "  with:", "    channel: stable"],
+    "java": ["- uses: actions/setup-java@v4", "  with:", "    distribution: temurin", '    java-version: "{java_version}"'],
+    "dotnet": ["- uses: actions/setup-dotnet@v4", "  with:", '    dotnet-version: "{dotnet_version}"'],
+    "shell": ["- run: sudo apt-get install -y shellcheck shfmt bats"],
+}
+
+
+def project_stacks(config):
+    """Distinct toolchains, from each package's `stack`, else `project.stack`."""
+    cfg = effective_config(config)
+    raw = [sc["stack"] for sc in scopes(config) if sc["stack"]] or cfg.get("project", {}).get("stack", [])
+    found = []
+    for st in raw:
+        st = STACK_ALIASES.get(str(st).lower(), str(st).lower())
+        if st not in found:
+            found.append(st)
+    return found
+
+
+def generate_ci(p):
+    cfg = effective_config(p.config)
+    ci = cfg.get("ci", {})
+    plan = verify_plan(p.config)
+    if not plan["verify"]:
+        raise ValueError("no commands in .sdlc/config.json to put in CI (set `commands`, or `packages[].commands`)")
+    go_scope = next((sc for sc in scopes(p.config) if os.path.exists(p.path(os.path.join(sc["path"], "go.mod")))), None)
+    go_mod = os.path.normpath(os.path.join(go_scope["path"] if go_scope else ".", "go.mod")).replace(os.sep, "/")
+    values = {"node_version": ci.get("node_version", "22"), "java_version": ci.get("java_version", "21"),
+              "dotnet_version": ci.get("dotnet_version", "8.0.x"), "go_mod": go_mod}
+    pad = " " * 6
+    lines = [
+        f"# Managed by the sdlc plugin v{plugin_version()} (seeded: replaced on upgrade only while unedited).",
+        "# Generated from the commands in .sdlc/config.json: the same commands Stage 5 runs.",
+        "name: sdlc verify", "", "on:", "  pull_request:", "  push:", "    branches: [main, master]", "",
+        "concurrency:", "  group: sdlc-verify-${{ github.ref }}", "  cancel-in-progress: true", "",
+        "permissions:", "  contents: read", "",
+        "defaults:", "  run:", "    shell: bash  # Git Bash on Windows runners: same shell everywhere", "",
+        "jobs:", "  verify:", "    strategy:", "      fail-fast: false", "      matrix:",
+        f"        os: {json.dumps(ci.get('os', ['ubuntu-latest']))}",
+        "    runs-on: ${{ matrix.os }}", "    timeout-minutes: 30", "    steps:", pad + "- uses: actions/checkout@v4"]
+    for st in project_stacks(p.config):
+        if st in CI_SETUP:
+            lines += [pad + x.format(**values) for x in CI_SETUP[st]]
+        else:
+            lines.append(pad + f"# TODO: add the toolchain setup for '{st}'")
+    for step in plan["install"] + plan["verify"]:
+        label = step["step"] if step["scope"] == ROOT_SCOPE else f"{step['scope']} · {step['step']}"
+        lines.append(pad + f"- name: {json.dumps(label, ensure_ascii=False)}")
+        if step["cwd"] != ".":
+            lines.append(pad + f"  working-directory: {step['cwd']}")
+        lines += [pad + "  run: |", pad + "    " + step["run"]]
+    return "\n".join(lines) + "\n"
+
+
+def render_source(template, p):
+    if template == "builtin:ci":
+        return generate_ci(p)
+    with open(os.path.join(PLUGIN_ROOT, template), encoding="utf-8") as f:
+        return render_text(f.read(), p)
+
+
+def template_exists(template):
+    return template.startswith("builtin:") or os.path.exists(os.path.join(PLUGIN_ROOT, template))
+
+
 def cmd_preview(p, a):
-    with open(os.path.join(PLUGIN_ROOT, a.template), encoding="utf-8") as f:
-        return {"template": a.template, "text": render_text(f.read(), p)}
+    return {"template": a.template, "text": render_source(a.template, p)}
 
 
 # --- keyed merges ------------------------------------------------------------------------
@@ -374,7 +427,18 @@ def merged_list(p, target):
     return p.require_lock().setdefault("merged", {}).setdefault(target, [])
 
 
+def allow_entries(config):
+    entries = []
+    for sc in scopes(config):
+        for cmd in sc["commands"].values():
+            if cmd and f"Bash({cmd}:*)" not in entries:
+                entries.append(f"Bash({cmd}:*)")
+    return entries
+
+
 def cmd_allow(p, a):
+    if getattr(a, "from_commands", False):
+        a.add = list(a.add or []) + allow_entries(p.config)
     settings_path = p.path(SETTINGS)
     settings = read_json(settings_path, {})
     allow = settings.setdefault("permissions", {}).setdefault("allow", [])
@@ -513,7 +577,7 @@ def cmd_upgrade_plan(p, a):
         tpl = e.get("template")
         if not tpl:
             continue
-        if not os.path.exists(os.path.join(PLUGIN_ROOT, tpl)):
+        if not template_exists(tpl):
             plan["template_gone"].append(path)
             continue
         state = p.file_state(path, e)
@@ -521,8 +585,7 @@ def cmd_upgrade_plan(p, a):
         if e["class"] == "generated":
             plan["regenerate"].append(item)
         elif state == "unchanged":
-            with open(os.path.join(PLUGIN_ROOT, tpl), encoding="utf-8") as f:
-                new = render_text(f.read(), p)
+            new = render_source(tpl, p)
             if hashlib.sha256(new.encode("utf-8")).hexdigest() != e["sha256"]:
                 plan["replace"].append(item)
         elif state == "modified":
@@ -536,7 +599,7 @@ def cmd_upgrade_plan(p, a):
 def eject_plan(p):
     lock = p.require_lock()
     plan = {"delete": [], "ask": [], "already_gone": [], "unmerge": lock.get("merged", {}),
-            "keep": [CONFIG, "justfile", ".sdlc/constitution.md", "knowledge/", ".sdlc/<feature>/"]}
+            "keep": [CONFIG, ".sdlc/constitution.md", ".sdlc/baseline.md", "knowledge/", ".sdlc/<feature>/"]}
     for path, e in sorted(lock.get("files", {}).items()):
         state = p.file_state(path, e)
         if state == "missing":
@@ -607,15 +670,16 @@ def build_parser():
     s.set_defaults(fn=cmd_forget)
 
     s = sub.add_parser("render", help="render a plugin template into the project and record it")
-    s.add_argument("template", help="plugin-relative, e.g. templates/project/rules-sdlc.md")
+    s.add_argument("template", help="plugin-relative, e.g. templates/project/rules/sdlc.md, or builtin:ci")
     s.add_argument("dest")
     s.add_argument("--class", dest="cls", choices=FILE_CLASSES, default="generated")
     s.add_argument("--if-unchanged", action="store_true", help="refuse (exit 2) if the user edited the file")
     s.set_defaults(fn=cmd_render)
 
-    s = sub.add_parser("contract", help="check the justfile has the required recipes")
-    s.add_argument("--justfile", default="justfile")
-    s.set_defaults(fn=cmd_contract)
+    sub.add_parser("contract", help="check the project's commands in config (per package in a monorepo)") \
+        .set_defaults(fn=cmd_contract)
+    sub.add_parser("commands", help="scopes and the install/verify plan (what Stage 5 and CI run)") \
+        .set_defaults(fn=cmd_commands)
 
     s = sub.add_parser("preview", help="render a template to stdout without writing")
     s.add_argument("template")
@@ -626,6 +690,8 @@ def build_parser():
         s = sub.add_parser(name, help=f"keyed merge of {what}; only removes entries it added")
         s.add_argument("--add", nargs="+")
         s.add_argument("--remove", nargs="+")
+        if name == "allow":
+            s.add_argument("--from-commands", action="store_true", help="add Bash(<cmd>:*) for every command in config")
         s.set_defaults(fn=fn)
 
     s = sub.add_parser("migrations", help="pending migrations in apply order")

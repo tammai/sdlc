@@ -4,19 +4,19 @@ The repo has code, history and habits. Goal: adopt sdlc without breaking anythin
 
 ## `stack` – detect (no questions unless ambiguous)
 
-Read, don't guess: lockfiles and manifests (`package.json`, `pnpm-workspace.yaml`, `pyproject.toml`, `go.mod`/`go.work`, `Cargo.toml`, `pubspec.yaml`, `*.csproj`, `build.gradle*`), existing task runners (`Makefile`, `justfile`, `package.json` scripts, `Taskfile.yml`), CI (`.github/workflows`, `.gitlab-ci.yml`, …), and workspace layout. A repo with an existing `.sdlc/` from before setup: keep its features as they are; setup only adds config and lock.
+Read, don't guess: lockfiles and manifests (`package.json`, `pnpm-workspace.yaml`, `pyproject.toml`, `go.mod`/`go.work`, `Cargo.toml`, `pubspec.yaml`, `*.csproj`, `build.gradle*`), existing task runners (`Makefile`, `justfile`, `package.json` scripts, `Taskfile.yml`: their targets are just commands like any other), CI (`.github/workflows`, `.gitlab-ci.yml`, …), and workspace layout. A repo with an existing `.sdlc/` from before setup: keep its features as they are; setup only adds config and lock.
 
 Record stack and packages in `.sdlc/config.json` → `project` (`stack`, and `packages` as `[{name, path, stack}]` for monorepos).
 
-## `justfile` – wrap, don't replace (hard stop)
+## `commands` – record what already exists (hard stop)
 
-Write recipes that **call what already exists** (`just test` → `pnpm test`, `make test`, `./gradlew test`, …). Start from the stack templates in `${CLAUDE_PLUGIN_ROOT}/templates/justfile/`; polyglot → `polyglot-root.just` plus a justfile per package. An existing justfile: add only the missing contract recipes. Show the diff; the user approves.
+Write the commands the repo **already uses** into `.sdlc/config.json`: `commands` with `install`, `test`, `lint`, `typecheck`, `build` (from `package.json` scripts, `Makefile`/`justfile` targets, `pyproject` tool config, CI steps, README). Don't invent new ones; a step the repo doesn't have is `null`, and say so (it's a candidate for a later S-track fix, not something to add during setup). Monorepo: `packages` with `name`, `path`, `stack` and each package's own commands, run from its `path`; a workspace-wide test command (`pnpm -r test`, `turbo run test`, `nx run-many -t test`) can go in root `commands.test`. Show the commands to the user; they approve.
 
-Check: `$S contract` → `ok: true` (every module too), `just.ok: true` (offer `just.install` if not, as a hard stop).
+Check: `$S contract` → `ok: true`, and `tools_ok: true` (a tool that isn't installed: tell the user which, don't install it without asking).
 
 ## `baseline` – what fails today
 
-Run `just install`, then each of `lint`, `typecheck`, `build`, `test` separately (so one failure doesn't hide the others). Render `$S render templates/project/baseline.md .sdlc/baseline.md` then `$S forget .sdlc/baseline.md` (user-owned from now on) and fill it in:
+Run the install commands, then every verify command from `$S commands`, each in its `cwd` and separately (so one failure doesn't hide the others). Render `$S render templates/project/baseline.md .sdlc/baseline.md` then `$S forget .sdlc/baseline.md` (user-owned from now on) and fill it in:
 
 - failing tests by file › name with a one-line failure
 - lint/type errors as counts per rule and file (not every line)
@@ -41,6 +41,6 @@ For each of `CLAUDE.md` (over ~60 lines), `AGENTS.md`, `.cursor/rules/`, `.curso
 
 ## `ci`
 
-Existing CI already runs build/lint/test → leave it; suggest (don't apply) switching its commands to `just` recipes so local and CI can't drift. No CI, or CI that doesn't verify → offer the workflow as in `greenfield.md` → `ci` (hard stop: it's a new required check for everyone).
+Existing CI already runs build/lint/test → leave it; point out any step whose command differs from `.sdlc/config.json`, since local and CI shouldn't drift. No CI, or CI that doesn't verify → offer the generated workflow as in `greenfield.md` → `ci` (hard stop: it's a new required check for everyone).
 
 Then continue with the common steps in `SKILL.md`. In `lint`, new warnings from the sdlc lint snippet go into the baseline counts rather than being fixed during setup.

@@ -14,12 +14,12 @@ You are the conductor. You decide the stage, call the right bundled skill/agent/
    - Several → ask which one.
    - None → new feature: continue below.
 2. **Project setup.** Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" status`:
-   - `setup: none` → hard stop: "This repo isn't set up for sdlc yet (justfile contract, rules, guardrails, CI, constitution). Set it up first?" Yes → `sdlc:setting-up-projects`, then come back to the request. No → continue, but warn that Stage 5 and 6 checks will be weaker, and note it under Deviations.
+   - `setup: none` → hard stop: "This repo isn't set up for sdlc yet (commands, rules, guardrails, CI, constitution). Set it up first?" Yes → `sdlc:setting-up-projects`, then come back to the request. No → continue, but warn that Stage 5 and 6 checks will be weaker, and note it under Deviations.
    - `setup: in_progress` → offer to resume setup first (same skill).
    - `drift: behind` → one line naming the version gap and pending migrations, and offer `/sdlc:upgrade`. Never block on it.
    - `drift: plugin_too_old` → warn that this repo expects a newer plugin (`/plugin update sdlc`); continue only if the user says so.
    Artifacts in `.sdlc/<feature>/` are committed; `.sdlc/.work/` is git-ignored (setup adds it).
-3. **Commands** come from the justfile contract: `just install`, `test`, `lint`, `typecheck`, `build`, `verify`. If `scaffold.py contract` isn't `ok`, say which recipes are missing and offer to fix them before Stage 4. Record them on the state.md `Commands:` line (template below).
+3. **Commands** come from `.sdlc/config.json`: `install`, `test`, `lint`, `typecheck`, `build`, per package in a monorepo (`scaffold.py commands` prints them with their directories). If `scaffold.py contract` isn't `ok`, say what's missing and offer to fix it before Stage 4. Record the test command(s) on the state.md `Commands:` line (template below).
 4. If the repo isn't set up and the user declined setup: detect the stack and native test/lint/build commands instead and record those in state.md.
 5. **Size the work** and propose the *smallest* track whose signals fit. Size up only for a named signal from the table, and write that signal in state.md: a bigger track brings brainstorming and design, which invite a bigger solution. The user can override.
 
@@ -148,7 +148,7 @@ You (the orchestrator) may run commands to investigate, but the verdict always c
 # <feature>
 Status: active
 Track: S | M | L   (sized up because: <named signal, or "—" for the smallest fitting track>)
-Commands: verify: `just verify` · test: `just test`   (no setup: the detected native commands)
+Commands: test: `<commands.test>`   (monorepo: one per package, e.g. api: `cd services/api && go test ./...`; no setup: the detected commands)
 Started: <date>
 Current: Stage <n> – <name>
 

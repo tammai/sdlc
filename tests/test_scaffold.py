@@ -17,10 +17,10 @@ class ScaffoldTest(ProjectTestCase):
         self.plugin = os.path.realpath(tempfile.mkdtemp(prefix="sdlc-fake-plugin-"))
         self.addCleanup(shutil.rmtree, self.plugin, ignore_errors=True)
         self.set_plugin_version("1.3.0")
-        self.template("templates/project/rules.md", "v{{plugin_version}} test: {{config.verify.full}}\n")
-        self.template("templates/project/ci.yml", "run: just verify\n")
+        self.template("templates/project/rules.md", "v{{plugin_version}} order: {{config.verify.order}}\n")
+        self.template("templates/project/ci.yml", "run: make verify\n")
         self.template("templates/project/config.defaults.json",
-                      json.dumps({"verify": {"full": ["just verify", "just test"]}, "areas": {"tests": ["**/*.test.*"]}}))
+                      json.dumps({"verify": {"order": ["lint", "test"]}, "areas": {"tests": ["**/*.test.*"]}}))
 
     # --- fixtures -------------------------------------------------------------------
 
@@ -87,9 +87,9 @@ class ScaffoldTest(ProjectTestCase):
         self.init()
         self.sc("step-done", "detect")
         self.sc("step-done", "detect")
-        self.sc("step-done", "justfile")
+        self.sc("step-done", "commands")
         out = self.sc("status")
-        self.assertEqual(out["completed_steps"], ["detect", "justfile"])
+        self.assertEqual(out["completed_steps"], ["detect", "commands"])
         self.assertEqual(out["setup"], "in_progress")
         self.sc("step-done", "commit", "--complete")
         self.assertEqual(self.sc("status")["setup"], "complete")
@@ -133,7 +133,7 @@ class ScaffoldTest(ProjectTestCase):
         self.init()
         out = self.sc("render", "templates/project/rules.md", ".claude/rules/sdlc.md")
         self.assertTrue(out["changed"])
-        self.assertEqual(self.read(".claude/rules/sdlc.md"), "v1.3.0 test: just verify, just test\n")
+        self.assertEqual(self.read(".claude/rules/sdlc.md"), "v1.3.0 order: lint, test\n")
         entry = self.lock()["files"][".claude/rules/sdlc.md"]
         self.assertEqual((entry["class"], entry["template"]), ("generated", "templates/project/rules.md"))
         self.assertFalse(self.sc("render", "templates/project/rules.md", ".claude/rules/sdlc.md")["changed"])
@@ -147,7 +147,7 @@ class ScaffoldTest(ProjectTestCase):
     def test_render_if_unchanged_refuses_edited_or_foreign_files(self):
         self.init()
         self.sc("render", "templates/project/ci.yml", ".github/workflows/sdlc-verify.yml", "--class", "seeded")
-        self.write(".github/workflows/sdlc-verify.yml", "run: just verify && just e2e\n")
+        self.write(".github/workflows/sdlc-verify.yml", "run: make verify && make e2e\n")
         args = ("render", "templates/project/ci.yml", ".github/workflows/sdlc-verify.yml",
                 "--class", "seeded", "--if-unchanged")
         self.assertIn("edited", self.sc(*args, expect=2)["refused"])
@@ -159,10 +159,10 @@ class ScaffoldTest(ProjectTestCase):
     def test_render_if_unchanged_overwrites_untouched_file(self):
         self.init()
         self.sc("render", "templates/project/ci.yml", "ci.yml", "--class", "seeded")
-        self.template("templates/project/ci.yml", "run: just verify --ci\n")
+        self.template("templates/project/ci.yml", "run: make verify --ci\n")
         self.assertTrue(self.sc("render", "templates/project/ci.yml", "ci.yml", "--class", "seeded",
                                 "--if-unchanged")["changed"])
-        self.assertEqual(self.read("ci.yml"), "run: just verify --ci\n")
+        self.assertEqual(self.read("ci.yml"), "run: make verify --ci\n")
 
     def test_record_and_file_states(self):
         self.init()
@@ -193,20 +193,20 @@ class ScaffoldTest(ProjectTestCase):
     def test_allow_merges_and_only_removes_its_own_entries(self):
         self.init()
         self.write(".claude/settings.json", json.dumps(
-            {"model": "opus", "permissions": {"allow": ["Bash(just test:*)"], "deny": ["Bash(curl:*)"]}}))
-        out = self.sc("allow", "--add", "Bash(just test:*)", "Bash(just lint:*)")
-        self.assertEqual(out["added"], ["Bash(just lint:*)"])  # the user already had just test
-        self.sc("allow", "--remove", "Bash(just test:*)", "Bash(just lint:*)")
+            {"model": "opus", "permissions": {"allow": ["Bash(make test:*)"], "deny": ["Bash(curl:*)"]}}))
+        out = self.sc("allow", "--add", "Bash(make test:*)", "Bash(make lint:*)")
+        self.assertEqual(out["added"], ["Bash(make lint:*)"])  # the user already had make test
+        self.sc("allow", "--remove", "Bash(make test:*)", "Bash(make lint:*)")
         settings = json.loads(self.read(".claude/settings.json"))
-        self.assertEqual(settings["permissions"]["allow"], ["Bash(just test:*)"])
+        self.assertEqual(settings["permissions"]["allow"], ["Bash(make test:*)"])
         self.assertEqual(settings["permissions"]["deny"], ["Bash(curl:*)"])
         self.assertEqual(settings["model"], "opus")
 
     def test_allow_creates_settings_file(self):
         self.init()
-        self.sc("allow", "--add", "Bash(just verify:*)")
+        self.sc("allow", "--add", "Bash(make verify:*)")
         self.assertEqual(json.loads(self.read(".claude/settings.json"))["permissions"]["allow"],
-                         ["Bash(just verify:*)"])
+                         ["Bash(make verify:*)"])
 
     def test_gitignore_merges_and_only_removes_its_own_lines(self):
         self.init()
@@ -286,7 +286,7 @@ class ScaffoldTest(ProjectTestCase):
         self.sc("record", "seeded", ".claude/hookify/sdlc-rm.md")
         self.write(".claude/hookify/sdlc-rm.md", "rule, tuned by user")
         self.write(".claude/settings.json", json.dumps({"permissions": {"allow": ["Bash(git status)"]}}))
-        self.sc("allow", "--add", "Bash(just test:*)")
+        self.sc("allow", "--add", "Bash(make test:*)")
         self.sc("gitignore", "--add", ".sdlc/.work/")
         self.write(".sdlc/constitution.md", "mine")
 
@@ -320,9 +320,9 @@ class ScaffoldTest(ProjectTestCase):
     def test_config_merges_defaults_with_project_overrides(self):
         self.init()
         self.write(".sdlc/config.json", json.dumps(
-            {"min_plugin_version": "1.3.0", "verify": {"full": ["pnpm test:all"]}, "extra": 1}))
+            {"min_plugin_version": "1.3.0", "verify": {"order": ["test"]}, "extra": 1}))
         out = self.sc("config")
-        self.assertEqual(out["config"]["verify"]["full"], ["pnpm test:all"])  # lists replace, not append
+        self.assertEqual(out["config"]["verify"]["order"], ["test"])  # lists replace, not append
         self.assertEqual(out["config"]["areas"]["tests"], ["**/*.test.*"])    # default kept
         self.assertEqual(out["overrides"]["extra"], 1)
 
@@ -334,70 +334,116 @@ class ScaffoldTest(ProjectTestCase):
         self.init()
         self.template("templates/project/f.md", "paths:\n{{config.areas.tests|yaml_list}}\nv={{ config.verify | json }}\n")
         self.assertEqual(self.sc("preview", "templates/project/f.md")["text"],
-                         'paths:\n  - "**/*.test.*"\nv={"full": ["just verify", "just test"]}\n')
+                         'paths:\n  - "**/*.test.*"\nv={"order": ["lint", "test"]}\n')
 
     def test_foreign_placeholders_pass_through(self):
         self.init()
-        self.template("templates/project/f.yml", "g: ${{ github.ref }}\nj: {{args}}\nv: {{plugin_version}}\n")
+        self.template("templates/project/f.yml", "g: ${{ github.ref }}\nj: {{ other.tool }}\nv: {{plugin_version}}\n")
         self.assertEqual(self.sc("preview", "templates/project/f.yml")["text"],
-                         "g: ${{ github.ref }}\nj: {{args}}\nv: 1.3.0\n")
+                         "g: ${{ github.ref }}\nj: {{ other.tool }}\nv: 1.3.0\n")
 
-    def test_contract_reports_missing_recipes(self):
+    # --- commands contract, verify plan, allowlist, generated CI ---------------------------
+
+    REQUIRED = {"contract": {"required": ["install", "test", "lint"]}, "verify": {"order": ["lint", "test"]}}
+
+    def commands_config(self, **config):
         self.init()
-        self.template("templates/project/config.defaults.json",
-                      json.dumps({"contract": {"required": ["install", "test", "verify"]}}))
-        self.assertEqual(self.sc("contract")["exists"], False)
-        self.write("justfile", "set shell := [\"bash\", \"-c\"]\nalias t := test\nversion := \"1\"\n"
-                               "# comment: not a recipe\ntest *args:\n    pnpm test {{args}}\n"
-                               "@install:\n    pnpm i\nverify pkg=\"\": (test pkg)\n")
+        self.template("templates/project/config.defaults.json", json.dumps(self.REQUIRED))
+        self.write(".sdlc/config.json", json.dumps({"min_plugin_version": "1.3.0", **config}))
+
+    def test_contract_single_project(self):
+        self.commands_config(commands={"install": "git --version", "test": "./run-tests.sh", "lint": None})
         out = self.sc("contract")
-        self.assertEqual(out["missing"], [])
-        self.assertTrue(out["ok"])
-        self.write("justfile", "test:\n    pnpm test\n")
-        self.assertEqual(self.sc("contract")["missing"], ["install", "verify"])
+        root = out["scopes"]["(root)"]
+        self.assertEqual((out["ok"], out["monorepo"], root["not_applicable"]), (True, False, ["lint"]))
+        self.assertEqual(root["not_found"], {"test": "./run-tests.sh"})  # repo-relative path that doesn't exist
+        self.assertFalse(out["tools_ok"])
+        self.write("run-tests.sh", "")
+        self.assertTrue(self.sc("contract")["tools_ok"])
 
-    def test_contract_resolves_modules_like_just(self):
-        self.init()
-        self.template("templates/project/config.defaults.json", json.dumps({"contract": {"required": ["test"]}}))
-        self.write("justfile", "mod a 'pkgs/a'\nmod b\nmod? c 'pkgs/c.just'\nmod d 'nowhere'\ntest:\n    true\n")
-        self.write("pkgs/a/mod.just", "test:\n    true\n")
-        self.write("b/justfile", "lint:\n    true\n")
-        self.write("pkgs/c.just", "test:\n    true\n")
-        mods = self.sc("contract")["modules"]
-        self.assertEqual({k: (v["justfile"], v["ok"]) for k, v in mods.items()},
-                         {"a": ("pkgs/a/mod.just", True), "b": ("b/justfile", False),
-                          "c": ("pkgs/c.just", True), "d": (None, False)})
+    def test_contract_reports_missing_commands(self):
+        self.commands_config(commands={"test": "git --version"})
+        root = self.sc("contract")["scopes"]["(root)"]
+        self.assertEqual(root["missing"], ["install", "lint"])
+        self.assertFalse(root["ok"])
 
-    def fake_just(self, version):
-        """A `just` on PATH that only answers --version (anything else fails, so recipes are parsed)."""
-        bindir = os.path.join(self.plugin, "bin")
-        os.makedirs(bindir, exist_ok=True)
-        with open(os.path.join(bindir, "just"), "w") as f:
-            f.write(f'#!/bin/sh\n[ "$1" = "--version" ] && echo "just {version}" && exit 0\nexit 1\n')
-        os.chmod(os.path.join(bindir, "just"), 0o755)
-        return {"PATH": bindir + os.pathsep + "/usr/bin:/bin"}
+    def test_contract_skips_env_assignments_when_finding_the_tool(self):
+        self.commands_config(commands={"install": "CI=1 FOO=bar git status", "test": "nosuchtool-xyz run",
+                                       "lint": "git diff"})
+        self.assertEqual(self.sc("contract")["scopes"]["(root)"]["not_found"], {"test": "nosuchtool-xyz"})
 
-    def contract_with(self, env):
-        code, out, raw, err = run_hook([sys.executable, SCRIPT, "--root", self.root, "contract"], "", self.root,
-                                       env_extra={"CLAUDE_PLUGIN_ROOT": self.plugin, **env})
-        self.assertEqual(code, 0, raw + err)
-        return out["just"]
+    def test_contract_monorepo_packages(self):
+        cmds = {"install": "git --version", "test": "git --version", "lint": "git --version"}
+        self.commands_config(packages=[{"name": "api", "path": "services/api", "stack": "go", "commands": cmds},
+                                       {"name": "api", "path": "apps/web", "commands": {"test": "git log"}},
+                                       {"path": "nowhere", "commands": cmds}])
+        os.makedirs(self.path("services/api"))
+        os.makedirs(self.path("apps/web"))
+        out = self.sc("contract")
+        self.assertTrue(out["monorepo"])
+        self.assertFalse(out["ok"])
+        self.assertTrue(out["scopes"]["api"]["ok"] is False)  # the duplicate name overwrote the first entry
+        self.assertIn("duplicate package name 'api'", out["scopes"]["api"]["problems"])
+        self.assertIn("package without a name", out["scopes"]["?"]["problems"])
+        self.assertIn("path 'nowhere' does not exist", out["scopes"]["?"]["problems"])
 
-    def test_contract_checks_just_version_only_when_modules_are_used(self):
-        self.init()
-        self.template("templates/project/config.defaults.json",
-                      json.dumps({"contract": {"required": ["test"], "min_just": "1.31.0"}}))
-        self.write("justfile", "test:\n    true\n")
-        self.assertEqual(self.contract_with(self.fake_just("1.21.0")),
-                         {"installed": True, "version": "1.21.0", "min": None, "ok": True})
-        self.write("justfile", "mod api\ntest:\n    true\n")
-        self.write("api.just", "test:\n    true\n")
-        old = self.contract_with(self.fake_just("1.21.0"))
-        self.assertEqual((old["min"], old["ok"]), ("1.31.0", False))
-        self.assertIn("install", old)
-        self.assertTrue(self.contract_with(self.fake_just("1.36.0"))["ok"])
-        missing = self.contract_with({"PATH": "/usr/bin:/bin"})
-        self.assertEqual((missing["installed"], missing["ok"]), (False, False))
+    def test_commands_verify_plan(self):
+        self.commands_config(packages=[
+            {"name": "api", "path": "services/api/", "commands": {"install": "go mod download", "lint": "golangci-lint run",
+                                                                 "test": "go test ./..."}},
+            {"name": "sh", "path": "scripts", "commands": {"install": None, "lint": "shellcheck *.sh", "test": None}}])
+        out = self.sc("commands")
+        self.assertEqual([(x["scope"], x["cwd"], x["run"]) for x in out["install"]],
+                         [("api", "services/api", "go mod download")])
+        self.assertEqual([(x["scope"], x["step"]) for x in out["verify"]],
+                         [("api", "lint"), ("api", "test"), ("sh", "lint")])
+
+    def test_allow_from_commands(self):
+        self.commands_config(commands={"install": "pnpm install", "test": "pnpm test", "lint": None})
+        out = self.sc("allow", "--from-commands")
+        self.assertEqual(out["added"], ["Bash(pnpm install:*)", "Bash(pnpm test:*)"])
+        self.assertEqual(self.sc("allow", "--from-commands")["added"], [])  # idempotent
+
+    def test_builtin_ci_single_project(self):
+        self.commands_config(project={"stack": ["typescript"]},
+                             commands={"install": "pnpm install --frozen-lockfile", "test": "pnpm test", "lint": "pnpm lint"},
+                             ci={"os": ["ubuntu-latest", "windows-latest"]})
+        out = self.sc("render", "builtin:ci", ".github/workflows/sdlc-verify.yml", "--class", "seeded")
+        self.assertTrue(out["changed"])
+        text = self.read(".github/workflows/sdlc-verify.yml")
+        self.assertIn('os: ["ubuntu-latest", "windows-latest"]', text)
+        self.assertIn("runs-on: ${{ matrix.os }}", text)
+        self.assertIn("actions/setup-node@v4", text)
+        self.assertIn("shell: bash", text)
+        steps = [l.strip() for l in text.splitlines() if l.strip().startswith(("- name:", "pnpm"))]
+        self.assertEqual(steps, ['- name: "install"', "pnpm install --frozen-lockfile", '- name: "lint"', "pnpm lint",
+                                 '- name: "test"', "pnpm test"])
+        self.assertNotIn("working-directory", text)
+        self.assertEqual(self.lock()["files"][".github/workflows/sdlc-verify.yml"]["template"], "builtin:ci")
+
+    def test_builtin_ci_polyglot(self):
+        self.commands_config(packages=[
+            {"name": "api", "path": "services/api", "stack": "go", "commands": {"test": "go test ./..."}},
+            {"name": "core", "path": "libs/core", "stack": "rust", "commands": {"lint": "cargo clippy", "test": "cargo test"}},
+            {"name": "app", "path": "apps/mobile", "stack": "elixir", "commands": {"test": "mix test"}}])
+        self.write("services/api/go.mod", "module x\n")
+        text = self.sc("preview", "builtin:ci")["text"]
+        for want in ("actions/setup-go@v5", "go-version-file: services/api/go.mod", "dtolnay/rust-toolchain@stable",
+                     "# TODO: add the toolchain setup for 'elixir'", '- name: "core · lint"',
+                     "working-directory: libs/core"):
+            self.assertIn(want, text)
+
+    def test_builtin_ci_needs_commands(self):
+        self.commands_config()
+        self.assertIn("no commands", self.sc("preview", "builtin:ci", expect=1)["error"])
+
+    def test_builtin_ci_is_upgradable(self):
+        self.commands_config(commands={"install": "make deps", "test": "make test", "lint": "make lint"})
+        self.sc("render", "builtin:ci", "ci.yml", "--class", "seeded")
+        self.set_plugin_version("1.4.0")
+        self.write(".sdlc/config.json", json.dumps({"min_plugin_version": "1.3.0",
+                                                    "commands": {"install": "make deps", "test": "make check", "lint": "make lint"}}))
+        self.assertEqual([i["path"] for i in self.sc("upgrade-plan")["replace"]], ["ci.yml"])
 
     def test_unknown_filter_is_an_error(self):
         self.init()
@@ -411,7 +457,7 @@ class ScaffoldTest(ProjectTestCase):
         self.sc("render", "templates/project/rules/sdlc.md", ".claude/rules/sdlc.md", plugin=PLUGIN_ROOT)
         text = self.read(".claude/rules/sdlc.md")
         self.assertNotIn("{{", text)
-        self.assertIn("just verify, just test", text)
+        self.assertIn(".sdlc/config.json", text)
 
 
 if __name__ == "__main__":

@@ -5,19 +5,15 @@
       "test",
       "lint",
       "typecheck",
-      "build",
-      "verify"
-    ],
-    "optional": [
-      "test-affected",
-      "fmt"
-    ],
-    "min_just": "1.31.0"
+      "build"
+    ]
   },
   "verify": {
-    "full": [
-      "just verify",
-      "just test"
+    "order": [
+      "lint",
+      "typecheck",
+      "build",
+      "test"
     ]
   },
   "baseline": ".sdlc/baseline.md",
@@ -47,14 +43,15 @@
       "**/Dockerfile*",
       "**/docker-compose*.{yml,yaml}",
       "**/*.tf",
-      "{infra,deploy,k8s,helm}/**",
-      "justfile"
+      "{infra,deploy,k8s,helm}/**"
     ]
   },
   "ci": {
-    "node_version": "22",
     "os": [
       "ubuntu-latest"
-    ]
+    ],
+    "node_version": "22",
+    "java_version": "21",
+    "dotnet_version": "8.0.x"
   }
 }

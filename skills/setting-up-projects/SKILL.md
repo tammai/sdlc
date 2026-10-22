@@ -5,7 +5,7 @@ description: Use when a project has no .sdlc/config.json yet (new or existing re
 
 # Setting Up Projects
 
-Design: `${CLAUDE_PLUGIN_ROOT}/docs/design/setup-and-upgrade.md`. This skill is the procedure; `scripts/scaffold.py` keeps the records exact. You make the judgment calls, the script does the bookkeeping. Never hand-edit `.sdlc/scaffold.lock.json`.
+Decisions behind it: `${CLAUDE_PLUGIN_ROOT}/docs/adr/0001-project-setup-upgrade-eject.md` and `0002-record-the-repos-own-commands.md`. This skill is the procedure; `scripts/scaffold.py` keeps the records exact. You make the judgment calls, the script does the bookkeeping. Never hand-edit `.sdlc/scaffold.lock.json`.
 
 ```bash
 S="python3 ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py"   # every command prints JSON; exit 2 = refused (user edited the file)
@@ -34,7 +34,7 @@ Every file the plugin places is in one class (the lock records it). Respect it i
 | Generated | `.claude/rules/sdlc*.md` | `$S render` overwrites freely |
 | Seeded | `.claude/hookify/sdlc-*.md`, `.github/workflows/sdlc-verify.yml`, `.sdlc/lint/*` | `$S render --if-unchanged`; exit 2 → show the user a diff, never overwrite |
 | Keyed merge | `.claude/settings.json` allow entries, `.gitignore` lines | only via `$S allow` / `$S gitignore` |
-| Contract | `justfile` (and package justfiles) | user-owned; propose recipe diffs, `$S contract` checks |
+| Commands | `commands` / `packages[].commands` in `.sdlc/config.json` | user-owned data; `$S contract` checks, `$S commands` prints the verify plan |
 | User-owned | `CLAUDE.md`, `.sdlc/constitution.md`, `knowledge/**`, `.sdlc/baseline.md`, other `.claude/rules/*.md` | write once with approval; afterwards only through approved migrations |
 
 Plugin-owned files are named `sdlc-*` (or `sdlc.md`); everything else belongs to the project.
@@ -45,7 +45,7 @@ Plugin-owned files are named `sdlc-*` (or `sdlc.md`); everything else belongs to
 
 **Mode:** greenfield when the repo has no source files (ignore README, LICENSE, docs, dotfiles); brownfield otherwise. If it's unclear (only docs, a spike folder), ask.
 
-1. `detect` – `$S init --kind <greenfield|brownfield>`. Then follow `references/greenfield.md` or `references/brownfield.md` for the stack, justfile, baseline, audit and CI steps. Both end with a working justfile contract (`$S contract` → `"ok": true`, and `just.ok`; if `just` is missing or too old, offer the `just.install` command as a hard stop).
+1. `detect` – `$S init --kind <greenfield|brownfield>`. Then follow `references/greenfield.md` or `references/brownfield.md` for the stack, commands, baseline, audit and CI steps. Both end with the project's commands recorded and checked (`$S contract` → `"ok": true`).
 2. Then the common steps below, in order.
 
 ### Common steps
@@ -54,8 +54,8 @@ Plugin-owned files are named `sdlc-*` (or `sdlc.md`); everything else belongs to
 |---|---|
 | `rules` | `$S render templates/project/rules/sdlc.md .claude/rules/sdlc.md`, and for each of `code-style tests migrations sensitive ci`: `$S render templates/project/rules/<x>.md .claude/rules/sdlc-<x>.md`. Before rendering, check `$S config` → `areas.*` globs against the real layout; put project-specific globs in `.sdlc/config.json` (overrides only). |
 | `guardrails` | For each `${CLAUDE_PLUGIN_ROOT}/templates/project/hookify/sdlc-*.md`: `$S render templates/project/hookify/<f> .claude/hookify/<f> --class seeded`. Mention the list in one line; the user can delete any. |
-| `lint` | JS/TS: `$S render templates/project/lint/eslint.sdlc.mjs .sdlc/lint/eslint.sdlc.mjs --class seeded`, then propose the import in the user's `eslint.config.*` (diff, approved). Python: same with `ruff.sdlc.toml` and `extend = ".sdlc/lint/ruff.sdlc.toml"` in `pyproject.toml`. Run `just lint` afterwards: new warnings go to the baseline (brownfield) or get fixed (greenfield). |
-| `allowlist` | `$S allow --add "Bash(just install:*)" "Bash(just test:*)" "Bash(just lint:*)" "Bash(just typecheck:*)" "Bash(just build:*)" "Bash(just verify:*)"` |
+| `lint` | JS/TS: `$S render templates/project/lint/eslint.sdlc.mjs .sdlc/lint/eslint.sdlc.mjs --class seeded`, then propose the import in the user's `eslint.config.*` (diff, approved). Python: same with `ruff.sdlc.toml` and `extend = ".sdlc/lint/ruff.sdlc.toml"` in `pyproject.toml`. Run the lint command(s) afterwards: new warnings go to the baseline (brownfield) or get fixed (greenfield). |
+| `allowlist` | `$S allow --from-commands` (adds `Bash(<command>:*)` for every command in config) |
 | `gitignore` | `$S gitignore --add ".sdlc/.work/" ".claude/*.local.md"` |
 | `constitution` | `sdlc:project-constitution`, inferring from the repo and the interview; keep the default **V. Simplicity**. User approves. |
 | `knowledge` | If `knowledge/index.md` is missing: `sdlc:managing-knowledge` setup (index, log, folders). Brownfield: the audit's approved drafts go here. User-owned from the start. |
@@ -63,7 +63,7 @@ Plugin-owned files are named `sdlc-*` (or `sdlc.md`); everything else belongs to
 
 ## Hard stops (always ask)
 
-Stack choice (greenfield) · justfile diff (brownfield) · installing `just` or any tool · each audit batch before it is written · each AI-config migration · adding CI to a repo that already has CI · lint config import · constitution · PR vs local merge. Everything else proceeds without asking.
+Stack choice (greenfield) · the commands (brownfield) · installing any tool · each audit batch before it is written · each AI-config migration · adding CI to a repo that already has CI · lint config import · constitution · PR vs local merge. Everything else proceeds without asking.
 
 ## Report
 

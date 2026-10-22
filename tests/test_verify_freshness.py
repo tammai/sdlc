@@ -55,6 +55,9 @@ class VerifyFreshnessTest(ProjectTestCase):
         with open(self.path(".sdlc/.work/verify-freshness.json"), encoding="utf-8") as f:
             return json.load(f)
 
+    def scope_state(self, name="(root)"):
+        return self.state_file()["scopes"][name]
+
     # --- when the hook is inactive -------------------------------------------------
 
     def test_no_sdlc_dir_is_noop(self):
@@ -88,7 +91,7 @@ class VerifyFreshnessTest(ProjectTestCase):
         self.set_state()
         self.bash("npm test")
         self.assertAllows()
-        st = self.state_file()
+        st = self.scope_state()
         self.assertFalse(st["stale"])
         self.assertEqual(st["last_test_cmd"], "npm test")
 
@@ -211,51 +214,34 @@ class VerifyFreshnessTest(ProjectTestCase):
     def configure(self, **config):
         self.write(".sdlc/config.json", json.dumps({"min_plugin_version": "1.3.0", **config}))
 
-    def test_config_defaults_make_just_recipes_count(self):
+    def test_config_test_command_counts_and_generic_runners_do_not(self):
         self.set_state()
-        self.configure()
-        for cmd in ["just verify", "just test", "cd app && just test 2>&1 | tail"]:
-            with self.subTest(cmd=cmd):
-                self.edit("src/a.ts")
-                self.bash(cmd)
-                self.assertAllows()
-
-    def test_cd_into_a_package_with_its_own_justfile_is_partial(self):
-        self.set_state()
-        self.configure()
-        self.write("services/api/justfile", "test:\n    go test ./...\n")
-        self.write("docs/notes.txt", "")
-        for cmd, full in [("cd services/api && just test", False), ("cd 'services/api'; just verify", False),
-                          ("cd docs && just test", True), ("cd . && just verify", True),
-                          ("cd services/api && make x; cd .. && just verify", True)]:
+        self.configure(commands={"test": "pnpm test", "lint": "pnpm lint"})
+        for cmd, full in [("pnpm test", True), ("CI=1 pnpm test 2>&1 | tail", True), ("pnpm lint && pnpm test", True),
+                          ("npx vitest run", False), ("pnpm test src/a.test.ts", False), ("pnpm test -t login", False),
+                          ("pnpm test:unit", False)]:
             with self.subTest(cmd=cmd):
                 self.edit("src/a.ts")
                 self.bash(cmd)
                 (self.assertAllows if full else self.assertBlocks)()
 
-    def test_just_recipe_arguments_are_filters(self):
+    def test_config_command_only_counts_in_its_own_directory(self):
         self.set_state()
-        self.configure()
-        for cmd in ["just test src/a.test.ts", "just verify @app/web", "just test login", "just test-affected",
-                    "npm test"]:  # once configured, only the configured commands count
-            with self.subTest(cmd=cmd):
-                self.edit("src/a.ts")
-                self.bash(cmd)
-                self.assertBlocks()
-
-    def test_config_verify_full_overrides_defaults(self):
-        self.set_state()
-        self.configure(verify={"full": ["make check"]})
-        self.bash("just verify")
+        self.configure(commands={"test": "pnpm test"})
+        self.write("apps/web/x.ts", "")
+        self.bash("cd apps/web && pnpm test")
         self.assertBlocks()
-        self.bash("make check")
+        self.bash("cd apps/web && cd ../.. && pnpm test")
         self.assertAllows()
-        self.edit("src/a.ts")
+
+    def test_block_message_names_the_config_command(self):
+        self.set_state()
+        self.configure(commands={"test": "make check"})
         self.assertIn("`make check`", self.assertBlocks()["reason"])
 
     def test_state_test_command_still_counts_with_config(self):
         self.set_state(test_cmd="pnpm test:all")
-        self.configure()
+        self.configure(commands={"test": "pnpm test"})
         self.bash("pnpm test:all")
         self.assertAllows()
 
@@ -263,6 +249,96 @@ class VerifyFreshnessTest(ProjectTestCase):
         self.set_state(test_cmd="pnpm test")
         self.bash("pnpm test:unit")
         self.assertBlocks()
+
+    # --- monorepo: freshness per package ----------------------------------------------
+
+    PACKAGES = [{"name": "api", "path": "services/api", "stack": "go", "commands": {"test": "go test ./..."}},
+                {"name": "web", "path": "apps/web", "stack": "node", "commands": {"test": "pnpm test"}}]
+
+    def monorepo(self, root_test=None):
+        self.set_state()
+        config = {"packages": self.PACKAGES}
+        if root_test:
+            config["commands"] = {"test": root_test}
+        self.configure(**config)
+        for d in ("services/api", "apps/web"):
+            os.makedirs(self.path(d), exist_ok=True)
+
+    def test_every_package_starts_stale(self):
+        self.monorepo()
+        reason = self.assertBlocks()["reason"]
+        self.assertIn("api: no full test run", reason)
+        self.assertIn("→ run `cd services/api && go test ./...`", reason)
+        self.assertIn("→ run `cd apps/web && pnpm test`", reason)
+
+    def test_each_package_goes_fresh_in_its_own_directory(self):
+        self.monorepo()
+        self.bash("cd services/api && go test ./...")
+        reason = self.assertBlocks()["reason"]
+        self.assertNotIn("api:", reason)
+        self.assertIn("web:", reason)
+        self.bash("pnpm test")  # right command, wrong directory (repo root)
+        self.assertBlocks()
+        self.bash("cd 'apps/web' && pnpm test")
+        self.assertAllows()
+
+    def test_session_cwd_counts_as_the_run_directory(self):
+        self.monorepo()
+        self.bash("cd services/api && go test ./...")
+        payload = {"hook_event_name": "PostToolUse", "cwd": self.path("apps/web"), "tool_name": "Bash",
+                   "tool_input": {"command": "pnpm test"}, "tool_response": {}}
+        run_hook(HOOK, payload, self.path("apps/web"), env_extra={"CLAUDE_PROJECT_DIR": self.root})
+        self.assertAllows()
+
+    def test_edit_only_makes_its_own_package_stale(self):
+        self.monorepo()
+        self.bash("cd services/api && go test ./...")
+        self.bash("cd apps/web && pnpm test")
+        self.edit("services/api/handler.go")
+        reason = self.assertBlocks()["reason"]
+        self.assertIn("api: services/api/handler.go edited", reason)
+        self.assertNotIn("web:", reason)
+
+    def test_shared_root_file_makes_every_package_stale(self):
+        self.monorepo()
+        self.bash("cd services/api && go test ./...")
+        self.bash("cd apps/web && pnpm test")
+        self.edit("tsconfig.base.json")
+        reason = self.assertBlocks()["reason"]
+        self.assertIn("api:", reason)
+        self.assertIn("web:", reason)
+
+    def test_package_filters_still_partial(self):
+        self.monorepo()
+        self.bash("cd services/api && go test ./internal/auth")
+        self.assertIn("api:", self.assertBlocks()["reason"])
+
+    def test_root_test_command_covers_every_package(self):
+        self.monorepo(root_test="pnpm turbo run test")
+        self.bash("pnpm turbo run test")
+        self.assertAllows()
+        self.bash("cd apps/web && pnpm turbo run test")  # from inside a package it's not the root run
+        self.edit("apps/web/a.ts")
+        self.bash("cd apps/web && pnpm turbo run test")
+        self.assertBlocks()
+
+    def test_worktree_changes_are_attributed_per_package(self):
+        git = ["git", "-C", self.root, "-c", "user.email=t@t", "-c", "user.name=t"]
+        self.write(".gitignore", ".sdlc/.work/\n")
+        self.write("services/api/main.go", "package main\n")
+        self.write("apps/web/a.ts", "export const a = 1\n")
+        subprocess.run(git + ["init", "-q"], check=True)
+        subprocess.run(git + ["add", "-A"], check=True)
+        subprocess.run(git + ["commit", "-q", "-m", "init"], check=True)
+        self.monorepo()
+        self.bash("cd services/api && go test ./...")
+        self.bash("cd apps/web && pnpm test")
+        self.write("apps/web/a.ts", "export const a = 2\n")  # e.g. a formatter, no Edit tool involved
+        reason = self.assertBlocks()["reason"]
+        self.assertIn("web: apps/web/a.ts changed", reason)
+        self.assertNotIn("api:", reason)
+        self.write("apps/web/a.ts", "export const a = 1\n")
+        self.assertAllows()
 
     # --- loop guard, feature switch, git -----------------------------------------
 
@@ -289,7 +365,7 @@ class VerifyFreshnessTest(ProjectTestCase):
         head = subprocess.run(git + ["rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()
         self.set_state()
         self.bash("npm test")
-        self.assertEqual(self.state_file()["head"], head)
+        self.assertEqual(self.scope_state()["head"], head)
 
     # --- worktree fingerprint (git repos): catches edits made outside Edit/Write --------
 

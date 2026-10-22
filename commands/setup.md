@@ -1,5 +1,5 @@
 ---
-description: Set up this repo for the sdlc workflow (greenfield or brownfield) — justfile contract, rules, guardrails, CI, constitution, knowledge — on a branch, resumable
+description: Set up this repo for the sdlc workflow (greenfield or brownfield) — project commands, rules, guardrails, CI, constitution, knowledge — on a branch, resumable
 argument-hint: "[what you're building, for a new repo]"
 ---
 

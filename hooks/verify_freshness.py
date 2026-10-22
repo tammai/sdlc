@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
 """sdlc verify-freshness hook.
 
-Active only while an .sdlc feature is in Stage 5 (Verify):
-  - PostToolUse Edit/Write/MultiEdit/NotebookEdit on a code file -> mark test results stale
-  - PostToolUse Bash running the full test command                -> mark fresh (records time, HEAD, worktree tree)
-  - Stop                                                          -> in a git repo, diff the worktree against the
-                                                                     tree recorded at the last full run (catches edits
-                                                                     made via Bash, formatters, subagents); block if
-                                                                     stale with "re-run tests"
+Active only while an .sdlc feature is in Stage 5 (Verify). Freshness is tracked per scope: each package of a
+monorepo (`packages` in .sdlc/config.json), or the whole project.
+  - PostToolUse Edit/Write/MultiEdit/NotebookEdit on a code file -> the owning package goes stale (a file outside
+                                                                     every package: all of them)
+  - PostToolUse Bash running a scope's full test command, in that  -> that scope goes fresh (records time, HEAD,
+    scope's directory (`cd <path> && <test>`, or the session cwd)     worktree tree); a root `commands.test` next to
+                                                                     packages makes every scope fresh
+  - Stop                                                          -> in a git repo, diff the worktree against each
+                                                                     scope's tree from its last full run (catches
+                                                                     edits via Bash, formatters, subagents); block if
+                                                                     any scope is stale, naming what to rerun
 
 The worktree tree is built with a throwaway copy of the git index (the real index is never touched).
-Full-run commands: `verify.full` from .sdlc/config.json over the plugin defaults (`just verify`, `just test`),
-plus the `test:` command in state.md; without a config, the state.md command or generic runner patterns.
+Test commands: `commands.test` / `packages[].commands.test` from .sdlc/config.json; without a config, the
+`test:` command in state.md, else generic runner patterns.
 State lives in .sdlc/.work/verify-freshness.json. Never fails the session: any error exits 0.
 """
 import glob
@@ -74,23 +78,48 @@ def active_verify_feature(root):
     return None, None
 
 
-def full_run_commands(root, state_test_cmd):
-    """Commands that count as a full test run, or [] to fall back to the generic runner patterns."""
-    cmds = [state_test_cmd] if state_test_cmd else []
+ROOT = "(root)"
+
+
+def load_scopes(root, state_test_cmd):
+    """([{name, path, tests}], root_tests): one scope per package, else the whole project. `tests` empty means
+    "use the generic runner patterns"; root_tests (monorepo only) are root-level commands that cover every scope."""
     try:
         with open(os.path.join(root, ".sdlc", "config.json"), encoding="utf-8") as f:
             config = json.load(f)
     except (OSError, ValueError):
-        return cmds
-    full = (config.get("verify") or {}).get("full")
-    if full is None:
-        plugin_root = os.environ.get("CLAUDE_PLUGIN_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        try:
-            with open(os.path.join(plugin_root, "templates", "project", "config.defaults.json"), encoding="utf-8") as f:
-                full = json.load(f).get("verify", {}).get("full")
-        except (OSError, ValueError):
-            full = None
-    return cmds + [c for c in (full or []) if c not in cmds]
+        config = {}
+    root_test = (config.get("commands") or {}).get("test")
+    pkgs = config.get("packages") or []
+    if pkgs:
+        scopes = [{"name": pk.get("name") or pk.get("path"), "path": norm((pk.get("path") or ".")),
+                   "tests": [t for t in [(pk.get("commands") or {}).get("test")] if t]} for pk in pkgs]
+        return scopes, [root_test] if root_test else []
+    tests = [t for t in (state_test_cmd, root_test) if t]
+    return [{"name": ROOT, "path": ".", "tests": list(dict.fromkeys(tests))}], []
+
+
+def norm(path):
+    p = os.path.normpath(path).replace(os.sep, "/")
+    return "." if p in ("", ".") else p.strip("/")
+
+
+def scope_for(scopes, rel_path):
+    """Scopes a changed file belongs to: the package whose path contains it, else (shared file) all of them."""
+    if len(scopes) == 1:
+        return scopes
+    owners = [sc for sc in scopes if sc["path"] != "." and (rel_path == sc["path"] or rel_path.startswith(sc["path"] + "/"))]
+    if owners:
+        return [max(owners, key=lambda sc: len(sc["path"]))]
+    return scopes
+
+
+def run_dir(command, end, root, cwd):
+    """Directory (relative to root) a command runs in: the last `cd` before position `end`, else the hook's cwd."""
+    base = cwd or root
+    for target in re.findall(r"""\bcd\s+("[^"]+"|'[^']+'|[^\s;&|]+)\s*(?:&&|;)""", command[:end]):
+        base = os.path.join(base, os.path.expanduser(target.strip("\"'")))
+    return norm(os.path.relpath(os.path.abspath(base), root))
 
 
 def state_path(root):
@@ -150,18 +179,15 @@ def worktree_tree(root):
             os.remove(tmp)
 
 
-def changed_code_files(root, old_tree):
-    """Code files that differ from old_tree, or None when it can't be told (no git, tree gone)."""
-    new_tree = worktree_tree(root)
-    if not new_tree:
-        return None
+def changed_code_files(root, old_tree, new_tree):
+    """Code files that differ between the trees, or None when it can't be told (tree gone)."""
     if new_tree == old_tree:
         return []
     names = git(root, "diff", "--name-only", "--no-renames", old_tree, new_tree)
     top = git(root, "rev-parse", "--show-toplevel")
     if names is None or not top:
         return None
-    return [os.path.relpath(os.path.join(top, n), root) for n in names.splitlines()
+    return [norm(os.path.relpath(os.path.join(top, n), root)) for n in names.splitlines()
             if is_code_file(root, os.path.join(top, n))]
 
 
@@ -174,14 +200,12 @@ def is_code_file(root, file_path):
     return not rel.lower().endswith(NON_CODE_EXT)
 
 
-def names_specific_tests(args, is_go, is_just=False):
+def names_specific_tests(args, is_go):
     try:
         tokens = shlex.split(args)
     except ValueError:
         tokens = args.split()
     for t in (t for t in tokens if not t.startswith("-")):
-        if is_just:  # by the justfile contract, any recipe argument filters the run (file, package, pattern)
-            return True
         if TEST_FILE_ARG.search(t):
             return True
         if is_go and t not in GO_ALL_PACKAGES and not t.endswith("/..."):
@@ -189,40 +213,42 @@ def names_specific_tests(args, is_go, is_just=False):
     return False
 
 
-def runs_in_package(command, end, root):
-    """True if the command cd's into a directory with its own justfile before running a just recipe:
-    that's one monorepo package, not the whole repo."""
-    cds = re.findall(r"""\bcd\s+("[^"]+"|'[^']+'|[^\s;&|]+)\s*(?:&&|;)""", command[:end])
-    if not cds or not root:
-        return False
-    target = cds[-1].strip("\"'")
-    path = os.path.normpath(os.path.join(root, target))
-    if path == os.path.normpath(root):
-        return False
-    return any(os.path.isfile(os.path.join(path, n)) for n in ("justfile", "Justfile", ".justfile", "mod.just"))
-
-
-def is_full_test_run(command, test_cmds, root=None):
+def match_full_run(command, tests):
+    """End position of a full (unfiltered) run of one of `tests` (or of a generic runner when `tests` is empty)
+    in `command`, else None."""
     if not command or PARTIAL_FLAGS.search(" " + command + " "):
-        return False
-    if isinstance(test_cmds, str):
-        test_cmds = [test_cmds]
-    if test_cmds:
-        hits = [c for c in test_cmds if re.search(r"(^|[\s;&|(])" + re.escape(c) + r"(?=$|[\s;&|)])", command)]
+        return None
+    if tests:
+        hits = [(m.end(), t) for t in tests
+                for m in [re.search(r"(^|[\s;&|(])" + re.escape(t) + r"(?=$|[\s;&|)])", command)] if m]
         if not hits:
-            return False
-        test_cmd = hits[0]
-        end = command.index(test_cmd) + len(test_cmd)
+            return None
+        end = min(hits)[0]
     else:
         m = GENERIC_TEST.search(command)
         if not m:
-            return False
+            return None
         end = m.end()
     args = SHELL_SEP.split(command[end:])[0]
-    is_just = test_cmds is not None and len(test_cmds) > 0 and test_cmd.startswith("just ")
-    if is_just and runs_in_package(command, end, root):
-        return False
-    return not names_specific_tests(args, is_go=re.search(r"\bgo\s+test\b", command) is not None, is_just=is_just)
+    if names_specific_tests(args, is_go=re.search(r"\bgo\s+test\b", command) is not None):
+        return None
+    return end
+
+
+def fresh_scopes(command, scopes, root_tests, root, cwd, configured):
+    """Names of the scopes a Bash command fully tests."""
+    end = match_full_run(command, root_tests) if root_tests else None
+    if end is not None and run_dir(command, end, root, cwd) == ".":
+        return [sc["name"] for sc in scopes]
+    names = []
+    for sc in scopes:
+        end = match_full_run(command, sc["tests"])
+        if end is None:
+            continue
+        # A configured scope's command only counts in that scope's own directory; legacy (no config) ignores cd
+        if not configured or run_dir(command, end, root, cwd) == sc["path"]:
+            names.append(sc["name"])
+    return names
 
 
 def main():
@@ -234,9 +260,13 @@ def main():
     feature, test_cmd = active_verify_feature(root)
     if not feature:
         return
+    scopes, root_tests = load_scopes(root, test_cmd)
+    configured = os.path.exists(os.path.join(root, ".sdlc", "config.json"))
     st = load(root)
-    if st.get("feature") != feature:
-        st = {"feature": feature, "stale": True, "reason": "no full test run recorded in Stage 5 yet"}
+    if st.get("feature") != feature or "scopes" not in st:
+        st = {"feature": feature, "scopes": {}}
+    for sc in scopes:
+        st["scopes"].setdefault(sc["name"], {"stale": True, "reason": "no full test run recorded in Stage 5 yet"})
 
     if event == "PostToolUse":
         tool = data.get("tool_name", "")
@@ -244,39 +274,59 @@ def main():
         if tool in EDIT_TOOLS:
             fp = tin.get("file_path") or tin.get("notebook_path")
             if is_code_file(root, fp):
-                st.update(stale=True, reason=f"{os.path.relpath(fp, root)} edited at {now()} after the last full test run",
-                          last_edit_at=now(), last_edit_file=os.path.relpath(fp, root))
+                rel = norm(os.path.relpath(os.path.abspath(fp), root))
+                for sc in scope_for(scopes, rel):
+                    st["scopes"][sc["name"]].update(stale=True, last_edit_at=now(), last_edit_file=rel,
+                                                    reason=f"{rel} edited at {now()} after the last full test run")
                 save(root, st)
         elif tool == "Bash":
             cmd = tin.get("command", "")
             resp = data.get("tool_response") or {}
             if isinstance(resp, dict) and resp.get("interrupted"):
                 return
-            if is_full_test_run(cmd, full_run_commands(root, test_cmd), root):
-                st.update(stale=False, reason="", last_test_at=now(), last_test_cmd=cmd, head=git_head(root),
-                          tree=worktree_tree(root))
+            names = fresh_scopes(cmd, scopes, root_tests, root, data.get("cwd"), configured)
+            if names:
+                tree, head = worktree_tree(root), git_head(root)
+                for name in names:
+                    st["scopes"][name].update(stale=False, reason="", last_test_at=now(), last_test_cmd=cmd,
+                                              head=head, tree=tree)
                 save(root, st)
         return
 
-    if event == "Stop" and st.get("tree"):
-        changed = changed_code_files(root, st["tree"])
-        if changed:
-            more = f" and {len(changed) - 5} more" if len(changed) > 5 else ""
-            st.update(stale=True, reason=f"{', '.join(changed[:5])}{more} changed since the last full test run")
-        elif changed == []:
-            st.update(stale=False, reason="")  # edits since the run were reverted, or only touched non-code
-        save(root, st)
-
-    if event == "Stop" and st.get("stale"):
-        save(root, st)
-        cmds = full_run_commands(root, test_cmd)
-        msg = (f"Verify freshness ({feature}): test results are stale — {st.get('reason')}. "
-               f"Run the full test command{f' (`{cmds[0]}`)' if cmds else ''} again before claiming "
-               f"anything passes, or dispatch a fresh sdlc:verifier agent for this round.")
-        if data.get("stop_hook_active"):
-            print(json.dumps({"systemMessage": "⚠ " + msg}))
-        else:
-            print(json.dumps({"decision": "block", "reason": msg, "systemMessage": "⚠ Verify: stale test results"}))
+    if event != "Stop":
+        return
+    tracked = [sc for sc in scopes if st["scopes"][sc["name"]].get("tree")]
+    if tracked:
+        new_tree = worktree_tree(root)
+        for sc in tracked if new_tree else []:
+            s_st = st["scopes"][sc["name"]]
+            changed = changed_code_files(root, s_st["tree"], new_tree)
+            if changed is None:
+                continue
+            mine = [f for f in changed if sc in scope_for(scopes, f)]
+            if mine:
+                more = f" and {len(mine) - 5} more" if len(mine) > 5 else ""
+                s_st.update(stale=True, reason=f"{', '.join(mine[:5])}{more} changed since the last full test run")
+            else:  # edits since the run were reverted, or only touched other scopes or non-code
+                s_st.update(stale=False, reason="")
+    save(root, st)
+    stale = [sc for sc in scopes if st["scopes"][sc["name"]].get("stale")]
+    if not stale:
+        return
+    parts = []
+    for sc in stale:
+        how = sc["tests"][0] if sc["tests"] else None
+        if how and sc["path"] != ".":
+            how = f"cd {sc['path']} && {how}"
+        label = "" if sc["name"] == ROOT else f"{sc['name']}: "
+        parts.append(f"{label}{st['scopes'][sc['name']]['reason']}" + (f" → run `{how}`" if how else ""))
+    msg = (f"Verify freshness ({feature}): test results are stale — " + "; ".join(parts) +
+           ". Rerun the full tests before claiming anything passes, or dispatch a fresh sdlc:verifier agent "
+           "for this round.")
+    if data.get("stop_hook_active"):
+        print(json.dumps({"systemMessage": "⚠ " + msg}))
+    else:
+        print(json.dumps({"decision": "block", "reason": msg, "systemMessage": "⚠ Verify: stale test results"}))
 
 
 if __name__ == "__main__":

@@ -47,45 +47,17 @@ class ProjectTemplatesTest(ProjectTestCase):
             with self.subTest(template=os.path.relpath(path, TEMPLATES)):
                 self.assertIsNone(re.search(r"\{\{\s*(config|plugin_version)\b", self.render(path)))
 
-    def test_ci_workflows_keep_github_expressions(self):
-        for path in shipped("ci", "*.yml"):
-            with self.subTest(workflow=os.path.basename(path)):
-                text = self.render(path)
-                self.assertIn("${{ github.ref }}", text)
-                self.assertIn("runs-on: ${{ matrix.os }}", text)
-                self.assertIn('os: ["ubuntu-latest"]', text)
-                self.assertIn("shell: bash", text)
-                self.assertIn("run: just verify", text)
-
-    def justfile(self, stack, dest="justfile"):
-        with open(os.path.join(PLUGIN_ROOT, "templates", "justfile", stack + ".just")) as f:
-            self.write(dest, f.read())
-
-    def test_every_stack_justfile_satisfies_the_contract(self):
-        stacks = [os.path.basename(p)[:-5] for p in glob.glob(os.path.join(PLUGIN_ROOT, "templates", "justfile", "*.just"))]
-        self.assertTrue({"node", "python", "go", "rust", "dart", "flutter", "shell", "gradle", "dotnet"} <= set(stacks))
-        for stack in sorted(set(stacks) - {"polyglot-root"}):
-            with self.subTest(stack=stack):
-                self.justfile(stack)
-                out = self.sc("contract")
-                self.assertTrue(out["ok"], out)
-
-    def test_polyglot_root_checks_every_package(self):
-        self.justfile("polyglot-root")
-        out = self.sc("contract")
-        self.assertEqual(out["missing"], [])  # the root's own recipes are complete
-        self.assertFalse(out["ok"])           # ...but its packages don't exist yet
-        self.assertEqual(set(out["modules"]), {"api", "web", "scripts"})
-        self.justfile("go", "services/api/justfile")
-        self.justfile("node", "apps/web/justfile")
-        self.justfile("shell", "scripts/justfile")
-        out = self.sc("contract")
-        self.assertTrue(out["ok"], out)
-        self.assertEqual(out["modules"]["api"]["justfile"], "services/api/justfile")
-        self.write("scripts/justfile", "test:\n    bats test\n")
-        out = self.sc("contract")
-        self.assertFalse(out["ok"])
-        self.assertIn("lint", out["modules"]["scripts"]["missing"])
+    def test_generated_ci_with_plugin_defaults(self):
+        self.write(".sdlc/config.json", json.dumps({
+            "min_plugin_version": "1.3.0", "project": {"kind": "greenfield", "stack": ["python"]},
+            "commands": {"install": "uv sync --frozen", "test": "uv run pytest", "lint": "uv run ruff check .",
+                         "typecheck": "uv run mypy .", "build": None}}))
+        text = self.sc("preview", "builtin:ci")["text"]
+        self.assertIn("astral-sh/setup-uv@v6", text)
+        self.assertIn('os: ["ubuntu-latest"]', text)
+        order = [l.strip() for l in text.splitlines() if l.strip().startswith("uv ")]
+        self.assertEqual(order, ["uv sync --frozen", "uv run ruff check .", "uv run mypy .", "uv run pytest"])
+        self.assertNotIn("{{", text.replace("${{", ""))
 
     def test_area_rules_have_paths_frontmatter_and_stay_short(self):
         for path in shipped("rules", "*.md"):

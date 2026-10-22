@@ -6,7 +6,7 @@
      - Never grows silently: adding an item needs the user's OK and a Deviations entry in that feature's state.md.
      - Fixing items is its own S-track work, not a side job inside a feature. -->
 
-Recorded: <date> at commit <hash> with `just verify`
+Recorded: <date> at commit <hash>, running each command in `.sdlc/config.json`
 
 ## Failing tests
 
