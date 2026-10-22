@@ -233,6 +233,8 @@ mark the todo complete and take the next task.
 
 ## Final Review
 
+If the orchestrator told you Stage 6 reviews the branch, skip this review and its fix pass: collect your `Ruling:` lines into your final message and return.
+
 Run `../subagent-driven-development/scripts/review-package PLAN_FILE MERGE_BASE HEAD`
 (MERGE_BASE = the commit the branch started from, e.g.
 `git merge-base main HEAD`) and review from the file it prints.

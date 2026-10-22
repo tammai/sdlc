@@ -3,6 +3,8 @@
 Part of sdlc:subagent-driven-development. Every task in the plan is
 complete.
 
+If the orchestrator told you Stage 6 reviews the branch, skip the review and its fix wave: go to Finish below.
+
 The final whole-branch review gets a package too: run
 `bash scripts/review-package PLAN_FILE MERGE_BASE HEAD` (MERGE_BASE = the commit the
 branch started from, e.g. `git merge-base main HEAD`) and include the

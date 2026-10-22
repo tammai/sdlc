@@ -76,6 +76,7 @@ At the start of every stage print exactly:
 ### 4 · Implement
 - Isolation: `sdlc:using-git-worktrees` (L track, or whenever the working tree is dirty)
 - Execution: `sdlc:subagent-driven-development` (default for L) or `sdlc:executing-plans` (inline); `sdlc:dispatching-parallel-agents` for truly independent tasks
+- One whole-branch review per feature, in Stage 6: tell the execution skill to skip its own final whole-branch review ("Stage 6 reviews the branch"). Per-task reviews still run. Record the `Ruling:` lines it reports in state.md under Deviations, so Stage 6 sees them.
 - Always on: `sdlc:test-driven-development`; `sdlc:systematic-debugging` the moment something fails unexpectedly
 - Optional loop for a single well-specified task with a machine-checkable finish: `/sdlc:ralph-loop "<task>" --completion-promise "DONE" --max-iterations 15`
 - Background: the security-guidance hooks warn on risky edits; hookify rules (if any) enforce team rules
@@ -105,6 +106,7 @@ You (the orchestrator) may run commands to investigate, but the verdict always c
 - On the GitHub PR (after Stage 8 opens it): `/sdlc:code-review`
 - Handling feedback: `sdlc:receiving-code-review` (verify before agreeing; push back with evidence)
 - Polish: `sdlc:code-simplifier` agent on the changed files
+- This is the feature's only whole-branch review (Stage 4 skipped its own). Every reviewer's brief includes the plan's Review Focus section verbatim, if it has one, and the Rulings recorded in state.md.
 - Facts first: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/diff_stats.py" --format md --plan .sdlc/<feature>/plan.md` (omit `--plan` on S track) goes into every reviewer's prompt; exports and dependencies missing from the plan's Public Surface are flagged as undeclared (comment share, single-use exports, single-implementation abstractions, new dependencies).
 - S track ("light"): `sdlc:code-reviewer` then `sdlc:code-simplifier`, both with the diff stats.
 - Severity: unrequested public surface (export, file, endpoint, option, config, dependency not in the spec/plan, with no stated reason) is high. Comment noise flagged by the stats or hookify warnings is medium and fixed in this stage, not ticketed.

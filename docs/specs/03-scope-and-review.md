@@ -46,6 +46,7 @@ Every addition is traced to a request from spec to diff, and review gets measure
 | SCO-FR-022 | `/sdlc:review-pr` picks agents by diff: code-reviewer always; pr-test-analyzer, comment-analyzer, silent-failure-hunter, type-design-analyzer when relevant; code-simplifier after review. | `[instructed]` review-pr.md (vendored, patched) |
 | SCO-FR-023 | Severity: unrequested public surface without a stated reason is high (blocks the gate); comment noise is medium and fixed in Stage 6. S track runs code-reviewer then code-simplifier. | `[instructed]` orchestrator §6, review-pr.md |
 | SCO-FR-024 | Feedback is verified before agreeing; pushback with evidence; YAGNI check on "professional" additions. | `[instructed]` receiving-code-review (vendored) |
+| SCO-FR-025 | One whole-branch review per feature, in Stage 6: under the orchestrator, `executing-plans` and `subagent-driven-development` skip their own final whole-branch review (per-task reviews still run) and report their Rulings, which go into `state.md`. Stage 6 reviewers get the plan's Review Focus and those Rulings. | `[instructed]` orchestrator §4, §6; executing-plans, final-review.md (vendored, patched) |
 
 ## Non-goals
 
