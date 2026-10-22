@@ -18,7 +18,7 @@ Before the first feature, `/sdlc:setup` prepares the repo once. `/sdlc:start` of
 
 - **Greenfield** (no source yet): a short stack interview; you approve; the ecosystem's own generators build the skeleton; the project's commands and CI pass on day one.
 - **Brownfield** (existing code): the commands you already have, recorded as they are; a **baseline** of what already fails; a deep audit (conventions, git-history gotchas, decisions, area rules) drafted by explorer agents and written only as you approve each batch; existing AI configs (long CLAUDE.md, AGENTS.md, Cursor rules, ADRs) migrated into the three knowledge tiers, one diff per source.
-- **Both:** policy rules, hookify guardrails, lint snippets, a permission allowlist for the project's commands, `.gitignore` entries, a constitution (with the default Simplicity principle), the design system (projects with UI) and the knowledge folder.
+- **Both:** policy rules, hookify guardrails, lint snippets, a permission allowlist for the project's commands, the sdlc marketplace and `enabledPlugins` in `.claude/settings.json` (only if you approve, so teammates are offered the plugin), `.gitignore` entries, a constitution (with the default Simplicity principle), the design system (projects with UI) and the knowledge folder.
 
 Setup runs on a `sdlc/setup` branch with one commit per step, resumes where it stopped, and ends by asking whether to open a PR or merge locally.
 
@@ -30,7 +30,7 @@ Setup runs on a `sdlc/setup` branch with one commit per step, resumes where it s
 |---|---|---|
 | Generated | `.claude/rules/sdlc*.md` | regenerated |
 | Seeded | `.claude/hookify/sdlc-*.md`, `.github/workflows/sdlc-verify.yml`, `.sdlc/lint/*` | replaced only if you haven't edited it; otherwise you choose: merge, skip, or keep yours for good |
-| Keyed merge | allowlist entries in `.claude/settings.json`, `.gitignore` lines | only the entries the plugin added |
+| Keyed merge | allowlist and plugin-enablement keys in `.claude/settings.json`, `.gitignore` lines | only the entries the plugin added |
 | Yours | the commands in `.sdlc/config.json`, `CLAUDE.md`, constitution, design system, `knowledge/`, baseline, your own rules | changed only by migrations you approve |
 
 Files named `sdlc-*` belong to the plugin; everything else is yours.

@@ -33,7 +33,7 @@ Every file the plugin places is in one class (the lock records it). Respect it i
 |---|---|---|
 | Generated | `.claude/rules/sdlc*.md` | `$S render` overwrites freely |
 | Seeded | `.claude/hookify/sdlc-*.md`, `.github/workflows/sdlc-verify.yml`, `.sdlc/lint/*` | `$S render --if-unchanged`; exit 2 → show the user a diff, never overwrite |
-| Keyed merge | `.claude/settings.json` allow entries, `.gitignore` lines | only via `$S allow` / `$S gitignore` |
+| Keyed merge | `.claude/settings.json` allow entries and plugin-enablement keys, `.gitignore` lines | only via `$S allow` / `$S enable-plugin` / `$S gitignore` |
 | Commands | `commands` / `packages[].commands` in `.sdlc/config.json` | user-owned data; `$S contract` checks, `$S commands` prints the verify plan |
 | User-owned | `CLAUDE.md`, `.sdlc/constitution.md`, `.sdlc/design-system.md`, `knowledge/**`, `.sdlc/baseline.md`, other `.claude/rules/*.md` | write once with approval; afterwards only through approved migrations |
 
@@ -56,6 +56,7 @@ Plugin-owned files are named `sdlc-*` (or `sdlc.md`); everything else belongs to
 | `guardrails` | For each `${CLAUDE_PLUGIN_ROOT}/templates/project/hookify/sdlc-*.md`: `$S render templates/project/hookify/<f> .claude/hookify/<f> --class seeded`. Mention the list in one line; the user can delete any. |
 | `lint` | JS/TS: `$S render templates/project/lint/eslint.sdlc.mjs .sdlc/lint/eslint.sdlc.mjs --class seeded`, then propose the import in the user's `eslint.config.*` (diff, approved). Python: same with `ruff.sdlc.toml` and `extend = ".sdlc/lint/ruff.sdlc.toml"` in `pyproject.toml`. Run the lint command(s) afterwards: new warnings go to the baseline (brownfield) or get fixed (greenfield). |
 | `allowlist` | `$S allow --from-commands` (adds `Bash(<command>:*)` for every command in config) |
+| `enable-plugin` | **Ask first** (it makes Claude Code prompt every teammate who trusts the repo to install sdlc): `$S enable-plugin` adds the sdlc marketplace and `enabledPlugins` to `.claude/settings.json`, keeping keys the user already set. Declined → record the step and say so. |
 | `gitignore` | `$S gitignore --add ".sdlc/.work/" ".claude/*.local.md"` |
 | `constitution` | `sdlc:project-constitution`, inferring from the repo and the interview; keep the default **V. Simplicity**. User approves. |
 | `design-system` | Only when the project has UI: files match `areas.ui`, or the greenfield stack has a web, mobile or desktop UI. No UI → record the step and say so. First fix `areas.ui` to the real UI paths (e.g. `lib/**/*.dart` for Flutter, `**/*View.swift`). **Existing system:** find it (tokens or theme files, Tailwind theme or `@theme`, the UI library in the manifest, shadcn's `components.json`, a `components/ui` folder, Storybook) and fill `.sdlc/design-system.md` from `${CLAUDE_PLUGIN_ROOT}/templates/design-system-template.md`, pointing at it rather than copying values. **None:** propose one mainstream component library for the stack plus a minimal token set (color roles, spacing, type scale, radius), create the tokens file in the stack's usual place, and fill the doc from it; never invent a full bespoke system. User approves. |
@@ -64,7 +65,7 @@ Plugin-owned files are named `sdlc-*` (or `sdlc.md`); everything else belongs to
 
 ## Hard stops (always ask)
 
-Stack choice (greenfield) · the commands (brownfield) · installing any tool · each audit batch before it is written · each AI-config migration · adding CI to a repo that already has CI · lint config import · constitution · design system · PR vs local merge. Everything else proceeds without asking.
+Stack choice (greenfield) · the commands (brownfield) · installing any tool · each audit batch before it is written · each AI-config migration · adding CI to a repo that already has CI · lint config import · constitution · design system · enabling the plugin for the team · PR vs local merge. Everything else proceeds without asking.
 
 ## Report
 

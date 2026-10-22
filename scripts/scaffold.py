@@ -25,6 +25,9 @@ CONFIG = ".sdlc/config.json"
 LOCK = ".sdlc/scaffold.lock.json"
 SETTINGS = ".claude/settings.json"
 GITIGNORE = ".gitignore"
+PLUGIN_MERGE = SETTINGS + "#plugin"  # lock key for the plugin-enablement keys we add to settings.json
+MARKETPLACE = ("sdlc", {"source": {"source": "github", "repo": "tammai/sdlc"}})
+PLUGIN_KEY = "sdlc@sdlc"
 FILE_CLASSES = ("generated", "seeded")
 DEFAULTS = "templates/project/config.defaults.json"
 PLACEHOLDER = re.compile(r"\{\{\s*([A-Za-z0-9_.]+)\s*(?:\|\s*([a-z_]+)\s*)?\}\}")
@@ -487,6 +490,36 @@ def cmd_allow(p, a):
     return {"added": added, "removed": removed, "owned": ours}
 
 
+def cmd_enable_plugin(p, a):
+    """Have Claude Code offer this plugin to everyone who trusts the repo: a keyed merge of the marketplace and the
+    enabled flag into settings.json. A key the user already set is theirs and is never recorded or removed."""
+    settings_path = p.path(SETTINGS)
+    settings = read_json(settings_path, {})
+    ours = merged_list(p, PLUGIN_MERGE)
+    changed = []
+    wanted = [("extraKnownMarketplaces", MARKETPLACE[0], MARKETPLACE[1]), ("enabledPlugins", PLUGIN_KEY, True)]
+    for section, key, value in wanted:
+        node = settings.get(section)
+        tag = f"{section}.{key}"
+        if a.remove:
+            if tag in ours and isinstance(node, dict) and key in node:
+                del node[key]
+                if not node:
+                    del settings[section]
+                changed.append(tag)
+            if tag in ours:
+                ours.remove(tag)
+        elif not isinstance(node, dict) or key not in node:
+            settings.setdefault(section, {})[key] = value
+            changed.append(tag)
+            if tag not in ours:
+                ours.append(tag)
+    if changed:
+        write_json(settings_path, settings)
+    p.save()
+    return {"removed" if a.remove else "added": changed, "owned": ours}
+
+
 def cmd_gitignore(p, a):
     path = p.path(GITIGNORE)
     try:
@@ -664,6 +697,9 @@ def cmd_eject(p, a):
     allow = plan["unmerge"].get(SETTINGS, [])
     if allow:
         cmd_allow(p, argparse.Namespace(add=[], remove=list(allow)))
+    plugin_keys = list(plan["unmerge"].get(PLUGIN_MERGE, []))
+    if plugin_keys:
+        cmd_enable_plugin(p, argparse.Namespace(remove=True))
     ignore = plan["unmerge"].get(GITIGNORE, [])
     if ignore:
         cmd_gitignore(p, argparse.Namespace(add=[], remove=list(ignore)))
@@ -674,7 +710,7 @@ def cmd_eject(p, a):
     if scratch_removed:
         shutil.rmtree(work)
     return {"deleted": deleted, "kept_edited": [x for x in plan["ask"] if x not in extra], "scratch_removed": scratch_removed,
-            "unmerged": {SETTINGS: allow, GITIGNORE: ignore}, "lock_removed": True}
+            "unmerged": {SETTINGS: allow + plugin_keys, GITIGNORE: ignore}, "lock_removed": True}
 
 
 # --- cli ----------------------------------------------------------------------------------
@@ -731,6 +767,10 @@ def build_parser():
         if name == "allow":
             s.add_argument("--from-commands", action="store_true", help="add Bash(<cmd>:*) for every command in config")
         s.set_defaults(fn=fn)
+
+    s = sub.add_parser("enable-plugin", help="keyed merge of the sdlc marketplace and enabled flag into .claude/settings.json")
+    s.add_argument("--remove", action="store_true", help="remove only the keys this command added")
+    s.set_defaults(fn=cmd_enable_plugin)
 
     s = sub.add_parser("migrations", help="pending migrations in apply order")
     s.add_argument("--revisit", action="store_true", help="also list skipped ones")

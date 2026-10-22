@@ -57,7 +57,7 @@ One row per check (✅ / ⚠️ / ❌) for your machine, the plugin and the curr
 - Both get policy rules, guardrails (hookify), lint snippets, a permission allowlist for your commands, CI generated from those commands, a constitution and a knowledge folder. Projects with UI also get a **design system** record: the library, tokens and components you already use, or a mainstream library and minimal tokens you approve.
 - Ends by asking: open a PR, or merge locally.
 
-What lands in the repo: `.sdlc/config.json` (your commands; to change one later, see [Configuration](docs/guidebook.md#configuration)), `.sdlc/constitution.md`, `.sdlc/design-system.md` (UI projects), `.claude/rules/sdlc-*.md`, `.claude/hookify/sdlc-*.md`, `.github/workflows/sdlc-verify.yml`, `knowledge/`, and for existing code `.sdlc/baseline.md`. Your `CLAUDE.md` is never touched.
+What lands in the repo: `.sdlc/config.json` (your commands; to change one later, see [Configuration](docs/guidebook.md#configuration)), `.sdlc/constitution.md`, `.sdlc/design-system.md` (UI projects), `.claude/rules/sdlc-*.md`, `.claude/hookify/sdlc-*.md`, `.claude/settings.json` (command allowlist; with your approval, the sdlc marketplace and `enabledPlugins` so teammates are offered the plugin), `.github/workflows/sdlc-verify.yml`, `knowledge/`, and for existing code `.sdlc/baseline.md`. Your `CLAUDE.md` is never touched.
 
 ### 3. Start a piece of work
 

@@ -165,7 +165,7 @@ Start with `warn`. Move to `block` once the pattern has no false positives.
 4. **Baseline:** it runs lint, typecheck, build and tests and records what already fails in `.sdlc/baseline.md`. Read it: features will only be judged on new failures. A failing install or build stops setup instead.
 5. **Audit:** explorer agents draft conventions, gotchas from git history, decisions and per-area rules. You approve, edit or drop each item; nothing is written otherwise.
 6. **Existing AI config** (long CLAUDE.md, AGENTS.md, Cursor rules, ADRs): one migration diff per source; originals stay unless you say delete.
-7. Rules, guardrails, lint snippets, allowlist, constitution and knowledge follow. Existing CI is left alone (it points out steps that differ from the recorded commands); a repo without CI is offered a workflow generated from them.
+7. Rules, guardrails, lint snippets, allowlist, constitution and knowledge follow, plus an optional step that adds the sdlc marketplace and `enabledPlugins` to `.claude/settings.json` so teammates are offered the plugin. Existing CI is left alone (it points out steps that differ from the recorded commands); a repo without CI is offered a workflow generated from them.
 8. At the end: open a PR or merge locally, your choice. Then `/sdlc:start` a small S fix to see the loop end to end.
 
 Interrupted? Run `/sdlc:setup` again; it resumes from the last finished step.
@@ -191,7 +191,7 @@ Interrupted? Run `/sdlc:setup` again; it resumes from the last finished step.
 
 ## 17. Remove sdlc from a repo
 
-`/sdlc:eject` shows a dry run first. It removes the plugin's own files (generated rules, unedited guardrails, CI workflow and lint snippets, the allowlist and `.gitignore` entries it added, the lock) and keeps your specs, knowledge, constitution, commands, baseline and area rules. Edited plugin files are asked about one by one. It also fixes imports that would point at deleted files, runs the verify commands, and asks PR or local merge. Uninstall the plugin afterwards if you're done with it.
+`/sdlc:eject` shows a dry run first. It removes the plugin's own files (generated rules, unedited guardrails, CI workflow and lint snippets, the allowlist, plugin-enablement and `.gitignore` entries it added, the lock) and keeps your specs, knowledge, constitution, commands, baseline and area rules. Edited plugin files are asked about one by one. It also fixes imports that would point at deleted files, runs the verify commands, and asks PR or local merge. Uninstall the plugin afterwards if you're done with it.
 
 ## Who decides what
 

@@ -240,6 +240,21 @@ class ScaffoldTest(ProjectTestCase):
         self.assertEqual(json.loads(self.read(".claude/settings.json"))["permissions"]["allow"],
                          ["Bash(make verify:*)"])
 
+    def test_enable_plugin_merges_and_only_removes_its_own_keys(self):
+        self.init()
+        self.write(".claude/settings.json", json.dumps(
+            {"model": "opus", "enabledPlugins": {"other@mkt": True}, "extraKnownMarketplaces": {"sdlc": {"source": "mine"}}}))
+        out = self.sc("enable-plugin")
+        self.assertEqual(out["added"], ["enabledPlugins.sdlc@sdlc"])  # the user already had a marketplace named sdlc
+        settings = json.loads(self.read(".claude/settings.json"))
+        self.assertEqual(settings["enabledPlugins"], {"other@mkt": True, "sdlc@sdlc": True})
+        self.assertEqual(self.sc("enable-plugin")["added"], [])  # idempotent
+        self.sc("enable-plugin", "--remove")
+        settings = json.loads(self.read(".claude/settings.json"))
+        self.assertEqual(settings["enabledPlugins"], {"other@mkt": True})
+        self.assertEqual(settings["extraKnownMarketplaces"], {"sdlc": {"source": "mine"}})
+        self.assertEqual(settings["model"], "opus")
+
     def test_gitignore_merges_and_only_removes_its_own_lines(self):
         self.init()
         self.write(".gitignore", "node_modules/\n.sdlc/.work/\n")
@@ -328,6 +343,7 @@ class ScaffoldTest(ProjectTestCase):
         self.write(".claude/hookify/sdlc-rm.md", "rule, tuned by user")
         self.write(".claude/settings.json", json.dumps({"permissions": {"allow": ["Bash(git status)"]}}))
         self.sc("allow", "--add", "Bash(make test:*)")
+        self.sc("enable-plugin")
         self.sc("gitignore", "--add", ".sdlc/.work/")
         self.write(".sdlc/constitution.md", "mine")
 
@@ -353,7 +369,10 @@ class ScaffoldTest(ProjectTestCase):
             self.assertFalse(os.path.exists(self.path(gone)), gone)  # .github emptied, so removed
         for kept in (".claude/hookify/sdlc-rm.md", ".sdlc/constitution.md", ".sdlc/config.json"):
             self.assertTrue(os.path.exists(self.path(kept)), kept)
-        self.assertEqual(json.loads(self.read(".claude/settings.json"))["permissions"]["allow"], ["Bash(git status)"])
+        settings = json.loads(self.read(".claude/settings.json"))
+        self.assertEqual(settings["permissions"]["allow"], ["Bash(git status)"])
+        self.assertNotIn("enabledPlugins", settings)
+        self.assertNotIn("extraKnownMarketplaces", settings)
         self.assertNotIn(".sdlc/.work/", self.read(".gitignore"))
 
     def test_eject_also_deletes_edited_files_on_request_only(self):
