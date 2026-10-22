@@ -24,7 +24,7 @@ class Condition:
         """Create Condition from dict."""
         return cls(
             field=data.get('field', ''),
-            operator=data.get('operator', 'regex_match'),
+            operator=str(data.get('operator', 'regex_match')).strip().lower(),
             pattern=data.get('pattern', '')
         )
 
@@ -58,7 +58,7 @@ class Rule:
         if simple_pattern and not conditions:
             # Convert simple pattern to condition
             # Infer field from event
-            event = frontmatter.get('event', 'all')
+            event = str(frontmatter.get('event', 'all')).strip().lower()
             if event == 'bash':
                 field = 'command'
             elif event == 'file':
@@ -75,10 +75,10 @@ class Rule:
         return cls(
             name=frontmatter.get('name', 'unnamed'),
             enabled=frontmatter.get('enabled', True),
-            event=frontmatter.get('event', 'all'),
+            event=str(frontmatter.get('event', 'all')).strip().lower(),
             pattern=simple_pattern,
             conditions=conditions,
-            action=frontmatter.get('action', 'warn'),
+            action=str(frontmatter.get('action', 'warn')).strip().lower(),
             tool_matcher=frontmatter.get('tool_matcher'),
             message=message.strip()
         )
@@ -91,6 +91,7 @@ def extract_frontmatter(content: str) -> tuple[Dict[str, Any], str]:
 
     Supports multi-line dictionary items in lists by preserving indentation.
     """
+    content = content.lstrip('\ufeff \t\r\n')
     if not content.startswith('---'):
         return {}, content
 
@@ -195,27 +196,99 @@ def extract_frontmatter(content: str) -> tuple[Dict[str, Any], str]:
     return frontmatter, message
 
 
-def load_rules(event: Optional[str] = None) -> List[Rule]:
+# Must match RuleEngine._check_condition: an unknown operator never matches.
+OPERATORS = ('regex_match', 'not_regex_match', 'contains', 'not_contains', 'equals', 'starts_with', 'ends_with')
+ACTIONS = ('warn', 'block')
+EVENTS = ('bash', 'file', 'stop', 'prompt', 'all')
+MAX_PROBLEMS_SHOWN = 5
+
+
+def rule_problems(rule: Rule) -> List[str]:
+    """Why a rule would silently never fire (or fire weaker than written)."""
+    problems = []
+    if not rule.conditions:
+        problems.append("no conditions parsed, so it never fires")
+    if rule.event not in EVENTS:
+        problems.append(f"unknown event '{rule.event}' (use {', '.join(EVENTS)}), so it never loads")
+    if rule.action not in ACTIONS:
+        problems.append(f"unknown action '{rule.action}' (use warn or block), so it only warns")
+    for c in rule.conditions:
+        if c.operator not in OPERATORS:
+            problems.append(f"unknown operator '{c.operator}', so it never matches")
+        elif c.operator.endswith('regex_match'):
+            try:
+                re.compile(c.pattern)
+            except re.error as e:
+                problems.append(f"invalid regex ({e}), so it never matches")
+    return problems
+
+
+def attach_problems(result: Dict[str, Any], problems: List[str]) -> Dict[str, Any]:
+    """Add rule problems to the hook output's systemMessage, where the user sees them."""
+    if not problems:
+        return result
+    shown = problems[:MAX_PROBLEMS_SHOWN]
+    note = "hookify: guardrail rules that may not work as written:\n- " + "\n- ".join(shown)
+    if len(problems) > len(shown):
+        note += f"\n- ...and {len(problems) - len(shown)} more (run /sdlc:doctor)"
+    result = dict(result)
+    result['systemMessage'] = (result['systemMessage'] + "\n\n" + note) if result.get('systemMessage') else note
+    return result
+
+
+def _rule_files(root: str) -> List[str]:
+    # Personal rules: .claude/hookify.*.local.md (git-ignored).
+    # Team rules: .claude/hookify/*.md (committed; sdlc-*.md are installed by /sdlc:setup).
+    files = sorted(glob.glob(os.path.join(root, '.claude', 'hookify.*.local.md')))
+    files += sorted(glob.glob(os.path.join(root, '.claude', 'hookify', '*.md')))
+    return files
+
+
+def find_project_root() -> str:
+    """The directory whose .claude/ holds the rules.
+
+    A hook can start in a subdirectory of the project; rules read relative to
+    that cwd would silently not load, and every guardrail would allow.
+    """
+    project_dir = os.environ.get('CLAUDE_PROJECT_DIR')
+    if project_dir:
+        return project_dir
+    start = os.getcwd()
+    here = start
+    while True:
+        if _rule_files(here):
+            return here
+        parent = os.path.dirname(here)
+        if parent == here:
+            return start
+        here = parent
+
+
+def load_rules(event: Optional[str] = None, problems: Optional[List[str]] = None) -> List[Rule]:
     """Load all hookify rules from .claude directory.
 
     Args:
         event: Optional event filter ("bash", "file", "stop", etc.)
+        problems: Optional list that receives one line per rule that is broken
+            (see rule_problems), so the caller can report it instead of failing open silently.
 
     Returns:
         List of enabled Rule objects matching the event.
     """
     rules = []
 
-    # Personal rules: .claude/hookify.*.local.md (git-ignored).
-    # Team rules: .claude/hookify/*.md (committed; sdlc-*.md are installed by /sdlc:setup).
-    files = sorted(glob.glob(os.path.join('.claude', 'hookify.*.local.md')))
-    files += sorted(glob.glob(os.path.join('.claude', 'hookify', '*.md')))
+    files = _rule_files(find_project_root())
 
     for file_path in files:
         try:
             rule = load_rule_file(file_path)
             if not rule:
+                if problems is not None:
+                    problems.append(f"{os.path.basename(file_path)}: no valid frontmatter, so it is ignored")
                 continue
+
+            if problems is not None and rule.enabled:
+                problems.extend(f"{os.path.basename(file_path)}: {p}" for p in rule_problems(rule))
 
             # Filter by event if specified
             if event:
@@ -249,7 +322,7 @@ def load_rule_file(file_path: str) -> Optional[Rule]:
         Rule object or None if file is invalid.
     """
     try:
-        with open(file_path, 'r') as f:
+        with open(file_path, 'r', encoding='utf-8') as f:
             content = f.read()
 
         frontmatter, message = extract_frontmatter(content)

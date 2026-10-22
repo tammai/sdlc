@@ -51,6 +51,11 @@ def _spawn_cwd() -> str:
     except OSError:
         return str(Path(__file__).resolve().parent.parent)
 
+# Pinned: SessionStart installs this into a venv whose code later runs with the
+# user's credentials, so a new PyPI release must not reach it unreviewed. Bump
+# it deliberately (SG_AGENT_SDK_SPEC overrides it, e.g. "claude-agent-sdk>=0.2").
+AGENT_SDK_SPEC = os.environ.get("SG_AGENT_SDK_SPEC") or "claude-agent-sdk==0.2.172"
+
 # Outcome codes for the sdk_bootstrap metric. Values are stable for telemetry.
 NOOP_SYSTEM = 0      # claude_agent_sdk already importable in system python
 NOOP_VENV = 1        # venv already built and SDK imports from it
@@ -472,7 +477,7 @@ def _build_via_target(state_dir) -> tuple[int, str, str]:
             [sys.executable, "-m", "pip", "install",
              "--target", str(target), "--upgrade",
              "--disable-pip-version-check", "--prefer-binary", "--no-cache-dir",
-             "claude-agent-sdk"],
+             AGENT_SDK_SPEC],
             capture_output=True, timeout=120, check=True, cwd=_spawn_cwd(),
         )
         return BUILT_TARGET, "", ""
@@ -715,7 +720,7 @@ def main() -> tuple[int, str, str]:
         subprocess.run(
             [str(venv_py), "-m", "pip", "install", "--quiet",
              "--disable-pip-version-check", "--prefer-binary", "--no-cache-dir",
-             "claude-agent-sdk"],
+             AGENT_SDK_SPEC],
             capture_output=True, timeout=120, check=True, cwd=_spawn_cwd(),
         )
         return BUILT, "", ""

@@ -1,6 +1,8 @@
 """hookify: hooks/pretooluse.py, posttooluse.py, stop.py, userpromptsubmit.py reading .claude/hookify.*.local.md."""
 import os
 import shutil
+import signal
+import time
 import unittest
 
 from helpers import HOOKS, PLUGIN_ROOT, ProjectTestCase, run_hook
@@ -112,6 +114,67 @@ class HookifyTest(ProjectTestCase):
         code, out, _, _ = run_hook(hook("pretooluse.py"), "not json", self.root)
         self.assertEqual(code, 0)
         self.assertNotIn("hookSpecificOutput", out or {})
+
+    RM_RULE = ("---\nname: no-x\nenabled: true\nevent: bash\naction: block\nconditions:\n"
+               "  - field: command\n    operator: regex_match\n    pattern: forbidden\n---\nnope\n")
+
+    def run_pre(self, command):
+        code, out, raw, err = run_hook(hook("pretooluse.py"),
+                                       {"hook_event_name": "PreToolUse", "tool_name": "Bash", "tool_input": {"command": command}},
+                                       self.root)
+        self.assertEqual(code, 0, err)
+        return out
+
+    def test_notebook_cells_are_a_file_event(self):
+        self.write(".claude/hookify/no-secret.md", self.RM_RULE.replace("event: bash", "event: file")
+                   .replace("field: command", "field: new_text"))
+        out = self.pre("NotebookEdit", notebook_path=self.path("a.ipynb"), new_source="forbidden")
+        self.assertDenied(out)
+
+    def test_block_on_prompt_blocks_the_prompt(self):
+        self.write(".claude/hookify/no-prompt.md", self.RM_RULE.replace("event: bash", "event: prompt")
+                   .replace("field: command", "field: user_prompt"))
+        _, out, _, _ = run_hook(hook("userpromptsubmit.py"), {"hook_event_name": "UserPromptSubmit", "user_prompt": "forbidden"}, self.root)
+        self.assertEqual(out.get("decision"), "block", out)
+
+    def test_formatting_slips_do_not_disarm_a_rule(self):
+        slips = {"leading blank line": lambda t: "\n" + t, "BOM": lambda t: "\ufeff" + t,
+                 "capitalised action": lambda t: t.replace("action: block", "action: Block"),
+                 "capitalised event": lambda t: t.replace("event: bash", "event: Bash"),
+                 "capitalised operator": lambda t: t.replace("regex_match", "Regex_Match")}
+        for name, slip in slips.items():
+            with self.subTest(slip=name):
+                self.write(".claude/hookify/no-x.md", slip(self.RM_RULE))
+                self.assertDenied(self.run_pre("echo forbidden"))
+
+    def test_broken_rules_are_reported_not_silent(self):
+        for name, text, expect in [
+            ("typo operator", self.RM_RULE.replace("regex_match", "regex_matc"), "unknown operator"),
+            ("unknown event", self.RM_RULE.replace("event: bash", "event: shell"), "unknown event"),
+            ("unknown action", self.RM_RULE.replace("action: block", "action: deny"), "unknown action"),
+            ("bad regex", self.RM_RULE.replace("forbidden", "(unclosed"), "invalid regex"),
+            ("no frontmatter", "just text", "no valid frontmatter"),
+        ]:
+            with self.subTest(rule=name):
+                self.write(".claude/hookify/broken.md", text)
+                out = self.run_pre("ls")
+                self.assertIn("broken.md", out["systemMessage"])
+                self.assertIn(expect, out["systemMessage"])
+
+    @unittest.skipUnless(hasattr(signal, "setitimer"), "no SIGALRM on this platform")
+    def test_catastrophic_regex_is_skipped(self):
+        self.write(".claude/hookify/slow.md", self.RM_RULE.replace("forbidden", "(a+)+$"))
+        started = time.time()
+        out = self.run_pre("a" * 40 + "!")
+        self.assertLess(time.time() - started, 8)
+        self.assertIn("skipped", out["systemMessage"])
+        self.assertNotIn("hookSpecificOutput", out)
+
+    def test_long_rule_messages_are_capped(self):
+        self.write(".claude/hookify/chatty.md", self.RM_RULE.replace("nope", "x" * 5000))
+        out = self.run_pre("forbidden")
+        self.assertLess(len(out["hookSpecificOutput"]["permissionDecisionReason"]), 2200)
+        self.assertIn("[truncated]", out["hookSpecificOutput"]["permissionDecisionReason"])
 
 
 if __name__ == "__main__":

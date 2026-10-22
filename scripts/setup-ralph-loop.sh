@@ -98,6 +98,11 @@ HELP_EOF
         echo "   Note: Multi-word promises must be quoted!" >&2
         exit 1
       fi
+      # A newline would start a new frontmatter line in the state file.
+      if [[ "$2" == *$'\n'* ]] || [[ "$2" == *$'\r'* ]]; then
+        echo "❌ Error: --completion-promise must be a single line" >&2
+        exit 1
+      fi
       COMPLETION_PROMISE="$2"
       shift 2
       ;;
@@ -125,6 +130,10 @@ if [[ -z "$PROMPT" ]]; then
   echo "" >&2
   echo "   For all options: /sdlc:ralph-loop --help" >&2
   exit 1
+fi
+
+if [[ -z "${CLAUDE_CODE_SESSION_ID:-}" ]]; then
+  echo "⚠️  No session id available: the loop will apply to every Claude Code session in this project." >&2
 fi
 
 # Create state file for stop hook (markdown with YAML frontmatter)

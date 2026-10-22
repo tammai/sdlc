@@ -15,7 +15,7 @@ if PLUGIN_ROOT and PLUGIN_ROOT not in sys.path:
     sys.path.insert(0, PLUGIN_ROOT)
 
 try:
-    from core.config_loader import load_rules
+    from core.config_loader import attach_problems, load_rules
     from core.rule_engine import RuleEngine
 except ImportError as e:
     error_msg = {"systemMessage": f"Hookify import error: {e}"}
@@ -30,11 +30,13 @@ def main():
         input_data = json.load(sys.stdin)
 
         # Load user prompt rules
-        rules = load_rules(event='prompt')
+        problems = []
+        rules = load_rules(event='prompt', problems=problems)
 
         # Evaluate rules
         engine = RuleEngine()
         result = engine.evaluate_rules(rules, input_data)
+        result = attach_problems(result, problems + engine.problems)
 
         # Always output JSON (even if empty)
         print(json.dumps(result), file=sys.stdout)

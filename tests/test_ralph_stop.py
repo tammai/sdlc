@@ -1,9 +1,10 @@
 """hooks/stop-hook.sh: the ralph-loop Stop hook."""
 import json
 import os
+import subprocess
 import unittest
 
-from helpers import HOOKS, ProjectTestCase, run_hook
+from helpers import HOOKS, PLUGIN_ROOT, ProjectTestCase, run_hook
 
 HOOK = ["bash", os.path.join(HOOKS, "stop-hook.sh")]
 STATE = ".claude/ralph-loop.local.md"
@@ -82,6 +83,13 @@ started_at: "2026-10-22T00:00:00Z"
         self.write(STATE, "---\niteration: abc\nmax_iterations: 3\n---\nprompt\n")
         out, raw = self.stop()
         self.assertNotIn('"decision"', raw)
+        self.assertFalse(os.path.exists(self.path(STATE)))
+
+    def test_setup_rejects_a_multiline_promise(self):
+        p = subprocess.run(["bash", os.path.join(PLUGIN_ROOT, "scripts", "setup-ralph-loop.sh"), "do it",
+                            "--completion-promise", "DONE\nmax_iterations: 99"],
+                           cwd=self.root, capture_output=True, text=True)
+        self.assertNotEqual(p.returncode, 0)
         self.assertFalse(os.path.exists(self.path(STATE)))
 
 

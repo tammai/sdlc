@@ -2,12 +2,48 @@
 """Rule evaluation engine for hookify plugin."""
 
 import re
+import signal
 import sys
+import threading
 from functools import lru_cache
 from typing import List, Dict, Any, Optional
 
 # Import from local module
 from core.config_loader import Rule, Condition
+
+
+# A committed rule is repo content: a catastrophic regex must not stall every tool call.
+REGEX_TIMEOUT_SEC = 1.0
+# Rule messages go into Claude's context; a repo-supplied one must stay short.
+MAX_MESSAGE_CHARS = 2000
+
+
+class RegexTimeout(Exception):
+    pass
+
+
+def _search(regex: re.Pattern, text: str) -> bool:
+    """regex.search, abandoned after REGEX_TIMEOUT_SEC where SIGALRM exists (not Windows)."""
+    if not hasattr(signal, 'setitimer') or threading.current_thread() is not threading.main_thread():
+        return bool(regex.search(text))
+
+    def on_alarm(signum, frame):
+        raise RegexTimeout()
+
+    previous = signal.signal(signal.SIGALRM, on_alarm)
+    signal.setitimer(signal.ITIMER_REAL, REGEX_TIMEOUT_SEC)
+    try:
+        return bool(regex.search(text))
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, previous)
+
+
+def _format(rule: Rule) -> str:
+    message = rule.message
+    if len(message) > MAX_MESSAGE_CHARS:
+        message = message[:MAX_MESSAGE_CHARS] + " [truncated]"
+    return f"**[{rule.name}]**\n{message}"
 
 
 # Cache compiled regexes (max 128 patterns)
@@ -30,7 +66,7 @@ class RuleEngine:
     def __init__(self):
         """Initialize rule engine."""
         # No need for instance cache anymore - using global lru_cache
-        pass
+        self.problems: List[str] = []
 
     def evaluate_rules(self, rules: List[Rule], input_data: Dict[str, Any]) -> Dict[str, Any]:
         """Evaluate all rules and return combined results.
@@ -59,11 +95,10 @@ class RuleEngine:
 
         # If any blocking rules matched, block the operation
         if blocking_rules:
-            messages = [f"**[{r.name}]**\n{r.message}" for r in blocking_rules]
-            combined_message = "\n\n".join(messages)
+            combined_message = "\n\n".join(_format(r) for r in blocking_rules)
 
             # Use appropriate blocking format based on event type
-            if hook_event == 'Stop':
+            if hook_event in ('Stop', 'UserPromptSubmit'):
                 return {
                     "decision": "block",
                     "reason": combined_message,
@@ -87,8 +122,7 @@ class RuleEngine:
 
         # If only warnings, show them but allow operation
         if warning_rules:
-            messages = [f"**[{r.name}]**\n{r.message}" for r in warning_rules]
-            combined_message = "\n\n".join(messages)
+            combined_message = "\n\n".join(_format(r) for r in warning_rules)
             result = {"systemMessage": combined_message}
             if hook_event in ['PreToolUse', 'PostToolUse', 'UserPromptSubmit']:
                 # Also put the warning in Claude's context, so the agent can act on it
@@ -254,10 +288,16 @@ class RuleEngine:
             elif field == 'file_path':
                 return tool_input.get('file_path', '')
 
+        elif tool_name == 'NotebookEdit':
+            if field == 'file_path':
+                return tool_input.get('notebook_path', '')
+            elif field in ['new_text', 'new_string', 'content']:
+                return tool_input.get('new_source', '')
+
         elif tool_name == 'MultiEdit':
             if field == 'file_path':
                 return tool_input.get('file_path', '')
-            elif field in ['new_text', 'content']:
+            elif field in ['new_text', 'new_string', 'content']:
                 # Concatenate all edits
                 edits = tool_input.get('edits', [])
                 return ' '.join(e.get('new_string', '') for e in edits)
@@ -277,10 +317,13 @@ class RuleEngine:
         try:
             # Use cached compiled regex (LRU cache with max 128 patterns)
             regex = compile_regex(pattern)
-            return bool(regex.search(text))
+            return _search(regex, text)
 
         except re.error as e:
             print(f"Invalid regex pattern '{pattern}': {e}", file=sys.stderr)
+            return False
+        except RegexTimeout:
+            self.problems.append(f"regex took over {REGEX_TIMEOUT_SEC:g}s and was skipped: {pattern[:60]}")
             return False
 
 
