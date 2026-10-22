@@ -237,8 +237,9 @@ claude --plugin-dir .                # load it for one session
 4. If the release changes files that live in projects:
    - templates of generated or seeded files: nothing to do, `/sdlc:upgrade` regenerates or replaces them;
    - anything a project owns (required commands, config keys, knowledge layout, renamed paths): add `migrations/<version>-<slug>.md` with frontmatter `version`, `summary` and, if old plugins must stop, `min_plugin_version`, then the steps in prose.
-5. Commit, then run the [smoke test](#smoke-test-before-a-release) against that commit. Every **must** item has to pass.
-6. `claude plugin tag . --dry-run`, then `claude plugin tag . --push` (creates `sdlc--v<version>`, checks that `plugin.json` and the marketplace entry agree, and pushes the tag). Push the branch too. Users get the new version by updating the marketplace and the plugin from `/plugin`, then run `/sdlc:upgrade` in each repo.
+5. **Distill knowledge** with `sdlc:managing-knowledge`, the same 3-tier spec the plugin gives projects: `CLAUDE.md` (≤ 60 lines), `.claude/rules/<area>.md` with `paths:`, and `knowledge/` (OKF, linked from `knowledge/index.md`, logged in `knowledge/log.md`). Sources: the changelog notes, `git log <last tag>..HEAD` (fix commits especially), smoke-test and review findings, and corrections made more than once. Run its "File a lesson" steps for each durable lesson, then its Audit. Decisions about how the plugin works still go to `docs/adr/` (the index links there), procedures to this runbook, and anything corrected twice and checkable becomes a test or guardrail. `python3 scripts/doctor.py` checks the CLAUDE.md budget and the index links.
+6. Commit, then run the [smoke test](#smoke-test-before-a-release) against that commit. Every **must** item has to pass.
+7. `claude plugin tag . --dry-run`, then `claude plugin tag . --push` (creates `sdlc--v<version>`, checks that `plugin.json` and the marketplace entry agree, and pushes the tag). Push the branch too. Users get the new version by updating the marketplace and the plugin from `/plugin`, then run `/sdlc:upgrade` in each repo.
 
 ### Smoke test before a release
 

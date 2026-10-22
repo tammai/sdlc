@@ -22,6 +22,7 @@ sdlc/
 │   └── security_reminder_hook.py + modules, sg-python.sh   security-guidance (vendored)
 ├── core/                    hookify rule loader and engine (vendored, patched; see NOTICE.md)
 ├── matchers/, utils/        empty hookify packages (vendored)
+├── knowledge/, .claude/rules/   this repo's own knowledge, same 3-tier spec as projects (sdlc:managing-knowledge)
 ├── scripts/
 │   ├── scaffold.py          setup/upgrade/eject bookkeeping: lock, file classes, commands, CI generator
 │   ├── doctor.py            read-only health check
@@ -68,8 +69,17 @@ python3 scripts/doctor.py --format md             # health check against the cur
 | User-visible behavior | `README.md`, the relevant doc, the capability's spec in `docs/specs/`, and `CHANGELOG.md` under Unreleased |
 | Vendored code | re-copy from upstream, re-apply the renames (`superpowers:` → `sdlc:`, paths → `.sdlc/`) and the patches listed in `NOTICE.md`, run the tests |
 
+### Stale-docs audit
+
+After adding or changing a plugin feature (a hook, command, skill, agent, script, state.md field or rule), and before calling it done:
+
+1. List the names the change adds or renames (file names, hook names, fields, commands, phrases it replaces).
+2. Grep each across `README.md`, `CONTRIBUTING.md`, `CHANGELOG.md`, `knowledge/`, `.claude/rules/`, `docs/` (guidebook, playbook, runbook, prd, specs, ADRs) and the `<desc>` and labels of `docs/diagrams/*.svg`. Also grep the old wording the change replaces.
+3. Check the lists that enumerate the plugin: README "Always on", the guidebook Hooks table and `state.md` block, the CONTRIBUTING layout tree and "Original to this plugin", the runbook procedures and "Add or change a stage rule" table, the prd capability table, and the spec's Source line, requirements and Known gaps.
+4. Fix what's stale, or name what you left (e.g. an SVG that needs relayout) in your report.
+
 Keep it lean: the plugin's own code-style rule applies here too (why-only comments, the smallest change that works, no abstraction without a second use).
 
 ## Releasing
 
-Follow [Release a new version](docs/runbook.md#release-a-new-version) in the runbook: tests and validate, bump `version`, add a migration if projects need one, move the changelog notes under the version, commit, pass the [smoke test](docs/runbook.md#smoke-test-before-a-release) in real sessions, then `claude plugin tag . --push`.
+Follow [Release a new version](docs/runbook.md#release-a-new-version) in the runbook: tests and validate, bump `version`, add a migration if projects need one, move the changelog notes under the version, distill the cycle's lessons with `sdlc:managing-knowledge` (`CLAUDE.md`, `.claude/rules/`, `knowledge/`), commit, pass the [smoke test](docs/runbook.md#smoke-test-before-a-release) in real sessions, then `claude plugin tag . --push`.
