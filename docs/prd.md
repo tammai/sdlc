@@ -99,7 +99,7 @@ Adds setup/upgrade/eject with per-package commands and generated CI, `/sdlc:doct
 
 ## 11. Known gaps and open questions
 
-- **Release smoke test (2026-10-22, headless sessions):** install, doctor, greenfield and brownfield setup, an S fix through Verify, guardrails, upgrade and eject all passed; hook warnings and block reasons do reach Claude. Not covered: Windows, and the model-based security review (no credentials reached the hooks in that environment).
+- **Release smoke test (1.4.0, 2026-10-22, headless sessions on Windows):** install, doctor, greenfield and brownfield setup (including resume after an interrupt), guardrails, an S fix through Verify, upgrade and eject all passed; hook warnings and block reasons reach Claude, and the model router named a tier for every dispatch. It found and fixed CRLF hashing and a freshness filter bug. Known issues are listed under 1.4.0 in the changelog.
 - **Prompt-only guarantees:** most stage gates (spec checklist, design mapping, review severity) rely on skill instructions plus user approval; only freshness, guardrails, the surface check and file ownership are mechanical. Each spec marks which is which.
 - **Security-guidance hooks** are vendored and not covered by this repo's tests.
 - **Generated CI** has not run on GitHub yet (validated as YAML and against local toolchains only); `actionlint` not run.

@@ -6,6 +6,14 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## 1.4.0 — 2026-10-22
 
+Release smoke test passed on 2026-10-22 on Windows (headless sessions, every must item, at 46a3365); the freshness fixes after it (f04c3d6, c60dff5) were checked by the suite and a real Stage 5 session.
+
+### Known issues
+- With the official `security-guidance` plugin also installed, Claude sees each security warning twice.
+- The brownfield setup reference puts `packages` under `project` in `.sdlc/config.json`; `scaffold.py` reads it from the top level.
+- Allowlist entries `Bash(<command>:*)` also allow extra arguments to the test command; exact matches would be tighter.
+- The generated CI workflow defaults to Node 22 whatever version the repo pins.
+
 ### Added
 - **UI follows the design system** ([spec 10](docs/specs/10-ui-design-system.md), [ADR 0004](docs/adr/0004-ui-follows-the-design-system.md)): setup records the project's design system in `.sdlc/design-system.md` (pointing at the existing library and tokens, or a mainstream library plus minimal tokens when there is none). A new `sdlc-ui.md` rule (scoped by the new `areas.ui`) and the `sdlc-ui-hardcoded-values` guardrail apply it while writing; the new `sdlc:ui-reviewer` checks every UI diff in Stage 6 for off-system values and components, AI-slop styling, missing states and accessibility, with screenshots only when you ask. `/sdlc:doctor` warns when a UI repo has no design system. Existing repos: `/sdlc:upgrade` adds the rule and guardrail, and migration `1.4.0-design-system` writes the design system.
 
