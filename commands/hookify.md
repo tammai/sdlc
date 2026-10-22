@@ -1,7 +1,7 @@
 ---
 description: Create hooks to prevent unwanted behaviors from conversation analysis or explicit instructions
 argument-hint: Optional specific behavior to address
-allowed-tools: ["Read", "Write", "AskUserQuestion", "Task", "Grep", "TodoWrite", "Skill"]
+allowed-tools: ["Read", "Write", "AskUserQuestion", "Task", "Grep", "Skill"]
 ---
 
 # Hookify - Create Hooks from Unwanted Behaviors
@@ -228,4 +228,4 @@ Use the current working directory (where Claude Code was started) as the base pa
 2. Or adjust the pattern to be more specific
 3. Changes take effect on next tool use
 
-Use TodoWrite to track your progress through the steps.
+Track your progress through the steps.

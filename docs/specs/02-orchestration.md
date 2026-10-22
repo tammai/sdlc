@@ -39,6 +39,7 @@ The orchestrator takes a request through the lifecycle: sizes it, runs one stage
 
 - Running stages in parallel; managing several features in one turn.
 - Choosing the track without the user being able to override.
+- Mirroring stages or plan tasks into Claude Code's native task list. `state.md` is the tracker; the task tools are off by default on current models (Claude Code ≥ 2.1.268) and can't be read by hooks or doctor.
 
 ## Known gaps
 
