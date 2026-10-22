@@ -302,6 +302,7 @@ def main(argv=None):
     check_repo(r, root)
     summary = {k: sum(1 for c in r.checks if c["status"] == k) for k in ("ok", "warn", "fail", "skip")}
     report = {"root": root, "checks": r.checks, "summary": summary}
+    sys.stdout.reconfigure(encoding="utf-8")  # a cp1252 pipe (Windows) can't encode the status emoji
     print(to_markdown(report) if a.format == "md" else json.dumps(report, indent=2, ensure_ascii=False))
     return 1 if summary["fail"] else 0
 

@@ -195,7 +195,9 @@ class DoctorTest(ProjectTestCase):
         self.assertEqual(before, after)
 
     def test_markdown_output(self):
-        p = subprocess.run([sys.executable, DOCTOR, "--root", self.root, "--format", "md"], capture_output=True, text=True)
+        # A non-UTF-8 pipe, as on Windows (cp1252), must not crash on the status emoji
+        p = subprocess.run([sys.executable, DOCTOR, "--root", self.root, "--format", "md"], capture_output=True,
+                           text=True, encoding="utf-8", env={**os.environ, "PYTHONIOENCODING": "cp1252"})
         self.assertIn("| | Check | Detail | Fix |", p.stdout)
         self.assertIn("failing", p.stdout)
 
