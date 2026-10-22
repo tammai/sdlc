@@ -4,7 +4,7 @@
 PreToolUse on Agent/Task. Denies, with the reason Claude sees:
   - no `model`                                   (an omitted model inherits the session's)
   - `model: fable` unless every active state.md says `Top model: fable`
-  - a reviewer (code-reviewer, feature-reviewer, verifier) below opus when any active feature is `Risk: high`
+  - a reviewer (code-reviewer, feature-reviewer, ui-reviewer, verifier) below opus when any active feature is `Risk: high`
 Forks are exempt: they always run on the session model. Picking the tier for a task stays with
 Model Selection in sdlc:subagent-driven-development; this only enforces its floor and ceiling.
 No active feature, or any error: no output, the dispatch goes ahead.
@@ -15,7 +15,7 @@ import os
 import re
 import sys
 
-REVIEWERS = {"code-reviewer", "feature-reviewer", "verifier"}
+REVIEWERS = {"code-reviewer", "feature-reviewer", "ui-reviewer", "verifier"}
 TIERS = "haiku (cheap), sonnet (standard), opus (top); see Model Selection in sdlc:subagent-driven-development"
 
 

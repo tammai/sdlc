@@ -175,7 +175,7 @@ rect{stroke-width:.5}
 <text class="s" x="380" y="866">analyzer, pr-test-analyzer,</text>
 <text class="s" x="380" y="882">type-design-analyzer,</text>
 <text class="s" x="380" y="898">silent-failure-hunter,</text>
-<text class="s" x="380" y="914">code-simplifier</text>
+<text class="s" x="380" y="914">code-simplifier, ui-reviewer</text>
 </g>
 <text class="l" x="654.0" y="874">no extra hooks</text>
 <g class="gate"><rect x="742" y="816" width="238" height="116" rx="6"/>

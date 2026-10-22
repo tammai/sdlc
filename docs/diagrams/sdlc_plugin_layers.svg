@@ -1,6 +1,6 @@
 <svg width="100%" viewBox="0 0 1000 1857" role="img" xmlns="http://www.w3.org/2000/svg">
 <title>SDLC plugin layers</title>
-<desc>Layer map of the sdlc plugin by structure. Top to bottom: 20 commands, 22 skills grouped by orchestrator stage, 11 agents, scripts, templates, and the files written into the user's repo. Hooks (security-guidance, hookify, verify-freshness, model-router, ralph-loop) run on five Claude Code events outside the stack. Packaging, tests, docs and licenses sit underneath.</desc>
+<desc>Layer map of the sdlc plugin by structure. Top to bottom: 20 commands, 22 skills grouped by orchestrator stage, 12 agents, scripts, templates, and the files written into the user's repo. Hooks (security-guidance, hookify, verify-freshness, model-router, ralph-loop) run on five Claude Code events outside the stack. Packaging, tests, docs and licenses sit underneath.</desc>
 <style>
 text{font-family:anthropic-sans,-apple-system,"system-ui","Segoe UI",sans-serif;dominant-baseline:central;text-anchor:start}
 .dir{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-weight:600}
@@ -207,6 +207,8 @@ rect{stroke-width:.5}.sep{stroke-width:.5}
 <rect class="ch" x="254.0" y="974.0" width="151.4" height="20" rx="4"/>
 <text class="tx" x="262.0" y="984.0" font-size="12">code-simplifier</text>
 <text class="mu" x="373.1" y="984.0" font-size="10.5">opus</text>
+<rect class="ch" x="410.4" y="974.0" width="93.0" height="20" rx="4"/>
+<text class="tx" x="418.4" y="984.0" font-size="12">ui-reviewer</text>
 <text class="mu" x="154.0" y="1010.5" font-size="12">Hookify</text>
 <rect class="ch" x="254.0" y="1003.0" width="162.2" height="20" rx="4"/>
 <text class="tx" x="262.0" y="1013.0" font-size="12">conversation-analyzer</text>

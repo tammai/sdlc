@@ -30,8 +30,10 @@ sdlc/
 │   └── setup-ralph-loop.sh  (vendored)
 ├── templates/
 │   ├── spec/design/checklist/constitution-template.md   used by the Stage 1–2 skills
+│   ├── design-system-template.md   setup's design-system step (UI projects)
 │   ├── knowledge/           OKF templates for tier 2/3 knowledge
 │   └── project/             what setup places in a repo: config defaults, rules/, hookify/, lint/, baseline.md
+├── migrations/              <version>-<slug>.md steps that /sdlc:upgrade applies to project-owned files
 ├── examples/hookify/        sample rules
 ├── tests/                   stdlib unittest suite (helpers.py + one file per hook or script)
 ├── docs/
@@ -44,7 +46,7 @@ sdlc/
 ├── CHANGELOG.md  NOTICE.md  LICENSE  README.md
 ```
 
-Original to this plugin: the orchestrator and setting-up-projects skills, `managing-knowledge`, the `verifier` agent, `verify_freshness.py`, `model_router.py`, everything in `scripts/` except the ralph script, `templates/project/`, `templates/knowledge/`, `tests/`, `docs/`. Everything else is vendored; `NOTICE.md` says what came from where and what was changed.
+Original to this plugin: the orchestrator and setting-up-projects skills, `managing-knowledge`, the `verifier` and `ui-reviewer` agents, `verify_freshness.py`, `model_router.py`, everything in `scripts/` except the ralph script, `templates/project/`, `templates/knowledge/`, `templates/design-system-template.md`, `migrations/`, `tests/`, `docs/`. Everything else is vendored; `NOTICE.md` says what came from where and what was changed.
 
 ## Dev loop
 
