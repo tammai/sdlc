@@ -31,7 +31,7 @@ You are the conductor. You decide the stage, call the right bundled skill/agent/
 
 Anything touching auth, payments, secrets, PII or schema migrations is at least M and always gets full Stage 7.
 
-6. Create `.sdlc/<feature>/state.md` from the template at the bottom and announce: track, stages to run, first stage.
+6. Create `.sdlc/<feature>/state.md` from the template at the bottom, with `Base:` set to `git rev-parse --short HEAD` (the commit the feature starts from; in a monorepo, Stage 5 then only requires tests for packages the feature changed). Announce: track, stages to run, first stage.
 
 ## Stage header
 
@@ -150,6 +150,7 @@ Status: active
 Track: S | M | L   (sized up because: <named signal, or "—" for the smallest fitting track>)
 Commands: test: `<commands.test>`   (monorepo: one per package, e.g. api: `cd services/api && go test ./...`; no setup: the detected commands)
 Started: <date>
+Base: <commit the feature started from>
 Current: Stage <n> – <name>
 
 ## Stages

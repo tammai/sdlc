@@ -88,9 +88,9 @@ Not covered by doctor: whether the plugin is enabled (`/plugin`), and the plugin
 
 ### R2. First session is slow or the security reviewer is unavailable
 
-Cause: the SessionStart hook builds a venv with the Claude Agent SDK if it isn't importable.
+Cause: the SessionStart hook builds a venv with the Claude Agent SDK in the background, and only when the security hooks receive credentials (a Claude Code sign-in, or `ANTHROPIC_API_KEY`). Without credentials the model reviews are skipped and the venv is never built; pattern warnings still work. A session closed before the build finishes cancels it.
 
-1. Wait for the first start to finish (timeout is 180 s).
+1. Keep a signed-in session open for the first start to finish (timeout is 180 s).
 2. If it failed, check network access to the Python package index, then start a new session to retry.
 3. To rebuild from scratch: remove `agent-sdk-venv` from the security state directory (see Where state lives; `/sdlc:doctor` prints it) and start a new session.
 4. The venv lives outside the plugin, so it survives plugin updates.

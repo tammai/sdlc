@@ -182,6 +182,7 @@ Resume depends on this file. The orchestrator looks for `.sdlc/*/state.md` with 
 # <feature>
 Status: active
 Track: S | M | L   (sized up because: <named signal, or "—">)
+Base: <commit the feature started from>
 Commands: test: `<test command>`   (monorepo: one per package; no setup: the detected command)
 Current: Stage <n> – <name>
 ## Stages / ## Verify rounds / ## Gate log / ## Deviations / ## Open questions

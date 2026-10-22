@@ -61,8 +61,11 @@ def check_environment(r):
         elif _base.agent_sdk_installed(state):
             r.add(g, "security reviewer env", "ok", os.path.join(state, "agent-sdk-venv"))
         else:
-            r.add(g, "security reviewer env", "warn", f"not built yet in {state} (the first session start builds it)",
-                  f"start a new session and wait about a minute · {RUNBOOK} R2")
+            r.add(g, "security reviewer env", "warn",
+                  f"not built in {state}. A session start builds it in the background, but only when the security "
+                  "hooks receive credentials (a Claude Code sign-in or ANTHROPIC_API_KEY); without them the "
+                  "model reviews are skipped and pattern warnings still work",
+                  f"keep a signed-in session open for about a minute · {RUNBOOK} R2")
     except ImportError as e:
         r.add(g, "security reviewer env", "skip", f"security hook modules not importable: {e}")
 
@@ -195,28 +198,28 @@ def check_repo(r, root):
     files = repo_files(root)
     dead = []
     for path in sorted(glob.glob(os.path.join(root, ".claude", "rules", "*.md"))):
+        if os.path.basename(path).startswith("sdlc"):
+            continue  # plugin policy rules wait for files to exist (e.g. no migrations yet); not a problem
         paths = rule_paths(open(path, encoding="utf-8").read())
         if paths and not any(glob_matches(x, files) for x in paths):
             dead.append(os.path.basename(path))
     if os.path.isdir(os.path.join(root, ".claude", "rules")):
         r.add(g, "rules paths", "warn" if dead else "ok",
               "match no files (never load): " + ", ".join(dead) if dead else "every scoped rule matches files",
-              "fix `paths:`, or `areas.*` in .sdlc/config.json for sdlc-*.md rules" if dead else None)
+              "fix the rule's `paths:`" if dead else None)
 
     bad = []
     try:
-        from core.config_loader import load_rule_file
+        from core.config_loader import load_rule_file, rule_problems
         for path in sorted(glob.glob(os.path.join(root, ".claude", "hookify.*.local.md")) +
                            glob.glob(os.path.join(root, ".claude", "hookify", "*.md"))):
             rule = load_rule_file(path)
-            if not rule or not rule.conditions:
-                bad.append(f"{os.path.relpath(path, root)} (no conditions parsed)")
+            rel = os.path.relpath(path, root)
+            if not rule:
+                bad.append(f"{rel} (no valid frontmatter)")
                 continue
-            for c in rule.conditions:
-                try:
-                    re.compile(c.pattern)
-                except re.error as e:
-                    bad.append(f"{os.path.relpath(path, root)} ({e})")
+            if rule.enabled:
+                bad.extend(f"{rel} ({p})" for p in rule_problems(rule))
         n = len(glob.glob(os.path.join(root, ".claude", "hookify.*.local.md")) +
                 glob.glob(os.path.join(root, ".claude", "hookify", "*.md")))
         if n:

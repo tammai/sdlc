@@ -20,7 +20,7 @@ Enforcement sits beside the tiers: anything that was corrected twice and can be 
 ## Set up (once per repo)
 
 1. Create `knowledge/index.md` (template: `${CLAUDE_PLUGIN_ROOT}/templates/knowledge/index.md`) and `knowledge/log.md`.
-2. Trim `CLAUDE.md` to tier 1 using the audit below. Add, near the top:
+2. **Only in a repo not set up for sdlc** (no `.claude/rules/sdlc.md`, which already carries the knowledge pointer): trim `CLAUDE.md` to tier 1 using the audit below, and add near the top:
    `Knowledge map: \`knowledge/index.md\` — read it before working in an area you haven't touched this session, then open only the docs relevant to the task.`
    (Backticks keep it from being imported.)
 3. Create one `.claude/rules/<area>.md` per real area of the codebase (template: `${CLAUDE_PLUGIN_ROOT}/templates/knowledge/rule.md`). Typical areas: api, db/migrations, frontend, payments, auth, infra, tests.

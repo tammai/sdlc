@@ -264,6 +264,54 @@ class VerifyFreshnessTest(ProjectTestCase):
         for d in ("services/api", "apps/web"):
             os.makedirs(self.path(d), exist_ok=True)
 
+    def monorepo_git(self, base_line=True):
+        git = ["git", "-C", self.root, "-c", "user.email=t@t", "-c", "user.name=t"]
+        self.write(".gitignore", ".sdlc/.work/\n")
+        self.write("services/api/main.go", "package main\n")
+        self.write("apps/web/a.ts", "export const a = 1\n")
+        subprocess.run(git + ["init", "-q"], check=True)
+        subprocess.run(git + ["add", "-A"], check=True)
+        subprocess.run(git + ["commit", "-q", "-m", "base"], check=True)
+        base = subprocess.run(git + ["rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()
+        self.monorepo()
+        if base_line:
+            path = self.path(".sdlc/login/state.md")
+            with open(path) as f:
+                text = f.read()
+            self.write(".sdlc/login/state.md", text.replace("Current:", f"Base: {base}\nCurrent:"))
+        return git
+
+    def test_only_packages_changed_since_the_feature_base_start_stale(self):
+        git = self.monorepo_git()
+        self.write("services/api/handler.go", "package main\n")  # uncommitted feature work
+        self.write("services/api/main.go", "package main // changed\n")
+        subprocess.run(git + ["commit", "-q", "-am", "feature commit"], check=True)  # committed work counts too
+        reason = self.assertBlocks()["reason"]
+        self.assertIn("api:", reason)
+        self.assertNotIn("web:", reason)
+        self.bash("cd services/api && go test ./...")
+        self.assertAllows()
+
+    def test_untouched_package_still_goes_stale_when_it_changes_later(self):
+        self.monorepo_git()
+        self.write("services/api/handler.go", "package main\n")
+        self.bash("cd services/api && go test ./...")
+        self.write("apps/web/a.ts", "export const a = 2\n")  # e.g. a formatter, after Stage 5 began
+        self.assertIn("web: apps/web/a.ts changed", self.assertBlocks()["reason"])
+
+    def test_without_a_base_every_package_starts_stale(self):
+        self.monorepo_git(base_line=False)
+        self.write("services/api/handler.go", "package main\n")
+        reason = self.assertBlocks()["reason"]
+        self.assertIn("api:", reason)
+        self.assertIn("web:", reason)
+
+    def test_no_changes_since_base_keeps_everything_stale(self):
+        self.monorepo_git()
+        reason = self.assertBlocks()["reason"]
+        self.assertIn("api:", reason)
+        self.assertIn("web:", reason)
+
     def test_every_package_starts_stale(self):
         self.monorepo()
         reason = self.assertBlocks()["reason"]

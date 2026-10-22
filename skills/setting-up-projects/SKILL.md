@@ -41,7 +41,7 @@ Plugin-owned files are named `sdlc-*` (or `sdlc.md`); everything else belongs to
 
 ## Setup
 
-**Before anything:** the working tree must be clean (else ask the user to commit or stash). Create branch `sdlc/setup`. Commit after each step (`chore(sdlc): setup – <step>`) and record it with `$S step-done <step>`, so an interrupted setup resumes.
+**Before anything:** the working tree must be clean (else ask the user to commit or stash). Create branch `sdlc/setup`. Commit after each step (`chore(sdlc): setup – <step>`) and record it with `$S step-done <step>`, so an interrupted setup resumes. Never mark a step done without doing it. A step that doesn't apply (no AI config to migrate, a repo too small to audit, no lint config to import into) is still recorded, but say so in your next message with the reason, not only in the final report.
 
 **Mode:** greenfield when the repo has no source files (ignore README, LICENSE, docs, dotfiles); brownfield otherwise. If it's unclear (only docs, a spike folder), ask.
 
@@ -58,7 +58,7 @@ Plugin-owned files are named `sdlc-*` (or `sdlc.md`); everything else belongs to
 | `allowlist` | `$S allow --from-commands` (adds `Bash(<command>:*)` for every command in config) |
 | `gitignore` | `$S gitignore --add ".sdlc/.work/" ".claude/*.local.md"` |
 | `constitution` | `sdlc:project-constitution`, inferring from the repo and the interview; keep the default **V. Simplicity**. User approves. |
-| `knowledge` | If `knowledge/index.md` is missing: `sdlc:managing-knowledge` setup (index, log, folders). Brownfield: the audit's approved drafts go here. User-owned from the start. |
+| `knowledge` | If `knowledge/index.md` is missing: `sdlc:managing-knowledge` setup, **steps 1 and 3 only** (index, log, folders, area rules). Skip its `CLAUDE.md` step: the knowledge pointer already lives in `.claude/rules/sdlc.md`, and setup never creates or edits `CLAUDE.md`. Brownfield: the audit's approved drafts go here. User-owned from the start. |
 | `finalize` | `$S step-done finalize --complete`, final commit, then **ask**: open a PR (`gh pr create`, body lists what was added and why) or merge `sdlc/setup` locally. Never push or merge without the answer. |
 
 ## Hard stops (always ask)

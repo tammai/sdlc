@@ -20,7 +20,7 @@ Prepare a repo once (new or existing), keep it current with the plugin, and remo
 |---|---|---|
 | SET-FR-001 | Greenfield when the repo has no source files (README, LICENSE, docs, dotfiles ignored); brownfield otherwise; ask when unclear. | `[instructed]` setting-up-projects |
 | SET-FR-002 | Needs a clean working tree; works on branch `sdlc/setup`, one commit per step. | `[instructed]` setting-up-projects |
-| SET-FR-003 | Progress is recorded per step and setup resumes from it. | `[enforced]` test_scaffold › test_steps_are_resumable |
+| SET-FR-003 | Progress is recorded per step and setup resumes from it. A step that doesn't apply is reported with its reason when it's skipped. | `[enforced]` test_scaffold › test_steps_are_resumable; reporting `[instructed]` SKILL.md |
 | SET-FR-004 | `init` writes the lock and a minimal config holding only overrides; an existing config is kept; a second `init` is refused unless `--force`. | `[enforced]` test_scaffold › test_init_writes_config_and_lock, test_init_writes_overrides_only, test_init_keeps_existing_config, test_init_twice_refuses_unless_forced |
 | SET-FR-005 | The repo's own `install`, `test`, `lint`, `typecheck`, `build` are recorded in config (`commands`, or `packages[]` with name, path, stack, commands); `null` = not applicable. Brownfield records existing commands without inventing new ones; the user approves. | `[instructed]` brownfield.md, greenfield.md |
 | SET-FR-006 | `contract` checks per scope: required commands present, package path exists, names unique, tool resolvable on PATH or as a repo-relative path (after `VAR=value` prefixes). | `[enforced]` test_scaffold › test_contract_single_project, test_contract_reports_missing_commands, test_contract_skips_env_assignments_when_finding_the_tool, test_contract_monorepo_packages |
@@ -40,9 +40,9 @@ Prepare a repo once (new or existing), keep it current with the plugin, and remo
 |---|---|---|
 | SET-FR-020 | Each plugin-written file is recorded with class (generated, seeded) and hash; state is `unchanged`, `modified` or `missing`. Paths outside the project are refused. | `[enforced]` test_scaffold › test_record_and_file_states, test_record_rejects_missing_and_outside_paths |
 | SET-FR-021 | `render --if-unchanged` refuses (exit 2) to overwrite an edited file or one the plugin never wrote, and overwrites an unedited one. | `[enforced]` test_scaffold › test_render_if_unchanged_refuses_edited_or_foreign_files, test_render_if_unchanged_overwrites_untouched_file |
-| SET-FR-022 | `forget` hands a file to the user for good. | `[enforced]` test_scaffold › test_forget_makes_a_file_user_owned |
+| SET-FR-022 | `forget` hands a file to the user for good: untracked, and recorded as declined so upgrades never re-add it. | `[enforced]` test_scaffold › test_forget_makes_a_file_user_owned |
 | SET-FR-023 | Allowlist and `.gitignore` merges add entries, record only the ones they added, and remove only those; other settings keys are preserved. | `[enforced]` test_scaffold › test_allow_merges_and_only_removes_its_own_entries, test_allow_creates_settings_file, test_gitignore_merges_and_only_removes_its_own_lines |
-| SET-FR-024 | `CLAUDE.md` is never written by the plugin. | `[instructed]` SKILL.md ownership table |
+| SET-FR-024 | `CLAUDE.md` is never created or edited by setup; the knowledge pointer lives in `.claude/rules/sdlc.md`. | `[instructed]` SKILL.md (`knowledge` step), managing-knowledge |
 
 ### Upgrade and versions
 
@@ -51,16 +51,17 @@ Prepare a repo once (new or existing), keep it current with the plugin, and remo
 | SET-FR-030 | Drift: `current`, `behind`, `ahead`, or `plugin_too_old` (plugin below the repo's `min_plugin_version`); versions compare numerically. | `[enforced]` test_scaffold › test_drift, test_versions_compare_numerically |
 | SET-FR-031 | `set-version` raises `min_plugin_version`, never lowers it. | `[enforced]` test_scaffold › test_min_plugin_version_never_lowers |
 | SET-FR-032 | Upgrade plan classifies each tracked file: regenerate (generated), replace (seeded, unedited, template changed), review (edited), restore (deleted), template gone; files without a template are left alone. Generated CI is replaced when the commands change. | `[enforced]` test_scaffold › test_upgrade_plan_classifies_every_file, test_builtin_ci_is_upgradable |
-| SET-FR-033 | Upgrade runs on `sdlc/upgrade-<from>-<to>`; edited files: merge, skip this time, or keep mine; warns if a feature is past Stage 3; `--dry-run` writes nothing. | `[instructed]` upgrade.md |
+| SET-FR-033 | Upgrade runs on `sdlc/upgrade-<from>-<to>`; edited files: merge, skip this time, or keep mine (a merged guardrail is applied by the user, since Claude can't edit guardrails); warns if a feature is past Stage 3; `--dry-run` writes nothing. | `[instructed]` upgrade.md |
 | SET-FR-034 | Pending migrations are those with scaffold version < migration version ≤ plugin version, not applied or skipped, ordered numerically; frontmatter version wins over the filename. | `[enforced]` test_scaffold › test_pending_migrations_window_and_order, test_status_lists_pending_migrations |
 | SET-FR-035 | Migrations are recorded as applied or skipped with a reason; skipped ones aren't offered again unless `--revisit`; a skipped one can later be applied; unknown ids are errors. | `[enforced]` test_scaffold › test_applied_and_skipped_migrations_are_not_pending, test_unknown_migration_is_an_error |
+| SET-FR-036 | Upgrade adds policy rules and guardrails that are new in the installed version and not yet in the repo, except declined ones; a same-named file the plugin never wrote is flagged for review, never overwritten. | `[enforced]` test_scaffold › test_upgrade_adds_rules_and_guardrails_new_in_this_version |
 
 ### Eject
 
 | ID | Requirement | Guarantee |
 |---|---|---|
 | SET-FR-040 | Eject is a dry run by default: delete (generated, unedited seeded), ask (edited), already gone, entries to unmerge. | `[enforced]` test_scaffold › test_eject_plan_is_dry_by_default |
-| SET-FR-041 | Applying deletes plugin files, removes recorded entries and the lock, tidies emptied folders, and keeps the user's files and config. | `[enforced]` test_scaffold › test_eject_apply_keeps_user_work |
+| SET-FR-041 | Applying deletes plugin files, removes recorded entries, the lock and the `.sdlc/.work/` scratch folder, tidies emptied folders, and keeps the user's files and config. | `[enforced]` test_scaffold › test_eject_apply_keeps_user_work, test_eject_removes_the_scratch_folder |
 | SET-FR-042 | Edited files are deleted only when the user lists them (`--also`), and only from the ask list. | `[enforced]` test_scaffold › test_eject_also_deletes_edited_files_on_request_only |
 | SET-FR-043 | Eject fixes imports left pointing at deleted files and reruns the verify commands. | `[instructed]` eject.md |
 

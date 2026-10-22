@@ -98,7 +98,7 @@ Adds setup/upgrade/eject with per-package commands and generated CI, `/sdlc:doct
 
 ## 11. Known gaps and open questions
 
-- **Not yet exercised end to end in a live session:** setup → start → upgrade in a real repo; whether hook warnings and blocks reach Claude as designed (`additionalContext`, `permissionDecisionReason`); freshness for tool calls made inside subagents (covered indirectly by the worktree fingerprint).
+- **Release smoke test (2026-10-22, headless sessions):** install, doctor, greenfield and brownfield setup, an S fix through Verify, guardrails, upgrade and eject all passed; hook warnings and block reasons do reach Claude. Not covered: Windows, and the model-based security review (no credentials reached the hooks in that environment).
 - **Prompt-only guarantees:** most stage gates (spec checklist, design mapping, review severity) rely on skill instructions plus user approval; only freshness, guardrails, the surface check and file ownership are mechanical. Each spec marks which is which.
 - **Security-guidance hooks** are vendored and not covered by this repo's tests.
 - **Generated CI** has not run on GitHub yet (validated as YAML and against local toolchains only); `actionlint` not run.

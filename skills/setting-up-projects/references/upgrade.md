@@ -4,19 +4,20 @@ Brings a project's scaffold from its `scaffold_version` to the installed plugin'
 
 ```bash
 $S status          # drift must be "behind"
-$S upgrade-plan    # regenerate / replace / review / restore / template_gone + pending_migrations
+$S upgrade-plan    # add / regenerate / replace / review / restore / template_gone + pending_migrations
 ```
 
 Summarize the plan for the user in a few lines (counts per bucket, each migration's summary). If a feature is mid-stage (`.sdlc/*/state.md` with `Status: active` past Stage 3), recommend finishing it first; continue only if the user confirms. `--dry-run` requested → stop after the summary.
 
 Clean working tree, then branch `sdlc/upgrade-<from>-<to>`. One commit per bucket.
 
+0. **Add** (policy rules and guardrails new in this plugin version): `$S render <template> <path> --class <class>` for each; list them in the report. One with `exists: true` means a file the plugin never wrote is in the way: show the user both and ask, never overwrite. If the user doesn't want a new one, `$S forget <path>` declines it for good.
 1. **Regenerate** (generated files): `$S render <template> <path>` for each. No questions.
 2. **Replace** (seeded, unedited, template changed): `$S render <template> <path> --class seeded --if-unchanged` for each. No questions; list them in the report.
 3. **Review** (seeded, edited by the user): for each, show the user's file next to `$S preview <template>` and propose a merge that keeps their edits and brings in the new template's changes. The user picks:
-   - **apply merge** → write it, then `$S record seeded <path> --template <template>`
+   - **apply merge** → write it, then `$S record seeded <path> --template <template>`. For a guardrail (`.claude/hookify/sdlc-*.md`) you can't write it: the `sdlc-protect-guardrails-*` rules block Claude from editing the rules that constrain it, on purpose. Show the merged text and ask the user to apply it, then record it.
    - **skip this time** → leave it; it comes back next upgrade
-   - **keep mine** → `$S forget <path>`: the plugin stops managing it for good
+   - **keep mine** → `$S forget <path>`: the plugin stops managing it for good, and future upgrades won't re-add it
 4. **Restore** (seeded, deleted by the user): offer once; yes → `$S render … --class seeded`, no → `$S forget <path>`.
 5. **Template gone** (the plugin no longer ships it): ask whether to delete the file; either way `$S forget <path>`.
 6. **Keyed merges:** re-run the `allowlist` and `gitignore` steps from `SKILL.md`; they only add what's missing.

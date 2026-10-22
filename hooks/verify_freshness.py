@@ -64,6 +64,46 @@ def project_root(cwd):
         d = parent
 
 
+def feature_base(root, feature):
+    """The commit the feature started from (`Base:` in its state.md), or None."""
+    try:
+        text = open(os.path.join(root, ".sdlc", feature, "state.md"), encoding="utf-8").read()
+    except OSError:
+        return None
+    m = re.search(r"^Base:\s*`?([0-9a-f]{7,40})\b", text, re.M)
+    return m.group(1) if m else None
+
+
+def changed_since(root, base):
+    """Code files changed since `base` (committed, uncommitted, untracked), or None if git can't tell."""
+    diff = git(root, "diff", "--name-only", "--no-renames", base)
+    untracked = git(root, "ls-files", "--others", "--exclude-standard")
+    top = git(root, "rev-parse", "--show-toplevel")
+    if diff is None or untracked is None or not top:
+        return None
+    names = set(diff.splitlines()) | set(untracked.splitlines())
+    return [norm(os.path.relpath(os.path.join(top, n), root)) for n in sorted(names)
+            if n and is_code_file(root, os.path.join(top, n))]
+
+
+def initial_scope_state(root, feature, scopes):
+    """On entering Stage 5: every scope stale, except, in a monorepo with a recorded feature base, packages the
+    feature hasn't touched. Those start fresh from a worktree snapshot, so later changes to them still count."""
+    stale = {"stale": True, "reason": "no full test run recorded in Stage 5 yet"}
+    states = {sc["name"]: dict(stale) for sc in scopes}
+    base = feature_base(root, feature) if len(scopes) > 1 else None
+    changed = changed_since(root, base) if base else None
+    if not changed:  # no base, git can't tell, or nothing detected: stay conservative
+        return states
+    touched = {sc["name"] for f in changed for sc in scope_for(scopes, f)}
+    tree = worktree_tree(root)
+    for sc in scopes:
+        if sc["name"] not in touched and tree:
+            states[sc["name"]] = {"stale": False, "reason": "", "tree": tree, "head": git_head(root),
+                                  "note": f"unchanged since the feature base {base}"}
+    return states
+
+
 def active_verify_feature(root):
     for path in glob.glob(os.path.join(root, ".sdlc", "*", "state.md")):
         try:
@@ -264,7 +304,7 @@ def main():
     configured = os.path.exists(os.path.join(root, ".sdlc", "config.json"))
     st = load(root)
     if st.get("feature") != feature or "scopes" not in st:
-        st = {"feature": feature, "scopes": {}}
+        st = {"feature": feature, "scopes": initial_scope_state(root, feature, scopes)}
     for sc in scopes:
         st["scopes"].setdefault(sc["name"], {"stale": True, "reason": "no full test run recorded in Stage 5 yet"})
 

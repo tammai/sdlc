@@ -187,6 +187,28 @@ class ScaffoldTest(ProjectTestCase):
         self.sc("record", "seeded", "a.md")
         self.assertEqual(self.sc("forget", "a.md", "never.md")["forgotten"], ["a.md"])
         self.assertEqual(self.lock()["files"], {})
+        self.assertEqual(self.lock()["declined"], ["a.md", "never.md"])
+
+    def test_upgrade_adds_rules_and_guardrails_new_in_this_version(self):
+        self.template("templates/project/rules/sdlc.md", "always\n")
+        self.template("templates/project/rules/tests.md", "tests\n")
+        self.template("templates/project/hookify/sdlc-old.md", "old\n")
+        self.template("templates/project/hookify/README.md", "not a rule\n")
+        self.init()
+        self.sc("render", "templates/project/rules/sdlc.md", ".claude/rules/sdlc.md")
+        self.sc("render", "templates/project/hookify/sdlc-old.md", ".claude/hookify/sdlc-old.md", "--class", "seeded")
+        self.template("templates/project/hookify/sdlc-new.md", "new\n")
+        self.template("templates/project/hookify/sdlc-declined.md", "declined\n")
+        self.template("templates/project/hookify/sdlc-clash.md", "clash\n")
+        self.write(".claude/hookify/sdlc-clash.md", "the team's own file with that name\n")
+        self.sc("forget", ".claude/hookify/sdlc-declined.md")
+        add = {i["path"]: i for i in self.sc("upgrade-plan")["add"]}
+        self.assertEqual(sorted(add), [".claude/hookify/sdlc-clash.md", ".claude/hookify/sdlc-new.md",
+                                       ".claude/rules/sdlc-tests.md"])
+        self.assertEqual((add[".claude/rules/sdlc-tests.md"]["class"], add[".claude/hookify/sdlc-new.md"]["class"]),
+                         ("generated", "seeded"))
+        self.assertTrue(add[".claude/hookify/sdlc-clash.md"]["exists"])
+        self.assertNotIn("exists", add[".claude/hookify/sdlc-new.md"])
 
     # --- keyed merges ----------------------------------------------------------------------
 
@@ -296,6 +318,13 @@ class ScaffoldTest(ProjectTestCase):
         self.assertEqual(plan["delete"], [".claude/rules/sdlc.md", ".github/workflows/sdlc-verify.yml"])
         self.assertEqual(plan["ask"], [".claude/hookify/sdlc-rm.md"])
         self.assertTrue(os.path.exists(self.path(".sdlc/scaffold.lock.json")))
+
+    def test_eject_removes_the_scratch_folder(self):
+        self.setup_for_eject()
+        self.write(".sdlc/.work/verify-freshness.json", "{}")
+        self.assertTrue(self.sc("eject", "--apply")["scratch_removed"])
+        self.assertFalse(os.path.exists(self.path(".sdlc/.work")))
+        self.assertTrue(os.path.exists(self.path(".sdlc/config.json")))
 
     def test_eject_apply_keeps_user_work(self):
         self.setup_for_eject()

@@ -196,10 +196,35 @@ def cmd_record(p, a):
 
 
 def cmd_forget(p, a):
-    files = p.require_lock().setdefault("files", {})
-    forgotten = [rel(p.root, x) for x in a.paths if files.pop(rel(p.root, x), None) is not None]
+    """Hand files to the user for good: untracked, and never re-added by an upgrade."""
+    lock = p.require_lock()
+    files = lock.setdefault("files", {})
+    declined = lock.setdefault("declined", [])
+    forgotten = []
+    for x in a.paths:
+        path = rel(p.root, x)
+        if files.pop(path, None) is not None:
+            forgotten.append(path)
+        if path not in declined:
+            declined.append(path)
     p.save()
-    return {"forgotten": forgotten}
+    return {"forgotten": forgotten, "declined": declined}
+
+
+def shipped_files():
+    """(template, dest, class) for every plugin file setup always installs: policy rules and guardrails.
+    Lint snippets and CI are left out: setup adds those only by choice."""
+    out = []
+    rules = os.path.join(PLUGIN_ROOT, "templates", "project", "rules")
+    for name in sorted(os.listdir(rules)) if os.path.isdir(rules) else []:
+        if name.endswith(".md"):
+            dest = name if name == "sdlc.md" else f"sdlc-{name}"
+            out.append((f"templates/project/rules/{name}", f".claude/rules/{dest}", "generated"))
+    hookify = os.path.join(PLUGIN_ROOT, "templates", "project", "hookify")
+    for name in sorted(os.listdir(hookify)) if os.path.isdir(hookify) else []:
+        if name.startswith("sdlc-") and name.endswith(".md"):
+            out.append((f"templates/project/hookify/{name}", f".claude/hookify/{name}", "seeded"))
+    return out
 
 
 def format_value(node, flt):
@@ -572,7 +597,14 @@ def cmd_set_version(p, a):
 def cmd_upgrade_plan(p, a):
     lock = p.require_lock()
     plan = {"from": lock.get("scaffold_version"), "to": plugin_version(),
-            "regenerate": [], "replace": [], "review": [], "restore": [], "template_gone": []}
+            "add": [], "regenerate": [], "replace": [], "review": [], "restore": [], "template_gone": []}
+    tracked, declined = lock.get("files", {}), set(lock.get("declined", []))
+    for tpl, dest, cls in shipped_files():  # new in this plugin version
+        if dest not in tracked and dest not in declined:
+            item = {"path": dest, "template": tpl, "class": cls}
+            if os.path.exists(p.path(dest)):
+                item["exists"] = True  # a file the plugin never wrote is in the way: review, never overwrite
+            plan["add"].append(item)
     for path, e in sorted(lock.get("files", {}).items()):
         tpl = e.get("template")
         if not tpl:
@@ -635,7 +667,11 @@ def cmd_eject(p, a):
         cmd_gitignore(p, argparse.Namespace(add=[], remove=list(ignore)))
     os.remove(p.path(LOCK))
     p.lock = None
-    return {"deleted": deleted, "kept_edited": [x for x in plan["ask"] if x not in extra],
+    work = p.path(".sdlc/.work")  # scratch; its .gitignore line is gone, so don't leave it to be committed
+    scratch_removed = os.path.isdir(work)
+    if scratch_removed:
+        shutil.rmtree(work)
+    return {"deleted": deleted, "kept_edited": [x for x in plan["ask"] if x not in extra], "scratch_removed": scratch_removed,
             "unmerged": {SETTINGS: allow, GITIGNORE: ignore}, "lock_removed": True}
 
 

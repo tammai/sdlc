@@ -133,7 +133,8 @@ class DoctorTest(ProjectTestCase):
         self.write(".claude/rules/api.md", '---\npaths:\n  - "src/api/**/*.{ts,js}"\n---\n# API\n')
         self.write(".claude/rules/db.md", '---\npaths:\n  - "db/migrate/**"\n---\n# DB\n')
         self.write(".claude/rules/always.md", "# no paths: always loads\n")
-        c = self.check("rules paths")
+        self.write(".claude/rules/sdlc-migrations.md", '---\npaths:\n  - "**/migrations/**"\n---\n# plugin policy\n')
+        c = self.check("rules paths")  # plugin policy rules waiting for files to exist aren't reported
         self.assertEqual(c["status"], "warn")
         self.assertEqual(c["detail"], "match no files (never load): db.md")
 
@@ -143,6 +144,12 @@ class DoctorTest(ProjectTestCase):
         self.write(".claude/hookify.bad.local.md", "---\nname: bad\nenabled: true\nevent: bash\npattern: (unclosed\naction: warn\n---\nmsg\n")
         c, code = self.doctor(expect=1)
         self.assertIn("hookify.bad.local.md", c[("repo", "hookify rules")]["detail"])
+
+    def test_hookify_rules_that_would_never_fire_are_flagged(self):
+        rule = "---\nname: r\nenabled: true\nevent: bash\naction: block\nconditions:\n  - field: command\n    operator: {op}\n    pattern: x\n---\nmsg\n"
+        self.write(".claude/hookify/r.md", rule.format(op="regex_matc"))
+        c, code = self.doctor(expect=1)
+        self.assertIn("unknown operator", c[("repo", "hookify rules")]["detail"])
 
     def test_claude_md_budget(self):
         self.write("CLAUDE.md", "line\n" * 61)
