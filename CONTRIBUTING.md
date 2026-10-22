@@ -10,7 +10,7 @@ sdlc/
 │   ├── plugin.json          name, version (repos record it at setup and upgrade)
 │   └── marketplace.json     marketplace entry for /plugin install
 ├── agents/                  subagents: verifier, reviewers, code-explorer/architect, simplifier, …
-├── commands/                slash commands (/sdlc:start, setup, upgrade, eject, doctor, status, review-pr, …)
+├── commands/                slash commands (/sdlc:start, setup, upgrade, eject, doctor, status, prune, review-pr, …)
 ├── skills/                  skills; orchestrator/ is the conductor, setting-up-projects/ runs setup/upgrade/eject
 ├── hooks/
 │   ├── hooks.json           which script runs on which event

@@ -10,6 +10,7 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 - The verifier checks red-green: in a throwaway worktree with the feature's code put back to `Base:`, the feature's tests must fail. A test that still passes doesn't count as evidence.
 - A later verify round reruns the qa-tester only when non-test code changed since its last PASS.
 - `analyzing-consistency` maps each acceptance scenario to a named test in the plan and flags a scenario with none as HIGH.
+- `/sdlc:prune` deletes the working files (plan, reports, review, checklists) of features marked done on the main branch 45+ days ago, after showing the list and asking. Spec, design, retro and state stay; git history keeps the rest.
 
 ### Changed
 - One whole-branch review per feature: under the orchestrator, the execution skills skip their own final review and Stage 6 does it, with the plan's Review Focus and the Rulings made during Stage 4. A live run had spent two top-tier reviews on the same diff.

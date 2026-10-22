@@ -24,6 +24,7 @@ Situation-by-situation plays. Each says what to say or run, what the orchestrato
 | Let Claude iterate alone on a small task | [11](#11-run-an-autonomous-loop) |
 | Stop repeating the same correction | [12](#12-turn-a-correction-into-a-rule) |
 | Keep CLAUDE.md small | [13](#13-keep-always-loaded-context-small) |
+| Clean up finished features | [18](#18-clean-up-finished-features) |
 
 ## 1. Fix a bug (S track)
 
@@ -196,6 +197,14 @@ Interrupted? Run `/sdlc:setup` again; it resumes from the last finished step.
 ## 17. Remove sdlc from a repo
 
 `/sdlc:eject` shows a dry run first. It removes the plugin's own files (generated rules, unedited guardrails, CI workflow and lint snippets, the allowlist, plugin-enablement and `.gitignore` entries it added, the lock) and keeps your specs, knowledge, constitution, commands, baseline and area rules. Edited plugin files are asked about one by one. It also fixes imports that would point at deleted files, runs the verify commands, and asks PR or local merge. Uninstall the plugin afterwards if you're done with it.
+
+## 18. Clean up finished features
+
+`.sdlc/` keeps every feature's folder. Old plans and test reports describe code that has since changed, and agents searching the repo can be misled by them.
+
+1. `/sdlc:prune` lists merged features marked done 45+ days ago (`--older-than 90d` to change that) and what would go: plan, test and QA reports, review, checklists.
+2. Pick which to prune. Spec, design, retro and state stay, and so does security.md on high-risk features.
+3. It commits the deletions in one commit. Anything you need later is in git history.
 
 ## Who decides what
 
