@@ -154,7 +154,8 @@ class VerifyFreshnessTest(ProjectTestCase):
     def test_filtered_runs_do_not_count(self):
         for cmd in ["npx jest -t login", "npx vitest run --testNamePattern login", "pytest -k login",
                     "npx playwright test --grep login", "go test -run TestLogin ./...",
-                    "pnpm test --filter api", "npx jest --bail"]:
+                    "pnpm test --filter api", "npx jest --bail",
+                    "npm test 2>/dev/null -t login", "pytest > out.txt -k login", "npx jest &>log src/a.test.ts"]:
             with self.subTest(cmd=cmd):
                 self.set_state()
                 self.edit("src/a.ts")

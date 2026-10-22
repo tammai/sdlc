@@ -44,7 +44,9 @@ PARTIAL_FLAGS = re.compile(
 TEST_FILE_ARG = re.compile(
     r"(\.(test|spec)\.[cm]?[jt]sx?|_test\.go|_test\.py|_spec\.rb|Test\.(java|kt))$|(^|/)test_[^/]*\.py$|::"
 )
-SHELL_SEP = re.compile(r"\s\d+(?=[<>])|\|\||&&|[|;&<>]")  # also cuts fd redirects like 2>&1
+SHELL_SEP = re.compile(r"\|\||&&|[|;&]")
+# Redirects (2>&1, >out, &>log, <in) are removed, not cut at: arguments after them still filter the run
+REDIRECT = re.compile(r"&?\d*[<>]{1,2}&?\s*[^\s;&|<>]*")
 GO_ALL_PACKAGES = ("./...", "...", ".")
 
 
@@ -270,7 +272,7 @@ def match_full_run(command, tests):
             return None
         end = m.end()
     # Only arguments added after the test command filter it: flags inside it (unittest's `-t .`) are its own
-    args = SHELL_SEP.split(command[end:])[0]
+    args = SHELL_SEP.split(REDIRECT.sub(" ", command[end:]))[0]
     if PARTIAL_FLAGS.search(" " + args + " "):
         return None
     if names_specific_tests(args, is_go=re.search(r"\bgo\s+test\b", command) is not None):
