@@ -178,7 +178,7 @@ knowledge/                 tier 3, on-demand docs (index.md links everything)
 CLAUDE.md                  tier 1, at most 60 lines (never touched by the plugin)
 ```
 
-Commit everything under `.sdlc/<feature>/`. Only `.sdlc/.work/` is ignored.
+Each feature folder is named `<yyyy-mm-dd>-<slug>` (with a ticket key after the date when there is one, e.g. `2026-10-22-PROJ-123-month-filter`), so folders sort by start date and a new feature never reuses an old one's folder; the branch uses the same name. Commit everything under `.sdlc/<feature>/`. Only `.sdlc/.work/` is ignored.
 
 ### `state.md`
 

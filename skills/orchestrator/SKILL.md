@@ -41,7 +41,8 @@ Anything touching auth, payments, secrets, PII or schema migrations is at least 
 
 The top tier is `opus`. Use `fable` only when the user asks for it; record it as `Top model: fable`.
 
-6. Create `.sdlc/<feature>/state.md` from the template at the bottom, with `Base:` set to `git rev-parse --short HEAD` (the commit the feature starts from; in a monorepo, Stage 5 then only requires tests for packages the feature changed). Announce: track, risk, stages to run, first stage, and `Top tier: opus (say "use fable" to switch)`. If the track is L or the risk is high and the session runs on a smaller model than the top tier, add one line suggesting `/model opus` for this session. Never block on it, and never suggest a downgrade.
+6. **Name the feature:** `<yyyy-mm-dd>-<slug>`, or `<yyyy-mm-dd>-<ticket>-<slug>` when the request names a ticket (`2026-10-22-PROJ-123-month-filter`; a GitHub issue is `gh-42`). The date is today's, the same as `Started:`; the slug is 2–4 kebab-case words, action-noun where possible (`user-auth`, `fix-payment-timeout`), keeping technical terms (OAuth2, JWT). If `.sdlc/<name>/` already exists and isn't the feature being resumed, add `-2` (then `-3`, …). The feature's branch and `knowledge/features/<name>.md` use the same name.
+7. Create `.sdlc/<feature>/state.md` from the template at the bottom, with `Base:` set to `git rev-parse --short HEAD` (the commit the feature starts from; in a monorepo, Stage 5 then only requires tests for packages the feature changed). Announce: track, risk, stages to run, first stage, and `Top tier: opus (say "use fable" to switch)`. If the track is L or the risk is high and the session runs on a smaller model than the top tier, add one line suggesting `/model opus` for this session. Never block on it, and never suggest a downgrade.
 
 ## Stage header
 
