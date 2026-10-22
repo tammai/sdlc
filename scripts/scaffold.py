@@ -17,6 +17,8 @@ import hashlib
 import json
 import os
 import re
+import shutil
+import subprocess
 import sys
 
 PLUGIN_ROOT = os.environ.get("CLAUDE_PLUGIN_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -221,6 +223,8 @@ def render_text(template_text, p):
     missing = []
 
     def lookup(m):
+        if m.group(1).split(".")[0] not in ctx:
+            return m.group(0)  # not ours: justfile {{args}}, GitHub ${{ github.ref }}, ...
         node = ctx
         for part in m.group(1).split("."):
             if not isinstance(node, dict) or part not in node:
@@ -255,6 +259,108 @@ def cmd_render(p, a):
     lock["files"][dest] = {"class": a.cls, "sha256": after, "template": template}
     p.save()
     return {"rendered": dest, "class": a.cls, "changed": before != after}
+
+
+JUST_RECIPE = re.compile(r"^@?([A-Za-z_][\w-]*)(?:\s[^:]*)?:(?!=)")
+JUST_NOT_RECIPE = re.compile(r"^(set|alias|export|import|mod)\b")
+JUST_MOD = re.compile(r"""^mod\??\s+([A-Za-z_][\w-]*)(?:\s+['"]([^'"]+)['"])?\s*$""")
+
+
+def justfile_recipes(path):
+    """Recipe names: from `just --summary` when just is installed (handles imports), else parsed."""
+    if shutil.which("just"):
+        p = subprocess.run(["just", "--justfile", path, "--working-directory", os.path.dirname(path), "--summary"],
+                           capture_output=True, text=True, timeout=10)
+        if p.returncode == 0:
+            return p.stdout.split(), "just --summary"
+    names = []
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            if line[:1].isspace() or line.startswith("#") or JUST_NOT_RECIPE.match(line):
+                continue
+            m = JUST_RECIPE.match(line)
+            if m:
+                names.append(m.group(1))
+    return names, "parsed"
+
+
+def justfile_modules(path):
+    """[(name, module justfile path or None if not found)] from `mod` lines, resolved the way just does."""
+    base = os.path.dirname(path)
+    mods = []
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            m = JUST_MOD.match(line.rstrip("\n"))
+            if not m:
+                continue
+            name, target = m.groups()
+            if target:
+                full = os.path.join(base, target)
+                candidates = [full] if os.path.isfile(full) else [os.path.join(full, n) for n in
+                                                                  ("mod.just", "justfile", "Justfile", ".justfile")]
+            else:
+                candidates = [os.path.join(base, name + ".just")] + [os.path.join(base, name, n) for n in
+                                                                    ("mod.just", "justfile", "Justfile", ".justfile")]
+            mods.append((name, next((c for c in candidates if os.path.isfile(c)), None)))
+    return mods
+
+
+def check_contract(p, rel_path, required, seen):
+    path = p.path(rel_path)
+    if not os.path.exists(path):
+        return {"justfile": rel_path, "exists": False, "missing": list(required), "ok": False, "modules": {}}
+    recipes, source = justfile_recipes(path)
+    if source == "just --summary":  # module recipes come back as name::recipe; the root's own are unqualified
+        recipes = [r for r in recipes if "::" not in r]
+    missing = [r for r in required if r not in recipes]
+    out = {"justfile": rel_path, "exists": True, "source": source, "recipes": recipes, "missing": missing,
+           "modules": {}}
+    for name, mod_path in justfile_modules(path):
+        if mod_path is None:
+            out["modules"][name] = {"justfile": None, "exists": False, "missing": list(required), "ok": False,
+                                    "modules": {}}
+        elif mod_path not in seen:
+            seen.add(mod_path)
+            out["modules"][name] = check_contract(p, rel(p.root, mod_path), required, seen)
+    out["ok"] = not missing and all(m["ok"] for m in out["modules"].values())
+    return out
+
+
+# Prebuilt binaries first: Homebrew builds from source on unsupported (Tier 3) macOS setups, which pulls in
+# Rust and LLVM and takes hours
+JUST_INSTALL = {
+    "darwin": "npm i -g rust-just  (or: pipx install rust-just; brew install just only where Homebrew has a bottle "
+              "for this Mac, otherwise it compiles Rust and LLVM from source)",
+    "linux": "npm i -g rust-just  (or: pipx install rust-just, or a prebuilt binary; distro packages may be too old)",
+    "win32": "winget install Casey.Just  (then run just from Git Bash; plain PowerShell/cmd has no `sh` unless Git's "
+             "Unix tools are on PATH)",
+}
+
+
+def just_version():
+    if not shutil.which("just"):
+        return None
+    try:
+        out = subprocess.run(["just", "--version"], capture_output=True, text=True, timeout=10).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    m = re.search(r"(\d+\.\d+\.\d+)", out)
+    return m.group(1) if m else None
+
+
+def cmd_contract(p, a):
+    contract = effective_config(p.config).get("contract", {})
+    required = contract.get("required", [])
+    out = check_contract(p, a.justfile, required, {p.path(a.justfile)})
+    out["required"] = required
+    version = just_version()
+    min_just = contract.get("min_just") if out.get("modules") else None  # modules need just >= 1.31
+    just = {"installed": version is not None, "version": version, "min": min_just,
+            "ok": version is not None and (min_just is None or parse_version(version) >= parse_version(min_just))}
+    if not just["ok"]:
+        just["install"] = JUST_INSTALL.get(sys.platform, JUST_INSTALL["linux"])
+    out["just"] = just
+    return out
 
 
 def cmd_preview(p, a):
@@ -506,6 +612,10 @@ def build_parser():
     s.add_argument("--class", dest="cls", choices=FILE_CLASSES, default="generated")
     s.add_argument("--if-unchanged", action="store_true", help="refuse (exit 2) if the user edited the file")
     s.set_defaults(fn=cmd_render)
+
+    s = sub.add_parser("contract", help="check the justfile has the required recipes")
+    s.add_argument("--justfile", default="justfile")
+    s.set_defaults(fn=cmd_contract)
 
     s = sub.add_parser("preview", help="render a template to stdout without writing")
     s.add_argument("template")

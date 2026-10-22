@@ -15,7 +15,7 @@ Today, "setup" is improvised inside `/sdlc:start` step 0: it adds a `.gitignore`
 | Brownfield depth | Deep audit: detect, check the commands actually run, seed knowledge with code-explorer agents, mine git history, migrate existing AI config, record a baseline |
 | Existing AI config | Propose a migration per source (CLAUDE.md, AGENTS.md, .cursor/rules, .specify/, ADRs); the user approves each diff; originals are kept unless the user approves deleting them |
 | Baseline | `.sdlc/baseline.md`, committed. Stage 5 fails only on *new* failures. The baseline only shrinks unless the user approves an addition. |
-| Command contract | A root `justfile` in **every** project, with required recipes. Recipes wrap the existing tools (pnpm, make, turbo…) instead of replacing them. The user owns the file; the plugin only checks the contract and proposes missing recipes. |
+| Command contract | A root `justfile` in **every** project, with required recipes (polyglot monorepos: one justfile per package, loaded as just modules). Recipes wrap the existing tools (pnpm, make, turbo…) instead of replacing them. The user owns the file; the plugin only checks the contract and proposes missing recipes. |
 | Monorepo | One root (`.sdlc/`, `knowledge/`, justfile). Per-package work goes through recipe arguments. |
 | Triggers | `/sdlc:setup` (explicit, re-runnable), and `/sdlc:start` routes to setup when the project isn't set up (hard stop). No SessionStart hook. |
 | Always-on text | `.claude/rules/sdlc.md`: plugin-owned, regenerated on upgrade. CLAUDE.md belongs to the user and is never touched. |
@@ -35,7 +35,7 @@ Every file the plugin places in a project falls into exactly one class. That cla
 |---|---|---|---|---|
 | **Runtime** (never copied) | templates, stage rules, agent prompts, migrations | — | free (comes with the plugin update) | — |
 | **Generated** (plugin-owned) | `.claude/rules/sdlc.md` | render | re-render from config, overwrite | delete |
-| **Seeded** (plugin-owned until edited) | `.github/workflows/sdlc-verify.yml`, `.claude/hookify/sdlc-*.md`, `knowledge/` skeleton files (`index.md`, `log.md` while still empty) | write, record hash | unchanged hash → replace; changed → show diff, apply or skip | unchanged → delete; changed → ask |
+| **Seeded** (plugin-owned until edited) | `.github/workflows/sdlc-verify.yml`, `.claude/hookify/sdlc-*.md`, `.sdlc/lint/*` | write, record hash | unchanged hash → replace; changed → show diff, apply or skip | unchanged → delete; changed → ask |
 | **Keyed merge** | `.claude/settings.json` (`permissions.allow` entries), `.gitignore` (lines) | add entries, record which ones | add/remove only the entries it recorded | remove only the entries it recorded |
 | **Contract** | `justfile` | create or wrap (diff approved) | check required recipes; propose missing ones | keep |
 | **User-owned** | `CLAUDE.md`, `.sdlc/constitution.md`, `knowledge/**` (after seeding), `.sdlc/baseline.md`, `.sdlc/<feature>/**` | write once (approved) | migrations only (diff approved; decline → skipped) | keep |
@@ -56,6 +56,7 @@ JSON rather than YAML: the scripts are stdlib-only and must run on macOS's syste
     "packages": ["apps/web", "packages/api"]
   },
   "verify": { "full": ["just verify", "just test"] },
+  "ci": { "node_version": "22" },
   "baseline": ".sdlc/baseline.md"
 }
 ```
@@ -78,7 +79,17 @@ JSON rather than YAML: the scripts are stdlib-only and must run on macOS's syste
 
 ### Justfile contract
 
-Required recipes: `test`, `lint`, `typecheck`, `build`, `verify` (runs all four). Optional: `test-affected` (monorepo: turbo `--filter` / `nx affected`) and `fmt`. Every recipe takes an optional `pkg` argument in monorepos. Stages, CI, the allowlist and the freshness hook all call `just <recipe>`, so none of them need stack-specific logic. If `just` is missing, setup offers to install it (`brew install just`) as a hard stop; CI installs it with `extractions/setup-just`.
+Required recipes: `install`, `test`, `lint`, `typecheck`, `build`, `verify` (runs lint, typecheck, build, test). Optional: `test-affected`, `fmt`. Stages, CI, the allowlist and the freshness hook all call `just <recipe>`, so none of them need stack-specific logic. A stack without a step (no build for an app, no type checker for shell) keeps the recipe and echoes why. Arguments to a recipe filter it (`just test src/a.test.ts`, `just test api`), and the freshness hook never counts a filtered run as full.
+
+Starters live in `templates/justfile/` (user-owned once copied, never rendered): `node`, `python`, `go`, `rust`, `dart`, `flutter`, `shell`, `gradle` (Java/Kotlin), `dotnet`. Each works as a repo-root justfile or as one package of a monorepo.
+
+**Polyglot monorepos** (`polyglot-root.just`, needs just ≥ 1.31): each package has its own contract justfile from its stack's starter, loaded at the root with `mod <name> '<path>'`. Root recipes run every package (`just test`) or one (`just test api`); `test-affected` runs only packages with changes since a base ref. A single-language workspace (pnpm/npm/yarn workspaces, cargo workspace, go.work) can stay one justfile using the tool's own workspace flags.
+
+`scaffold.py contract` checks the root and follows `mod` lines into every package (resolved like just does: a file, or `mod.just` / `justfile` in a directory). If `just` isn't installed, setup offers to install it as a hard stop, prebuilt first (`npm i -g rust-just`, `pipx install rust-just`, `winget install Casey.Just`); `brew install just` only where Homebrew has a bottle, since on unsupported (Tier 3) macOS setups it compiles Rust and LLVM from source for hours; CI installs it with `extractions/setup-just`. Without `just`, the contract check falls back to parsing recipe names.
+
+**Platforms.** just runs natively on macOS, Linux and Windows; recipes run through `sh`, so Windows needs Git for Windows (Claude Code on Windows already requires it and runs its shell commands in Git Bash). People run `just` from Git Bash, or install Git with its Unix tools on PATH; plain PowerShell/cmd has no `sh` by default. `scaffold.py contract` reports the installed version and the OS-specific install command, and requires just ≥ 1.31 only when the justfile uses modules (distro packages can be older). CI templates run every step with `shell: bash` (Git Bash on Windows runners) over an OS matrix from `ci.os` in config, default `["ubuntu-latest"]`; add `"windows-latest"` to prove recipes work there. Make was considered and rejected: not installed on Windows, needs the same `sh`, awkward recipe arguments, and macOS ships GNU Make 3.81. If Windows without Git Bash ever becomes a requirement, Taskfile (go-task, built-in shell interpreter) is the fallback, not Make.
+
+The freshness hook treats `cd <dir> && just test` as partial when `<dir>` has its own justfile (one package, not the repo).
 
 ## Flows
 
@@ -153,14 +164,14 @@ Keeps `config.json`, the constitution, `knowledge/`, the baseline, the justfile 
 
 | Change | Notes |
 |---|---|
-| `commands/setup.md`, `upgrade.md`, `eject.md` | thin wrappers around the skill |
-| `skills/setting-up-projects/` | SKILL.md + `references/{greenfield,brownfield,upgrade,eject,ownership}.md` |
+| ✅ `commands/setup.md`, `upgrade.md`, `eject.md`; `status` reports setup and drift | thin wrappers around the skill |
+| ✅ `skills/setting-up-projects/` | SKILL.md (flow table, ownership, common steps) + `references/{greenfield,brownfield,upgrade,eject}.md`. Edited seeded files on upgrade: apply merge / skip this time / keep mine (`forget`: never managed again). `knowledge/` is user-owned from the start. |
 | `scripts/scaffold.py` | the deterministic, testable parts: render the generated file, hash and classify files, read and write the lock, keyed merges, list pending migrations, version comparison, eject plan. Claude does the judgment calls; this script does the bookkeeping. |
-| `templates/project/` | ✅ `config.defaults.json`, `rules/*.md`, `hookify/sdlc-*.md`, `lint/*`. To do: `justfile` snippets, `sdlc-verify.yml`, `baseline.md` |
+| `templates/project/` | ✅ `config.defaults.json`, `rules/*.md`, `hookify/sdlc-*.md`, `lint/*`, `ci/sdlc-verify-{node,python,go}.yml`, `baseline.md`; justfile starters in `templates/justfile/` |
 | `migrations/` | empty in 1.3.0. Projects with a pre-setup `.sdlc/` have no lock, so `/sdlc:start` routes them to setup (brownfield), which adopts what's there. |
-| orchestrator step 0 | route to setup, drift check, justfile commands |
-| `agents/verifier.md` | baseline-aware gate |
-| `hooks/verify_freshness.py` | full-run commands from `config.json` |
+| ✅ orchestrator step 0 | route to setup, drift check, justfile commands |
+| ✅ `agents/verifier.md` | baseline-aware gate; may only remove passing items from the baseline |
+| ✅ `hooks/verify_freshness.py` | full-run commands from `config.json` |
 | `core/config_loader.py` (hookify) | **also** load committed team rules from `.claude/hookify/*.md`. Today it only reads `.claude/hookify.*.local.md`, which hookify's own docs say to git-ignore, so those files are personal. Another vendored patch; record it in NOTICE.md. |
 | `tests/` | scaffold.py ✅ (29 tests), hookify team-rule loading, freshness `config.json` commands |
 

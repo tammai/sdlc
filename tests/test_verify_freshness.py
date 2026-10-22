@@ -170,7 +170,7 @@ class VerifyFreshnessTest(ProjectTestCase):
                 self.assertBlocks()
 
     def test_whole_suite_arguments_still_count(self):
-        for cmd in ["go test ./...", "go test -race ./...", "pytest tests/", "npx vitest run --coverage",
+        for cmd in ["go test ./...", "go test -race ./...", "go test ./... 2>&1 | tail -20", "pytest tests/", "npx vitest run --coverage",
                     "npm test -- --reporter=dot", "npm test && echo src/a.test.ts", "npx jest 2>&1 | grep a_test.go"]:
             with self.subTest(cmd=cmd):
                 self.set_state()
@@ -205,6 +205,64 @@ class VerifyFreshnessTest(ProjectTestCase):
     def test_block_message_names_the_test_command(self):
         self.set_state(test_cmd="pnpm test:all")
         self.assertIn("`pnpm test:all`", self.assertBlocks()["reason"])
+
+    # --- .sdlc/config.json (after /sdlc:setup) ---------------------------------------
+
+    def configure(self, **config):
+        self.write(".sdlc/config.json", json.dumps({"min_plugin_version": "1.3.0", **config}))
+
+    def test_config_defaults_make_just_recipes_count(self):
+        self.set_state()
+        self.configure()
+        for cmd in ["just verify", "just test", "cd app && just test 2>&1 | tail"]:
+            with self.subTest(cmd=cmd):
+                self.edit("src/a.ts")
+                self.bash(cmd)
+                self.assertAllows()
+
+    def test_cd_into_a_package_with_its_own_justfile_is_partial(self):
+        self.set_state()
+        self.configure()
+        self.write("services/api/justfile", "test:\n    go test ./...\n")
+        self.write("docs/notes.txt", "")
+        for cmd, full in [("cd services/api && just test", False), ("cd 'services/api'; just verify", False),
+                          ("cd docs && just test", True), ("cd . && just verify", True),
+                          ("cd services/api && make x; cd .. && just verify", True)]:
+            with self.subTest(cmd=cmd):
+                self.edit("src/a.ts")
+                self.bash(cmd)
+                (self.assertAllows if full else self.assertBlocks)()
+
+    def test_just_recipe_arguments_are_filters(self):
+        self.set_state()
+        self.configure()
+        for cmd in ["just test src/a.test.ts", "just verify @app/web", "just test login", "just test-affected",
+                    "npm test"]:  # once configured, only the configured commands count
+            with self.subTest(cmd=cmd):
+                self.edit("src/a.ts")
+                self.bash(cmd)
+                self.assertBlocks()
+
+    def test_config_verify_full_overrides_defaults(self):
+        self.set_state()
+        self.configure(verify={"full": ["make check"]})
+        self.bash("just verify")
+        self.assertBlocks()
+        self.bash("make check")
+        self.assertAllows()
+        self.edit("src/a.ts")
+        self.assertIn("`make check`", self.assertBlocks()["reason"])
+
+    def test_state_test_command_still_counts_with_config(self):
+        self.set_state(test_cmd="pnpm test:all")
+        self.configure()
+        self.bash("pnpm test:all")
+        self.assertAllows()
+
+    def test_command_must_match_whole_words(self):
+        self.set_state(test_cmd="pnpm test")
+        self.bash("pnpm test:unit")
+        self.assertBlocks()
 
     # --- loop guard, feature switch, git -----------------------------------------
 

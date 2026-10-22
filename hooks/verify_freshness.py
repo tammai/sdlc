@@ -10,6 +10,8 @@ Active only while an .sdlc feature is in Stage 5 (Verify):
                                                                      stale with "re-run tests"
 
 The worktree tree is built with a throwaway copy of the git index (the real index is never touched).
+Full-run commands: `verify.full` from .sdlc/config.json over the plugin defaults (`just verify`, `just test`),
+plus the `test:` command in state.md; without a config, the state.md command or generic runner patterns.
 State lives in .sdlc/.work/verify-freshness.json. Never fails the session: any error exits 0.
 """
 import glob
@@ -38,7 +40,7 @@ PARTIAL_FLAGS = re.compile(
 TEST_FILE_ARG = re.compile(
     r"(\.(test|spec)\.[cm]?[jt]sx?|_test\.go|_test\.py|_spec\.rb|Test\.(java|kt))$|(^|/)test_[^/]*\.py$|::"
 )
-SHELL_SEP = re.compile(r"\|\||&&|[|;&<>]")
+SHELL_SEP = re.compile(r"\s\d+(?=[<>])|\|\||&&|[|;&<>]")  # also cuts fd redirects like 2>&1
 GO_ALL_PACKAGES = ("./...", "...", ".")
 
 
@@ -70,6 +72,25 @@ def active_verify_feature(root):
             m = re.search(r"test:\s*`([^`]+)`", text)
             return os.path.basename(os.path.dirname(path)), (m.group(1).strip() if m else None)
     return None, None
+
+
+def full_run_commands(root, state_test_cmd):
+    """Commands that count as a full test run, or [] to fall back to the generic runner patterns."""
+    cmds = [state_test_cmd] if state_test_cmd else []
+    try:
+        with open(os.path.join(root, ".sdlc", "config.json"), encoding="utf-8") as f:
+            config = json.load(f)
+    except (OSError, ValueError):
+        return cmds
+    full = (config.get("verify") or {}).get("full")
+    if full is None:
+        plugin_root = os.environ.get("CLAUDE_PLUGIN_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        try:
+            with open(os.path.join(plugin_root, "templates", "project", "config.defaults.json"), encoding="utf-8") as f:
+                full = json.load(f).get("verify", {}).get("full")
+        except (OSError, ValueError):
+            full = None
+    return cmds + [c for c in (full or []) if c not in cmds]
 
 
 def state_path(root):
@@ -153,12 +174,14 @@ def is_code_file(root, file_path):
     return not rel.lower().endswith(NON_CODE_EXT)
 
 
-def names_specific_tests(args, is_go):
+def names_specific_tests(args, is_go, is_just=False):
     try:
         tokens = shlex.split(args)
     except ValueError:
         tokens = args.split()
     for t in (t for t in tokens if not t.startswith("-")):
+        if is_just:  # by the justfile contract, any recipe argument filters the run (file, package, pattern)
+            return True
         if TEST_FILE_ARG.search(t):
             return True
         if is_go and t not in GO_ALL_PACKAGES and not t.endswith("/..."):
@@ -166,12 +189,29 @@ def names_specific_tests(args, is_go):
     return False
 
 
-def is_full_test_run(command, test_cmd):
+def runs_in_package(command, end, root):
+    """True if the command cd's into a directory with its own justfile before running a just recipe:
+    that's one monorepo package, not the whole repo."""
+    cds = re.findall(r"""\bcd\s+("[^"]+"|'[^']+'|[^\s;&|]+)\s*(?:&&|;)""", command[:end])
+    if not cds or not root:
+        return False
+    target = cds[-1].strip("\"'")
+    path = os.path.normpath(os.path.join(root, target))
+    if path == os.path.normpath(root):
+        return False
+    return any(os.path.isfile(os.path.join(path, n)) for n in ("justfile", "Justfile", ".justfile", "mod.just"))
+
+
+def is_full_test_run(command, test_cmds, root=None):
     if not command or PARTIAL_FLAGS.search(" " + command + " "):
         return False
-    if test_cmd:
-        if test_cmd not in command:
+    if isinstance(test_cmds, str):
+        test_cmds = [test_cmds]
+    if test_cmds:
+        hits = [c for c in test_cmds if re.search(r"(^|[\s;&|(])" + re.escape(c) + r"(?=$|[\s;&|)])", command)]
+        if not hits:
             return False
+        test_cmd = hits[0]
         end = command.index(test_cmd) + len(test_cmd)
     else:
         m = GENERIC_TEST.search(command)
@@ -179,7 +219,10 @@ def is_full_test_run(command, test_cmd):
             return False
         end = m.end()
     args = SHELL_SEP.split(command[end:])[0]
-    return not names_specific_tests(args, is_go=re.search(r"\bgo\s+test\b", command) is not None)
+    is_just = test_cmds is not None and len(test_cmds) > 0 and test_cmd.startswith("just ")
+    if is_just and runs_in_package(command, end, root):
+        return False
+    return not names_specific_tests(args, is_go=re.search(r"\bgo\s+test\b", command) is not None, is_just=is_just)
 
 
 def main():
@@ -209,7 +252,7 @@ def main():
             resp = data.get("tool_response") or {}
             if isinstance(resp, dict) and resp.get("interrupted"):
                 return
-            if is_full_test_run(cmd, test_cmd):
+            if is_full_test_run(cmd, full_run_commands(root, test_cmd), root):
                 st.update(stale=False, reason="", last_test_at=now(), last_test_cmd=cmd, head=git_head(root),
                           tree=worktree_tree(root))
                 save(root, st)
@@ -226,8 +269,9 @@ def main():
 
     if event == "Stop" and st.get("stale"):
         save(root, st)
+        cmds = full_run_commands(root, test_cmd)
         msg = (f"Verify freshness ({feature}): test results are stale — {st.get('reason')}. "
-               f"Run the full test command{f' (`{test_cmd}`)' if test_cmd else ''} again before claiming "
+               f"Run the full test command{f' (`{cmds[0]}`)' if cmds else ''} again before claiming "
                f"anything passes, or dispatch a fresh sdlc:verifier agent for this round.")
         if data.get("stop_hook_active"):
             print(json.dumps({"systemMessage": "⚠ " + msg}))

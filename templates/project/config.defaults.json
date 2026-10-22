@@ -1,6 +1,24 @@
 {
+  "contract": {
+    "required": [
+      "install",
+      "test",
+      "lint",
+      "typecheck",
+      "build",
+      "verify"
+    ],
+    "optional": [
+      "test-affected",
+      "fmt"
+    ],
+    "min_just": "1.31.0"
+  },
   "verify": {
-    "full": ["just verify", "just test"]
+    "full": [
+      "just verify",
+      "just test"
+    ]
   },
   "baseline": ".sdlc/baseline.md",
   "areas": {
@@ -31,6 +49,12 @@
       "**/*.tf",
       "{infra,deploy,k8s,helm}/**",
       "justfile"
+    ]
+  },
+  "ci": {
+    "node_version": "22",
+    "os": [
+      "ubuntu-latest"
     ]
   }
 }

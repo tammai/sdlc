@@ -1,0 +1,36 @@
+# Managed by the sdlc plugin v{{plugin_version}} (seeded: replaced on upgrade only while unedited).
+# Runs the same `just verify` as Stage 5. Add steps (services, caches) here; the plugin then leaves it alone.
+name: sdlc verify
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+concurrency:
+  group: sdlc-verify-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash  # Git Bash on Windows runners, so just recipes get the same sh everywhere
+
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: {{config.ci.os|json}}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: extractions/setup-just@v2
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: just install
+      - run: just verify

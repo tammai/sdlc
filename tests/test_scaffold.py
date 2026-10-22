@@ -336,6 +336,69 @@ class ScaffoldTest(ProjectTestCase):
         self.assertEqual(self.sc("preview", "templates/project/f.md")["text"],
                          'paths:\n  - "**/*.test.*"\nv={"full": ["just verify", "just test"]}\n')
 
+    def test_foreign_placeholders_pass_through(self):
+        self.init()
+        self.template("templates/project/f.yml", "g: ${{ github.ref }}\nj: {{args}}\nv: {{plugin_version}}\n")
+        self.assertEqual(self.sc("preview", "templates/project/f.yml")["text"],
+                         "g: ${{ github.ref }}\nj: {{args}}\nv: 1.3.0\n")
+
+    def test_contract_reports_missing_recipes(self):
+        self.init()
+        self.template("templates/project/config.defaults.json",
+                      json.dumps({"contract": {"required": ["install", "test", "verify"]}}))
+        self.assertEqual(self.sc("contract")["exists"], False)
+        self.write("justfile", "set shell := [\"bash\", \"-c\"]\nalias t := test\nversion := \"1\"\n"
+                               "# comment: not a recipe\ntest *args:\n    pnpm test {{args}}\n"
+                               "@install:\n    pnpm i\nverify pkg=\"\": (test pkg)\n")
+        out = self.sc("contract")
+        self.assertEqual(out["missing"], [])
+        self.assertTrue(out["ok"])
+        self.write("justfile", "test:\n    pnpm test\n")
+        self.assertEqual(self.sc("contract")["missing"], ["install", "verify"])
+
+    def test_contract_resolves_modules_like_just(self):
+        self.init()
+        self.template("templates/project/config.defaults.json", json.dumps({"contract": {"required": ["test"]}}))
+        self.write("justfile", "mod a 'pkgs/a'\nmod b\nmod? c 'pkgs/c.just'\nmod d 'nowhere'\ntest:\n    true\n")
+        self.write("pkgs/a/mod.just", "test:\n    true\n")
+        self.write("b/justfile", "lint:\n    true\n")
+        self.write("pkgs/c.just", "test:\n    true\n")
+        mods = self.sc("contract")["modules"]
+        self.assertEqual({k: (v["justfile"], v["ok"]) for k, v in mods.items()},
+                         {"a": ("pkgs/a/mod.just", True), "b": ("b/justfile", False),
+                          "c": ("pkgs/c.just", True), "d": (None, False)})
+
+    def fake_just(self, version):
+        """A `just` on PATH that only answers --version (anything else fails, so recipes are parsed)."""
+        bindir = os.path.join(self.plugin, "bin")
+        os.makedirs(bindir, exist_ok=True)
+        with open(os.path.join(bindir, "just"), "w") as f:
+            f.write(f'#!/bin/sh\n[ "$1" = "--version" ] && echo "just {version}" && exit 0\nexit 1\n')
+        os.chmod(os.path.join(bindir, "just"), 0o755)
+        return {"PATH": bindir + os.pathsep + "/usr/bin:/bin"}
+
+    def contract_with(self, env):
+        code, out, raw, err = run_hook([sys.executable, SCRIPT, "--root", self.root, "contract"], "", self.root,
+                                       env_extra={"CLAUDE_PLUGIN_ROOT": self.plugin, **env})
+        self.assertEqual(code, 0, raw + err)
+        return out["just"]
+
+    def test_contract_checks_just_version_only_when_modules_are_used(self):
+        self.init()
+        self.template("templates/project/config.defaults.json",
+                      json.dumps({"contract": {"required": ["test"], "min_just": "1.31.0"}}))
+        self.write("justfile", "test:\n    true\n")
+        self.assertEqual(self.contract_with(self.fake_just("1.21.0")),
+                         {"installed": True, "version": "1.21.0", "min": None, "ok": True})
+        self.write("justfile", "mod api\ntest:\n    true\n")
+        self.write("api.just", "test:\n    true\n")
+        old = self.contract_with(self.fake_just("1.21.0"))
+        self.assertEqual((old["min"], old["ok"]), ("1.31.0", False))
+        self.assertIn("install", old)
+        self.assertTrue(self.contract_with(self.fake_just("1.36.0"))["ok"])
+        missing = self.contract_with({"PATH": "/usr/bin:/bin"})
+        self.assertEqual((missing["installed"], missing["ok"]), (False, False))
+
     def test_unknown_filter_is_an_error(self):
         self.init()
         self.template("templates/project/f.md", "{{config.verify|upper}}")

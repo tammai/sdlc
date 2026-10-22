@@ -13,10 +13,14 @@ You are the conductor. You decide the stage, call the right bundled skill/agent/
    - One found → read it, say the feature, current stage and open items in 2–3 lines, continue.
    - Several → ask which one.
    - None → new feature: continue below.
-2. Ensure `.sdlc/.work/` is git-ignored (append `.sdlc/.work/` to `.gitignore` if missing). Artifacts in `.sdlc/<feature>/` are committed.
-3. If `.sdlc/constitution.md` doesn't exist, offer once: "Set up project principles first? (`sdlc:project-constitution`, ~5 min)". Don't block on it.
-4. Detect the stack (package.json, tsconfig, pyproject, go.mod, Dockerfile, IaC, CI files) and the test/lint/build commands. Record them in state.md.
-   If `knowledge/index.md` is missing or CLAUDE.md is over ~60 lines, offer once to set up 3-tier knowledge (`sdlc:managing-knowledge`). Don't block on it.
+2. **Project setup.** Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" status`:
+   - `setup: none` → hard stop: "This repo isn't set up for sdlc yet (justfile contract, rules, guardrails, CI, constitution). Set it up first?" Yes → `sdlc:setting-up-projects`, then come back to the request. No → continue, but warn that Stage 5 and 6 checks will be weaker, and note it under Deviations.
+   - `setup: in_progress` → offer to resume setup first (same skill).
+   - `drift: behind` → one line naming the version gap and pending migrations, and offer `/sdlc:upgrade`. Never block on it.
+   - `drift: plugin_too_old` → warn that this repo expects a newer plugin (`/plugin update sdlc`); continue only if the user says so.
+   Artifacts in `.sdlc/<feature>/` are committed; `.sdlc/.work/` is git-ignored (setup adds it).
+3. **Commands** come from the justfile contract: `just install`, `test`, `lint`, `typecheck`, `build`, `verify`. If `scaffold.py contract` isn't `ok`, say which recipes are missing and offer to fix them before Stage 4. Record them on the state.md `Commands:` line (template below).
+4. If the repo isn't set up and the user declined setup: detect the stack and native test/lint/build commands instead and record those in state.md.
 5. **Size the work** and propose the *smallest* track whose signals fit. Size up only for a named signal from the table, and write that signal in state.md: a bigger track brings brainstorming and design, which invite a bigger solution. The user can override.
 
 | Track | Signals | Stages |
@@ -75,7 +79,7 @@ Each round:
 2. In parallel (M and L tracks), spawn fresh `sdlc:pr-test-analyzer` (gaps rated 1–10) and `sdlc:silent-failure-hunter` on the current diff.
 3. Log the round in state.md under `## Verify rounds`: `Round N — <commit> — PASS/FAIL — <one-line reason>`.
 4. Verdict:
-   - Verifier PASS, no test gap rated ≥ 8, no high-severity silent failure → gate passes.
+   - Verifier PASS, no test gap rated ≥ 8, no high-severity silent failure → gate passes. PASS means no *new* failures: failures listed in `.sdlc/baseline.md` don't fail the round. If the verifier asks to baseline a failure, that's a user decision, recorded under Deviations; it's never added silently.
    - Otherwise → back to Stage 4 for the listed failures only (TDD: failing test first, `sdlc:systematic-debugging` for anything unexplained), then set Stage 5 again and start the next round with another fresh verifier.
 5. **Round cap:** after round 3 fails, stop. Bring the user: what still fails, what each round changed, and the root-cause hypothesis. The user decides (more rounds, change scope, revisit the design).
 
@@ -144,7 +148,7 @@ You (the orchestrator) may run commands to investigate, but the verdict always c
 # <feature>
 Status: active
 Track: S | M | L   (sized up because: <named signal, or "—" for the smallest fitting track>)
-Stack: <detected> · test: `<cmd>` · build: `<cmd>`
+Commands: verify: `just verify` · test: `just test`   (no setup: the detected native commands)
 Started: <date>
 Current: Stage <n> – <name>
 
