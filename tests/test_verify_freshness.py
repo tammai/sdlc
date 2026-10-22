@@ -205,6 +205,12 @@ class VerifyFreshnessTest(ProjectTestCase):
         self.bash("pnpm test:all -t login")
         self.assertBlocks()
 
+    def test_flags_inside_the_test_command_are_not_filters(self):
+        # unittest's -t is the top-level directory, not jest's name filter
+        self.set_state(test_cmd="python3 -m unittest discover -s tests -t .")
+        self.bash("python3 -m unittest discover -s tests -t .")
+        self.assertAllows()
+
     def test_block_message_names_the_test_command(self):
         self.set_state(test_cmd="pnpm test:all")
         self.assertIn("`pnpm test:all`", self.assertBlocks()["reason"])

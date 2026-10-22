@@ -256,7 +256,7 @@ def names_specific_tests(args, is_go):
 def match_full_run(command, tests):
     """End position of a full (unfiltered) run of one of `tests` (or of a generic runner when `tests` is empty)
     in `command`, else None."""
-    if not command or PARTIAL_FLAGS.search(" " + command + " "):
+    if not command:
         return None
     if tests:
         hits = [(m.end(), t) for t in tests
@@ -269,7 +269,10 @@ def match_full_run(command, tests):
         if not m:
             return None
         end = m.end()
+    # Only arguments added after the test command filter it: flags inside it (unittest's `-t .`) are its own
     args = SHELL_SEP.split(command[end:])[0]
+    if PARTIAL_FLAGS.search(" " + args + " "):
+        return None
     if names_specific_tests(args, is_go=re.search(r"\bgo\s+test\b", command) is not None):
         return None
     return end
