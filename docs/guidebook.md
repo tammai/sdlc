@@ -45,7 +45,9 @@ Files named `sdlc-*` belong to the plugin; everything else is yours.
 | **M · feature** | a few files to a few days, approach mostly obvious | 1 → 3 → 4 → 5 → 6 → 7 (light) → 8, plus 2 if the approach is unclear |
 | **L · project** | new service or module, unclear approach, or touches auth, payments, data migration, public API | all 11 |
 
-Anything touching auth, payments, secrets, PII or schema migrations is at least M and always gets the full Stage 7. You can override the size at any time. See [sdlc_tracks_full_stage_tree.svg](diagrams/sdlc_tracks_full_stage_tree.svg).
+Anything touching auth, payments, secrets, PII or schema migrations is at least M and always gets the full Stage 7. You can override the size at any time.
+
+**Risk and models.** Risk is recorded apart from size: `Risk: high` for auth, payments, secrets, PII, schema migrations or a public API. Track and risk pick each subagent's model tier: cheap `haiku`, standard `sonnet`, top `opus`. A high-risk change gets `opus` reviewers even on the S track. Fable is used only if you ask for it ("use fable"), which sets `Top model: fable` in `state.md`. See [sdlc_tracks_full_stage_tree.svg](diagrams/sdlc_tracks_full_stage_tree.svg).
 
 ## The 11 stages
 
@@ -182,6 +184,8 @@ Resume depends on this file. The orchestrator looks for `.sdlc/*/state.md` with 
 # <feature>
 Status: active
 Track: S | M | L   (sized up because: <named signal, or "—">)
+Risk: low | high   (<signal>)
+Top model: opus   (fable only if the user chose it)
 Base: <commit the feature started from>
 Commands: test: `<test command>`   (monorepo: one per package; no setup: the detected command)
 Current: Stage <n> – <name>

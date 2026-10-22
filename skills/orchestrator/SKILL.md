@@ -31,7 +31,17 @@ You are the conductor. You decide the stage, call the right bundled skill/agent/
 
 Anything touching auth, payments, secrets, PII or schema migrations is at least M and always gets full Stage 7.
 
-6. Create `.sdlc/<feature>/state.md` from the template at the bottom, with `Base:` set to `git rev-parse --short HEAD` (the commit the feature starts from; in a monorepo, Stage 5 then only requires tests for packages the feature changed). Announce: track, stages to run, first stage.
+**Risk** is separate from size: `high` when the work touches auth, payments, secrets, PII, schema migrations or a public API, otherwise `low`. It sets the model tiers (`sdlc:subagent-driven-development` → Model Selection) for every dispatch:
+
+| | Implementers | Verifier, reviewers | Security pass |
+|---|---|---|---|
+| S, risk low | cheap | standard | hooks only |
+| M, risk low | cheap or standard, per task | standard; final review top | light |
+| L, or risk high | standard | top | top, full Stage 7 |
+
+The top tier is `opus`. Use `fable` only when the user asks for it; record it as `Top model: fable`.
+
+6. Create `.sdlc/<feature>/state.md` from the template at the bottom, with `Base:` set to `git rev-parse --short HEAD` (the commit the feature starts from; in a monorepo, Stage 5 then only requires tests for packages the feature changed). Announce: track, risk, stages to run, first stage, and `Top tier: opus (say "use fable" to switch)`. If the track is L or the risk is high and the session runs on a smaller model than the top tier, add one line suggesting `/model opus` for this session. Never block on it, and never suggest a downgrade.
 
 ## Stage header
 
@@ -135,6 +145,7 @@ You (the orchestrator) may run commands to investigate, but the verdict always c
 
 ## Rules
 
+- Every subagent dispatch names its `model` from the tiers in Model Selection, chosen by `Track:` and `Risk:`. An omitted model inherits the session's, and the `model:` in agent frontmatter is only a fallback.
 - One stage at a time. Update state.md at every transition (stage, gate result, artifact paths).
 - **Hard stops — always ask the user:** end of Stage 1, end of Stage 2, choice of execution method, merges, production deploys, DB migrations, anything irreversible.
 - A failed gate means stay in the stage or step back one; write why in state.md.
@@ -148,6 +159,8 @@ You (the orchestrator) may run commands to investigate, but the verdict always c
 # <feature>
 Status: active
 Track: S | M | L   (sized up because: <named signal, or "—" for the smallest fitting track>)
+Risk: low | high   (<signal: auth, payments, secrets, PII, migration, public API>)
+Top model: opus   (fable only if the user chose it)
 Commands: test: `<commands.test>`   (monorepo: one per package, e.g. api: `cd services/api && go test ./...`; no setup: the detected commands)
 Started: <date>
 Base: <commit the feature started from>
