@@ -93,9 +93,9 @@ The plugin collects no metrics; these are proposed for a team rollout and would 
 - **Model calls:** the security reviewer uses the Claude API (API key or Claude Code's OAuth token); without credentials those reviews are skipped.
 - **Licensing:** MIT plugin; bundled Superpowers (MIT), GitHub Spec Kit (MIT), Anthropic Claude Code plugins (Apache-2.0).
 
-## 10. Release scope (1.3.0)
+## 10. Release scope (1.4.0)
 
-Adds setup/upgrade/eject with per-package commands and generated CI, `/sdlc:doctor`, scope tracing, policy rules and guardrails, `diff_stats.py`, the baseline-aware verifier and per-package freshness, plus hookify, ralph and freshness fixes. See [CHANGELOG.md](../CHANGELOG.md).
+Adds UI design-system enforcement (rule, guardrail, `ui-reviewer`, setup step), named model tiers with risk-based model choice and the model-router hook, upgrades that add new plugin files, and monorepo freshness from the feature's base commit. Hardens the guardrails (protected from the agent, broader `rm`, force-push and secret patterns) and fixes Windows issues (UTF-8 output, CRLF hashing, paths). Builds on 1.3.0's setup/upgrade/eject, `/sdlc:doctor`, scope tracing, policy rules, `diff_stats.py` and the baseline-aware verifier. See [CHANGELOG.md](../CHANGELOG.md).
 
 ## 11. Known gaps and open questions
 
