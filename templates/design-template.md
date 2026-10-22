@@ -105,9 +105,17 @@ directories captured above]
 
 ## Complexity Tracking
 
-> **Fill ONLY if Constitution Check has violations that must be justified**
+> **Always fill.** One row per new module/package, layer, abstraction (interface, base class,
+> factory, registry, plugin point, generic helper), dependency, service/process, config key or
+> env var, and data store/table. No requirement → it comes out of the design. Constitution
+> violations go here too. Write "None: the design only extends existing code" if that's true.
 
-| Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|-------------------------------------|
-| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
-| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
+| Addition | Requirement | Simpler Alternative Rejected Because |
+|----------|-------------|-------------------------------------|
+| [e.g., `RateLimiter` interface] | [e.g., FR-004: two backends from day one] | [why one concrete class is insufficient] |
+| [e.g., dependency `zod`] | [e.g., FR-002 input validation] | [why the existing validator is insufficient] |
+
+### Deliberately not built
+
+[Things a bigger design would add that this one leaves out, e.g. "no plugin system for
+providers; one provider is hard-wired (Non-Goal)". Keeps them out of the plan.]

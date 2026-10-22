@@ -51,8 +51,23 @@ class HookifyTest(ProjectTestCase):
     def test_file_rule_warns_without_blocking(self):
         self.install("console-log-warning.local.md")
         out = self.pre("Write", file_path=self.path("src/a.ts"), content="console.log(user)")
-        self.assertNotIn("hookSpecificOutput", out)
+        self.assertNotIn("permissionDecision", out["hookSpecificOutput"])
         self.assertIn("warn-console-log", out["systemMessage"])
+        self.assertIn("warn-console-log", out["hookSpecificOutput"]["additionalContext"])  # reaches Claude
+
+    def test_block_tells_claude_why(self):
+        self.install("dangerous-rm.local.md")
+        out = self.pre("Bash", command="rm -rf build")
+        self.assertIn("block-dangerous-rm", out["hookSpecificOutput"]["permissionDecisionReason"])
+
+    def test_committed_team_rules_are_loaded(self):
+        os.makedirs(self.path(".claude/hookify"))
+        shutil.copy(os.path.join(EXAMPLES, "dangerous-rm.local.md"), self.path(".claude/hookify/no-rm.md"))
+        self.assertDenied(self.pre("Bash", command="rm -rf build"))
+
+    def test_posttooluse_is_not_registered(self):
+        with open(os.path.join(HOOKS, "hooks.json")) as f:
+            self.assertNotIn("posttooluse.py", f.read())
 
     def test_condition_rule_on_file_path(self):
         self.install("sensitive-files-warning.local.md")

@@ -16,6 +16,8 @@ Extract existing patterns, conventions, and architectural decisions. Identify th
 **2. Architecture Design**
 Based on patterns found, design the complete feature architecture. Make decisive choices - pick one approach and commit. Ensure seamless integration with existing code. Design for testability, performance, and maintainability.
 
+Design for the requirements you were given, not for imagined future ones. Reuse existing modules before adding new ones. Every new file, abstraction, dependency, config key or service must cite the requirement (FR/SC id) that needs it; if none does, leave it out. Respect the spec's Non-Goals. Performance and scale targets come from the spec's success criteria, never from your assumptions.
+
 **3. Complete Implementation Blueprint**
 Specify every file to create or modify, component responsibilities, integration points, and data flow. Break implementation into clear phases with specific tasks.
 
@@ -28,6 +30,8 @@ Deliver a decisive, complete architecture blueprint that provides everything nee
 - **Component Design**: Each component with file path, responsibilities, dependencies, and interfaces
 - **Implementation Map**: Specific files to create/modify with detailed change descriptions
 - **Data Flow**: Complete flow from entry points through transformations to outputs
+- **Additions and their requirements**: Each new module, abstraction, dependency, config key or service, with the FR/SC id that needs it
+- **Deliberately not built**: What a bigger design would add that this one leaves out, and why that's fine for these requirements
 - **Build Sequence**: Phased implementation steps as a checklist
 - **Critical Details**: Error handling, state management, testing, performance, and security considerations
 

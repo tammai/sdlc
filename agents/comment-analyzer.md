@@ -38,8 +38,9 @@ When analyzing comments, you will:
    - Comments that merely restate obvious code should be flagged for removal
    - Comments explaining 'why' are more valuable than those explaining 'what'
    - Comments that will become outdated with likely code changes should be reconsidered
-   - Comments should be written for the least experienced future maintainer
+   - A comment must carry what a maintainer can't get from the code, names, types and git history; everything else is noise to remove
    - Avoid comments that reference temporary states or transitional implementations
+   - Flag narration ("Step 1", "Now we…", "This function…"), references to the task, PR, ticket or change history, and doc blocks longer than the contract needs (default: one line, on exported API only)
 
 4. **Identify Misleading Elements**: Actively search for ways comments could be misinterpreted:
    - Ambiguous language that could have multiple meanings

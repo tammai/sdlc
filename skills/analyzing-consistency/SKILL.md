@@ -33,12 +33,13 @@ If spec, design or plan is missing, stop and name the stage that should produce 
 - **Underspecification:** requirements missing an object or measurable outcome; stories without acceptance criteria; tasks touching files/components the design never mentions
 - **Constitution:** anything conflicting with a MUST; missing mandated gates
 - **Coverage gaps:** requirements with no task; tasks with no requirement; performance/security/availability criteria with no task or test
+- **Scope creep:** `[inferred]` tags left in the spec; tasks without a **Requirements:** line or citing nothing; Complexity Tracking rows without a requirement; Public Surface lines without a requirement or without a task; anything from the spec's Non-Goals appearing in the design or plan; design numbers (scale, performance) with no SC behind them
 - **Inconsistency:** the same concept named differently across files; entities in the design but not the spec (or reverse); task order that builds on something not yet built; contradictory requirements
 
 ## 4. Severity
 
-- **CRITICAL:** constitution MUST violated, core artifact missing, or a baseline requirement with zero coverage
-- **HIGH:** conflicting/duplicate requirement, ambiguous security or performance attribute, untestable acceptance criterion
+- **CRITICAL:** constitution MUST violated, core artifact missing, a baseline requirement with zero coverage, `[inferred]` tags left in the spec, or a Non-Goal designed or planned in
+- **HIGH:** conflicting/duplicate requirement, ambiguous security or performance attribute, untestable acceptance criterion, any other scope-creep finding
 - **MEDIUM:** terminology drift, missing non-functional coverage, underspecified edge case
 - **LOW:** wording, minor redundancy
 

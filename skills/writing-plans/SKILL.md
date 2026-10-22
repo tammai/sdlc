@@ -74,6 +74,21 @@ naming and copy rules, platform requirements — one line each, with exact
 values copied verbatim from the spec. Every task's requirements implicitly
 include this section.]
 
+## Public Surface
+
+[Every new export, endpoint, CLI command, config key, env var and dependency
+this plan adds, one per line with the requirement that needs it. Stage 6
+checks the diff against this list mechanically (`diff_stats.py --plan`):
+anything built but not listed is flagged as unrequested surface. Format,
+exactly — kind, backticked name, requirement:
+
+- export `createSession` (src/auth/session.ts) — FR-002
+- endpoint `POST /api/sessions` — FR-001
+- config `SESSION_TTL_SECONDS` — FR-003
+- dependency `zod` — FR-004
+
+Write "- none" if the plan adds no public surface.]
+
 ## Review Focus
 
 [The five input classes or failure modes the spec implies but no task's
@@ -93,6 +108,8 @@ owns the code, in that task's own step style.]
 
 ````markdown
 ### Task N: [Component Name]
+
+**Requirements:** FR-001, SC-002
 
 **Files:**
 - Create: `exact/path/to/file.py`
@@ -172,7 +189,11 @@ After writing the complete plan, look at the spec with fresh eyes and check the 
 
 **4. Review Focus:** For each input class or failure mode the spec implies, is there a task whose tests exercise it? The five uncovered ones most likely to bite a person go in the Review Focus section, and each line there gets its test added to the owning task. An empty section means you checked and found none, not that you skipped the check.
 
-**5. Proportion:** Compare the plan's length to the spec's. A plan several times longer than the spec it implements is a transcript of the program, not a plan. If code blocks are most of the document, replace bodies with signatures, test names and assertions, and check that each step is still unambiguous.
+**5. Reverse trace:** Every task cites at least one FR/SC on its **Requirements:** line. A task that only exists to support another task cites that task's requirements. A task citing nothing is scope creep: delete it, or ask the user. Nothing in the spec's Non-Goals may appear in any task.
+
+**6. Surface:** Every new export, endpoint, config key, env var and dependency that any task creates is listed in Public Surface with its requirement, and every Public Surface line is built by some task.
+
+**7. Proportion:** Compare the plan's length to the spec's. A plan several times longer than the spec it implements is a transcript of the program, not a plan. If code blocks are most of the document, replace bodies with signatures, test names and assertions, and check that each step is still unambiguous.
 
 If you find issues, fix them inline. No need to re-review — just fix and move on. If you find a spec requirement with no task, add the task.
 

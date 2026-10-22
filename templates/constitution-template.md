@@ -23,10 +23,14 @@
 [PRINCIPLE_4_DESCRIPTION]
 <!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### V. Simplicity
+<!-- sdlc default: keep unless the team explicitly opts out; reword to fit, but keep the MUSTs checkable. -->
+Changes MUST be the smallest that meet the acceptance criteria. New abstractions, options, configuration, public exports and dependencies MUST be justified by a current requirement, not a possible future one; an abstraction with a single implementation needs a written reason. Comments MUST explain *why*, never restate the code or its change history; doc comments are for exported API and are one line unless the contract needs more.
+
+### [PRINCIPLE_6_NAME]
+<!-- Example: VI. Observability, VII. Versioning & Breaking Changes -->
+[PRINCIPLE_6_DESCRIPTION]
+<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format -->
 
 ## [SECTION_2_NAME]
 <!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->

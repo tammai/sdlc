@@ -1,0 +1,36 @@
+{
+  "verify": {
+    "full": ["just verify", "just test"]
+  },
+  "baseline": ".sdlc/baseline.md",
+  "areas": {
+    "source": [
+      "**/*.{ts,tsx,js,jsx,mjs,cjs,vue,svelte}",
+      "**/*.{py,go,rs,java,kt,rb,php,cs,swift}"
+    ],
+    "tests": [
+      "**/*.{test,spec}.*",
+      "**/{test,tests,__tests__,spec}/**",
+      "**/test_*.py",
+      "**/*_test.{py,go}"
+    ],
+    "migrations": [
+      "**/migrations/**",
+      "**/migrate/**",
+      "**/prisma/schema.prisma"
+    ],
+    "sensitive": [
+      "**/{auth,authn,authz,session,sessions,payments,payment,billing,checkout}/**",
+      "**/*{secret,credential,token,crypto}*",
+      "**/.env*"
+    ],
+    "ci": [
+      ".github/**",
+      "**/Dockerfile*",
+      "**/docker-compose*.{yml,yaml}",
+      "**/*.tf",
+      "{infra,deploy,k8s,helm}/**",
+      "justfile"
+    ]
+  }
+}

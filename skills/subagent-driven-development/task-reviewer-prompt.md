@@ -98,7 +98,8 @@ Subagent (general-purpose):
     - **Missing:** requirements they skipped, missed, or claimed without
       implementing
     - **Extra:** features that weren't requested, over-engineering, unneeded
-      "nice to haves"
+      "nice to haves", and public surface the plan didn't name (new exports,
+      files, endpoints, options, config, dependencies)
     - **Misunderstood:** right feature built the wrong way, wrong problem
       solved
 
@@ -117,8 +118,11 @@ Subagent (general-purpose):
     **Code quality:**
     - Clean separation of concerns?
     - Proper error handling?
-    - DRY without premature abstraction?
-    - Edge cases handled?
+    - DRY without premature abstraction? Any abstraction with a single
+      implementation, or an export with a single caller?
+    - Edge cases handled (real ones, not impossible ones)?
+    - Comments: only *why* the code can't show? Flag narration, restated code,
+      task/history references, and multi-line doc blocks on internal code.
 
     **Tests:**
     - Do the new and changed tests verify real behavior, not mocks?

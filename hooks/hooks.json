@@ -1,5 +1,5 @@
 {
-  "description": "sdlc: security-guidance (pattern warnings, diff + commit review), hookify (team rule hooks from .claude/hookify.*.local.md), ralph-loop (stop hook, only active during /sdlc:ralph-loop); verify-freshness (Stage 5 only: blocks finishing on stale test results)",
+  "description": "sdlc: security-guidance (pattern warnings, diff + commit review), hookify (rules from .claude/hookify.*.local.md and committed .claude/hookify/*.md; evaluated before tool use, on prompts and on stop), ralph-loop (stop hook, only active during /sdlc:ralph-loop); verify-freshness (Stage 5 only: blocks finishing on stale test results)",
   "hooks": {
     "SessionStart": [
       {
@@ -48,7 +48,7 @@
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/security_reminder_hook.py\"",
             "if": "Bash(git*commit*)",
             "asyncRewake": true,
-            "rewakeMessage": "Background security review of committed or pushed changes \u2014 address or acknowledge the findings below, then continue with the user's original request or continue waiting for their reply:",
+            "rewakeMessage": "Background security review of committed or pushed changes — address or acknowledge the findings below, then continue with the user's original request or continue waiting for their reply:",
             "rewakeSummary": "Security review found issues"
           },
           {
@@ -56,7 +56,7 @@
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/security_reminder_hook.py\"",
             "if": "Bash(git*push*)",
             "asyncRewake": true,
-            "rewakeMessage": "Background security review of committed or pushed changes \u2014 address or acknowledge the findings below, then continue with the user's original request or continue waiting for their reply:",
+            "rewakeMessage": "Background security review of committed or pushed changes — address or acknowledge the findings below, then continue with the user's original request or continue waiting for their reply:",
             "rewakeSummary": "Security review found issues"
           },
           {
@@ -64,20 +64,11 @@
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/security_reminder_hook.py\"",
             "if": "Bash(gt *)",
             "asyncRewake": true,
-            "rewakeMessage": "Background security review of committed or pushed changes \u2014 address or acknowledge the findings below, then continue with the user's original request or continue waiting for their reply:",
+            "rewakeMessage": "Background security review of committed or pushed changes — address or acknowledge the findings below, then continue with the user's original request or continue waiting for their reply:",
             "rewakeSummary": "Security review found issues"
           }
         ],
         "matcher": "Bash"
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/posttooluse.py\"",
-            "timeout": 10
-          }
-        ]
       },
       {
         "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash",
@@ -97,7 +88,7 @@
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/security_reminder_hook.py\"",
             "asyncRewake": true,
-            "rewakeMessage": "Background security review feedback \u2014 address or acknowledge the findings below, then continue with the user's original request or continue waiting for their reply. This is supplementary, not a replacement for your previous response:",
+            "rewakeMessage": "Background security review feedback — address or acknowledge the findings below, then continue with the user's original request or continue waiting for their reply. This is supplementary, not a replacement for your previous response:",
             "rewakeSummary": "Background security review found issues"
           }
         ]

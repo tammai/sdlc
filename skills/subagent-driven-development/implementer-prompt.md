@@ -71,6 +71,13 @@ Subagent (general-purpose):
       and note it as a concern in your report
     - In existing codebases, follow established patterns. Improve code you're touching
       the way a good developer would, but don't restructure things outside your task.
+    - Write the smallest change that meets the task. No abstraction with a single
+      implementation, no options/params/config the task didn't ask for, no handling of
+      cases that can't happen, no new files, exports or dependencies the plan doesn't name.
+      If you think one is needed, report it as DONE_WITH_CONCERNS instead of adding it.
+    - Comments say *why* the code can't show, nothing else: no narration ("Step 1",
+      "Now we…"), no restating code, no references to this task or its history. Doc
+      comments only on exported API, one line by default. Match the file's comment density.
 
     ## When You're in Over Your Head
 
@@ -105,7 +112,9 @@ Subagent (general-purpose):
 
     **Discipline:**
     - Did I avoid overbuilding (YAGNI)?
-    - Did I only build what was requested?
+    - Did I only build what was requested? Any export, file, option or dependency the
+      plan didn't name?
+    - Does every comment I added explain a *why*? Delete the rest.
     - Did I follow existing patterns in the codebase?
 
     **Testing:**

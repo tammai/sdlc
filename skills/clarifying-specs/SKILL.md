@@ -58,6 +58,7 @@ Never preview upcoming questions. Stop when critical gaps are resolved, the user
 ## 5. Write back after every answer
 
 - Ensure `## Clarifications` → `### Session YYYY-MM-DD` exists; add `- Q: … → A: …`.
+- Requirements the answer adds or settles are tagged `[clarified]`; an answer that confirms an `[inferred]` item retags it `[clarified]`, one that rejects it moves it to Non-Goals.
 - Apply the answer where it belongs: functional → requirements; roles → user stories; data → entities; non-functional → measurable success criteria; edge case → edge cases; terminology → normalize the term everywhere.
 - Replace contradicted text instead of leaving both versions. Save after each answer.
 - Re-check `.sdlc/<feature>/checklists/requirements.md` if it exists: toggle only the boxes whose state changed.

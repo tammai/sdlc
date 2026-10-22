@@ -206,9 +206,10 @@ def load_rules(event: Optional[str] = None) -> List[Rule]:
     """
     rules = []
 
-    # Find all hookify.*.local.md files
-    pattern = os.path.join('.claude', 'hookify.*.local.md')
-    files = glob.glob(pattern)
+    # Personal rules: .claude/hookify.*.local.md (git-ignored).
+    # Team rules: .claude/hookify/*.md (committed; sdlc-*.md are installed by /sdlc:setup).
+    files = sorted(glob.glob(os.path.join('.claude', 'hookify.*.local.md')))
+    files += sorted(glob.glob(os.path.join('.claude', 'hookify', '*.md')))
 
     for file_path in files:
         try:

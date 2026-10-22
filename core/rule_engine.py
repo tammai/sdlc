@@ -73,7 +73,9 @@ class RuleEngine:
                 return {
                     "hookSpecificOutput": {
                         "hookEventName": hook_event,
-                        "permissionDecision": "deny"
+                        "permissionDecision": "deny",
+                        # systemMessage only reaches the user; the reason is what Claude sees
+                        "permissionDecisionReason": combined_message
                     },
                     "systemMessage": combined_message
                 }
@@ -86,9 +88,15 @@ class RuleEngine:
         # If only warnings, show them but allow operation
         if warning_rules:
             messages = [f"**[{r.name}]**\n{r.message}" for r in warning_rules]
-            return {
-                "systemMessage": "\n\n".join(messages)
-            }
+            combined_message = "\n\n".join(messages)
+            result = {"systemMessage": combined_message}
+            if hook_event in ['PreToolUse', 'PostToolUse', 'UserPromptSubmit']:
+                # Also put the warning in Claude's context, so the agent can act on it
+                result["hookSpecificOutput"] = {
+                    "hookEventName": hook_event,
+                    "additionalContext": combined_message
+                }
+            return result
 
         # No matches - allow operation
         return {}

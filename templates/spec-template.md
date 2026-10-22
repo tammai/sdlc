@@ -87,16 +87,34 @@
 
 ### Functional Requirements
 
-- **FR-001**: System MUST [specific capability, e.g., "allow users to create accounts"]
-- **FR-002**: System MUST [specific capability, e.g., "validate email addresses"]
-- **FR-003**: Users MUST be able to [key interaction, e.g., "reset their password"]
-- **FR-004**: System MUST [data requirement, e.g., "persist user preferences"]
-- **FR-005**: System MUST [behavior, e.g., "log all security events"]
+<!--
+  Every requirement carries its source:
+    [user]       the user asked for it (their words, the request, the brainstorm)
+    [clarified]  the user's answer to a question added or settled it
+    [inferred]   you added it; it is dropped at the Stage 1 gate unless the user keeps it
+  Don't smuggle capabilities in as Assumptions: anything that adds work is an FR with a source.
+-->
+
+- **FR-001** [user]: System MUST [specific capability, e.g., "allow users to create accounts"]
+- **FR-002** [user]: System MUST [specific capability, e.g., "validate email addresses"]
+- **FR-003** [clarified]: Users MUST be able to [key interaction, e.g., "reset their password"]
+- **FR-004** [inferred]: System MUST [behavior you think is needed but the user never asked for, e.g., "log all security events"]
 
 *Example of marking unclear requirements:*
 
-- **FR-006**: System MUST authenticate users via [NEEDS CLARIFICATION: auth method not specified - email/password, SSO, OAuth?]
-- **FR-007**: System MUST retain user data for [NEEDS CLARIFICATION: retention period not specified]
+- **FR-005** [user]: System MUST authenticate users via [NEEDS CLARIFICATION: auth method not specified - email/password, SSO, OAuth?]
+
+### Non-Goals *(mandatory)*
+
+<!--
+  What this feature deliberately does NOT do, so later stages don't add it back.
+  Include inferred requirements the user dropped at the gate, and the obvious
+  "while we're at it" extensions (admin UI, i18n, caching, bulk operations, …).
+  Write "None identified" only after actually looking.
+-->
+
+- [Capability left out, e.g., "No admin UI for managing accounts; done via existing tooling"]
+- [Dropped at gate, e.g., "No security-event logging in this feature (was FR-004 [inferred])"]
 
 ### Key Entities *(include if feature involves data)*
 
@@ -112,10 +130,11 @@
 
 ### Measurable Outcomes
 
-- **SC-001**: [Measurable metric, e.g., "Users can complete account creation in under 2 minutes"]
-- **SC-002**: [Measurable metric, e.g., "System handles 1000 concurrent users without degradation"]
-- **SC-003**: [User satisfaction metric, e.g., "90% of users successfully complete primary task on first attempt"]
-- **SC-004**: [Business metric, e.g., "Reduce support tickets related to [X] by 50%"]
+<!-- Same source tags as FRs. Never invent load or scale numbers: a number the user didn't give is [inferred]. -->
+
+- **SC-001** [user]: [Measurable metric, e.g., "Users can complete account creation in under 2 minutes"]
+- **SC-002** [clarified]: [Measurable metric, e.g., "System handles 1000 concurrent users without degradation"]
+- **SC-003** [inferred]: [User satisfaction metric, e.g., "90% of users successfully complete primary task on first attempt"]
 
 ## Assumptions
 

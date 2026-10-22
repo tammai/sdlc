@@ -28,6 +28,7 @@ Run a comprehensive pull request review using multiple specialized agents, each 
    - **all** - Run all applicable reviews (default)
 
 3. **Identify Changed Files**
+   - Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/diff_stats.py" --format md` and include its output in every agent's prompt: comment share, new files, single-use/unused exports, single-implementation abstractions, new dependencies. Agents confirm or dismiss each flag with a reason; they are facts, not verdicts.
    - Run `git diff --name-only` to see modified files
    - Check if PR already exists: `gh pr view`
    - Identify file types and what reviews apply
@@ -37,7 +38,7 @@ Run a comprehensive pull request review using multiple specialized agents, each 
    Based on changes:
    - **Always applicable**: code-reviewer (general quality)
    - **If test files changed**: pr-test-analyzer
-   - **If comments/docs added**: comment-analyzer
+   - **If comments/docs added, or diff stats flag comment-heavy files**: comment-analyzer
    - **If error handling changed**: silent-failure-hunter
    - **If types added/modified**: type-design-analyzer
    - **After passing review**: code-simplifier (polish and refine)
@@ -57,7 +58,7 @@ Run a comprehensive pull request review using multiple specialized agents, each 
 6. **Aggregate Results**
 
    After agents complete, summarize:
-   - **Critical Issues** (must fix before merge)
+   - **Critical Issues** (must fix before merge). Unrequested public surface (an export, file, endpoint, option, config key or dependency the spec/plan didn't ask for, with no stated reason) is always Critical.
    - **Important Issues** (should fix)
    - **Suggestions** (nice to have)
    - **Positive Observations** (what's good)

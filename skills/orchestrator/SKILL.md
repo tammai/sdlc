@@ -17,7 +17,7 @@ You are the conductor. You decide the stage, call the right bundled skill/agent/
 3. If `.sdlc/constitution.md` doesn't exist, offer once: "Set up project principles first? (`sdlc:project-constitution`, ~5 min)". Don't block on it.
 4. Detect the stack (package.json, tsconfig, pyproject, go.mod, Dockerfile, IaC, CI files) and the test/lint/build commands. Record them in state.md.
    If `knowledge/index.md` is missing or CLAUDE.md is over ~60 lines, offer once to set up 3-tier knowledge (`sdlc:managing-knowledge`). Don't block on it.
-5. **Size the work** and propose a track. The user can override.
+5. **Size the work** and propose the *smallest* track whose signals fit. Size up only for a named signal from the table, and write that signal in state.md: a bigger track brings brainstorming and design, which invite a bigger solution. The user can override.
 
 | Track | Signals | Stages |
 |---|---|---|
@@ -46,16 +46,17 @@ At the start of every stage print exactly:
 - L track: run `sdlc:brainstorming` first (writes `brainstorm.md`). M track: skip to the spec.
 - `sdlc:writing-specs` → `spec.md` + `checklists/requirements.md`
 - `sdlc:clarifying-specs` if high-impact ambiguity remains
-- **Gate (user approves):** checklist passes, no `[NEEDS CLARIFICATION]`, acceptance criteria testable.
+- **Inferred triage (part of the gate):** show every `[inferred]` FR/SC as its own list, with a one-line reason each; dropped unless the user keeps it (see `sdlc:writing-specs`). Dropped items go to Non-Goals.
+- **Gate (user approves):** checklist passes, no `[NEEDS CLARIFICATION]`, no `[inferred]` tags left, Non-Goals filled, acceptance criteria testable.
 
 ### 2 · Design (L track, or M when the approach isn't obvious)
 - `sdlc:designing-solutions` → `design.md`, `research.md`, `data-model.md`, `contracts/`, `quickstart.md` (dispatches `sdlc:code-explorer` and `sdlc:code-architect` agents)
-- **Gate (user approves):** every FR/SC maps to the design; chosen approach + one rejected alternative recorded; constitution check passes.
+- **Gate (user approves):** every FR/SC maps to the design; every Complexity Tracking row (new module, layer, abstraction, dependency, service, config key, store) cites a requirement; nothing in Non-Goals is designed in; chosen approach + one rejected alternative recorded; constitution check passes.
 
 ### 3 · Plan
 - `sdlc:writing-plans` → `.sdlc/<feature>/plan.md` (bite-sized TDD tasks)
 - `sdlc:analyzing-consistency` (L track; M when the plan has > ~8 tasks)
-- **Gate:** no CRITICAL findings; every requirement has a task; user picks the execution method (subagent-driven or inline).
+- **Gate:** no CRITICAL or HIGH scope findings; every requirement has a task and every task cites a requirement; Public Surface declared; user picks the execution method (subagent-driven or inline).
 
 ### 4 · Implement
 - Isolation: `sdlc:using-git-worktrees` (L track, or whenever the working tree is dirty)
@@ -89,7 +90,9 @@ You (the orchestrator) may run commands to investigate, but the verdict always c
 - On the GitHub PR (after Stage 8 opens it): `/sdlc:code-review`
 - Handling feedback: `sdlc:receiving-code-review` (verify before agreeing; push back with evidence)
 - Polish: `sdlc:code-simplifier` agent on the changed files
-- S track ("light"): `sdlc:code-reviewer` agent only.
+- Facts first: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/diff_stats.py" --format md --plan .sdlc/<feature>/plan.md` (omit `--plan` on S track) goes into every reviewer's prompt; exports and dependencies missing from the plan's Public Surface are flagged as undeclared (comment share, single-use exports, single-implementation abstractions, new dependencies).
+- S track ("light"): `sdlc:code-reviewer` then `sdlc:code-simplifier`, both with the diff stats.
+- Severity: unrequested public surface (export, file, endpoint, option, config, dependency not in the spec/plan, with no stated reason) is high. Comment noise flagged by the stats or hookify warnings is medium and fixed in this stage, not ticketed.
 - **Gate:** no unresolved high-severity finding; findings fixed or ticketed in `.sdlc/<feature>/review.md`.
 
 ### 7 · Security
@@ -140,7 +143,7 @@ You (the orchestrator) may run commands to investigate, but the verdict always c
 ```markdown
 # <feature>
 Status: active
-Track: S | M | L
+Track: S | M | L   (sized up because: <named signal, or "—" for the smallest fitting track>)
 Stack: <detected> · test: `<cmd>` · build: `<cmd>`
 Started: <date>
 Current: Stage <n> – <name>

@@ -1,0 +1,30 @@
+# Managed by the sdlc plugin v{{plugin_version}} (seeded: replaced on upgrade only while unedited).
+# Use from pyproject.toml:  [tool.ruff]  extend = ".sdlc/lint/ruff.sdlc.toml"
+
+[lint]
+extend-select = [
+  "C90",      # mccabe complexity
+  "PLR0911",  # too many returns
+  "PLR0912",  # too many branches
+  "PLR0913",  # too many arguments
+  "PLR1702",  # too deeply nested
+  "ERA",      # commented-out code
+  "T20",      # print / pprint
+  "FIX",      # TODO/FIXME left in code
+  "SIM",      # needless complexity that has a simpler form
+  "RET505",   # else after return
+  "PGH003",   # blanket type: ignore
+]
+
+[lint.mccabe]
+max-complexity = 10
+
+[lint.pylint]
+max-args = 4
+max-branches = 10
+max-returns = 4
+max-nested-blocks = 3
+
+[lint.per-file-ignores]
+"**/{test,tests}/**" = ["PLR0913", "T20"]
+"**/test_*.py" = ["PLR0913", "T20"]

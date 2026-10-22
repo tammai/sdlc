@@ -17,7 +17,7 @@ The constitution is the short list of rules every feature must follow. Specs, de
    - a short name,
    - concrete rules written with MUST / SHOULD (no vague "should be clean"),
    - one line of rationale.
-   Typical areas: test-first and coverage expectations, security (secrets, input validation, auth), architecture boundaries, code review, observability, versioning and breaking changes, simplicity/YAGNI. Number of principles is flexible; drop template sections you don't need.
+   Typical areas: test-first and coverage expectations, security (secrets, input validation, auth), architecture boundaries, code review, observability, versioning and breaking changes, simplicity/YAGNI. Number of principles is flexible; drop template sections you don't need, except **V. Simplicity**, which is the sdlc default: keep it unless the user explicitly opts out (record that in the report).
 4. **Versioning** (semantic):
    - MAJOR: a principle removed or redefined incompatibly
    - MINOR: a principle or section added, or guidance materially expanded
