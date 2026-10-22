@@ -1,0 +1,17 @@
+{
+  "name": "sdlc",
+  "description": "Marketplace for the sdlc plugin: an orchestrated, gated software lifecycle for Claude Code.",
+  "owner": {
+    "name": "Tâm Mai",
+    "email": "tammai.it@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "sdlc",
+      "source": "./",
+      "description": "One plugin for the whole software lifecycle: an orchestrator with stage gates, spec-driven requirements and design, TDD planning and execution, multi-agent review, security hooks, commit/PR commands, and CLAUDE.md upkeep.",
+      "license": "MIT",
+      "keywords": ["sdlc", "workflow", "spec-driven", "tdd", "code-review", "security"]
+    }
+  ]
+}

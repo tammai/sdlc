@@ -4,23 +4,27 @@ One Claude Code plugin for the whole software lifecycle. An orchestrator walks a
 
 ## Install
 
-From a local folder:
+From the marketplace that hosts it:
 
-```bash
-claude plugin validate ./sdlc
-claude --plugin-dir ./sdlc          # try it in one session
+```
+/plugin marketplace add tammai/sdlc
+/plugin install sdlc@sdlc
 ```
 
-For a team, put the folder in a git repo with a `.claude-plugin/marketplace.json` and run `/plugin marketplace add <repo>` then `/plugin install sdlc@<marketplace>`.
+Restart the session afterward so the commands and hooks load. To work on the plugin from a checkout instead, see the [runbook](docs/runbook.md#develop-locally).
 
 **Requirements:** `git`, `gh` (for `/sdlc:code-review` and PR commands), Python 3 (hooks), Node (brainstorm visual companion), and for TypeScript code intelligence: `npm i -g typescript-language-server typescript`. The security hooks set up their own Python environment on first session start (can take a minute).
 
 ## Use
 
 ```
+/sdlc:setup                                   # once per repo (new or existing)
 /sdlc:start add CSV export to the reports page
 /sdlc:status
+/sdlc:upgrade                                 # after a plugin update
 ```
+
+Setup gives the repo a `justfile` command contract (`install test lint typecheck build verify`), policy rules, guardrails, CI and, for existing code, a baseline of what already fails. Needs [`just`](https://just.systems) (≥ 1.31 for monorepos).
 
 The orchestrator sizes the work (S fix / M feature / L project), picks the stages, and stops for your approval at: spec, design, execution method, merge, production deploy, DB migrations.
 
@@ -42,7 +46,7 @@ Artifacts live in `.sdlc/<feature>/` (commit them). Scratch files go to `.sdlc/.
 | 10 | Operate | watch window with agreed signals |
 | 11 | Learn | `managing-knowledge` (3-tier), `/sdlc:revise-claude-md`, `/sdlc:knowledge-audit`, `/sdlc:hookify`, `project-constitution` |
 
-Always-on: security-guidance hooks, verify-freshness hook (Stage 5 only — blocks finishing when code changed after the last full test run), hookify rules (from `.claude/hookify.*.local.md`), TypeScript LSP.
+Always-on: security-guidance hooks, verify-freshness hook (Stage 5 only — blocks finishing when code changed after the last full test run), hookify rules (personal `.claude/hookify.*.local.md`, team `.claude/hookify/*.md`), TypeScript LSP.
 
 ## Knowledge: 3-tier loading
 

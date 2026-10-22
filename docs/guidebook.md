@@ -1,0 +1,218 @@
+# sdlc guidebook
+
+What the plugin is, how it thinks, and where things live. For "what do I do when…", see the [playbook](playbook.md). For "something is broken", see the [runbook](runbook.md).
+
+## The idea
+
+`sdlc` is one Claude Code plugin that takes a piece of work from request to shipped and learned-from. An **orchestrator** skill is the conductor: it sizes the work, runs one stage at a time, calls the bundled skills, subagents and commands for that stage, records progress in `.sdlc/<feature>/state.md`, and stops at **gates**. Nothing outside the plugin is needed for the core stages.
+
+Three ideas carry the design:
+
+1. **Smallest process that fits.** Work is sized S, M or L. The orchestrator picks the smallest track whose signals match and only sizes up for a named signal, because a bigger track brings brainstorming and design, which invite a bigger solution.
+2. **Gates, not vibes.** Every stage has an exit criterion. A failed gate means stay in the stage or step back one. Some gates are checked by the orchestrator; others are **hard stops** where you decide.
+3. **Independent checking.** The context that wrote the code never verifies or reviews it. Verification uses a fresh `verifier` subagent each round; review uses separate reviewer agents.
+
+## Project setup
+
+Before the first feature, `/sdlc:setup` prepares the repo once. `/sdlc:start` offers it when a repo isn't set up. See [sdlc_setup_phase.svg](diagrams/sdlc_setup_phase.svg).
+
+- **Greenfield** (no source yet): a short stack interview; you approve; the ecosystem's own generators build the skeleton; a justfile and CI that pass `just verify` on day one.
+- **Brownfield** (existing code): a justfile that wraps the commands you already have; a **baseline** of what already fails; a deep audit (conventions, git-history gotchas, decisions, area rules) drafted by explorer agents and written only as you approve each batch; existing AI configs (long CLAUDE.md, AGENTS.md, Cursor rules, ADRs) migrated into the three knowledge tiers, one diff per source.
+- **Both:** policy rules, hookify guardrails, lint snippets, a permission allowlist for the `just` recipes, `.gitignore` entries, a constitution (with the default Simplicity principle) and the knowledge folder.
+
+Setup runs on a `sdlc/setup` branch with one commit per step, resumes where it stopped, and ends by asking whether to open a PR or merge locally.
+
+**The command contract.** Every set-up repo has a root `justfile` with `install`, `test`, `lint`, `typecheck`, `build` and `verify`. Stages, CI, the allowlist and the freshness hook only ever call these, so nothing in the plugin is stack-specific. Recipes wrap your real tools and are yours to edit. Starters exist for node/TS, Python, Go, Rust, Dart, Flutter, shell, Gradle and .NET; a polyglot monorepo gets one justfile per package, loaded as just modules from the root (`just test` runs all, `just test api` runs one). just runs on macOS, Linux and Windows (with Git Bash).
+
+**Who owns which file.** Everything the plugin puts in a repo is tracked in `.sdlc/scaffold.lock.json` with one of these classes, which decides what an upgrade may do:
+
+| Class | Examples | On upgrade |
+|---|---|---|
+| Generated | `.claude/rules/sdlc*.md` | regenerated |
+| Seeded | `.claude/hookify/sdlc-*.md`, `.github/workflows/sdlc-verify.yml`, `.sdlc/lint/*` | replaced only if you haven't edited it; otherwise you choose: merge, skip, or keep yours for good |
+| Keyed merge | allowlist entries in `.claude/settings.json`, `.gitignore` lines | only the entries the plugin added |
+| Yours | `justfile`, `CLAUDE.md`, constitution, `knowledge/`, baseline, your own rules | changed only by migrations you approve |
+
+Files named `sdlc-*` belong to the plugin; everything else is yours.
+
+**Upgrades.** When the plugin is newer than the repo's scaffold, `/sdlc:start` and `/sdlc:status` say so and suggest `/sdlc:upgrade`, which never blocks your work. The upgrade runs on its own branch: regenerate, replace untouched files, walk you through edited ones, then apply versioned migrations one diff at a time (declined ones are recorded and not asked again unless you use `--revisit`). The repo pins a minimum plugin version so teammates on an older plugin get a warning. `/sdlc:eject` removes what the plugin owns and keeps your work.
+
+## Tracks
+
+| Track | Use when | Stages |
+|---|---|---|
+| **S · fix** | bug or tweak, 1–3 files, clear expected behavior | 4 → 5 → 6 (light) → 8 |
+| **M · feature** | a few files to a few days, approach mostly obvious | 1 → 3 → 4 → 5 → 6 → 7 (light) → 8, plus 2 if the approach is unclear |
+| **L · project** | new service or module, unclear approach, or touches auth, payments, data migration, public API | all 11 |
+
+Anything touching auth, payments, secrets, PII or schema migrations is at least M and always gets the full Stage 7. You can override the size at any time. See [sdlc_tracks_full_stage_tree.svg](diagrams/sdlc_tracks_full_stage_tree.svg).
+
+## The 11 stages
+
+| # | Stage | Produces | Gate |
+|---|---|---|---|
+| 1 | Discover & specify | `spec.md`, `checklists/requirements.md` (L: `brainstorm.md`) | **You approve.** Checklist passes, no open clarifications, no `[inferred]` items left, Non-Goals filled, acceptance criteria testable |
+| 2 | Design | `design.md`, `research.md`, `data-model.md`, `contracts/`, `quickstart.md` | **You approve.** Every requirement maps to the design, every added module or dependency cites a requirement, constitution check passes |
+| 3 | Plan | `plan.md` | No CRITICAL or HIGH scope findings, every task cites a requirement, Public Surface declared. **You pick the execution method** |
+| 4 | Implement | code, tests | Every plan task checked, build and full test suite pass, no TODO without a ticket |
+| 5 | Verify (max 3 rounds) | `test-report.md` | Fresh verifier PASS on the current commit, no test gap rated 8+, no high-severity silent failure |
+| 6 | Review | `review.md` | No unresolved high-severity finding; the rest fixed or ticketed |
+| 7 | Security | `security.md` | No critical or high finding open, no secrets in the diff |
+| 8 | Commit, PR, CI | PR | CI green. **Never merged without you saying so** |
+| 9 | Deploy | `release.md` | **Your go-ahead** before any production deploy or DB migration; smoke test passes |
+| 10 | Operate | | Agreed signals stay within threshold for the watch window, or a rollback/fix ticket exists |
+| 11 | Learn | `retro.md`, knowledge updates | Lessons promoted and linked, CLAUDE.md ≤ 60 lines, `state.md` marked `Status: done` |
+
+Each stage starts with a header so you always know where you are:
+
+```
+▶ Stage N – <name>   (track M)
+  Using: <skills/agents/commands>
+  Gate:  <exit criterion>
+```
+
+The whole loop, with hard stops, is in [sdlc_orchestrator_decision_tree.svg](diagrams/sdlc_orchestrator_decision_tree.svg). Per-stage skills, subagents, hooks and gates are in [sdlc_full_flow.svg](diagrams/sdlc_full_flow.svg).
+
+### Hard stops
+
+The orchestrator always asks you before: end of Stage 1, end of Stage 2, choosing the execution method, any merge, production deploys, DB migrations, and anything irreversible. If you say "skip" or "just ship it", it names the gates being skipped, records them under Deviations in `state.md`, then complies.
+
+## Scope tracing
+
+Over-engineering usually starts before any code exists, so every stage ties additions back to a request:
+
+- **Specs** tag each requirement `[user]`, `[clarified]` or `[inferred]`, and have a required Non-Goals section. At the Stage 1 gate, `[inferred]` items are listed on their own and **dropped unless you keep them**; dropped ones move to Non-Goals.
+- **Designs** keep a Complexity Tracking table: every new module, layer, abstraction, dependency, service, config key or store cites a requirement or comes out.
+- **Plans** give each task a `Requirements:` line and declare a **Public Surface** (every new export, endpoint, command, config key, env var, dependency).
+- **Review** runs `scripts/diff_stats.py --plan` to flag exports and dependencies missing from the Public Surface. Unrequested public surface is high severity.
+
+## Verification
+
+Stage 5 is the only stage with a hook that blocks you. While `state.md` says `Current: Stage 5 – Verify`:
+
+- any code change (by any tool, in a git repo) marks test results **stale**;
+- a **full** test run marks them **fresh**. A run that names a test file, a pytest node id, a single Go package, or a name filter does not count;
+- finishing a turn while stale is blocked with "re-run tests".
+
+In a set-up repo the full run is `just verify` or `just test` (configurable as `verify.full` in `.sdlc/config.json`). Any argument to a recipe (`just test api`, `just test src/a.test.ts`) or running it from inside a package (`cd services/api && just test`) is partial.
+
+Failures listed in `.sdlc/baseline.md` (recorded at brownfield setup) don't fail a round: the verifier fails only on **new** failures, removes baseline items that now pass, and never adds any. Accepting a new failure into the baseline is your decision, recorded as a Deviation.
+
+Each round spawns a new `verifier`, which runs build, lint, typecheck and tests fresh, proves each acceptance criterion, and appends a section to `test-report.md`. In M and L, `pr-test-analyzer` and `silent-failure-hunter` run alongside. If a round fails, the work goes back to Stage 4 for the listed failures only. After round 3 fails, the orchestrator stops and brings you what still fails, what each round changed, and a root-cause hypothesis.
+
+## Building blocks
+
+### Skills (`sdlc:` namespace)
+
+| Group | Skills |
+|---|---|
+| Conductor | `orchestrator` |
+| Set up | `setting-up-projects` (setup, upgrade, eject) |
+| Specify and design | `brainstorming`, `writing-specs`, `clarifying-specs`, `designing-solutions`, `project-constitution` |
+| Plan and build | `writing-plans`, `analyzing-consistency`, `using-git-worktrees`, `subagent-driven-development`, `executing-plans`, `dispatching-parallel-agents`, `test-driven-development`, `systematic-debugging` |
+| Check | `verification-before-completion`, `requesting-code-review`, `receiving-code-review` |
+| Ship and learn | `finishing-a-development-branch`, `managing-knowledge`, `claude-md-improver`, `writing-hook-rules` |
+
+### Subagents
+
+| Agent | Used for |
+|---|---|
+| `code-explorer`, `code-architect` | Stage 2: trace existing code, propose architectures |
+| `verifier` | Stage 5: fresh, independent verification each round |
+| `pr-test-analyzer`, `silent-failure-hunter` | Stage 5 and 6: test gaps (rated 1–10), swallowed errors |
+| `code-reviewer`, `comment-analyzer`, `type-design-analyzer`, `code-simplifier` | Stage 6, chosen by `/sdlc:review-pr` based on the diff |
+| `feature-reviewer`, `code-reviewer` | Stage 7: security-only review brief |
+| `conversation-analyzer` | Stage 11: find behaviors worth preventing with hooks |
+
+### Commands
+
+| Command | Does |
+|---|---|
+| `/sdlc:start [request]` | Start a feature, or resume the active one if the request is empty |
+| `/sdlc:setup [what you're building]` | Set the repo up once (greenfield or brownfield); resumes if interrupted |
+| `/sdlc:upgrade [--dry-run] [--revisit]` | Bring the repo's scaffold up to the installed plugin version |
+| `/sdlc:eject` | Remove the plugin's files from the repo, keeping your work |
+| `/sdlc:status` | Setup state and version drift, then one line per feature in `.sdlc/`: track, stage, last gate; open questions. Changes nothing |
+| `/sdlc:review-pr` | Local pre-PR review with the right agents for the diff |
+| `/sdlc:code-review` | Review a GitHub PR (needs `gh`) |
+| `/sdlc:commit`, `/sdlc:commit-push-pr`, `/sdlc:clean_gone` | Git helpers |
+| `/sdlc:ralph-loop`, `/sdlc:cancel-ralph`, `/sdlc:ralph-help` | Optional self-iterating loop for one well-specified task |
+| `/sdlc:revise-claude-md`, `/sdlc:knowledge-audit` | Promote lessons; keep always-loaded context small |
+| `/sdlc:hookify`, `/sdlc:hookify-list`, `/sdlc:hookify-configure`, `/sdlc:hookify-help` | Turn repeated corrections into rules |
+
+### Hooks
+
+| Hook | Events | Does |
+|---|---|---|
+| hookify | PreToolUse, UserPromptSubmit, Stop | Evaluates rules from `.claude/hookify.*.local.md` (personal, git-ignored) and committed `.claude/hookify/*.md` (team). Rules warn or block |
+| security-guidance | UserPromptSubmit, PostToolUse, Stop | Pattern warnings on edits, diff review at turn end, agentic review after `git commit` and `git push` |
+| verify-freshness | PostToolUse, Stop | Stage 5 only: stale/fresh test tracking (above) |
+| ralph-loop | Stop | Only while a `/sdlc:ralph-loop` is running |
+| SessionStart | SessionStart | Creates a Python environment for the security reviewer on first run |
+
+## Where things live
+
+```
+justfile                   command contract: install test lint typecheck build verify (yours)
+.sdlc/
+  config.json              project overrides on the plugin's defaults (yours)
+  scaffold.lock.json       what the plugin placed, versions, migrations (machine-only)
+  baseline.md              known failures from before setup (yours)
+  constitution.md          project principles
+  lint/                    sdlc lint snippets your ESLint/Ruff config imports (seeded)
+  <feature>/
+    state.md               track, stage, gate log, deviations, open questions
+    spec.md  design.md  plan.md  test-report.md  review.md  security.md  release.md  retro.md
+  .work/                   scratch, git-ignored (also verify-freshness.json)
+knowledge/                 tier 3, on-demand docs (index.md links everything)
+.claude/rules/<area>.md    tier 2, loads when matching paths are touched (yours)
+.claude/rules/sdlc*.md     plugin policy rules: workflow, code style, tests, migrations, sensitive areas, CI (generated)
+.claude/hookify/*.md       team hookify rules; sdlc-*.md are the plugin's guardrails (seeded)
+.github/workflows/sdlc-verify.yml   CI running `just install` + `just verify` (seeded)
+CLAUDE.md                  tier 1, at most 60 lines (never touched by the plugin)
+```
+
+Commit everything under `.sdlc/<feature>/`. Only `.sdlc/.work/` is ignored.
+
+### `state.md`
+
+Resume depends on this file. The orchestrator looks for `.sdlc/*/state.md` with `Status: active`; one match resumes, several asks which, none starts a new feature.
+
+```markdown
+# <feature>
+Status: active
+Track: S | M | L   (sized up because: <named signal, or "—">)
+Commands: verify: `just verify` · test: `just test`   (no setup: the detected native commands)
+Current: Stage <n> – <name>
+## Stages / ## Verify rounds / ## Gate log / ## Deviations / ## Open questions
+```
+
+### Three-tier knowledge
+
+| Tier | Where | Loads |
+|---|---|---|
+| 1 | `CLAUDE.md` (≤ 60 lines) | every session |
+| 2 | `.claude/rules/<area>.md` with `paths:` | automatically, when matching files are touched |
+| 3 | `knowledge/**.md` | on demand, via `knowledge/index.md` and links from tier 2 |
+
+`retro.md` is history and is not loaded by later sessions. Durable lessons are promoted in Stage 11. Something corrected twice and checkable by machine becomes a hookify rule instead of more text.
+
+The full design, ownership model and `scripts/scaffold.py` reference are in `docs/design/setup-and-upgrade.md`.
+
+## Glossary
+
+| Term | Meaning |
+|---|---|
+| Gate | Exit criterion for a stage |
+| Hard stop | A gate where the orchestrator always asks you |
+| Round | One pass of Stage 5; a new verifier each time, at most 3 |
+| Stale / fresh | Whether test results predate the latest code change |
+| Public Surface | Declared list of everything new that callers or users can see |
+| Complexity Tracking | Design table that ties every addition to a requirement |
+| Deviation | A gate you chose to skip, recorded in `state.md` |
+| Constitution | Project principles in `.sdlc/constitution.md`, checked in Stage 2 |
+| Command contract | The six required `just` recipes every set-up repo has |
+| Baseline | Failures that existed before setup; Stage 5 only fails on new ones |
+| Scaffold version / drift | The plugin version a repo was set up or upgraded with; "behind" means `/sdlc:upgrade` has work to do |
+| Generated / seeded | Plugin files that upgrades regenerate / replace only while you haven't edited them |
+| Migration | A versioned change to files you own, applied only with your approval |
