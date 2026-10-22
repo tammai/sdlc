@@ -113,6 +113,21 @@ class DiffStatsTest(ProjectTestCase):
         self.assertIn("src/a.ts", r["new_files"])
         self.assertEqual(r["totals"]["added_code"], 1)
 
+    def test_base_is_the_active_features_base_even_on_main(self):
+        # Work committed straight onto main: the merge-base is HEAD, so only the recorded Base: sees it
+        self.git("checkout", "-q", "main")
+        base = subprocess.run(["git", "-C", self.root, "rev-parse", "--short", "HEAD"], capture_output=True,
+                              text=True).stdout.strip()
+        self.write(".sdlc/login/state.md", f"# Feature: login\nStatus: active\nBase: `{base}`\n")
+        self.write("src/a.ts", "x()\n")
+        self.write("docs/notes.md", "n\n")
+        self.git("add", "-A")
+        self.git("commit", "-qm", "feat work on main")
+        r = self.stats()
+        self.assertTrue(r["base"].startswith(base))
+        self.assertIn("src/a.ts", r["changed_files"])
+        self.assertIn("docs/notes.md", r["changed_files"])  # non-source too: review-pr picks reviewers from it
+
     PLAN = """# Login Plan
 
 ## Global Constraints

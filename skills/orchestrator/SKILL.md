@@ -99,18 +99,18 @@ Each round:
 You (the orchestrator) may run commands to investigate, but the verdict always comes from that round's fresh verifier — `sdlc:verification-before-completion` applies to anything you claim yourself.
 
 - S track: one verifier per round (no analyzer, hunter or qa-tester); the bug's repro test must be among the evidence and must fail on Base (the verifier's red-green check).
-- **Gate:** latest round's verifier verdict PASS on the current commit, and (M and L) a qa-tester PASS on a commit whose non-test files match the current one (no code edits since — the hook enforces this); every acceptance criterion has evidence; no gap ≥ 8; no skipped or retried-until-green test touching this feature. Name any acceptance scenario the qa-tester couldn't run, and why, when you report the gate.
+- **Gate:** latest round's verifier verdict PASS on the current commit, and (M and L) a qa-tester PASS on a commit whose non-test files match the current one (no code edits since — the hook enforces this); every acceptance criterion has evidence; no gap ≥ 8; no skipped or retried-until-green test touching this feature. Name any acceptance scenario the qa-tester couldn't run, and why, when you report the gate. On a pass, set `Verified:` in state.md to that commit.
 
 ### 6 · Review
 - The reviewer must not be the context that wrote the code.
 - Local, before PR: `/sdlc:review-pr` (picks among `code-reviewer`, `comment-analyzer`, `pr-test-analyzer`, `silent-failure-hunter`, `type-design-analyzer`, `code-simplifier` based on the diff). Or `sdlc:requesting-code-review` for a plan-vs-implementation review.
 - On the GitHub PR (after Stage 8 opens it): `/sdlc:code-review`
 - Handling feedback: `sdlc:receiving-code-review` (verify before agreeing; push back with evidence)
-- Polish: `sdlc:code-simplifier` agent on the changed files
+- Polish first: run the `sdlc:code-simplifier` agent on the changed files before the reviewers, so they review the code that will merge
 - This is the feature's only whole-branch review (Stage 4 skipped its own), so on M and L the whole-branch `code-reviewer` runs on the top tier (S keeps the standard tier). Every reviewer's brief includes the plan's Review Focus section verbatim, if it has one, and the Rulings recorded in state.md.
-- Any code change made to fix a finding sends the feature back to Stage 5 for another round before this gate passes (the qa-tester rerun rule still applies). Fixes to tests or docs alone don't.
+- Any code change in this stage (the simplifier's, or a fix for a finding) sends the feature back to Stage 5 for another round before this gate passes (the qa-tester rerun rule still applies). Changes to tests or docs alone don't.
 - Facts first: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/diff_stats.py" --format md --plan .sdlc/<feature>/plan.md` (omit `--plan` on S track) goes into every reviewer's prompt; exports and dependencies missing from the plan's Public Surface are flagged as undeclared (comment share, single-use exports, single-implementation abstractions, new dependencies).
-- S track ("light"): `sdlc:code-reviewer` then `sdlc:code-simplifier`, both with the diff stats.
+- S track ("light"): `sdlc:code-simplifier` then `sdlc:code-reviewer`, both with the diff stats.
 - Severity: unrequested public surface (export, file, endpoint, option, config, dependency not in the spec/plan, with no stated reason) is high. Comment noise flagged by the stats or hookify warnings is medium and fixed in this stage, not ticketed.
 - UI changed (the diff touches `areas.ui`): also dispatch `sdlc:ui-reviewer` on every track, with `.sdlc/design-system.md`, the spec and the diff. Off-system values or components, AI-slop patterns, missing states and accessibility blockers are high severity. A visual check (screenshots) runs only when the user asks for one: say so in the brief; the reviewer uses a browser tool and the dev server if they're available, and reports it if not.
 - **Gate:** no unresolved high-severity finding; findings fixed or ticketed in `.sdlc/<feature>/review.md`.
@@ -120,9 +120,11 @@ You (the orchestrator) may run commands to investigate, but the verdict always c
 - Explicit pass: dispatch `sdlc:feature-reviewer` and `sdlc:code-reviewer` with a security-only brief (injection, authz, secrets, SSRF, XSS, unsafe deserialization, dependency risk). Run the stack's dependency audit (`npm audit --omit=dev`, `pip-audit`, …).
 - "Light" (M track): hook findings + dependency audit only.
 - Deeper scans (optional, not bundled): see `references/integrations.md`.
+- A code change made to fix a security finding sends the feature back to Stage 5, as in Stage 6.
 - **Gate:** no critical/high open; no secrets in the diff → `.sdlc/<feature>/security.md`.
 
 ### 8 · Commit, PR, CI
+- First check that the code is still what Stage 5 verified: `git diff --name-only <Verified:>` plus untracked files, ignoring `.sdlc/`, docs and test-only changes. Anything left means unverified code: go back to Stage 5 for a round before committing or opening the PR.
 - `sdlc:finishing-a-development-branch` to decide merge/PR/keep and clean up worktrees
 - `/sdlc:commit` or `/sdlc:commit-push-pr`; `/sdlc:clean_gone` to prune merged branches
 - PR description links spec.md, test-report.md and qa-report.md (M and L).
@@ -161,6 +163,8 @@ You (the orchestrator) may run commands to investigate, but the verdict always c
 
 ## State file template (`.sdlc/<feature>/state.md`)
 
+Add each line under its own heading, never at the end of the file: the file ends with `## Open questions`, so an appended deviation, gate or round lands in the wrong section.
+
 ```markdown
 # <feature>
 Status: active
@@ -170,6 +174,7 @@ Top model: opus   (fable only if the user chose it)
 Commands: test: `<commands.test>`   (monorepo: one per package, e.g. api: `cd services/api && go test ./...`; no setup: the detected commands)
 Started: <date>
 Base: <commit the feature started from>
+Verified: <commit the Stage 5 gate passed on>
 Current: Stage <n> – <name>
 
 ## Stages

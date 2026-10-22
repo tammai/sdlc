@@ -86,7 +86,7 @@ Over-engineering usually starts before any code exists, so every stage ties addi
 - **Specs** tag each requirement `[user]`, `[clarified]` or `[inferred]`, and have a required Non-Goals section. At the Stage 1 gate, `[inferred]` items are listed on their own and **dropped unless you keep them**; dropped ones move to Non-Goals.
 - **Designs** keep a Complexity Tracking table: every new module, layer, abstraction, dependency, service, config key or store cites a requirement or comes out.
 - **Plans** give each task a `Requirements:` line and declare a **Public Surface** (every new export, endpoint, command, config key, env var, dependency).
-- **Review** runs `scripts/diff_stats.py --plan` to flag exports and dependencies missing from the Public Surface. Unrequested public surface is high severity. It's the feature's only whole-branch review: the execution skills skip their own final review under the orchestrator, and per-task reviews still run in Stage 4. On M and L it runs on the top tier, and a code fix it causes goes back to Stage 5 for another round.
+- **Review** runs `scripts/diff_stats.py --plan` to flag exports and dependencies missing from the Public Surface. Unrequested public surface is high severity. It's the feature's only whole-branch review: the execution skills skip their own final review under the orchestrator, and per-task reviews still run in Stage 4. On M and L it runs on the top tier. The simplifier runs before the reviewers, and any code change in Stage 6 or 7 goes back to Stage 5 for another round; Stage 8 checks the code still matches the `Verified:` commit before committing.
 
 ## Verification
 
@@ -192,6 +192,7 @@ Track: S | M | L   (sized up because: <named signal, or "—">)
 Risk: low | high   (<signal>)
 Top model: opus   (fable only if the user chose it)
 Base: <commit the feature started from>
+Verified: <commit the Stage 5 gate passed on>
 Commands: test: `<test command>`   (monorepo: one per package; no setup: the detected command)
 Current: Stage <n> – <name>
 ## Stages / ## Verify rounds / ## Gate log / ## Deviations / ## Open questions

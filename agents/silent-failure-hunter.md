@@ -1,5 +1,6 @@
 ---
 name: silent-failure-hunter
+tools: Glob, Grep, Read, Bash
 description: Use this agent when reviewing code changes in a pull request to identify silent failures, inadequate error handling, and inappropriate fallback behavior. Invoke it proactively after completing a logical chunk of work that involves error handling, catch blocks, fallback logic, or any code that could suppress errors. See "When to invoke" in the agent body for worked scenarios.
 model: inherit
 color: yellow

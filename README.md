@@ -165,7 +165,7 @@ Retros in `.sdlc/<feature>/retro.md` are history only. Durable lessons are promo
 
 - **Outside services aren't bundled** (GitHub MCP, Linear, Sentry, Vercel, Playwright, …). Stages that would use them say which to add; see `skills/orchestrator/references/integrations.md`. Anthropic's `claude-security` plugin isn't bundled either (its license reserves all rights); install it separately for deep vulnerability scans.
 - **Generated CI is GitHub Actions only.** On other CI systems, run the same commands from `.sdlc/config.json` yourself.
-- **Most gates are instructions plus your approval.** Machine-checked: test freshness (hook), undeclared public surface (`diff_stats.py --plan`), hookify guardrails, and plan consistency on L and larger M plans. The S track has no plan, so unrequested surface there is the reviewer's call.
+- **Most gates are instructions plus your approval.** Machine-checked: test freshness (hook), undeclared public surface (`diff_stats.py --plan`), the subagent model floor (model router) and hookify guardrails. Plan consistency on L and larger M plans is checked by a skill (`analyzing-consistency`), not mechanically. The S track has no plan, so unrequested surface there is the reviewer's call.
 - **Freshness detection is heuristic.** It catches edits by any tool and filtered runs (file, name or package arguments), but not every possible filter, and not `.only` inside a test file (a guardrail warns on that instead).
 - **Windows:** Claude Code runs commands in Git Bash, so project commands must work there; generated CI runs every step with `shell: bash`.
 

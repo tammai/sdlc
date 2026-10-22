@@ -34,6 +34,28 @@ class ModelRouterTest(ProjectTestCase):
         self.assertEqual(out["hookSpecificOutput"]["permissionDecision"], "deny")
         self.assertIsNone(self.dispatch(subagent_type="sdlc:qa-tester", model="opus"))
 
+    def test_dispatch_without_a_model_is_denied(self):
+        out = self.dispatch(subagent_type="sdlc:verifier")
+        self.assertEqual(out["hookSpecificOutput"]["permissionDecision"], "deny")
+        self.assertIn("name the subagent's model", out["hookSpecificOutput"]["permissionDecisionReason"])
+
+    def test_fable_with_the_users_opt_in_goes_ahead(self):
+        self.write(".sdlc/login/state.md", "# login\nStatus: active\nTrack: M\nRisk: low\nTop model: fable\n")
+        self.assertIsNone(self.dispatch(subagent_type="sdlc:code-reviewer", model="fable"))
+
+    def test_high_risk_floor_applies_to_reviewers_only(self):
+        self.write(".sdlc/login/state.md", "# login\nStatus: active\nTrack: L\nRisk: high\nTop model: opus\n")
+        self.assertEqual(self.dispatch(subagent_type="sdlc:verifier", model="sonnet")
+                         ["hookSpecificOutput"]["permissionDecision"], "deny")
+        self.assertIsNone(self.dispatch(subagent_type="general-purpose", model="sonnet"))
+
+    def test_forks_are_exempt(self):
+        self.assertIsNone(self.dispatch(subagent_type="fork"))
+
+    def test_no_active_feature_is_silent(self):
+        self.write(".sdlc/login/state.md", "# login\nStatus: done\n")
+        self.assertIsNone(self.dispatch(subagent_type="sdlc:verifier"))
+
 
 if __name__ == "__main__":
     unittest.main()

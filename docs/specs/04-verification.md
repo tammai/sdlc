@@ -25,7 +25,7 @@ Stage 5 decides whether the work does what the spec says, using evidence that is
 | VER-FR-003 | The verifier writes only `test-report.md` and may only remove passing items from the baseline. | `[instructed]` verifier.md |
 | VER-FR-004 | Failures are classified new or baseline; only new failures fail the round; a lint/type count that rises counts as new; adding to the baseline needs the user and a Deviation. | `[instructed]` verifier.md, orchestrator §5 |
 | VER-FR-005 | M and L: fresh `qa-tester`, `pr-test-analyzer` and `silent-failure-hunter` in parallel each round. S: verifier only, with the repro test among the evidence and failing on Base. | `[instructed]` orchestrator §5 |
-| VER-FR-006 | Gate: latest round's verifier PASS on the current commit and (M, L) a qa-tester PASS on a commit with the same non-test files, every criterion evidenced, no test gap rated ≥ 8, no high-severity silent failure, no skipped or retried-until-green test touching the feature. | `[instructed]` orchestrator §5 |
+| VER-FR-006 | Gate: latest round's verifier PASS on the current commit and (M, L) a qa-tester PASS on a commit with the same non-test files, every criterion evidenced, no test gap rated ≥ 8, no high-severity silent failure, no skipped or retried-until-green test touching the feature. On a pass, `Verified:` in `state.md` records the commit; Stage 8 goes back to Stage 5 if non-test code changed since. | `[instructed]` orchestrator §5, §8 |
 | VER-FR-007 | At most 3 rounds, then stop and report to the user. Each round is logged in `state.md`. | `[instructed]` orchestrator §5 |
 
 ### Red-green and QA

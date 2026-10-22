@@ -33,7 +33,7 @@ Situation-by-situation plays. Each says what to say or run, what the orchestrato
 1. The orchestrator proposes S: bug, few files, clear behavior. Stages run 4 → 5 → 6 (light) → 8. No spec, design or plan file.
 2. Stage 4: a failing test that reproduces the bug comes first, then the fix. If something fails unexpectedly, `systematic-debugging` takes over.
 3. Stage 5: a fresh `verifier` runs the full suite. The repro test must be among its evidence.
-4. Stage 6: `code-reviewer`, then `code-simplifier`, both given `diff_stats.py` facts.
+4. Stage 6: `code-simplifier`, then `code-reviewer`, both given `diff_stats.py` facts.
 5. Stage 8: PR and CI.
 
 **You decide:** the merge. Nothing else stops you.

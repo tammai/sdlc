@@ -10,7 +10,7 @@ You are an expert code reviewer specializing in modern software development acro
 
 ## Review Scope
 
-By default, review unstaged changes from `git diff`. The user may specify different files or scope to review.
+By default, review the changes since the base the diff stats in your brief name (committed, uncommitted and untracked); with no diff stats, run `git diff <base>` against the feature's `Base:` or the merge-base with main, since plain `git diff` misses committed work. The user may specify different files or scope to review.
 
 ## Core Review Responsibilities
 

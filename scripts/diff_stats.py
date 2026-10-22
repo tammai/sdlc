@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Diff facts for Stage 6 review: comment share, new files, single-use exports, single-implementation
-interfaces and new dependencies, for the changes since a base ref (committed + uncommitted + untracked).
+interfaces, new dependencies and the list of changed files, for the changes since a base ref (committed +
+uncommitted + untracked). The base defaults to the active feature's `Base:` commit.
 With --plan, new exports and dependencies are checked against the plan's "## Public Surface" list.
 
 Reviewers cite these numbers instead of arguing taste. Informational only: always exits 0 unless git fails.
@@ -8,6 +9,7 @@ Usage: python3 diff_stats.py [--root DIR] [--base REF] [--plan PLAN.md] [--forma
 Stdlib only, Python 3.9+.
 """
 import argparse
+import glob
 import json
 import os
 import re
@@ -37,6 +39,24 @@ def git(root, *args, check=True):
     if check and p.returncode != 0:
         raise RuntimeError(f"git {' '.join(args)}: {p.stderr.strip()}")
     return p.stdout if p.returncode == 0 else None
+
+
+def feature_base(root, plan=None):
+    """`Base:` from the plan's state.md, else from the only active feature's, if that commit exists."""
+    paths = [os.path.join(os.path.dirname(plan), "state.md")] if plan else glob.glob(
+        os.path.join(root, ".sdlc", "*", "state.md"))
+    bases = []
+    for path in paths:
+        try:
+            text = open(path, encoding="utf-8").read()
+        except OSError:
+            continue
+        m = re.search(r"^Base:\s*`?([0-9a-f]{7,40})\b", text, re.M)
+        if m and (plan or re.search(r"^Status:\s*active\b", text, re.M | re.I)):
+            bases.append(m.group(1))
+    if len(bases) == 1 and git(root, "rev-parse", "--verify", "-q", bases[0] + "^{commit}", check=False):
+        return bases[0]
+    return None
 
 
 def default_base(root):
@@ -219,6 +239,7 @@ def collect(root, base, plan=None):
     for path in untracked:
         added[path] = [None] + read_lines(root, path)[1:]
     new_files = sorted(status_new | set(untracked))
+    changed_files = sorted(set((git(root, "diff", "--name-only", base) or "").splitlines()) | set(untracked))
 
     files, exports, interfaces = [], [], []
     for path, lines in sorted(added.items()):
@@ -298,7 +319,7 @@ def collect(root, base, plan=None):
                    "added_code": code_total, "added_comments": comment_total,
                    "comment_ratio": round(comment_total / (code_total + comment_total), 2)
                    if code_total + comment_total else 0.0},
-        "new_files": new_files, "files": files, "exports": exports, "interfaces": interfaces,
+        "changed_files": changed_files, "new_files": new_files, "files": files, "exports": exports, "interfaces": interfaces,
         "dependencies": deps, "surface": surface, "flags": flags,
     }
 
@@ -308,7 +329,8 @@ def to_markdown(r):
     lines = [f"### Diff stats (vs `{r['base'][:12]}`)", "",
              f"- Source files: {t['source_files']} (+{t['test_files']} test files), new files: {t['new_files']}",
              f"- Added: {t['added_code']} code lines, {t['added_comments']} comment lines "
-             f"({int(t['comment_ratio'] * 100)}% comments)", ""]
+             f"({int(t['comment_ratio'] * 100)}% comments)",
+             f"- Changed files ({len(r['changed_files'])}): " + (", ".join(r["changed_files"]) or "none"), ""]
     if r["flags"]:
         lines += ["**Flags** (facts to check, not verdicts):", ""] + [f"- {f}" for f in r["flags"]]
     else:
@@ -323,7 +345,8 @@ def to_markdown(r):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--root", default=".")
-    ap.add_argument("--base", help="base ref (default: merge-base with origin/main|main|master, else HEAD)")
+    ap.add_argument("--base", help="base ref (default: the feature's `Base:` from state.md beside --plan, or from "
+                                   "the only active feature; else merge-base with origin/main|main|master, else HEAD)")
     ap.add_argument("--plan", help="plan.md whose '## Public Surface' the diff is checked against")
     ap.add_argument("--format", choices=["json", "md"], default="json")
     a = ap.parse_args(argv)
@@ -332,7 +355,7 @@ def main(argv=None):
     try:
         top = git(root, "rev-parse", "--show-toplevel").strip()
         plan = os.path.abspath(a.plan) if a.plan else None
-        result = collect(top, a.base or default_base(top), plan)
+        result = collect(top, a.base or feature_base(top, plan) or default_base(top), plan)
     except RuntimeError as e:
         print(json.dumps({"error": str(e)}))
         return 1

@@ -30,7 +30,7 @@ Run a comprehensive pull request review using multiple specialized agents, each 
 
 3. **Identify Changed Files**
    - Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/diff_stats.py" --format md` and include its output in every agent's prompt: comment share, new files, single-use/unused exports, single-implementation abstractions, new dependencies. Agents confirm or dismiss each flag with a reason; they are facts, not verdicts.
-   - Run `git diff --name-only` to see modified files
+   - The changed files are the diff stats' "Changed files" list: everything since the feature's `Base:` (or the merge-base with main), committed, uncommitted and untracked. Don't use `git diff --name-only`: it lists only unstaged changes and misses committed work. If the list is empty but the feature has work, stop and say so instead of reviewing nothing.
    - Check if PR already exists: `gh pr view`
    - Identify file types and what reviews apply
 
@@ -43,7 +43,7 @@ Run a comprehensive pull request review using multiple specialized agents, each 
    - **If error handling changed**: silent-failure-hunter
    - **If types added/modified**: type-design-analyzer
    - **If UI files changed** (paths in `areas.ui`, from `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" config`): ui-reviewer, with `.sdlc/design-system.md`. Its High findings are Critical. Add "visual check requested" to its brief only when the user asked for screenshots.
-   - **After passing review**: code-simplifier (polish and refine)
+   - **Before the other reviewers**: code-simplifier (polish and refine), so they review the code that will merge
 
 5. **Launch Review Agents**
 
@@ -108,7 +108,7 @@ Run a comprehensive pull request review using multiple specialized agents, each 
 # Reviews only code comments
 
 /sdlc:review-pr simplify
-# Simplifies code after passing review
+# Simplifies the changed code (runs before the reviewers in a full review)
 ```
 
 **Parallel review:**
@@ -159,7 +159,7 @@ Run a comprehensive pull request review using multiple specialized agents, each 
 ## Tips:
 
 - **Run early**: Before creating PR, not after
-- **Focus on changes**: Agents analyze git diff by default
+- **Focus on changes**: Agents analyze the changes since the base (the diff stats name it)
 - **Address critical first**: Fix high-priority issues before lower priority
 - **Re-run after fixes**: Verify issues are resolved
 - **Use specific reviews**: Target specific aspects when you know the concern

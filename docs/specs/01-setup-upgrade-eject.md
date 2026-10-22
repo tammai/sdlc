@@ -77,4 +77,4 @@ Prepare a repo once (new or existing), keep it current with the plugin, and remo
 
 ## Known gaps
 
-- Not yet run end to end in a live session (setup → start → upgrade). No migration has shipped yet, so the migration path is exercised only by tests.
+- Setup, upgrade and eject passed the 1.4.0 release smoke test in headless sessions ([PRD](../prd.md)), but not as one continuous project (setup → start → upgrade). One migration has shipped (`1.4.0-design-system`); beyond that smoke test, the migration path is exercised only by tests.

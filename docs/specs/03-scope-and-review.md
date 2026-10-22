@@ -29,7 +29,7 @@ Every addition is traced to a request from spec to diff, and review gets measure
 
 | ID | Requirement | Guarantee |
 |---|---|---|
-| SCO-FR-010 | Diff base: merge-base with origin/main, origin/master, main or master, else HEAD; includes committed, uncommitted and untracked changes. Not a git repo → error. | `[enforced]` test_diff_stats › test_base_is_merge_base_with_main, test_no_changes, test_not_a_git_repo |
+| SCO-FR-010 | Diff base: the feature's `Base:` (from the `state.md` beside `--plan`, or the only active feature's), else merge-base with origin/main, origin/master, main or master, else HEAD; includes committed, uncommitted and untracked changes, and lists every changed file, which `/sdlc:review-pr` picks reviewers from. Not a git repo → error. | `[enforced]` test_diff_stats › test_base_is_merge_base_with_main, test_base_is_the_active_features_base_even_on_main, test_no_changes, test_not_a_git_repo |
 | SCO-FR-011 | Counts added code and comment lines per source file, block-comment and docstring aware; modified files count only added lines. | `[enforced]` › test_comment_counting_c_like, test_comment_counting_python_docstrings, test_modified_file_counts_only_added_lines |
 | SCO-FR-012 | Flags comment-heavy files and diffs (over 25% comments with at least 20 added lines). Test files are excluded from the ratio and from export checks. | `[enforced]` › test_comment_heavy_flags, test_test_files_are_excluded_from_ratio_and_exports |
 | SCO-FR-013 | New exports (TS/JS, Python, Go) are classified by caller files: unused, only used by tests, used only inside their own file, or single-use. | `[enforced]` › test_export_usage, test_python_and_go_exports |
@@ -43,10 +43,10 @@ Every addition is traced to a request from spec to diff, and review gets measure
 |---|---|---|
 | SCO-FR-020 | The reviewer is never the context that wrote the code. | `[instructed]` orchestrator §6 |
 | SCO-FR-021 | `diff_stats.py` output goes into every reviewer's prompt (with `--plan` except on S); reviewers confirm or dismiss each flag with a reason. | `[instructed]` orchestrator §6, review-pr.md |
-| SCO-FR-022 | `/sdlc:review-pr` picks agents by diff: code-reviewer always; pr-test-analyzer, comment-analyzer, silent-failure-hunter, type-design-analyzer when relevant; code-simplifier after review. | `[instructed]` review-pr.md (vendored, patched) |
-| SCO-FR-023 | Severity: unrequested public surface without a stated reason is high (blocks the gate); comment noise is medium and fixed in Stage 6. S track runs code-reviewer then code-simplifier. | `[instructed]` orchestrator §6, review-pr.md |
+| SCO-FR-022 | `/sdlc:review-pr` picks agents by diff: code-reviewer always; pr-test-analyzer, comment-analyzer, silent-failure-hunter, type-design-analyzer when relevant; code-simplifier before the other reviewers. Changed files come from `diff_stats.py` (since the feature's `Base:`), not the unstaged diff. | `[instructed]` review-pr.md (vendored, patched) |
+| SCO-FR-023 | Severity: unrequested public surface without a stated reason is high (blocks the gate); comment noise is medium and fixed in Stage 6. S track runs code-simplifier then code-reviewer. | `[instructed]` orchestrator §6, review-pr.md |
 | SCO-FR-024 | Feedback is verified before agreeing; pushback with evidence; YAGNI check on "professional" additions. | `[instructed]` receiving-code-review (vendored) |
-| SCO-FR-025 | One whole-branch review per feature, in Stage 6: under the orchestrator, `executing-plans` and `subagent-driven-development` skip their own final whole-branch review (per-task reviews still run) and report their Rulings, which go into `state.md`. Stage 6 reviewers get the plan's Review Focus and those Rulings; on M and L its whole-branch `code-reviewer` runs on the top tier; a code change made to fix a finding goes back to Stage 5 for another round. | `[instructed]` orchestrator §4, §6; executing-plans, final-review.md (vendored, patched) |
+| SCO-FR-025 | One whole-branch review per feature, in Stage 6: under the orchestrator, `executing-plans` and `subagent-driven-development` skip their own final whole-branch review (per-task reviews still run) and report their Rulings, which go into `state.md`. Stage 6 reviewers get the plan's Review Focus and those Rulings; on M and L its whole-branch `code-reviewer` runs on the top tier; the simplifier runs before the reviewers; any code change in Stage 6 or Stage 7 (the simplifier's or a fix) goes back to Stage 5 for another round, and Stage 8 checks that the code still matches the `Verified:` commit before committing. | `[instructed]` orchestrator §4, §6; executing-plans, final-review.md (vendored, patched) |
 
 ## Non-goals
 
@@ -56,4 +56,5 @@ Every addition is traced to a request from spec to diff, and review gets measure
 ## Known gaps
 
 - Spec, design and plan tracing are instructions plus user approval. The S track has no plan, so the surface check doesn't apply there.
+- Reviewer agents have no Edit or Write tools, but they keep Bash (for `git diff`), so "the reviewer doesn't fix" is still partly instructed. `ui-reviewer` and `qa-tester` aren't scoped: they need browser tools whose names differ per install.
 - Export detection is regex-based for TS/JS, Python and Go; other languages get comment counts only.
