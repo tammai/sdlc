@@ -56,7 +56,8 @@ def write_json(path, data):
 def sha256(path):
     try:
         with open(path, "rb") as f:
-            return hashlib.sha256(f.read()).hexdigest()
+            # CRLF counts as LF: git (core.autocrlf) checks out CRLF on Windows, and the lock holds LF hashes
+            return hashlib.sha256(f.read().replace(b"\r\n", b"\n")).hexdigest()
     except FileNotFoundError:
         return None
 

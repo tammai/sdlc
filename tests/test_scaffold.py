@@ -164,6 +164,16 @@ class ScaffoldTest(ProjectTestCase):
                                 "--if-unchanged")["changed"])
         self.assertEqual(self.read("ci.yml"), "run: make verify --ci\n")
 
+    def test_crlf_checkout_of_an_untouched_file_counts_as_unchanged(self):
+        # git with core.autocrlf=true checks out CRLF; the lock holds the hash of the LF render
+        self.init()
+        self.sc("render", "templates/project/ci.yml", "ci.yml", "--class", "seeded")
+        with open(self.path("ci.yml"), "wb") as f:
+            f.write(b"run: make verify\r\n")
+        self.assertEqual(self.sc("status")["files"]["ci.yml"]["state"], "unchanged")
+        self.template("templates/project/ci.yml", "run: make verify --ci\n")
+        self.sc("render", "templates/project/ci.yml", "ci.yml", "--class", "seeded", "--if-unchanged")
+
     def test_record_and_file_states(self):
         self.init()
         for name in ("a.md", "b.md", "c.md"):
