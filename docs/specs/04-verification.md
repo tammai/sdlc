@@ -1,8 +1,8 @@
 # Spec 04: Verification
 
-Stage 5 decides whether the work does what the spec says, using evidence that is fresh, independent and honest about pre-existing failures.
+Stage 5 decides whether the work does what the spec says, using evidence that is fresh, independent and honest about pre-existing failures: tests that fail without the change, and a QA run of the feature that never looks at the code.
 
-**Entry points:** Stage 5 of the orchestrator · **Source:** `skills/orchestrator/SKILL.md` §5, `agents/verifier.md`, `hooks/verify_freshness.py`, `templates/project/baseline.md`
+**Entry points:** Stage 5 of the orchestrator · **Source:** `skills/orchestrator/SKILL.md` §5, `agents/verifier.md`, `agents/qa-tester.md`, `hooks/verify_freshness.py`, `templates/project/baseline.md`
 
 ## User scenarios
 
@@ -10,7 +10,9 @@ Stage 5 decides whether the work does what the spec says, using evidence that is
 2. **Stale results.** Given Stage 5 and a full test run, when code changes afterwards (by any tool, including a formatter or subagent), then finishing the turn is blocked with the reason and the exact command to rerun.
 3. **Monorepo.** Given packages `api` and `web`, both fresh, when `services/api/handler.go` changes, then only `api` is stale and the block names `cd services/api && go test ./...`.
 4. **Old failure.** Given a failure listed in `.sdlc/baseline.md`, when the verifier sees it, then it doesn't fail the round; if a listed failure now passes, the verifier removes it.
-5. **Round cap.** Given three failed rounds, then the orchestrator stops and brings the user what still fails, what each round changed, and a root-cause hypothesis.
+5. **Scenario broken in use.** Given an M feature whose tests all pass, when the `qa-tester` runs User Story 1 scenario 2 and doesn't see the spec's *Then*, then it reports the steps and observed output and the round fails.
+6. **Test that proves nothing.** Given a bug fix whose repro test also passes with the fix reverted, then the verifier reports it doesn't prove the change and the round fails.
+7. **Round cap.** Given three failed rounds, then the orchestrator stops and brings the user what still fails, what each round changed, and a root-cause hypothesis.
 
 ## Requirements
 
@@ -22,9 +24,21 @@ Stage 5 decides whether the work does what the spec says, using evidence that is
 | VER-FR-002 | The verifier records commit, dirty state and time; runs build, lint, typecheck and the full suite fresh; proves every acceptance criterion with a named test (opened to confirm it asserts the behavior) or an observed command output, or reports none. | `[instructed]` verifier.md |
 | VER-FR-003 | The verifier writes only `test-report.md` and may only remove passing items from the baseline. | `[instructed]` verifier.md |
 | VER-FR-004 | Failures are classified new or baseline; only new failures fail the round; a lint/type count that rises counts as new; adding to the baseline needs the user and a Deviation. | `[instructed]` verifier.md, orchestrator §5 |
-| VER-FR-005 | M and L: fresh `pr-test-analyzer` and `silent-failure-hunter` in parallel each round. S: verifier only, with the repro test among the evidence. | `[instructed]` orchestrator §5 |
-| VER-FR-006 | Gate: latest round PASS on the current commit, every criterion evidenced, no test gap rated ≥ 8, no high-severity silent failure, no skipped or retried-until-green test touching the feature. | `[instructed]` orchestrator §5 |
+| VER-FR-005 | M and L: fresh `qa-tester`, `pr-test-analyzer` and `silent-failure-hunter` in parallel each round. S: verifier only, with the repro test among the evidence and failing on Base. | `[instructed]` orchestrator §5 |
+| VER-FR-006 | Gate: latest round's verifier and (M, L) qa-tester PASS on the current commit, every criterion evidenced, no test gap rated ≥ 8, no high-severity silent failure, no skipped or retried-until-green test touching the feature. | `[instructed]` orchestrator §5 |
 | VER-FR-007 | At most 3 rounds, then stop and report to the user. Each round is logged in `state.md`. | `[instructed]` orchestrator §5 |
+
+### Red-green and QA
+
+| ID | Requirement | Guarantee |
+|---|---|---|
+| VER-FR-030 | The verifier makes a throwaway worktree at `Base:` under `.sdlc/.work/redgreen/`, runs `install` there, checks the environment with a control test that passes in the main worktree (if it doesn't, "red-green not run"; an environment error never counts as red), copies in the feature's new and changed test files (committed or not) and runs them there. A test that passes there doesn't count as evidence for a criterion. The main worktree is never touched; the worktree is removed afterwards; if it can't be made, "red-green not run: <reason>". | `[instructed]` verifier.md |
+| VER-FR-031 | The `qa-tester` is briefed with the feature dir, round, commands and whether a browser tool exists, never the diff, plan or tests, and is told not to read source. | `[instructed]` orchestrator §5, qa-tester.md |
+| VER-FR-032 | It runs every acceptance scenario and spec edge case against the running software (CLI, HTTP, browser, or a script against the public API) and up to five probes of its own, recording steps and observed output. | `[instructed]` qa-tester.md |
+| VER-FR-033 | It writes only `qa-report.md` (a `## Round N` section) and scratch files under `.sdlc/.work/qa/`; never installs anything; reports "not run: <reason>" when it can't run a scenario. | `[instructed]` qa-tester.md |
+| VER-FR-036 | The qa-tester leaves the working tree as it found it: files the running software created are removed, and any it couldn't remove are reported. | `[instructed]` qa-tester.md |
+| VER-FR-034 | Its verdict fails on a failed scenario or spec edge case, or a Blocker probe (crash, hang, data loss, leaked internals or wrong result, on an input the spec covers). Probes stay inside the spec's stated limits and never touch Non-Goals; a failure that needs a new requirement is Major and goes to the user. "Not run" doesn't fail the round but is named at the gate. Major findings go to `review.md`. | `[instructed]` qa-tester.md, orchestrator §5 |
+| VER-FR-035 | The model router denies `qa-tester` below `opus` on `Risk: high`, like the verifier. | `[enforced]` test_model_router › test_qa_tester_below_opus_is_denied_on_high_risk |
 
 ### Freshness hook
 
@@ -52,8 +66,13 @@ Stage 5 decides whether the work does what the spec says, using evidence that is
 ## Non-goals
 
 - Judging whether tests are good (that's the verifier and `pr-test-analyzer`); running tests itself.
+- The qa-tester writing tests into the repo; e2e or visual-regression suites; load testing beyond a stated SC; mutation testing.
+- QA on the S track.
 
 ## Known gaps
 
+- The qa-tester's blindness to the code is instructed only: it has Read and Bash, which it needs to run the feature. Same for the verifier's "never edit source".
+- Red-green runs `install` in a fresh worktree each round: it takes time and may use the network.
+- Red-green on a refactor: tests that pass on Base are expected, and the verifier lists them; a criterion relying only on such a test has no evidence.
 - `.only` inside a test file and unusual custom filters aren't detected by the hook (a guardrail warns on `.only` instead).
 - Whether the hook fires for tool calls made inside subagents hasn't been checked in a live session; the worktree diff at the turn's end covers their edits regardless.

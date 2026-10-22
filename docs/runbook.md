@@ -306,7 +306,7 @@ Stage behavior lives in `skills/orchestrator/SKILL.md`. After editing it, keep t
 |---|---|
 | Stage gates or tracks | `docs/diagrams/*.svg`, `docs/guidebook.md`, README stage table |
 | A hard stop | the Rules section of the orchestrator, `docs/playbook.md` |
-| Verify behavior | `agents/verifier.md`, `hooks/verify_freshness.py`, `tests/test_verify_freshness.py` |
+| Verify behavior | `agents/verifier.md`, `agents/qa-tester.md`, `hooks/verify_freshness.py`, `tests/test_verify_freshness.py` |
 | Model tiers or risk | Model Selection in `skills/subagent-driven-development/SKILL.md`, `hooks/model_router.py`, `tests/test_model_router.py`, `docs/specs/02-orchestration.md` |
 | Scope-tracing rules | `skills/writing-specs`, `designing-solutions`, `writing-plans`, `analyzing-consistency`, `scripts/diff_stats.py` |
 | Setup, upgrade or eject | `skills/setting-up-projects/`, `scripts/scaffold.py`, `templates/project/`, `tests/test_scaffold.py`, `tests/test_project_templates.py`, `docs/diagrams/sdlc_setup_phase.svg`; a changed decision gets a new ADR in `docs/adr/` |

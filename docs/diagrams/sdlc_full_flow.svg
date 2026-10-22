@@ -149,6 +149,7 @@ rect{stroke-width:.5}
 <text class="s" x="380" y="738">verifier (new each round)</text>
 <text class="s" x="380" y="754">pr-test-analyzer (M, L)</text>
 <text class="s" x="380" y="770">silent-failure-hunter (M, L)</text>
+<text class="s" x="380" y="786">qa-tester, blind to code (M, L)</text>
 </g>
 <g class="hook"><rect x="574" y="720" width="160" height="84" rx="6"/>
 <text class="s" x="584" y="738">verify-freshness: stale</text>
@@ -157,7 +158,7 @@ rect{stroke-width:.5}
 <text class="s" x="584" y="786">model-router: verifier</text>
 </g>
 <g class="gate"><rect x="742" y="720" width="238" height="84" rx="6"/>
-<text class="s" x="752" y="738">Fresh verifier PASS on this commit,</text>
+<text class="s" x="752" y="738">Verifier + QA PASS on this commit,</text>
 <text class="s" x="752" y="754">no test gap ≥ 8, no high silent</text>
 <text class="s" x="752" y="770">failure. Fail: back to Stage 4.</text>
 <text class="s" x="752" y="786">Round 3 fails: ask you</text>

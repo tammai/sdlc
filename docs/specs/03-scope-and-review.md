@@ -23,7 +23,7 @@ Every addition is traced to a request from spec to diff, and review gets measure
 | SCO-FR-005 | Architect options: minimal change; minimal plus one named extension (only if a requirement strains the minimal one); pragmatic. Minimal is recommended unless it fails a named requirement. Every brief includes the Non-Goals. | `[instructed]` designing-solutions, code-architect.md |
 | SCO-FR-006 | Complexity Tracking is always filled: every new module, layer, abstraction, dependency, service, config key or store cites a requirement and why a simpler alternative was rejected, or it comes out; a "Deliberately not built" section. | `[instructed]` designing-solutions, design-template |
 | SCO-FR-007 | Every plan task has a `Requirements:` line; the plan's self-review checks both directions; a **Public Surface** section declares every new export, endpoint, command, config key, env var and dependency, or "none". | `[instructed]` writing-plans |
-| SCO-FR-008 | Consistency analysis: leftover `[inferred]` or a planned Non-Goal is CRITICAL; other scope creep (task without requirement, Complexity row or surface line without requirement, design numbers without an SC) is HIGH. Runs on L, and on M with more than ~8 tasks. | `[instructed]` analyzing-consistency, orchestrator §3 |
+| SCO-FR-008 | Consistency analysis: leftover `[inferred]` or a planned Non-Goal is CRITICAL; other scope creep (task without requirement, Complexity row or surface line without requirement, design numbers without an SC) is HIGH, and so is an acceptance scenario with no named test in the plan. Runs on L, and on M with more than ~8 tasks. | `[instructed]` analyzing-consistency, orchestrator §3 |
 
 ### Review facts (`diff_stats.py`)
 

@@ -28,6 +28,12 @@ class ModelRouterTest(ProjectTestCase):
         self.assertEqual(decision["permissionDecision"], "deny")
         self.assertIn("Top model: fable", decision["permissionDecisionReason"])
 
+    def test_qa_tester_below_opus_is_denied_on_high_risk(self):
+        self.write(".sdlc/login/state.md", "# login\nStatus: active\nTrack: M\nRisk: high\nTop model: opus\n")
+        out = self.dispatch(subagent_type="sdlc:qa-tester", model="sonnet")
+        self.assertEqual(out["hookSpecificOutput"]["permissionDecision"], "deny")
+        self.assertIsNone(self.dispatch(subagent_type="sdlc:qa-tester", model="opus"))
+
 
 if __name__ == "__main__":
     unittest.main()

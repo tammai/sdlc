@@ -87,17 +87,17 @@ Set `Current: Stage 5 – Verify` in state.md first — that switches on the fre
 
 Each round:
 1. **Spawn a NEW `sdlc:verifier` agent.** Always a fresh spawn — never resume or message a verifier from an earlier round, and never verify inline in this context. Brief it with: feature dir, round number, the build/lint/typecheck/test commands from state.md. It runs everything fresh, proves each acceptance criterion, and appends `## Round N — <time> — commit <hash>` to `test-report.md`.
-2. In parallel (M and L tracks), spawn fresh `sdlc:pr-test-analyzer` (gaps rated 1–10) and `sdlc:silent-failure-hunter` on the current diff.
+2. In parallel (M and L tracks), spawn fresh `sdlc:pr-test-analyzer` (gaps rated 1–10) and `sdlc:silent-failure-hunter` on the current diff, and a fresh `sdlc:qa-tester`. Brief the qa-tester with the feature dir, round number, the commands and whether a browser tool is available. Give it no diff, plan or test files: it runs the feature against the spec as a user would and appends to `qa-report.md`.
 3. Log the round in state.md under `## Verify rounds`: `Round N — <commit> — PASS/FAIL — <one-line reason>`.
 4. Verdict:
-   - Verifier PASS, no test gap rated ≥ 8, no high-severity silent failure → gate passes. PASS means no *new* failures: failures listed in `.sdlc/baseline.md` don't fail the round. If the verifier asks to baseline a failure, that's a user decision, recorded under Deviations; it's never added silently.
+   - Verifier PASS, qa-tester PASS (scenarios it reports as "not run" don't fail it), no test gap rated ≥ 8, no high-severity silent failure → gate passes. qa-tester Major findings go into `review.md` for Stage 6. PASS means no *new* failures: failures listed in `.sdlc/baseline.md` don't fail the round. If the verifier asks to baseline a failure, that's a user decision, recorded under Deviations; it's never added silently.
    - Otherwise → back to Stage 4 for the listed failures only (TDD: failing test first, `sdlc:systematic-debugging` for anything unexplained), then set Stage 5 again and start the next round with another fresh verifier.
 5. **Round cap:** after round 3 fails, stop. Bring the user: what still fails, what each round changed, and the root-cause hypothesis. The user decides (more rounds, change scope, revisit the design).
 
 You (the orchestrator) may run commands to investigate, but the verdict always comes from that round's fresh verifier — `sdlc:verification-before-completion` applies to anything you claim yourself.
 
-- S track: one verifier per round (no analyzer/hunter); the bug's repro test must be among the evidence.
-- **Gate:** latest round's verifier verdict PASS on the current commit (no code edits since — the hook enforces this); every acceptance criterion has evidence; no gap ≥ 8; no skipped or retried-until-green test touching this feature.
+- S track: one verifier per round (no analyzer, hunter or qa-tester); the bug's repro test must be among the evidence and must fail on Base (the verifier's red-green check).
+- **Gate:** latest round's verifier (and, M and L, qa-tester) verdict PASS on the current commit (no code edits since — the hook enforces this); every acceptance criterion has evidence; no gap ≥ 8; no skipped or retried-until-green test touching this feature. Name any acceptance scenario the qa-tester couldn't run, and why, when you report the gate.
 
 ### 6 · Review
 - The reviewer must not be the context that wrote the code.
@@ -121,7 +121,7 @@ You (the orchestrator) may run commands to investigate, but the verdict always c
 ### 8 · Commit, PR, CI
 - `sdlc:finishing-a-development-branch` to decide merge/PR/keep and clean up worktrees
 - `/sdlc:commit` or `/sdlc:commit-push-pr`; `/sdlc:clean_gone` to prune merged branches
-- PR description links spec.md and test-report.md.
+- PR description links spec.md, test-report.md and qa-report.md (M and L).
 - **Gate:** CI green. **Never merge without the user saying so.**
 
 ### 9 · Deploy (L track, or whenever the user asks)
@@ -147,7 +147,7 @@ You (the orchestrator) may run commands to investigate, but the verdict always c
 
 ## Rules
 
-- Every subagent dispatch names its `model` from the tiers in Model Selection, chosen by `Track:` and `Risk:`. An omitted model inherits the session's, and the `model:` in agent frontmatter is only a fallback. The model-router hook denies a dispatch with no model, `fable` without `Top model: fable`, and a code-reviewer, feature-reviewer, ui-reviewer or verifier below `opus` on `Risk: high`.
+- Every subagent dispatch names its `model` from the tiers in Model Selection, chosen by `Track:` and `Risk:`. An omitted model inherits the session's, and the `model:` in agent frontmatter is only a fallback. The model-router hook denies a dispatch with no model, `fable` without `Top model: fable`, and a code-reviewer, feature-reviewer, ui-reviewer, verifier or qa-tester below `opus` on `Risk: high`.
 - One stage at a time. Update state.md at every transition (stage, gate result, artifact paths).
 - **Hard stops — always ask the user:** end of Stage 1, end of Stage 2, choice of execution method, merges, production deploys, DB migrations, anything irreversible.
 - A failed gate means stay in the stage or step back one; write why in state.md.
@@ -173,7 +173,7 @@ Current: Stage <n> – <name>
 - [ ] 2 Design     — design.md
 - [ ] 3 Plan       — plan.md
 - [ ] 4 Implement
-- [ ] 5 Verify     — test-report.md
+- [ ] 5 Verify     — test-report.md, qa-report.md
 - [ ] 6 Review     — review.md
 - [ ] 7 Security   — security.md
 - [ ] 8 PR / CI    — PR:
