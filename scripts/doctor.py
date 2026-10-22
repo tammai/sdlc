@@ -22,6 +22,7 @@ sys.path.insert(0, PLUGIN_ROOT)
 import scaffold  # noqa: E402  (sibling script: lock, config, commands and version logic)
 
 CLAUDE_MD_BUDGET = 60
+DESIGN_SYSTEM = ".sdlc/design-system.md"
 RUNBOOK = "docs/runbook.md"
 
 
@@ -204,6 +205,14 @@ def check_repo(r, root):
               None if ignored else "add `.sdlc/.work/` to .gitignore")
 
     files = repo_files(root)
+    if status["setup"] == "complete":
+        ui = scaffold.effective_config(p.config).get("areas", {}).get("ui", [])
+        if any(glob_matches(x, files) for x in ui):
+            ds = os.path.exists(os.path.join(root, DESIGN_SYSTEM))
+            r.add(g, "design system", "ok" if ds else "warn",
+                  DESIGN_SYSTEM if ds else f"the repo has UI files but no {DESIGN_SYSTEM}: UI work has no system to follow",
+                  None if ds else "run the design-system step of /sdlc:setup (or /sdlc:upgrade)")
+
     dead = []
     for path in sorted(glob.glob(os.path.join(root, ".claude", "rules", "*.md"))):
         if os.path.basename(path).startswith("sdlc"):

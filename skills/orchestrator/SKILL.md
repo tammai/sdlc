@@ -60,6 +60,7 @@ At the start of every stage print exactly:
 - L track: run `sdlc:brainstorming` first (writes `brainstorm.md`). M track: skip to the spec.
 - `sdlc:writing-specs` → `spec.md` + `checklists/requirements.md`
 - `sdlc:clarifying-specs` if high-impact ambiguity remains
+- UI work: the spec names each screen's states (loading, empty, error, success) and its real copy. Look and layout come from `.sdlc/design-system.md`, not from the spec.
 - **Inferred triage (part of the gate):** show every `[inferred]` FR/SC as its own list, with a one-line reason each; dropped unless the user keeps it (see `sdlc:writing-specs`). Dropped items go to Non-Goals.
 - **Gate (user approves):** checklist passes, no `[NEEDS CLARIFICATION]`, no `[inferred]` tags left, Non-Goals filled, acceptance criteria testable.
 
@@ -107,6 +108,7 @@ You (the orchestrator) may run commands to investigate, but the verdict always c
 - Facts first: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/diff_stats.py" --format md --plan .sdlc/<feature>/plan.md` (omit `--plan` on S track) goes into every reviewer's prompt; exports and dependencies missing from the plan's Public Surface are flagged as undeclared (comment share, single-use exports, single-implementation abstractions, new dependencies).
 - S track ("light"): `sdlc:code-reviewer` then `sdlc:code-simplifier`, both with the diff stats.
 - Severity: unrequested public surface (export, file, endpoint, option, config, dependency not in the spec/plan, with no stated reason) is high. Comment noise flagged by the stats or hookify warnings is medium and fixed in this stage, not ticketed.
+- UI changed (the diff touches `areas.ui`): also dispatch `sdlc:ui-reviewer` on every track, with `.sdlc/design-system.md`, the spec and the diff. Off-system values or components, AI-slop patterns, missing states and accessibility blockers are high severity. A visual check (screenshots) runs only when the user asks for one: say so in the brief; the reviewer uses a browser tool and the dev server if they're available, and reports it if not.
 - **Gate:** no unresolved high-severity finding; findings fixed or ticketed in `.sdlc/<feature>/review.md`.
 
 ### 7 · Security

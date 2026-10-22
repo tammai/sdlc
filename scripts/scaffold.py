@@ -631,7 +631,8 @@ def cmd_upgrade_plan(p, a):
 def eject_plan(p):
     lock = p.require_lock()
     plan = {"delete": [], "ask": [], "already_gone": [], "unmerge": lock.get("merged", {}),
-            "keep": [CONFIG, ".sdlc/constitution.md", ".sdlc/baseline.md", "knowledge/", ".sdlc/<feature>/"]}
+            "keep": [CONFIG, ".sdlc/constitution.md", ".sdlc/design-system.md", ".sdlc/baseline.md", "knowledge/",
+                     ".sdlc/<feature>/"]}
     for path, e in sorted(lock.get("files", {}).items()):
         state = p.file_state(path, e)
         if state == "missing":

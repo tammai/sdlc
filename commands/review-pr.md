@@ -24,6 +24,7 @@ Run a comprehensive pull request review using multiple specialized agents, each 
    - **errors** - Check error handling for silent failures
    - **types** - Analyze type design and invariants (if new types added)
    - **code** - General code review for project guidelines
+   - **ui** - Check UI changes against the design system and for AI-slop styling, states and accessibility
    - **simplify** - Simplify code for clarity and maintainability
    - **all** - Run all applicable reviews (default)
 
@@ -41,6 +42,7 @@ Run a comprehensive pull request review using multiple specialized agents, each 
    - **If comments/docs added, or diff stats flag comment-heavy files**: comment-analyzer
    - **If error handling changed**: silent-failure-hunter
    - **If types added/modified**: type-design-analyzer
+   - **If UI files changed** (paths in `areas.ui`, from `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" config`): ui-reviewer, with `.sdlc/design-system.md`. Its High findings are Critical. Add "visual check requested" to its brief only when the user asked for screenshots.
    - **After passing review**: code-simplifier (polish and refine)
 
 5. **Launch Review Agents**
@@ -136,6 +138,12 @@ Run a comprehensive pull request review using multiple specialized agents, each 
 - Analyzes type encapsulation
 - Reviews invariant expression
 - Rates type design quality
+
+**ui-reviewer**:
+- Checks tokens and components against the design system
+- Flags AI-slop styling and filler copy
+- Checks states and accessibility basics
+- Screenshots only on request
 
 **code-reviewer**:
 - Checks CLAUDE.md compliance

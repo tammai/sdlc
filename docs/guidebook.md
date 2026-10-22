@@ -18,7 +18,7 @@ Before the first feature, `/sdlc:setup` prepares the repo once. `/sdlc:start` of
 
 - **Greenfield** (no source yet): a short stack interview; you approve; the ecosystem's own generators build the skeleton; the project's commands and CI pass on day one.
 - **Brownfield** (existing code): the commands you already have, recorded as they are; a **baseline** of what already fails; a deep audit (conventions, git-history gotchas, decisions, area rules) drafted by explorer agents and written only as you approve each batch; existing AI configs (long CLAUDE.md, AGENTS.md, Cursor rules, ADRs) migrated into the three knowledge tiers, one diff per source.
-- **Both:** policy rules, hookify guardrails, lint snippets, a permission allowlist for the project's commands, `.gitignore` entries, a constitution (with the default Simplicity principle) and the knowledge folder.
+- **Both:** policy rules, hookify guardrails, lint snippets, a permission allowlist for the project's commands, `.gitignore` entries, a constitution (with the default Simplicity principle), the design system (projects with UI) and the knowledge folder.
 
 Setup runs on a `sdlc/setup` branch with one commit per step, resumes where it stopped, and ends by asking whether to open a PR or merge locally.
 
@@ -31,7 +31,7 @@ Setup runs on a `sdlc/setup` branch with one commit per step, resumes where it s
 | Generated | `.claude/rules/sdlc*.md` | regenerated |
 | Seeded | `.claude/hookify/sdlc-*.md`, `.github/workflows/sdlc-verify.yml`, `.sdlc/lint/*` | replaced only if you haven't edited it; otherwise you choose: merge, skip, or keep yours for good |
 | Keyed merge | allowlist entries in `.claude/settings.json`, `.gitignore` lines | only the entries the plugin added |
-| Yours | the commands in `.sdlc/config.json`, `CLAUDE.md`, constitution, `knowledge/`, baseline, your own rules | changed only by migrations you approve |
+| Yours | the commands in `.sdlc/config.json`, `CLAUDE.md`, constitution, design system, `knowledge/`, baseline, your own rules | changed only by migrations you approve |
 
 Files named `sdlc-*` belong to the plugin; everything else is yours.
 
@@ -123,6 +123,7 @@ Each round spawns a new `verifier`, which runs build, lint, typecheck and tests 
 | `verifier` | Stage 5: fresh, independent verification each round |
 | `pr-test-analyzer`, `silent-failure-hunter` | Stage 5 and 6: test gaps (rated 1–10), swallowed errors |
 | `code-reviewer`, `comment-analyzer`, `type-design-analyzer`, `code-simplifier` | Stage 6, chosen by `/sdlc:review-pr` based on the diff |
+| `ui-reviewer` | Stage 6 when UI files change: design-system conformance, AI-slop styling, states, accessibility; screenshots on request |
 | `feature-reviewer`, `code-reviewer` | Stage 7: security-only review brief |
 | `conversation-analyzer` | Stage 11: find behaviors worth preventing with hooks |
 
@@ -162,6 +163,7 @@ Each round spawns a new `verifier`, which runs build, lint, typecheck and tests 
   scaffold.lock.json       what the plugin placed, versions, migrations (machine-only)
   baseline.md              known failures from before setup (yours)
   constitution.md          project principles
+  design-system.md         the design system UI work follows (UI projects; yours)
   lint/                    sdlc lint snippets your ESLint/Ruff config imports (seeded)
   <feature>/
     state.md               track, stage, gate log, deviations, open questions
@@ -231,6 +233,7 @@ After changing commands or `ci`, run `/sdlc:upgrade` so the generated CI workflo
 | Complexity Tracking | Design table that ties every addition to a requirement |
 | Deviation | A gate you chose to skip, recorded in `state.md` |
 | Constitution | Project principles in `.sdlc/constitution.md`, checked in Stage 2 |
+| Design system | `.sdlc/design-system.md`: the library, tokens, components and patterns UI work must use; checked by `ui-reviewer` in Stage 6 |
 | Project commands | `install`, `test`, `lint`, `typecheck`, `build` in `.sdlc/config.json`, per package in a monorepo |
 | Baseline | Failures that existed before setup; Stage 5 only fails on new ones |
 | Scaffold version / drift | The plugin version a repo was set up or upgraded with; "behind" means `/sdlc:upgrade` has work to do |

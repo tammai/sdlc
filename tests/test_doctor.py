@@ -131,6 +131,13 @@ class DoctorTest(ProjectTestCase):
         self.write(".sdlc/baseline.md", "# baseline\n")
         self.assertEqual(self.check("baseline")["status"], "ok")
 
+    def test_ui_without_design_system_warns(self):
+        self.setup_repo()
+        self.write("src/App.tsx", "export const App = () => null\n")
+        self.assertEqual(self.check("design system")["status"], "warn")
+        self.write(".sdlc/design-system.md", "# Design system\n")
+        self.assertEqual(self.check("design system")["status"], "ok")
+
     def test_gitignore(self):
         self.setup_repo()
         self.write(".gitignore", "node_modules/\n")

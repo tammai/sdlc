@@ -15,6 +15,7 @@ Numbered in the order you meet them: setup first, then the lifecycle and its sta
 | 07 | [Knowledge](07-knowledge.md) | Three-tier knowledge, promotion, audit | Stages 1 and 11 |
 | 08 | [Health and status](08-health-and-status.md) | `/sdlc:doctor` and `/sdlc:status` | Any time |
 | 09 | [Autonomous loop](09-autonomous-loop.md) | `/sdlc:ralph-loop` | Optional, Stage 4 |
+| 10 | [UI and the design system](10-ui-design-system.md) | Design system recorded at setup; UI rule, guardrail and reviewer | Setup; Stages 1, 2, 6 for UI work |
 
 Requirement IDs (`SET-FR-001`, `ORC-FR-001`, …) are stable: they don't change if a spec is renumbered.
 

@@ -29,6 +29,7 @@ Structure adapted from GitHub Spec Kit's `plan` command (MIT); exploration and a
    - `data-model.md`: entities, fields, relationships, validation rules, state transitions (from the spec's entities)
    - `contracts/`: interfaces the feature exposes — API endpoints, events, CLI, public module types
    - `quickstart.md`: how to run and manually verify the feature end to end
+   - UI: in design.md, map each screen to the components, tokens and patterns of `.sdlc/design-system.md`. A new component, variant or token is a Complexity Tracking row.
 7. **Complexity Tracking** (always, not only on constitution violations): one row for every new module/package, layer, abstraction (interface, base class, factory, registry, plugin point, generic helper), dependency, service/process, config key or env var, and data store/table. Each row names the FR/SC that needs it and why the simpler alternative was rejected. A row with no requirement means the addition comes out of the design. Anything listed in the spec's Non-Goals must not appear.
 8. **Re-check the constitution** against the final design. Fill the Project Structure section with the real directories (delete the unused template options).
 

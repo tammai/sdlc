@@ -22,6 +22,9 @@
       "**/*.{ts,tsx,js,jsx,mjs,cjs,vue,svelte}",
       "**/*.{py,go,rs,java,kt,rb,php,cs,swift}"
     ],
+    "ui": [
+      "**/*.{tsx,jsx,vue,svelte,astro,html,css,scss,sass,less}"
+    ],
     "tests": [
       "**/*.{test,spec}.*",
       "**/{test,tests,__tests__,spec}/**",

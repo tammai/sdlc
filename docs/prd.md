@@ -51,6 +51,7 @@ Teams that try to fix this assemble several plugins and conventions by hand, eac
 | 07 | Three-tier knowledge | [07-knowledge](specs/07-knowledge.md) | `/sdlc:revise-claude-md`, `/sdlc:knowledge-audit`, Stage 11 |
 | 08 | Health check and status | [08-health-and-status](specs/08-health-and-status.md) | `/sdlc:doctor`, `/sdlc:status` |
 | 09 | Autonomous loop for one well-specified task | [09-autonomous-loop](specs/09-autonomous-loop.md) | `/sdlc:ralph-loop` |
+| 10 | UI follows the project's design system, without AI slop | [10-ui-design-system](specs/10-ui-design-system.md) | setup, Stage 6 `ui-reviewer`, `/sdlc:review-pr ui` |
 
 ## 6. Key journeys
 
