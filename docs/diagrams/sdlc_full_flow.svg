@@ -1,6 +1,6 @@
 <svg width="100%" viewBox="0 0 1000 1402" role="img" xmlns="http://www.w3.org/2000/svg">
 <title>SDLC with hooks, gates, skills and subagents</title>
-<desc>The orchestrator runs stages 1 to 11. Each stage row shows the bundled skills, subagents and hooks involved and its exit gate; gates marked red need the user's approval. Four hook families run throughout: hookify, security-guidance, verify-freshness (Stage 5 only) and ralph-loop (optional).</desc>
+<desc>The orchestrator runs stages 1 to 11. Each stage row shows the bundled skills, subagents and hooks involved and its exit gate; gates marked red need the user's approval. Five hook families run throughout: hookify, security-guidance, verify-freshness (Stage 5 only), model-router (checks each subagent's model while a feature is active) and ralph-loop (optional).</desc>
 <style>
 text{font-family:anthropic-sans,-apple-system,"system-ui","Segoe UI",sans-serif;dominant-baseline:central;text-anchor:middle}
 .a{fill:none;stroke:#898781;stroke-width:1.5}
@@ -31,26 +31,35 @@ rect{stroke-width:.5}
 <g class="neutral"><rect x="20" y="20" width="960" height="44" rx="8"/><text class="t c" x="500" y="36">/sdlc:start → orchestrator skill</text><text class="s c" x="500" y="54">Sizes the work, runs each stage, keeps .sdlc/&lt;feature&gt;/state.md, stops at gates</text></g>
 <rect class="panel" x="20" y="80" width="960" height="188" rx="10"/>
 <text class="t" x="34" y="98">Always on: hooks</text>
-<g class="hook"><rect x="34" y="112" width="222" height="124" rx="8"/><text class="t" x="44" y="128">hookify</text><text class="s" x="44" y="148">PreToolUse · Prompt · Stop</text>
-<text class="s dim" x="44" y="168">Blocks rm -rf, force-push to main,</text>
-<text class="s dim" x="44" y="184">reset --hard on main. Warns on</text>
-<text class="s dim" x="44" y="200">secrets, .only, console.log and</text>
-<text class="s dim" x="44" y="216">comment noise.</text>
+<g class="hook"><rect x="34" y="112" width="175" height="124" rx="8"/><text class="t" x="44" y="128">hookify</text><text class="s" x="44" y="148">PreToolUse · Prompt · Stop</text>
+<text class="s dim" x="44" y="168">Blocks rm -rf, force-push</text>
+<text class="s dim" x="44" y="184">to main, secret values.</text>
+<text class="s dim" x="44" y="200">Warns on .only, console.log</text>
+<text class="s dim" x="44" y="216">and comment noise.</text>
 </g>
-<g class="hook"><rect x="268" y="112" width="222" height="124" rx="8"/><text class="t" x="278" y="128">security-guidance</text><text class="s" x="278" y="148">Prompt · PostToolUse · Stop</text>
-<text class="s dim" x="278" y="168">Pattern warnings on edits, diff</text>
-<text class="s dim" x="278" y="184">review at turn end, agentic review</text>
-<text class="s dim" x="278" y="200">on git commit and git push.</text>
+<g class="hook"><rect x="221" y="112" width="175" height="124" rx="8"/><text class="t" x="231" y="128">security-guidance</text><text class="s" x="231" y="148">Prompt · PostToolUse · Stop</text>
+<text class="s dim" x="231" y="168">Pattern warnings on edits,</text>
+<text class="s dim" x="231" y="184">diff review at turn end,</text>
+<text class="s dim" x="231" y="200">agentic review on git</text>
+<text class="s dim" x="231" y="216">commit and git push.</text>
 </g>
-<g class="hook"><rect x="502" y="112" width="222" height="124" rx="8"/><text class="t" x="512" y="128">verify-freshness</text><text class="s" x="512" y="148">PostToolUse · Stop · Stage 5</text>
-<text class="s dim" x="512" y="168">Edits mark test results stale,</text>
-<text class="s dim" x="512" y="184">a full run marks them fresh.</text>
-<text class="s dim" x="512" y="200">Blocks finishing while stale.</text>
+<g class="hook"><rect x="408" y="112" width="175" height="124" rx="8"/><text class="t" x="418" y="128">verify-freshness</text><text class="s" x="418" y="148">PostToolUse · Stop · Stage 5</text>
+<text class="s dim" x="418" y="168">Edits mark tests stale,</text>
+<text class="s dim" x="418" y="184">a full run marks them</text>
+<text class="s dim" x="418" y="200">fresh. Blocks finishing</text>
+<text class="s dim" x="418" y="216">while stale.</text>
 </g>
-<g class="hook"><rect x="736" y="112" width="222" height="124" rx="8"/><text class="t" x="746" y="128">ralph-loop</text><text class="s" x="746" y="148">Stop · inside /sdlc:ralph-loop</text>
-<text class="s dim" x="746" y="168">Re-feeds the task until the</text>
-<text class="s dim" x="746" y="184">completion promise or max</text>
-<text class="s dim" x="746" y="200">iterations. Optional, Stage 4.</text>
+<g class="hook"><rect x="595" y="112" width="175" height="124" rx="8"/><text class="t" x="605" y="128">model-router</text><text class="s" x="605" y="148">PreToolUse · Agent</text>
+<text class="s dim" x="605" y="168">Every subagent names a</text>
+<text class="s dim" x="605" y="184">model. Fable only on</text>
+<text class="s dim" x="605" y="200">request; opus reviewers</text>
+<text class="s dim" x="605" y="216">on Risk: high.</text>
+</g>
+<g class="hook"><rect x="782" y="112" width="175" height="124" rx="8"/><text class="t" x="792" y="128">ralph-loop</text><text class="s" x="792" y="148">Stop · /sdlc:ralph-loop</text>
+<text class="s dim" x="792" y="168">Re-feeds the task until</text>
+<text class="s dim" x="792" y="184">the completion promise</text>
+<text class="s dim" x="792" y="200">or max iterations.</text>
+<text class="s dim" x="792" y="216">Optional, Stage 4.</text>
 </g>
 <text class="l" x="34" y="254" text-anchor="start">SessionStart: bootstraps the Agent SDK for the commit reviewer</text>
 <text class="l" x="85.0" y="288">Stage</text>
@@ -123,6 +132,7 @@ rect{stroke-width:.5}
 <text class="s" x="584" y="610">hookify guardrails</text>
 <text class="s" x="584" y="626">security: edit warnings</text>
 <text class="s" x="584" y="642">ralph-loop (optional)</text>
+<text class="s" x="584" y="658">model-router: models</text>
 </g>
 <g class="gate"><rect x="742" y="592" width="238" height="116" rx="6"/>
 <text class="s" x="752" y="610">Every plan task checked, build and</text>
@@ -144,6 +154,7 @@ rect{stroke-width:.5}
 <text class="s" x="584" y="738">verify-freshness: stale</text>
 <text class="s" x="584" y="754">on edit, fresh on full</text>
 <text class="s" x="584" y="770">run, blocks Stop</text>
+<text class="s" x="584" y="786">model-router: verifier</text>
 </g>
 <g class="gate"><rect x="742" y="720" width="238" height="84" rx="6"/>
 <text class="s" x="752" y="738">Fresh verifier PASS on this commit,</text>
