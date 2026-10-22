@@ -3,17 +3,24 @@
 
 Active only while an .sdlc feature is in Stage 5 (Verify):
   - PostToolUse Edit/Write/MultiEdit/NotebookEdit on a code file -> mark test results stale
-  - PostToolUse Bash running the full test command                -> mark fresh (records time + HEAD)
-  - Stop while stale                                              -> block with "re-run tests"
+  - PostToolUse Bash running the full test command                -> mark fresh (records time, HEAD, worktree tree)
+  - Stop                                                          -> in a git repo, diff the worktree against the
+                                                                     tree recorded at the last full run (catches edits
+                                                                     made via Bash, formatters, subagents); block if
+                                                                     stale with "re-run tests"
 
+The worktree tree is built with a throwaway copy of the git index (the real index is never touched).
 State lives in .sdlc/.work/verify-freshness.json. Never fails the session: any error exits 0.
 """
 import glob
 import json
 import os
 import re
+import shlex
+import shutil
 import subprocess
 import sys
+import tempfile
 from datetime import datetime, timezone
 
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
@@ -27,6 +34,12 @@ GENERIC_TEST = re.compile(
 PARTIAL_FLAGS = re.compile(
     r"(\s-t\s|--testNamePattern|\s-k\s|--grep\b|\s-run\s|--filter\b|--only\b|\.only\b|--bail\b)"
 )
+# A positional argument naming one test file (or a pytest node id) makes the run partial
+TEST_FILE_ARG = re.compile(
+    r"(\.(test|spec)\.[cm]?[jt]sx?|_test\.go|_test\.py|_spec\.rb|Test\.(java|kt))$|(^|/)test_[^/]*\.py$|::"
+)
+SHELL_SEP = re.compile(r"\|\||&&|[|;&<>]")
+GO_ALL_PACKAGES = ("./...", "...", ".")
 
 
 def now():
@@ -86,6 +99,51 @@ def git_head(root):
         return None
 
 
+def git(root, *args, env=None):
+    p = subprocess.run(["git", "-C", root, *args], capture_output=True, text=True, timeout=5, env=env)
+    return p.stdout.strip() if p.returncode == 0 else None
+
+
+def worktree_tree(root):
+    """Tree object of the current worktree (tracked + untracked, minus ignored), via a temp index copy."""
+    index = git(root, "rev-parse", "--path-format=absolute", "--git-path", "index")
+    if not index:
+        return None
+    fd, tmp = tempfile.mkstemp(prefix="sdlc-verify-index-")
+    os.close(fd)
+    try:
+        if os.path.exists(index):
+            # Reuse stat info so unchanged files aren't rehashed; copy2 keeps the index mtime,
+            # which git needs to detect same-second ("racy") edits
+            shutil.copy2(index, tmp)
+        else:
+            os.remove(tmp)
+        env = dict(os.environ, GIT_INDEX_FILE=tmp)
+        if git(root, "add", "-A", env=env) is None:
+            return None
+        return git(root, "write-tree", env=env)
+    except Exception:
+        return None
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+
+
+def changed_code_files(root, old_tree):
+    """Code files that differ from old_tree, or None when it can't be told (no git, tree gone)."""
+    new_tree = worktree_tree(root)
+    if not new_tree:
+        return None
+    if new_tree == old_tree:
+        return []
+    names = git(root, "diff", "--name-only", "--no-renames", old_tree, new_tree)
+    top = git(root, "rev-parse", "--show-toplevel")
+    if names is None or not top:
+        return None
+    return [os.path.relpath(os.path.join(top, n), root) for n in names.splitlines()
+            if is_code_file(root, os.path.join(top, n))]
+
+
 def is_code_file(root, file_path):
     if not file_path:
         return False
@@ -95,12 +153,33 @@ def is_code_file(root, file_path):
     return not rel.lower().endswith(NON_CODE_EXT)
 
 
+def names_specific_tests(args, is_go):
+    try:
+        tokens = shlex.split(args)
+    except ValueError:
+        tokens = args.split()
+    for t in (t for t in tokens if not t.startswith("-")):
+        if TEST_FILE_ARG.search(t):
+            return True
+        if is_go and t not in GO_ALL_PACKAGES and not t.endswith("/..."):
+            return True
+    return False
+
+
 def is_full_test_run(command, test_cmd):
     if not command or PARTIAL_FLAGS.search(" " + command + " "):
         return False
     if test_cmd:
-        return test_cmd in command
-    return bool(GENERIC_TEST.search(command))
+        if test_cmd not in command:
+            return False
+        end = command.index(test_cmd) + len(test_cmd)
+    else:
+        m = GENERIC_TEST.search(command)
+        if not m:
+            return False
+        end = m.end()
+    args = SHELL_SEP.split(command[end:])[0]
+    return not names_specific_tests(args, is_go=re.search(r"\bgo\s+test\b", command) is not None)
 
 
 def main():
@@ -131,9 +210,19 @@ def main():
             if isinstance(resp, dict) and resp.get("interrupted"):
                 return
             if is_full_test_run(cmd, test_cmd):
-                st.update(stale=False, reason="", last_test_at=now(), last_test_cmd=cmd, head=git_head(root))
+                st.update(stale=False, reason="", last_test_at=now(), last_test_cmd=cmd, head=git_head(root),
+                          tree=worktree_tree(root))
                 save(root, st)
         return
+
+    if event == "Stop" and st.get("tree"):
+        changed = changed_code_files(root, st["tree"])
+        if changed:
+            more = f" and {len(changed) - 5} more" if len(changed) > 5 else ""
+            st.update(stale=True, reason=f"{', '.join(changed[:5])}{more} changed since the last full test run")
+        elif changed == []:
+            st.update(stale=False, reason="")  # edits since the run were reverted, or only touched non-code
+        save(root, st)
 
     if event == "Stop" and st.get("stale"):
         save(root, st)

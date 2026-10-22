@@ -67,7 +67,7 @@ At the start of every stage print exactly:
 - **Gate:** every plan task checked; build + full test suite pass; no TODO without a ticket.
 
 ### 5 · Verify (rounds, max 3)
-Set `Current: Stage 5 – Verify` in state.md first — that switches on the freshness hook: any code edit marks test results stale, a full test-suite run marks them fresh, and finishing a turn while stale is blocked.
+Set `Current: Stage 5 – Verify` in state.md first — that switches on the freshness hook: any code change (by any tool, in git repos) marks test results stale, a full test-suite run (no name filters, no single test file or package) marks them fresh, and finishing a turn while stale is blocked.
 
 Each round:
 1. **Spawn a NEW `sdlc:verifier` agent.** Always a fresh spawn — never resume or message a verifier from an earlier round, and never verify inline in this context. Brief it with: feature dir, round number, the build/lint/typecheck/test commands from state.md. It runs everything fresh, proves each acceptance criterion, and appends `## Round N — <time> — commit <hash>` to `test-report.md`.

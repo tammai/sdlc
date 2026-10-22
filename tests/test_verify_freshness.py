@@ -158,6 +158,31 @@ class VerifyFreshnessTest(ProjectTestCase):
                 self.bash(cmd)
                 self.assertBlocks()
 
+    def test_single_test_file_runs_do_not_count(self):
+        for cmd in ["npx vitest run src/login.test.ts", "npx jest src/login.spec.tsx", "npm test -- src/a.test.mjs",
+                    "pytest tests/test_login.py", "pytest tests/api_test.py", "pytest tests/x.py::test_ok",
+                    "go test ./internal/auth", "go test ./internal/auth/login_test.go", "bundle exec rspec spec/a_spec.rb",
+                    "mvn test -Dtest=x LoginTest.java"]:
+            with self.subTest(cmd=cmd):
+                self.set_state()
+                self.edit("src/a.ts")
+                self.bash(cmd)
+                self.assertBlocks()
+
+    def test_whole_suite_arguments_still_count(self):
+        for cmd in ["go test ./...", "go test -race ./...", "pytest tests/", "npx vitest run --coverage",
+                    "npm test -- --reporter=dot", "npm test && echo src/a.test.ts", "npx jest 2>&1 | grep a_test.go"]:
+            with self.subTest(cmd=cmd):
+                self.set_state()
+                self.edit("src/a.ts")
+                self.bash(cmd)
+                self.assertAllows()
+
+    def test_state_test_command_with_a_test_file_does_not_count(self):
+        self.set_state(test_cmd="pnpm test:all")
+        self.bash("pnpm test:all src/login.test.ts")
+        self.assertBlocks()
+
     def test_interrupted_test_run_does_not_count(self):
         self.set_state()
         self.bash("npm test", interrupted=True)
@@ -207,6 +232,83 @@ class VerifyFreshnessTest(ProjectTestCase):
         self.set_state()
         self.bash("npm test")
         self.assertEqual(self.state_file()["head"], head)
+
+    # --- worktree fingerprint (git repos): catches edits made outside Edit/Write --------
+
+    def git_repo(self):
+        git = ["git", "-C", self.root, "-c", "user.email=t@t", "-c", "user.name=t"]
+        self.write(".gitignore", ".sdlc/.work/\nnode_modules/\n")
+        self.write("src/login.ts", "export const a = 1\n")
+        self.write("README.md", "# app\n")
+        subprocess.run(git + ["init", "-q"], check=True)
+        subprocess.run(git + ["add", "-A"], check=True)
+        subprocess.run(git + ["commit", "-q", "-m", "init"], check=True)
+        return git
+
+    def test_bash_edit_after_test_run_makes_stale(self):
+        self.git_repo()
+        self.set_state()
+        self.bash("npm test")
+        self.write("src/login.ts", "export const a = 2\n")  # e.g. sed -i, a formatter, or a subagent
+        self.bash("sed -i '' s/1/2/ src/login.ts")
+        out = self.assertBlocks()
+        self.assertIn("src/login.ts", out["reason"])
+
+    def test_new_and_deleted_files_make_stale(self):
+        self.git_repo()
+        self.set_state()
+        self.bash("npm test")
+        self.write("src/new.ts", "x")
+        self.assertIn("src/new.ts", self.assertBlocks()["reason"])
+        os.remove(self.path("src/new.ts"))
+        self.assertAllows()
+        os.remove(self.path("src/login.ts"))
+        self.assertIn("src/login.ts", self.assertBlocks()["reason"])
+
+    def test_reverting_an_edit_makes_fresh_again(self):
+        self.git_repo()
+        self.set_state()
+        self.bash("npm test")
+        self.write("src/login.ts", "export const a = 2\n")
+        self.edit("src/login.ts")
+        self.assertBlocks()
+        self.write("src/login.ts", "export const a = 1\n")
+        self.assertAllows()
+
+    def test_non_code_and_ignored_changes_keep_fresh(self):
+        self.git_repo()
+        self.set_state()
+        self.bash("npm test")
+        self.write("README.md", "# changed\n")
+        self.write("docs/x.ts", "x")
+        self.write("node_modules/pkg/index.js", "x")
+        self.assertAllows()
+
+    def test_committing_tested_code_keeps_fresh(self):
+        git = self.git_repo()
+        self.write("src/login.ts", "export const a = 2\n")
+        self.set_state()
+        self.bash("npm test")
+        subprocess.run(git + ["commit", "-q", "-am", "wip"], check=True)
+        self.assertAllows()
+
+    def test_real_git_index_is_untouched(self):
+        git = self.git_repo()
+        self.set_state()
+        self.write("src/login.ts", "export const a = 2\n")
+        self.write("src/new.ts", "x")
+        self.bash("npm test")
+        self.stop()
+        staged = subprocess.run(git + ["diff", "--cached", "--name-only"], capture_output=True, text=True).stdout
+        self.assertEqual(staged, "")
+
+    def test_lists_at_most_five_changed_files(self):
+        self.git_repo()
+        self.set_state()
+        self.bash("npm test")
+        for i in range(8):
+            self.write(f"src/f{i}.ts", "x")
+        self.assertIn("and 3 more", self.assertBlocks()["reason"])
 
     def test_found_from_subdirectory_cwd(self):
         self.set_state()
