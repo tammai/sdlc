@@ -45,6 +45,8 @@ Run a comprehensive pull request review using multiple specialized agents, each 
 
 5. **Launch Review Agents**
 
+   Name each agent's `model` from the tiers in `sdlc:subagent-driven-development` → Model Selection; during an active feature the model-router hook denies a launch without one.
+
    **Sequential approach** (one at a time):
    - Easier to understand and act on
    - Each report is complete before next

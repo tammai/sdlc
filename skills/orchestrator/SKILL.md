@@ -145,7 +145,7 @@ You (the orchestrator) may run commands to investigate, but the verdict always c
 
 ## Rules
 
-- Every subagent dispatch names its `model` from the tiers in Model Selection, chosen by `Track:` and `Risk:`. An omitted model inherits the session's, and the `model:` in agent frontmatter is only a fallback.
+- Every subagent dispatch names its `model` from the tiers in Model Selection, chosen by `Track:` and `Risk:`. An omitted model inherits the session's, and the `model:` in agent frontmatter is only a fallback. The model-router hook denies a dispatch with no model, `fable` without `Top model: fable`, and a code-reviewer, feature-reviewer or verifier below `opus` on `Risk: high`.
 - One stage at a time. Update state.md at every transition (stage, gate result, artifact paths).
 - **Hard stops — always ask the user:** end of Stage 1, end of Stage 2, choice of execution method, merges, production deploys, DB migrations, anything irreversible.
 - A failed gate means stay in the stage or step back one; write why in state.md.

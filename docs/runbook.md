@@ -150,7 +150,7 @@ The verify-freshness hook is active only while `state.md` says `Current: Stage 5
 
 ### R10. Hooks error on Windows or with an odd Python
 
-`hooks/sg-python.sh` probes `python3`, `python` and `py -3`, skipping the Microsoft Store stub, and forces UTF-8. If the security hook still fails, run `bash hooks/sg-python.sh -c "import sys; print(sys.version)"` to see which interpreter it chose. The hookify, freshness and ralph hooks call `python3` or bash directly, so `python3` must work for them.
+`hooks/sg-python.sh` probes `python3`, `python` and `py -3`, skipping the Microsoft Store stub, and forces UTF-8. If the security hook still fails, run `bash hooks/sg-python.sh -c "import sys; print(sys.version)"` to see which interpreter it chose. The hookify, freshness, model-router and ralph hooks call `python3` or bash directly, so `python3` must work for them.
 
 ### R11. A gate is blocking and you disagree
 
@@ -189,6 +189,15 @@ This is a decision, not a fault. Say `skip` or `just ship it`; the orchestrator 
 
 1. `scaffold.py eject` (dry run) shows what it would still remove; edited plugin files are only deleted when you say so.
 2. Imports into deleted files (`eslint.sdlc.mjs` in `eslint.config.*`, `extend = ".sdlc/lint/ruff.sdlc.toml"` in `pyproject.toml`) should have been offered as diffs. If not, remove them by hand and rerun the verify commands.
+
+### R18. A subagent dispatch is denied by the model router
+
+The hook is active only while a feature has `Status: active`; the deny reason says which check failed.
+
+1. **No model:** the dispatch must name `haiku`, `sonnet` or `opus` (Model Selection in `sdlc:subagent-driven-development`). Commands that launch agents, such as `/sdlc:review-pr`, name one too.
+2. **Fable:** used only on your request. Set `Top model: fable` in every active `state.md` (one active feature without it keeps Fable denied).
+3. **Reviewer below Opus:** the feature says `Risk: high`. If the risk was misjudged, fix `Risk:` in `state.md` and record it under Deviations.
+4. Forks are never checked: they always run on the session model. To keep Fable out of forks, don't run the session on Fable.
 
 ## Maintenance
 
@@ -297,6 +306,7 @@ Stage behavior lives in `skills/orchestrator/SKILL.md`. After editing it, keep t
 | Stage gates or tracks | `docs/diagrams/*.svg`, `docs/guidebook.md`, README stage table |
 | A hard stop | the Rules section of the orchestrator, `docs/playbook.md` |
 | Verify behavior | `agents/verifier.md`, `hooks/verify_freshness.py`, `tests/test_verify_freshness.py` |
+| Model tiers or risk | Model Selection in `skills/subagent-driven-development/SKILL.md`, `hooks/model_router.py`, `tests/test_model_router.py`, `docs/specs/02-orchestration.md` |
 | Scope-tracing rules | `skills/writing-specs`, `designing-solutions`, `writing-plans`, `analyzing-consistency`, `scripts/diff_stats.py` |
 | Setup, upgrade or eject | `skills/setting-up-projects/`, `scripts/scaffold.py`, `templates/project/`, `tests/test_scaffold.py`, `tests/test_project_templates.py`, `docs/diagrams/sdlc_setup_phase.svg`; a changed decision gets a new ADR in `docs/adr/` |
 

@@ -64,7 +64,7 @@ Situation-by-situation plays. Each says what to say or run, what the orchestrato
 
 ## 4. Change something risky
 
-Auth, payments, secrets, PII, schema migrations: the work is **at least M** and **always gets full Stage 7**.
+Auth, payments, secrets, PII, schema migrations: the work is **at least M** and **always gets full Stage 7**. `state.md` records `Risk: high`, so the verifier and reviewers run on `opus` (the model-router hook enforces it).
 
 1. Expect the security-guidance hooks to warn on risky edits while you build (pattern warnings, diff review at turn end, a background review after `git commit` and `git push`). Address every finding they raise, or acknowledge it with a reason.
 2. Stage 7 adds an explicit pass: `feature-reviewer` and `code-reviewer` with a security-only brief (injection, authz, secrets, SSRF, XSS, unsafe deserialization, dependency risk) plus the stack's dependency audit.

@@ -150,6 +150,7 @@ Each round spawns a new `verifier`, which runs build, lint, typecheck and tests 
 | hookify | PreToolUse, UserPromptSubmit, Stop | Evaluates rules from `.claude/hookify.*.local.md` (personal, git-ignored) and committed `.claude/hookify/*.md` (team). Rules warn or block |
 | security-guidance | UserPromptSubmit, PostToolUse, Stop | Pattern warnings on edits, diff review at turn end, agentic review after `git commit` and `git push` |
 | verify-freshness | PostToolUse, Stop | Stage 5 only: stale/fresh test tracking (above) |
+| model-router | PreToolUse (Agent) | While a feature is active: denies a subagent dispatch that names no model, asks for Fable without `Top model: fable`, or runs a reviewer below Opus on `Risk: high` |
 | ralph-loop | Stop | Only while a `/sdlc:ralph-loop` is running |
 | SessionStart | SessionStart | Creates a Python environment for the security reviewer on first run |
 

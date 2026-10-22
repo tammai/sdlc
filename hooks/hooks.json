@@ -1,5 +1,5 @@
 {
-  "description": "sdlc: security-guidance (pattern warnings, diff + commit review), hookify (rules from .claude/hookify.*.local.md and committed .claude/hookify/*.md; evaluated before tool use, on prompts and on stop), ralph-loop (stop hook, only active during /sdlc:ralph-loop); verify-freshness (Stage 5 only: blocks finishing on stale test results)",
+  "description": "sdlc: security-guidance (pattern warnings, diff + commit review), hookify (rules from .claude/hookify.*.local.md and committed .claude/hookify/*.md; evaluated before tool use, on prompts and on stop), ralph-loop (stop hook, only active during /sdlc:ralph-loop); verify-freshness (Stage 5 only: blocks finishing on stale test results); model-router (active feature only: subagent dispatches name a model, fable needs the user's opt-in, high-risk reviewers run on opus)",
   "hooks": {
     "SessionStart": [
       {
@@ -126,6 +126,16 @@
           {
             "type": "command",
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/pretooluse.py\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Agent|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/model_router.py\"",
             "timeout": 10
           }
         ]

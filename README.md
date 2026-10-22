@@ -145,7 +145,7 @@ Skills such as `sdlc:writing-specs` or `sdlc:test-driven-development` are used b
 | 10 | Operate | watch window with agreed signals |
 | 11 | Learn | `managing-knowledge` (3-tier), `/sdlc:revise-claude-md`, `/sdlc:knowledge-audit`, `/sdlc:hookify`, `project-constitution` |
 
-Always on: security-guidance hooks, the verify-freshness hook (Stage 5 only; per package in a monorepo), hookify rules (personal `.claude/hookify.*.local.md`, team `.claude/hookify/*.md`), TypeScript LSP.
+Always on: security-guidance hooks, the verify-freshness hook (Stage 5 only; per package in a monorepo), the model-router hook (while a feature is active: every subagent dispatch names its model, Fable only on your request), hookify rules (personal `.claude/hookify.*.local.md`, team `.claude/hookify/*.md`), TypeScript LSP.
 
 ## Knowledge: 3-tier loading
 
