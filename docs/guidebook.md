@@ -192,7 +192,7 @@ Track: S | M | L   (sized up because: <named signal, or "—">)
 Risk: low | high   (<signal>)
 Top model: opus   (fable only if the user chose it)
 Base: <commit the feature started from>
-Verified: <commit the Stage 5 gate passed on>
+Verified: <commit the Stage 5 gate passed on> tree <worktree tree at that gate>
 Commands: test: `<test command>`   (monorepo: one per package; no setup: the detected command)
 Current: Stage <n> – <name>
 ## Stages / ## Verify rounds / ## Gate log / ## Deviations / ## Open questions

@@ -100,7 +100,7 @@ You (the orchestrator) may run commands to investigate, but the verdict always c
 
 - S track: one verifier per round (no analyzer or hunter); the bug's repro test must be among the evidence and must fail on Base (the verifier's red-green check).
 - QA round, only when the user asks for one: spawn a fresh `sdlc:qa-tester` with the feature dir, the commands and whether a browser tool is available, and no diff, plan or test files. It runs the feature against the spec as a user would and writes `qa-report.md`. Bring its failures to the user, who decides whether they send the feature back to Stage 4; it isn't part of the gate.
-- **Gate:** latest round's verifier verdict PASS on the current commit (no code edits since — the hook enforces this); every acceptance criterion has evidence; no gap ≥ 8; no skipped or retried-until-green test touching this feature. On a pass, set `Verified:` in state.md to that commit.
+- **Gate:** latest round's verifier verdict PASS on the current commit (no code edits since — the hook enforces this); every acceptance criterion has evidence; no gap ≥ 8; no skipped or retried-until-green test touching this feature. On a pass, set `Verified: <commit> tree <tree>` in state.md. The tree covers uncommitted and untracked work without touching the real index: `rm -f .sdlc/.work/verified.index; GIT_INDEX_FILE=.sdlc/.work/verified.index git add -A && GIT_INDEX_FILE=.sdlc/.work/verified.index git write-tree`.
 
 ### 6 · Review
 - The reviewer must not be the context that wrote the code.
@@ -125,7 +125,7 @@ You (the orchestrator) may run commands to investigate, but the verdict always c
 - **Gate:** no critical/high open; no secrets in the diff → `.sdlc/<feature>/security.md`.
 
 ### 8 · Commit, PR, CI
-- First check that the code is still what Stage 5 verified: `git diff --name-only <Verified:>` plus untracked files, ignoring `.sdlc/`, docs and test-only changes. Anything left means unverified code: go back to Stage 5 for a round before committing or opening the PR.
+- First check that the code is still what Stage 5 verified: make the current tree the same way as in Stage 5 and run `git diff --name-only <Verified tree> <current tree>`, ignoring `.sdlc/`, docs and test-only changes. Committing the verified work doesn't show up here. Anything left means unverified code: go back to Stage 5 for a round before committing or opening the PR.
 - `sdlc:finishing-a-development-branch` to decide merge/PR/keep and clean up worktrees
 - `/sdlc:commit` or `/sdlc:commit-push-pr`; `/sdlc:clean_gone` to prune merged branches
 - PR description links spec.md, test-report.md and, if a QA round ran, qa-report.md.
@@ -164,7 +164,7 @@ You (the orchestrator) may run commands to investigate, but the verdict always c
 
 ## State file template (`.sdlc/<feature>/state.md`)
 
-Add each line under its own heading, never at the end of the file: the file ends with `## Open questions`, so an appended deviation, gate or round lands in the wrong section.
+Add each line at the end of its own heading's section, never at the end of the file: the file ends with `## Open questions`, so an appended deviation, gate or round lands in the wrong section. Inside a section, lines stay in time order.
 
 ```markdown
 # <feature>
@@ -175,7 +175,7 @@ Top model: opus   (fable only if the user chose it)
 Commands: test: `<commands.test>`   (monorepo: one per package, e.g. api: `cd services/api && go test ./...`; no setup: the detected commands)
 Started: <date>
 Base: <commit the feature started from>
-Verified: <commit the Stage 5 gate passed on>
+Verified: <commit the Stage 5 gate passed on> tree <worktree tree at that gate>
 Current: Stage <n> – <name>
 
 ## Stages
