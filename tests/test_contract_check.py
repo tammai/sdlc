@@ -30,9 +30,9 @@ class ContractCheckTest(ProjectTestCase):
         self.git("add", "-A", "packages")
         self.git("commit", "-q", "-m", msg)
 
-    def check(self):
+    def check(self, base="main"):
         env = dict(os.environ, CALLS=self.path("calls.txt"), PATH=self.bin + os.pathsep + os.environ["PATH"])
-        p = subprocess.run([BASH, SCRIPT, "main", "packages/api-contract", "openapi.yaml"], cwd=self.root, env=env,
+        p = subprocess.run([BASH, SCRIPT, base, "packages/api-contract", "openapi.yaml"], cwd=self.root, env=env,
                            capture_output=True, encoding="utf-8", errors="replace")
         return p.returncode, p.stdout + p.stderr
 
@@ -54,6 +54,11 @@ class ContractCheckTest(ProjectTestCase):
         code, out = self.check()
         self.assertEqual(code, 1, out)
         self.assertIn("packages/api-contract/v1", out)
+
+    def test_unknown_base_ref_fails(self):
+        code, out = self.check(base="origin/missing")
+        self.assertNotEqual(code, 0, out)
+        self.assertIn("unknown base ref", out)
 
     def test_removed_published_version_fails(self):
         self.git("rm", "-q", "-r", "packages/api-contract/v1")

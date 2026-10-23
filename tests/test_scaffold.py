@@ -527,7 +527,7 @@ class ScaffoldTest(ProjectTestCase):
         self.write("apps/api/go.mod", "module x\n")
         self.sc("render", "builtin:ci:web", ".github/workflows/sdlc-verify-web.yml", "--class", "seeded")
         text = self.read(".github/workflows/sdlc-verify-web.yml")
-        for want in ('name: "sdlc verify web"', '"apps/web/**"', '"packages/**"',
+        for want in ('name: "sdlc verify web"', '"apps/web/**"', '"packages/**"', '- "*"\n',
                      '".github/workflows/sdlc-verify-web.yml"', "actions/setup-node@v7",
                      "working-directory: apps/web", "group: sdlc-verify-web-${{ github.ref }}"):
             self.assertIn(want, text)
@@ -544,7 +544,8 @@ class ScaffoldTest(ProjectTestCase):
                              api_contract={"path": "packages/api-contract", "spec": "openapi.yaml"},
                              ci={"oasdiff_version": "1.11.7"})
         text = self.sc("preview", "builtin:contract-check")["text"]
-        for want in ('"packages/api-contract/**"', "fetch-depth: 0", "github.com/oasdiff/oasdiff@v1.11.7",
+        self.assertNotIn("paths:", text)  # always runs, so it can be a required check
+        for want in ("fetch-depth: 0", "github.com/oasdiff/oasdiff@v1.11.7",
                      'bash .sdlc/ci/contract-check.sh "origin/${{ github.base_ref }}" packages/api-contract openapi.yaml'):
             self.assertIn(want, text)
 

@@ -27,5 +27,5 @@ Greenfield setup asked "several of these (→ monorepo)?" and recorded `packages
 ## Consequences
 
 - **Good:** one layout people recognise; a contract change that breaks an app shows in that pull request's CI; each team releases on its own schedule; a solo developer gets the contract safety without team ceremony.
-- **Costs:** path-filtered workflows can't be required status checks (a PR that doesn't touch an app never runs its workflow); the contract check covers OpenAPI only; a client generator that needs another toolchain (Java) is an extra install.
+- **Costs:** the per-app workflows are path-filtered, so they can't be required status checks (a PR that doesn't touch an app never runs its workflow); the contract check runs on every PR so it can be; the contract check covers OpenAPI only; a client generator that needs another toolchain (Java) is an extra install.
 - **Not covered:** restructuring an existing repo into this layout.

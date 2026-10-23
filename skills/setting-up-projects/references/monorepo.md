@@ -54,9 +54,9 @@ Check as in `greenfield.md`: `$S contract` ok, `$S run-commands` all exit 0.
 | Profile | Render (all `--class seeded`) |
 |---|---|
 | `lean` | `$S render builtin:ci .github/workflows/sdlc-verify.yml` |
-| `large` | per package: `$S render builtin:ci:<name> .github/workflows/sdlc-verify-<name>.yml` (runs on that package's path, `packages/**` and its own file); `$S render builtin:codeowners .github/CODEOWNERS` |
+| `large` | per package: `$S render builtin:ci:<name> .github/workflows/sdlc-verify-<name>.yml` (runs on that package's path, `packages/**`, root files such as lockfiles and workspace manifests, and its own file); `$S render builtin:codeowners .github/CODEOWNERS` |
 | `api_contract` set | `$S render templates/project/ci/contract-check.sh .sdlc/ci/contract-check.sh` and `$S render builtin:contract-check .github/workflows/sdlc-contract.yml` |
 
-`large`: tell the user not to mark the per-app workflows as required status checks: a pull request that doesn't touch an app never runs its workflow, so a required check would wait forever.
+`sdlc contract` runs on every pull request: tell the user to make it a required status check, or breaking changes are flagged but not blocked. `large`: tell the user not to mark the per-app workflows as required: a pull request that doesn't touch an app never runs its workflow, so a required check would wait forever.
 
 Then continue with the common steps in `SKILL.md`. In the report, name the profile and anything left out: no contract check (and why), no `infras/`.

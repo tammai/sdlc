@@ -12,6 +12,6 @@ Ship from `main` while that's enough. When an older major needs fixes after `mai
 
 ## CI
 
-Each app's workflow (`.github/workflows/sdlc-verify-<app>.yml`) runs only when that app, a shared package or the workflow itself changes. A contract change runs every app's CI.
+Each app's workflow (`.github/workflows/sdlc-verify-<app>.yml`) runs only when that app, a shared package, a root file (lockfile, workspace manifest) or the workflow itself changes. A contract change runs every app's CI.
 
-If you protect `main` with required status checks, don't mark the per-app workflows as required: a pull request that doesn't touch an app never runs its workflow, so a required check would wait forever.
+If you protect `main` with required status checks, make `sdlc contract` required (it runs on every pull request), but don't mark the per-app workflows as required: a pull request that doesn't touch an app never runs its workflow, so a required check would wait forever.

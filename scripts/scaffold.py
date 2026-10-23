@@ -504,8 +504,9 @@ def generate_ci(p, package=None):
     name, group, trigger = "name: sdlc verify", "sdlc-verify", ["  pull_request:", "  push:", "    branches: [main, master]"]
     if package:
         name, group = f"name: {json.dumps('sdlc verify ' + package)}", f"sdlc-verify-{package}"
+        # "*" is root files only: workspace manifests and lockfiles every package depends on
         paths = ["    paths:"] + [f"      - {json.dumps(x)}" for x in
-                                   (f"{pkg_scopes[0]['path']}/**", "packages/**", f".github/workflows/{group}.yml")]
+                                   (f"{pkg_scopes[0]['path']}/**", "packages/**", "*", f".github/workflows/{group}.yml")]
         trigger = ["  pull_request:", *paths, "  push:", "    branches: [main, master]", *paths]
     lines = [
         f"# Managed by the sdlc plugin v{plugin_version()} (seeded: replaced on upgrade only while unedited).",
@@ -542,7 +543,8 @@ def generate_contract_check(p):
     lines = [
         f"# Managed by the sdlc plugin v{plugin_version()} (seeded: replaced on upgrade only while unedited).",
         "# Published contract versions take additions only: see .sdlc/ci/contract-check.sh.",
-        "name: sdlc contract", "", "on:", "  pull_request:", "    paths:", f"      - {json.dumps(path + '/**')}", "",
+        "# No path filter: it runs on every pull request, so it can be a required check.",
+        "name: sdlc contract", "", "on:", "  pull_request:", "",
         "permissions:", "  contents: read", "",
         "jobs:", "  contract:", "    runs-on: ubuntu-latest", "    timeout-minutes: 15", "    steps:",
         pad + "- uses: actions/checkout@v7", pad + "  with:", pad + "    fetch-depth: 0",

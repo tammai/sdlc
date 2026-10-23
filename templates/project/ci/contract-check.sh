@@ -7,6 +7,8 @@ base_ref=$1 contract=${2%/} spec=$3
 failed=0
 base_file=$(mktemp)
 trap 'rm -f "$base_file"' EXIT
+# A missing base would list no versions and pass everything: fail instead
+git rev-parse --verify -q "$base_ref^{commit}" >/dev/null || { echo "unknown base ref $base_ref"; exit 2; }
 
 for dir in $(git ls-tree -d --name-only "$base_ref" "$contract/"); do
   [[ $(basename "$dir") =~ ^v[0-9]+$ ]] || continue
