@@ -46,7 +46,7 @@
       "**/Dockerfile*",
       "**/docker-compose*.{yml,yaml}",
       "**/*.tf",
-      "{infra,deploy,k8s,helm}/**"
+      "{infra,infras,deploy,k8s,helm}/**"
     ]
   },
   "ci": {
