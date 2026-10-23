@@ -2,6 +2,7 @@
 import json
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -576,6 +577,50 @@ class ScaffoldTest(ProjectTestCase):
         self.assertEqual(self.sc("preview", "templates/project/l.md")["text"], ".sdlc/constitution.md")
         self.write(".sdlc/config.json", json.dumps({"docs_dir": "docs/sdlc"}))
         self.assertEqual(self.sc("preview", "templates/project/l.md")["text"], "docs/sdlc/constitution.md")
+
+    # --- relocate: old layout → state in .sdlc/state, documents in docs_dir --------------------------
+
+    def git(self, *args):
+        subprocess.run(["git", "-C", self.root, "-c", "user.email=t@t", "-c", "user.name=t", *args], check=True,
+                       capture_output=True)
+
+    def legacy_repo(self, files):
+        self.git("init", "-q", "-b", "main")
+        for path in files:
+            self.write(path, "x\n")
+        self.init()
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "legacy")
+
+    def test_relocate_moves_old_layout_and_is_idempotent(self):
+        self.legacy_repo([".sdlc/f1/state.md", ".sdlc/f1/spec.md", ".sdlc/f1/checklists/r.md",
+                          ".sdlc/constitution.md", ".sdlc/baseline.md", ".sdlc/lint/x.mjs"])
+        self.assertNotIn("docs_dir", self.config())
+        dry = self.sc("relocate")
+        self.assertFalse(dry["applied"])
+        self.assertIn([".sdlc/f1/state.md", ".sdlc/state/f1.md"], dry["moves"])
+        self.assertFalse(os.path.exists(self.path(".sdlc/state/f1.md")))
+        self.sc("relocate", "--apply")
+        for path in (".sdlc/state/f1.md", "docs/sdlc/intents/f1/spec.md", "docs/sdlc/intents/f1/checklists/r.md",
+                     "docs/sdlc/constitution.md", ".sdlc/baseline.md", ".sdlc/lint/x.mjs"):
+            self.assertTrue(os.path.exists(self.path(path)), path)
+        self.assertFalse(os.path.exists(self.path(".sdlc/f1")))
+        self.assertEqual(self.config()["docs_dir"], "docs/sdlc")
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "moved")
+        self.assertEqual(self.sc("relocate", "--apply")["moves"], [])
+
+    def test_relocate_stops_on_a_name_in_both_layouts(self):
+        self.legacy_repo([".sdlc/f1/state.md", ".sdlc/state/f1.md"])
+        out = self.sc("relocate", "--apply")
+        self.assertEqual(out["conflicts"], ["f1"])
+        self.assertTrue(os.path.exists(self.path(".sdlc/f1/state.md")))
+        self.assertNotIn("docs_dir", self.config())
+
+    def test_relocate_refuses_a_dirty_tree(self):
+        self.legacy_repo([".sdlc/f1/state.md"])
+        self.write(".sdlc/f1/spec.md", "draft\n")
+        self.assertIn("uncommitted", self.sc("relocate", "--apply", expect=1)["error"])
 
     def test_builtin_ci_needs_commands(self):
         self.commands_config()

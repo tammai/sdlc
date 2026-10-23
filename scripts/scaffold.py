@@ -147,7 +147,7 @@ def cmd_init(p, a):
     if p.config is None:  # overrides only; everything else comes from the plugin defaults
         p.config = {"min_plugin_version": version, "project": {"kind": a.kind}}
     # Features from before setup stay where they are until `relocate` moves them: never a half-moved repo
-    legacy = [n for n, f in sdlc_layout.features(p.root).items() if f["layout"] == "legacy"]
+    legacy = [os.path.basename(os.path.dirname(x)) for x in sorted(glob.glob(p.path(".sdlc/*/state.md")))]
     if not legacy:
         p.config["docs_dir"] = docs
     p.lock = {"scaffold_version": version, "files": {}, "merged": {},
@@ -883,6 +883,66 @@ def cmd_eject(p, a):
             "unmerged": {SETTINGS: allow + plugin_keys, GITIGNORE: ignore}, "lock_removed": True}
 
 
+# --- relocate: legacy layout -> state in .sdlc/state, documents in docs_dir -------------------------
+
+def git_out(p, *args):
+    proc = subprocess.run(["git", "-C", p.root, *args], capture_output=True, encoding="utf-8", errors="replace")
+    if proc.returncode != 0:
+        raise ValueError(f"git {' '.join(args)}: {proc.stderr.strip()}")
+    return proc.stdout
+
+
+def relocate_plan(p, docs):
+    """[[from, to], ...] for every legacy feature and doc still in .sdlc/, and the names whose target exists."""
+    moves, conflicts = [], []
+    for path in sorted(glob.glob(p.path(".sdlc/*/state.md"))):
+        name = os.path.basename(os.path.dirname(path))
+        if name in ("state", "intents"):
+            continue
+        src = f".sdlc/{name}"
+        planned = [[f"{src}/state.md", f".sdlc/state/{name}.md"]]
+        planned += [[f"{src}/{e}", f"{docs}/intents/{name}/{e}"] for e in sorted(os.listdir(p.path(src)))
+                    if e != "state.md"]
+        if any(os.path.exists(p.path(dst)) for _, dst in planned):
+            conflicts.append(name)
+        else:
+            moves += planned
+    for doc in ("constitution.md", "design-system.md"):
+        src, dst = f".sdlc/{doc}", f"{docs}/{doc}"
+        if src != dst and os.path.exists(p.path(src)):
+            if os.path.exists(p.path(dst)):
+                conflicts.append(doc)
+            else:
+                moves.append([src, dst])
+    return moves, conflicts
+
+
+def cmd_relocate(p, a):
+    """Dry run by default. --apply moves with git mv; docs_dir is recorded only once nothing is left to move."""
+    docs = sdlc_layout.validate_docs_dir(a.docs_dir or sdlc_layout.docs_dir(p.root) or sdlc_layout.DOCS_DEFAULT)
+    moves, conflicts = relocate_plan(p, docs)
+    out = {"docs_dir": docs, "moves": moves, "conflicts": conflicts, "applied": False}
+    if not a.apply:
+        return out
+    if git_out(p, "status", "--porcelain").strip():
+        raise ValueError("uncommitted changes: commit or stash them first, so the move is one reviewable commit")
+    lock = p.require_lock()
+    for src, dst in moves:
+        os.makedirs(os.path.dirname(p.path(dst)), exist_ok=True)
+        git_out(p, "mv", src, dst)
+        for key in [k for k in lock.get("files", {}) if k == src or k.startswith(src + "/")]:
+            lock["files"][dst + key[len(src):]] = lock["files"].pop(key)
+    for src in {s.rsplit("/", 1)[0] for s, _ in moves if s.count("/") > 1}:  # emptied feature folders
+        if os.path.isdir(p.path(src)) and not os.listdir(p.path(src)):
+            os.rmdir(p.path(src))
+    if not conflicts:
+        p.config = p.config or {}
+        p.config["docs_dir"] = docs
+    p.save()
+    out["applied"] = True
+    return out
+
+
 # --- cli ----------------------------------------------------------------------------------
 
 def build_parser():
@@ -966,6 +1026,11 @@ def build_parser():
     s.add_argument("version")
     s.add_argument("--min-plugin")
     s.set_defaults(fn=cmd_set_version)
+
+    s = sub.add_parser("relocate", help="move a legacy layout: state to .sdlc/state, documents to docs_dir (dry run)")
+    s.add_argument("--docs-dir", help=f"where documents go (default: the recorded docs_dir, else {sdlc_layout.DOCS_DEFAULT})")
+    s.add_argument("--apply", action="store_true", help="move with git mv and record docs_dir")
+    s.set_defaults(fn=cmd_relocate)
 
     sub.add_parser("upgrade-plan", help="what an upgrade would regenerate/replace/review").set_defaults(fn=cmd_upgrade_plan)
 
