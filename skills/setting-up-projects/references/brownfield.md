@@ -10,7 +10,9 @@ Record stack and packages in `.sdlc/config.json` → `project` (`stack`, and `pa
 
 ## `commands` – record what already exists (hard stop)
 
-Write the commands the repo **already uses** into `.sdlc/config.json`: `commands` with `install`, `test`, `lint`, `typecheck`, `build` (from `package.json` scripts, `Makefile`/`justfile` targets, `pyproject` tool config, CI steps, README). Don't invent new ones; a step the repo doesn't have is `null`, and say so (it's a candidate for a later S-track fix, not something to add during setup). Monorepo: `packages` with `name`, `path`, `stack` and each package's own commands, run from its `path`; a workspace-wide test command (`pnpm -r test`, `turbo run test`, `nx run-many -t test`) can go in root `commands.test`. Show the commands to the user; they approve.
+Find the commands the repo **already uses** for `commands` with `install`, `test`, `lint`, `typecheck`, `build` (from `package.json` scripts, `Makefile`/`justfile` targets, `pyproject` tool config, CI steps, README). Don't invent new ones; a step the repo doesn't have is `null`, and say so (it's a candidate for a later S-track fix, not something to add during setup). Monorepo: `packages` with `name`, `path`, `stack` and each package's own commands, run from its `path`; a workspace-wide test command (`pnpm -r test`, `turbo run test`, `nx run-many -t test`) can go in root `commands.test`.
+
+**Stop here:** show the proposed commands (per package, with where each came from) in one message and end your turn. Write them to `.sdlc/config.json` only after the user approves or corrects them, and don't run the baseline before that.
 
 Check: `$S contract` → `ok: true`, and `tools_ok: true` (a tool that isn't installed: tell the user which, don't install it without asking).
 
@@ -33,7 +35,7 @@ Dispatch `sdlc:code-explorer` agents in parallel, one per angle; each returns dr
 3. **Decisions:** existing ADRs, design docs, READMEs with rationale → `knowledge/decisions/*.md` (migrate) or links from `knowledge/index.md` (leave in place).
 4. **Areas:** the real areas of the codebase and their paths → tier-2 rule drafts `.claude/rules/<area>.md` (user-owned; `paths:` with real globs, ≤ 30 lines, each line linking to the tier-3 doc behind it). Also adjust `areas.*` in `.sdlc/config.json` where the defaults miss this layout (e.g. migrations live in `db/migrate/`).
 
-Present each batch as a list of titles with one-line summaries; the user approves, edits or drops per item. Write only what's approved (follow `sdlc:managing-knowledge` for format and linking).
+Present each batch as a list of titles with one-line summaries and end your turn; the user approves, edits or drops per item. Write only what's approved (follow `sdlc:managing-knowledge` for format and linking). A skipped audit (too small a repo) means no drafts: no knowledge docs or area rules are written without an approved batch.
 
 ## `ai-config` – migrate existing AI instructions (one diff per source)
 
