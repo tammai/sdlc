@@ -231,7 +231,7 @@ claude --plugin-dir .                # load it for one session
 
 ### Release a new version
 
-1. Run the tests and `claude plugin validate .`.
+1. Run the tests and `claude plugin validate .`, and check that CI (`.github/workflows/ci.yml`) is green on the last pushed commit.
 2. Bump `version` in `.claude-plugin/plugin.json`. Repos record this number at setup and upgrade, so every release that changes project files needs a new one.
 3. Move the `Unreleased` notes in `CHANGELOG.md` under the new version, and update the README if commands, stages, configuration or requirements changed.
 4. If the release changes files that live in projects:

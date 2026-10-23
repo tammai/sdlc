@@ -36,6 +36,7 @@ sdlc/
 ├── migrations/              <version>-<slug>.md steps that /sdlc:upgrade applies to project-owned files
 ├── examples/hookify/        sample rules
 ├── tests/                   stdlib unittest suite (helpers.py + one file per hook or script)
+├── .github/workflows/ci.yml the suite on Linux and Windows, plus `claude plugin validate`, on push and PR
 ├── docs/
 │   ├── guidebook.md, playbook.md, runbook.md
 │   ├── prd.md               product requirements
