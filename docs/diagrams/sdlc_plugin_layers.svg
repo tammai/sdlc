@@ -27,7 +27,7 @@ rect{stroke-width:.5}.sep{stroke-width:.5}
 }
 </style>
 <text class="tx" x="20" y="30" font-size="20" font-weight="500">SDLC plugin layers</text>
-<text class="mu" x="20" y="54" font-size="12">How sdlc 1.6.0 is built, from what the user types down to what lands in their repo. Each band is one plugin structure and arrows show who calls whom.</text>
+<text class="mu" x="20" y="54" font-size="12">How sdlc 1.6.1 is built, from what the user types down to what lands in their repo. Each band is one plugin structure and arrows show who calls whom.</text>
 <text class="mu" x="20" y="71" font-size="12">Hooks sit outside the stack because Claude Code fires them, not the workflow.</text>
 <g class="cmd"><rect class="ch" x="20" y="100" width="11" height="11" rx="2"/></g>
 <text class="tx dir" x="37" y="106" font-size="12">commands/</text>
@@ -314,27 +314,30 @@ rect{stroke-width:.5}.sep{stroke-width:.5}
 <text class="mu" x="34.0" y="1561.0" font-size="11">outside the</text>
 <text class="mu" x="34.0" y="1575.0" font-size="11">plugin</text>
 <text class="mu" x="154.0" y="1524.5" font-size="12">.sdlc/</text>
-<rect class="ch" x="254.0" y="1517.0" width="313.6" height="20" rx="4"/>
+<rect class="ch" x="254.0" y="1517.0" width="148.0" height="20" rx="4"/>
 <text class="tx" x="262.0" y="1527.0" font-size="12">config.json</text>
-<text class="mu" x="343.6" y="1527.0" font-size="10.5">install, test, lint, build commands</text>
-<rect class="ch" x="254.0" y="1542.0" width="122.1" height="20" rx="4"/>
-<text class="tx" x="262.0" y="1552.0" font-size="12">constitution.md</text>
-<rect class="ch" x="381.1" y="1542.0" width="94.2" height="20" rx="4"/>
-<text class="tx" x="389.1" y="1552.0" font-size="12">baseline.md</text>
-<rect class="ch" x="480.3" y="1542.0" width="148.0" height="20" rx="4" stroke-width="1.2"/>
-<text class="tx" x="488.3" y="1552.0" font-size="12" font-weight="600">&lt;feature&gt;/state.md</text>
-<rect class="ch" x="254.0" y="1567.0" width="66.4" height="20" rx="4"/>
-<text class="tx" x="262.0" y="1577.0" font-size="12">spec.md</text>
-<rect class="ch" x="325.4" y="1567.0" width="80.3" height="20" rx="4"/>
-<text class="tx" x="333.4" y="1577.0" font-size="12">design.md</text>
-<rect class="ch" x="410.7" y="1567.0" width="66.4" height="20" rx="4"/>
-<text class="tx" x="418.7" y="1577.0" font-size="12">plan.md</text>
-<rect class="ch" x="482.1" y="1567.0" width="115.1" height="20" rx="4"/>
-<text class="tx" x="490.1" y="1577.0" font-size="12">test-report.md</text>
-<rect class="ch" x="254.0" y="1592.0" width="82.0" height="20" rx="4"/>
-<text class="tx" x="262.0" y="1602.0" font-size="12">review.md</text>
-<rect class="ch" x="341.0" y="1592.0" width="94.2" height="20" rx="4"/>
-<text class="tx" x="349.0" y="1602.0" font-size="12">security.md</text>
+<text class="mu" x="343.6" y="1527.0" font-size="10.5">commands</text>
+<rect class="ch" x="407.0" y="1517.0" width="94.2" height="20" rx="4"/>
+<text class="tx" x="415.0" y="1527.0" font-size="12">baseline.md</text>
+<rect class="ch" x="254.0" y="1542.0" width="143.3" height="20" rx="4" stroke-width="1.2"/>
+<text class="tx" x="262.0" y="1552.0" font-size="12" font-weight="600">state/&lt;feature&gt;.md</text>
+<rect class="ch" x="402.3" y="1542.0" width="51.4" height="20" rx="4"/>
+<text class="tx" x="410.3" y="1552.0" font-size="12">lint/</text>
+<rect class="ch" x="458.7" y="1542.0" width="37.2" height="20" rx="4"/>
+<text class="tx" x="466.7" y="1552.0" font-size="12">ci/</text>
+<text class="mu" x="154.0" y="1574.5" font-size="12">docs/sdlc/</text>
+<rect class="ch" x="254.0" y="1567.0" width="122.1" height="20" rx="4"/>
+<text class="tx" x="262.0" y="1577.0" font-size="12">constitution.md</text>
+<rect class="ch" x="381.1" y="1567.0" width="129.1" height="20" rx="4"/>
+<text class="tx" x="389.1" y="1577.0" font-size="12">design-system.md</text>
+<rect class="ch" x="254.0" y="1592.0" width="143.3" height="20" rx="4" stroke-width="1.2"/>
+<text class="tx" x="262.0" y="1602.0" font-size="12" font-weight="600">intents/&lt;feature&gt;/</text>
+<rect class="ch" x="402.3" y="1592.0" width="66.4" height="20" rx="4"/>
+<text class="tx" x="410.3" y="1602.0" font-size="12">spec.md</text>
+<rect class="ch" x="473.7" y="1592.0" width="80.3" height="20" rx="4"/>
+<text class="tx" x="481.7" y="1602.0" font-size="12">design.md</text>
+<rect class="ch" x="559.0" y="1592.0" width="66.4" height="20" rx="4"/>
+<text class="tx" x="567.0" y="1602.0" font-size="12">plan.md</text>
 <text class="mu" x="154.0" y="1628.5" font-size="12">.claude/</text>
 <rect class="ch" x="254.0" y="1621.0" width="59.4" height="20" rx="4"/>
 <text class="tx" x="262.0" y="1631.0" font-size="12">rules/</text>
@@ -444,7 +447,7 @@ rect{stroke-width:.5}.sep{stroke-width:.5}
 <line class="sep" x1="700" y1="1620" x2="966" y2="1620"/>
 <line class="a" x1="705" y1="1654" x2="705" y2="1635"/>
 <polygon class="af" points="700.5,1636 709.5,1636 705,1628"/>
-<text class="mu" x="720.0" y="1642.0" font-size="11">Reads state.md for the current stage</text>
+<text class="mu" x="720.0" y="1642.0" font-size="11">Reads .sdlc/state/ for the current stage</text>
 <text class="mu" x="720.0" y="1656.0" font-size="11">and .claude/hookify*.md for rules,</text>
 <text class="mu" x="720.0" y="1670.0" font-size="11">both from the State layer.</text>
 </g>
@@ -457,19 +460,19 @@ rect{stroke-width:.5}.sep{stroke-width:.5}
 <text class="mu" x="154.0" y="1723.5" font-size="12">.claude-plugin/</text>
 <rect class="ch" x="254.0" y="1716.0" width="202.6" height="20" rx="4"/>
 <text class="tx" x="262.0" y="1726.0" font-size="12">plugin.json</text>
-<text class="mu" x="343.6" y="1726.0" font-size="10.5">name sdlc, v1.6.0</text>
+<text class="mu" x="343.6" y="1726.0" font-size="10.5">name sdlc, v1.6.1</text>
 <rect class="ch" x="461.6" y="1716.0" width="129.0" height="20" rx="4"/>
 <text class="tx" x="469.6" y="1726.0" font-size="12">marketplace.json</text>
 <text class="mu" x="154.0" y="1752.5" font-size="12">Verification</text>
 <rect class="ch" x="254.0" y="1745.0" width="212.1" height="20" rx="4"/>
 <text class="tx" x="262.0" y="1755.0" font-size="12">tests/</text>
-<text class="mu" x="310.4" y="1755.0" font-size="10.5">12 test modules + helpers</text>
+<text class="mu" x="310.4" y="1755.0" font-size="10.5">14 test modules + helpers</text>
 <text class="mu" x="154.0" y="1781.5" font-size="12">Docs</text>
 <rect class="ch" x="254.0" y="1774.0" width="282.2" height="20" rx="4"/>
 <text class="tx" x="262.0" y="1784.0" font-size="12">docs/guidebook, playbook, runbook, prd</text>
 <rect class="ch" x="541.2" y="1774.0" width="93.1" height="20" rx="4"/>
 <text class="tx" x="549.2" y="1784.0" font-size="12">docs/adr/</text>
-<text class="mu" x="620.2" y="1784.0" font-size="10.5">4</text>
+<text class="mu" x="620.2" y="1784.0" font-size="10.5">6</text>
 <rect class="ch" x="639.2" y="1774.0" width="107.0" height="20" rx="4"/>
 <text class="tx" x="647.2" y="1784.0" font-size="12">docs/specs/</text>
 <text class="mu" x="732.2" y="1784.0" font-size="10.5">10</text>
