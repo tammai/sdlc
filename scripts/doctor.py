@@ -19,10 +19,11 @@ import sys
 PLUGIN_ROOT = os.environ.get("CLAUDE_PLUGIN_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
 sys.path.insert(0, PLUGIN_ROOT)
+sys.path.insert(0, os.path.join(PLUGIN_ROOT, "hooks"))
+import sdlc_layout  # noqa: E402  (hooks/: where feature state and documents live)
 import scaffold  # noqa: E402  (sibling script: lock, config, commands and version logic)
 
 CLAUDE_MD_BUDGET = 60
-DESIGN_SYSTEM = ".sdlc/design-system.md"
 RUNBOOK = "docs/runbook.md"
 
 
@@ -204,6 +205,10 @@ def check_repo(r, root):
                   "present" if os.path.exists(b) else "brownfield repo without a baseline: old failures will fail Stage 5",
                   None if os.path.exists(b) else f"rerun the baseline step of /sdlc:setup · {RUNBOOK} R16")
 
+    if status["setup"] == "complete" and sdlc_layout.docs_dir(root) is None:
+        r.add(g, "layout", "warn", "sdlc documents are still in .sdlc/ (the layout before 1.7.0)",
+              "run /sdlc:upgrade to move them to docs/sdlc or a location you choose")
+
     gi = os.path.join(root, ".gitignore")
     ignored = os.path.exists(gi) and ".sdlc/.work/" in open(gi, encoding="utf-8").read().split()
     if os.path.isdir(os.path.join(root, ".sdlc")):
@@ -215,9 +220,10 @@ def check_repo(r, root):
     if status["setup"] == "complete":
         ui = scaffold.effective_config(p.config).get("areas", {}).get("ui", [])
         if any(glob_matches(x, files) for x in ui):
-            ds = os.path.exists(os.path.join(root, DESIGN_SYSTEM))
+            design_system = sdlc_layout.paths(root)["design_system"]
+            ds = os.path.exists(os.path.join(root, design_system))
             r.add(g, "design system", "ok" if ds else "warn",
-                  DESIGN_SYSTEM if ds else f"the repo has UI files but no {DESIGN_SYSTEM}: UI work has no system to follow",
+                  design_system if ds else f"the repo has UI files but no {design_system}: UI work has no system to follow",
                   None if ds else "run the design-system step of /sdlc:setup (or /sdlc:upgrade)")
 
     dead = []
@@ -271,12 +277,11 @@ def check_repo(r, root):
                   "broken links: " + ", ".join(broken) if broken else f"{len(links)} links resolve",
                   "fix or remove the links" if broken else None)
 
-    states = sorted(glob.glob(os.path.join(root, ".sdlc", "*", "state.md")))
+    states = sdlc_layout.features(root)
     if states:
         active, malformed = [], []
-        for s in states:
-            text = open(s, encoding="utf-8").read()
-            name = os.path.basename(os.path.dirname(s))
+        for name, f in sorted(states.items()):
+            text = open(os.path.join(root, f["state"]), encoding="utf-8").read()
             if not re.search(r"^Status:\s*\S", text, re.M) or not re.search(r"^Current:\s*Stage\s*\d", text, re.M):
                 malformed.append(name)
             elif re.search(r"^Status:\s*active\b", text, re.M | re.I):

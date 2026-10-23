@@ -17,6 +17,9 @@ import subprocess
 import sys
 import time
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "hooks"))
+import sdlc_layout  # noqa: E402  (where feature state and documents live, in either layout)
+
 DELETE = ["plan.md", "test-report.md", "qa-report.md", "review.md", "checklists"]
 
 
@@ -41,34 +44,36 @@ def days(text):
 
 def candidate(root, ref, name, older_than):
     """Return the files to delete for one feature, or the reason it doesn't qualify."""
-    state = git(root, "show", f"{ref}:.sdlc/{name}/state.md")
+    loc = sdlc_layout.features(root)[name]
+    # On the main branch the feature may still be in the old layout (merged before the move)
+    on_ref = next((s for s in (loc["state"], f".sdlc/{name}/state.md")
+                   if git(root, "cat-file", "-e", f"{ref}:{s}") is not None), None)
+    state = git(root, "show", f"{ref}:{on_ref}") if on_ref else None
     if state is None:
         return {"feature": name, "skip": f"no state.md on {ref} (not merged)"}
     if not re.search(r"^Status:\s*done\b", state, re.M | re.I):
         return {"feature": name, "skip": f"not done on {ref}"}
-    changed = int(git(root, "log", "-1", "--format=%ct", ref, "--", f".sdlc/{name}/state.md") or 0)
+    # --follow: the move to the new layout must not restart every feature's age
+    changed = int(git(root, "log", "-1", "--follow", "--format=%ct", ref, "--", on_ref) or 0)
     age = int((time.time() - changed) // 86400)
     if age < older_than:
         return {"feature": name, "skip": f"done {age} days ago (under {older_than})"}
     # Deleting from the working tree is only safe when it matches what git already holds.
-    if git(root, "status", "--porcelain", "--", f".sdlc/{name}"):
+    if git(root, "status", "--porcelain", "--", loc["state"], loc["intents"]):
         return {"feature": name, "skip": "uncommitted changes in its folder"}
-    local = os.path.join(root, ".sdlc", name, "state.md")
+    local = os.path.join(root, loc["state"])
     with open(local, encoding="utf-8", errors="replace") as f:
         if not re.search(r"^Status:\s*done\b", f.read(), re.M | re.I):
             return {"feature": name, "skip": "not done in the working tree (reopened?)"}
     delete = list(DELETE)
     if not re.search(r"^Risk:\s*high\b", state, re.M | re.I):
         delete.append("security.md")
-    here = [f for f in delete if os.path.exists(os.path.join(root, ".sdlc", name, f))]
-    return {"feature": name, "age_days": age, "delete": here}
+    here = [f for f in delete if os.path.exists(os.path.join(root, loc["intents"], f))]
+    return {"feature": name, "age_days": age, "delete": here, "dir": loc["intents"]}
 
 
 def features(root):
-    base = os.path.join(root, ".sdlc")
-    if not os.path.isdir(base):
-        return []
-    return sorted(d for d in os.listdir(base) if os.path.isfile(os.path.join(base, d, "state.md")))
+    return sorted(sdlc_layout.features(root))
 
 
 def main(argv=None):
@@ -103,7 +108,7 @@ def main(argv=None):
             refused.append(c)
             continue
         for f in c["delete"]:
-            path = os.path.join(root, ".sdlc", name, f)
+            path = os.path.join(root, c["dir"], f)
             shutil.rmtree(path) if os.path.isdir(path) else os.remove(path)
         pruned.append(c)
     print(json.dumps({"main": ref, "pruned": pruned, "refused": refused}, indent=2))

@@ -9,12 +9,14 @@ Usage: python3 diff_stats.py [--root DIR] [--base REF] [--plan PLAN.md] [--forma
 Stdlib only, Python 3.9+.
 """
 import argparse
-import glob
 import json
 import os
 import re
 import subprocess
 import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "hooks"))
+import sdlc_layout  # noqa: E402  (where feature state and documents live, in either layout)
 
 C_LIKE = {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts", ".vue", ".svelte",
           ".go", ".rs", ".java", ".kt", ".cs", ".swift", ".php"}
@@ -43,8 +45,13 @@ def git(root, *args, check=True):
 
 def feature_base(root, plan=None):
     """`Base:` from the plan's state.md, else from the only active feature's, if that commit exists."""
-    paths = [os.path.join(os.path.dirname(plan), "state.md")] if plan else glob.glob(
-        os.path.join(root, ".sdlc", "*", "state.md"))
+    located = sdlc_layout.features(root)
+    if plan:  # the plan sits in the feature's documents folder, named after the feature
+        name = os.path.basename(os.path.dirname(os.path.abspath(plan)))
+        state = located[name]["state"] if name in located else sdlc_layout.paths(root, name)["state"]
+        paths = [os.path.join(root, state)]
+    else:
+        paths = [os.path.join(root, f["state"]) for f in located.values()]
     bases = []
     for path in paths:
         try:

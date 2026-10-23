@@ -42,6 +42,19 @@ class PruneTest(ProjectTestCase):
         self.assertEqual(code, 0, out)
         self.assertEqual(self.left("2026-01-01-month-filter"), ["spec.md", "state.md"])
 
+    def test_done_feature_in_the_new_layout_keeps_only_its_record(self):
+        name = "2026-01-02-PROJ-7-export"
+        self.write(".sdlc/config.json", json.dumps({"docs_dir": "docs/sdlc"}))
+        self.write(f".sdlc/state/{name}.md", f"# {name}\nStatus: done\nRisk: low\n")
+        for f in ("spec.md", "plan.md", "test-report.md", "review.md", "checklists/requirements.md"):
+            self.write(f"docs/sdlc/intents/{name}/{f}", "x\n")
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "new layout", env={"GIT_AUTHOR_DATE": OLD, "GIT_COMMITTER_DATE": OLD})
+        code, out = self.prune("apply", name)
+        self.assertEqual(code, 0, out)
+        left = sorted(os.listdir(self.path(f"docs/sdlc/intents/{name}")))
+        self.assertEqual(left, ["spec.md"])
+
     def test_active_feature_is_never_pruned(self):
         code, out = self.prune("apply", "--older-than", "0", "2026-01-01-login")
         self.assertEqual(code, 1)

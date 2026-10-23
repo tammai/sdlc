@@ -82,6 +82,16 @@ class DoctorTest(ProjectTestCase):
                        capture_output=True, env={**os.environ, "CLAUDE_PLUGIN_ROOT": PLUGIN_ROOT})
         self.assertIsNone(self.check("commands run"))
 
+    def test_old_layout_after_setup_warns_to_upgrade(self):
+        self.setup_repo()
+        self.assertIsNone(self.check("layout"))
+        data = json.load(open(self.path(".sdlc/config.json")))
+        del data["docs_dir"]
+        self.write(".sdlc/config.json", json.dumps(data))
+        found = self.check("layout")
+        self.assertEqual(found["status"], "warn")
+        self.assertIn("/sdlc:upgrade", found["fix"])
+
     def test_setup_in_progress(self):
         subprocess.run([sys.executable, SCAFFOLD, "--root", self.root, "init", "--kind", "greenfield"],
                        check=True, capture_output=True)
@@ -147,7 +157,7 @@ class DoctorTest(ProjectTestCase):
         self.setup_repo()
         self.write("src/App.tsx", "export const App = () => null\n")
         self.assertEqual(self.check("design system")["status"], "warn")
-        self.write(".sdlc/design-system.md", "# Design system\n")
+        self.write("docs/sdlc/design-system.md", "# Design system\n")  # setup records docs_dir
         self.assertEqual(self.check("design system")["status"], "ok")
 
     def test_gitignore(self):
