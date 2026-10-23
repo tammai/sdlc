@@ -520,6 +520,25 @@ class ScaffoldTest(ProjectTestCase):
                      "working-directory: libs/core"):
             self.assertIn(want, text)
 
+    def test_builtin_ci_per_package(self):
+        self.commands_config(packages=[
+            {"name": "web", "path": "apps/web", "stack": "typescript", "commands": {"install": "pnpm i", "test": "pnpm test"}},
+            {"name": "api", "path": "apps/api", "stack": "go", "commands": {"test": "go test ./..."}}])
+        self.write("apps/api/go.mod", "module x\n")
+        self.sc("render", "builtin:ci:web", ".github/workflows/sdlc-verify-web.yml", "--class", "seeded")
+        text = self.read(".github/workflows/sdlc-verify-web.yml")
+        for want in ('name: "sdlc verify web"', '"apps/web/**"', '"packages/**"',
+                     '".github/workflows/sdlc-verify-web.yml"', "actions/setup-node@v7",
+                     "working-directory: apps/web", "group: sdlc-verify-web-${{ github.ref }}"):
+            self.assertIn(want, text)
+        self.assertNotIn("go test", text)
+        self.assertNotIn("setup-go", text)
+        self.assertEqual(self.lock()["files"][".github/workflows/sdlc-verify-web.yml"]["template"], "builtin:ci:web")
+
+    def test_builtin_ci_unknown_package_is_an_error(self):
+        self.commands_config(packages=[{"name": "web", "path": "apps/web", "commands": {"test": "pnpm test"}}])
+        self.assertIn("no package named 'mobile'", self.sc("preview", "builtin:ci:mobile", expect=1)["error"])
+
     def test_builtin_ci_needs_commands(self):
         self.commands_config()
         self.assertIn("no commands", self.sc("preview", "builtin:ci", expect=1)["error"])

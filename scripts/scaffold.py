@@ -470,10 +470,11 @@ CI_SETUP = {
 }
 
 
-def project_stacks(config):
-    """Distinct toolchains, from each package's `stack`, else `project.stack`."""
+def project_stacks(config, package=None):
+    """Distinct toolchains, from each package's `stack` (only `package`'s when given), else `project.stack`."""
     cfg = effective_config(config)
-    raw = [sc["stack"] for sc in scopes(config) if sc["stack"]] or cfg.get("project", {}).get("stack", [])
+    raw = [sc["stack"] for sc in scopes(config) if sc["stack"] and package in (None, sc["name"])]
+    raw = raw or ([] if package else cfg.get("project", {}).get("stack", []))
     found = []
     for st in raw:
         st = STACK_ALIASES.get(str(st).lower(), str(st).lower())
@@ -482,28 +483,41 @@ def project_stacks(config):
     return found
 
 
-def generate_ci(p):
+def generate_ci(p, package=None):
+    """One workflow for every package, or (`package`) one that runs only when that package or a shared one changes."""
     cfg = effective_config(p.config)
     ci = cfg.get("ci", {})
     plan = verify_plan(p.config)
+    pkg_scopes = scopes(p.config)
+    if package:
+        pkg_scopes = [sc for sc in pkg_scopes if sc["name"] == package]
+        if not pkg_scopes:
+            raise ValueError(f"no package named {package!r} in .sdlc/config.json")
+        plan = {k: [s for s in v if s["scope"] == package] for k, v in plan.items()}
     if not plan["verify"]:
         raise ValueError("no commands in .sdlc/config.json to put in CI (set `commands`, or `packages[].commands`)")
-    go_scope = next((sc for sc in scopes(p.config) if os.path.exists(p.path(os.path.join(sc["path"], "go.mod")))), None)
+    go_scope = next((sc for sc in pkg_scopes if os.path.exists(p.path(os.path.join(sc["path"], "go.mod")))), None)
     go_mod = os.path.normpath(os.path.join(go_scope["path"] if go_scope else ".", "go.mod")).replace(os.sep, "/")
     values = {"node_version": ci.get("node_version", "22"), "java_version": ci.get("java_version", "21"),
               "dotnet_version": ci.get("dotnet_version", "8.0.x"), "go_mod": go_mod}
     pad = " " * 6
+    name, group, trigger = "name: sdlc verify", "sdlc-verify", ["  pull_request:", "  push:", "    branches: [main, master]"]
+    if package:
+        name, group = f"name: {json.dumps('sdlc verify ' + package)}", f"sdlc-verify-{package}"
+        paths = ["    paths:"] + [f"      - {json.dumps(x)}" for x in
+                                   (f"{pkg_scopes[0]['path']}/**", "packages/**", f".github/workflows/{group}.yml")]
+        trigger = ["  pull_request:", *paths, "  push:", "    branches: [main, master]", *paths]
     lines = [
         f"# Managed by the sdlc plugin v{plugin_version()} (seeded: replaced on upgrade only while unedited).",
         "# Generated from the commands in .sdlc/config.json: the same commands Stage 5 runs.",
-        "name: sdlc verify", "", "on:", "  pull_request:", "  push:", "    branches: [main, master]", "",
-        "concurrency:", "  group: sdlc-verify-${{ github.ref }}", "  cancel-in-progress: true", "",
+        name, "", "on:", *trigger, "",
+        "concurrency:", f"  group: {group}-${{{{ github.ref }}}}", "  cancel-in-progress: true", "",
         "permissions:", "  contents: read", "",
         "defaults:", "  run:", "    shell: bash  # Git Bash on Windows runners: same shell everywhere", "",
         "jobs:", "  verify:", "    strategy:", "      fail-fast: false", "      matrix:",
         f"        os: {json.dumps(ci.get('os', ['ubuntu-latest']))}",
         "    runs-on: ${{ matrix.os }}", "    timeout-minutes: 30", "    steps:", pad + "- uses: actions/checkout@v7"]
-    for st in project_stacks(p.config):
+    for st in project_stacks(p.config, package):
         if st in CI_SETUP:
             lines += [pad + x.format(**values) for x in CI_SETUP[st]]
         else:
@@ -520,6 +534,8 @@ def generate_ci(p):
 def render_source(template, p):
     if template == "builtin:ci":
         return generate_ci(p)
+    if template.startswith("builtin:ci:"):
+        return generate_ci(p, template[len("builtin:ci:"):])
     with open(os.path.join(PLUGIN_ROOT, template), encoding="utf-8") as f:
         return render_text(f.read(), p)
 
@@ -826,7 +842,7 @@ def build_parser():
     s.set_defaults(fn=cmd_forget)
 
     s = sub.add_parser("render", help="render a plugin template into the project and record it")
-    s.add_argument("template", help="plugin-relative, e.g. templates/project/rules/sdlc.md, or builtin:ci")
+    s.add_argument("template", help="plugin-relative, e.g. templates/project/rules/sdlc.md, or builtin:ci[:<package>]")
     s.add_argument("dest")
     s.add_argument("--class", dest="cls", choices=FILE_CLASSES, default="generated")
     s.add_argument("--if-unchanged", action="store_true", help="refuse (exit 2) if the user edited the file")
