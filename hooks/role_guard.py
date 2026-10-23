@@ -40,6 +40,8 @@ def problem(agent, tool, rel, root):
     in_reports = (folder.count("/") == 1 and folder.startswith(".sdlc/")
                   and folder.split("/")[1].rstrip(". ").lower() not in ("state", ".work")
                   or bool(docs) and folder.startswith(docs + "/intents/") and "/" not in folder[len(docs + "/intents/"):])
+    # Windows short names (WORK~1 for .work) and stream syntax (a:b) reach a folder by another spelling
+    in_reports = in_reports and not any(c in rel for c in "~:")
     if agent in REVIEWERS and tool in WRITES:
         return f"sdlc: {agent} reports findings; it doesn't edit files. Put the fix in your report instead."
     if agent == "verifier" and tool in WRITES and not (

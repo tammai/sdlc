@@ -4,6 +4,9 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
+### Fixed
+- The role guard no longer lets the verifier or qa-tester write a report through a path containing `~` or `:`. On Windows, a short name like `WORK~1` could reach `.sdlc/.work/` by another spelling.
+
 ## 1.7.0 — 2026-10-23
 
 Migration: `1.7.0-artifact-layout` (moves existing repos; `/sdlc:upgrade` previews it first).

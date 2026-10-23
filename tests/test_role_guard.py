@@ -38,6 +38,7 @@ class RoleGuardTest(ProjectTestCase):
         self.assertEqual(self.call("Write", "docs/sdlc/test-report.md", "sdlc:verifier"), "deny")  # feature folders only
         self.assertEqual(self.call("Write", ".sdlc/state/test-report.md", "sdlc:verifier"), "deny")  # would read as state
         self.assertEqual(self.call("Write", ".sdlc/STATE/test-report.md", "sdlc:verifier"), "deny")
+        self.assertEqual(self.call("Write", ".sdlc/WORK~1/test-report.md", "sdlc:verifier"), "deny")  # short name
 
     def test_qa_tester_reads_the_spec_but_not_the_code(self):
         self.assertIsNone(self.call("Read", ".sdlc/login/spec.md", "sdlc:qa-tester"))
