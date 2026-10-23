@@ -15,7 +15,7 @@ Docs: [guidebook](docs/guidebook.md) (how it works) · [playbook](docs/playbook.
 - **Conventions enforced where they happen.** Policy rules load while code is written, guardrails warn or block in real time (narrating comments, focused tests, secrets, force-push to main), and review gets measured facts from `diff_stats.py`.
 - **UI that follows your design system.** UI work reads the project's design system, a guardrail warns on hard-coded colors and inline styles, and a UI reviewer flags off-system components and generic "AI look" styling before merge.
 - **Knowledge that stays small.** Three loading tiers keep `CLAUDE.md` short; lessons are promoted from retros, and corrections that repeat become rules.
-- **Any stack, any repo shape.** Setup records the commands your repo already uses, per package in a monorepo (TS, Go, Rust, Dart, Python, shell, …), and generates CI from them. Upgrades are versioned and never overwrite your edits.
+- **Any stack, any repo shape.** Setup records the commands your repo already uses, per package in a monorepo (TS, Go, Rust, Dart, Python, shell, …), and generates CI from them. A new multi-app repo becomes an `apps/` + `packages/` monorepo with a versioned API contract. Upgrades are versioned and never overwrite your edits.
 
 ## Install
 

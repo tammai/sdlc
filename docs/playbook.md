@@ -182,6 +182,8 @@ Interrupted? Run `/sdlc:setup` again; it resumes from the last finished step.
 3. The ecosystem's own generators build the skeleton, plus strict types, a test runner, a linter and one passing test per package. Every command must pass.
 4. CI (`.github/workflows/sdlc-verify.yml`) is generated from the same commands. Windows teammates: set `"ci": {"os": ["ubuntu-latest", "windows-latest"]}` in `.sdlc/config.json`.
 5. Rules, guardrails, constitution and knowledge as in [14](#14-adopt-sdlc-in-an-existing-repo). No baseline: nothing fails yet.
+
+**Several apps** (web, an API, mobile): setup builds one monorepo, with `apps/<name>/` for each app, `packages/` for shared code, `docs/` for BA, QA and design files, and `infras/` only if you say yes. It asks who will work in the repo. A large team with separate roles gets CODEOWNERS, one CI workflow per app and a release runbook (`docs/runbooks/releasing.md`). A solo developer or small team gets one workflow. When one app serves an API another uses, the contract goes in `packages/api-contract/v1/`. Merging a version publishes it, and if you agree, CI blocks breaking changes to published versions. Each app generates its client from the version it uses. Details: `skills/setting-up-projects/references/monorepo.md`.
 6. PR or local merge, then `/sdlc:start` the first feature.
 
 ## 16. Upgrade after a plugin update

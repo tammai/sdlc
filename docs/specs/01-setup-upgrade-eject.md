@@ -2,7 +2,7 @@
 
 Prepare a repo once (new or existing), keep it current with the plugin, and remove the plugin cleanly, with every plugin-written file tracked by ownership.
 
-**Entry points:** `/sdlc:setup`, `/sdlc:upgrade [--dry-run] [--revisit]`, `/sdlc:eject` · **Source:** `skills/setting-up-projects/`, `scripts/scaffold.py`, `templates/project/` · **Decisions:** [ADR 0001](../adr/0001-project-setup-upgrade-eject.md), [ADR 0002](../adr/0002-record-the-repos-own-commands.md)
+**Entry points:** `/sdlc:setup`, `/sdlc:upgrade [--dry-run] [--revisit]`, `/sdlc:eject` · **Source:** `skills/setting-up-projects/`, `scripts/scaffold.py`, `templates/project/`, `skills/setting-up-projects/references/monorepo.md` · **Decisions:** [ADR 0001](../adr/0001-project-setup-upgrade-eject.md), [ADR 0002](../adr/0002-record-the-repos-own-commands.md), [ADR 0005](../adr/0005-greenfield-monorepo-layout.md)
 
 ## User scenarios
 
@@ -10,7 +10,8 @@ Prepare a repo once (new or existing), keep it current with the plugin, and remo
 2. **New repo.** Given an empty repo, when the user runs `/sdlc:setup a REST API for invoices`, then it asks a few stack questions, proposes a stack and commands, generates the skeleton with official tools after approval, and every command passes before continuing.
 3. **Interrupted.** Given setup stopped after some steps, when `/sdlc:setup` runs again, then it continues after the last completed step.
 4. **Upgrade with an edited file.** Given the user edited `.github/workflows/sdlc-verify.yml` and the plugin's generator changed, when `/sdlc:upgrade` runs, then the file is not overwritten; the user chooses merge, skip, or keep theirs for good.
-5. **Eject.** Given a set-up repo, when `/sdlc:eject` runs, then a dry run is shown; on approval, plugin files are removed, edited ones only if the user agrees, and the user's work stays.
+5. **New multi-app repo.** Given an empty repo, when the user runs `/sdlc:setup a web app, an API and a mobile app`, then it asks who will work in the repo and whether to add `infras/`, proposes the `apps/` + `packages/` + `docs/` layout with a versioned API contract, and after approval generates each app and the CI for the team size.
+6. **Eject.** Given a set-up repo, when `/sdlc:eject` runs, then a dry run is shown; on approval, plugin files are removed, edited ones only if the user agrees, and the user's work stays.
 
 ## Requirements
 
@@ -34,6 +35,9 @@ Prepare a repo once (new or existing), keep it current with the plugin, and remo
 | SET-FR-014 | Config = plugin defaults deep-merged with project overrides; lists replace, not append. | `[enforced]` test_scaffold › test_config_merges_defaults_with_project_overrides |
 | SET-FR-015 | Every shipped template renders with the defaults; policy rules have `paths:` frontmatter and stay ≤ 30 lines. | `[enforced]` test_project_templates › test_every_template_renders_without_leftover_placeholders, test_area_rules_have_paths_frontmatter_and_stay_short, test_defaults_file_is_valid_json_with_every_area; test_scaffold › test_real_rules_template_renders_with_default_config |
 | SET-FR-016 | `run-commands` runs install, then the verify plan, each in its directory, and records each command's exit in the lock; a command that can't start (tool missing, exit 126/127, timeout) fails it, a non-zero exit is only recorded. `contract` reports the recorded runs, dropping any whose command has since changed, and doctor warns on a set-up repo whose commands haven't all run. Setup uses it for the greenfield check and the brownfield baseline. | `[enforced]` test_scaffold › test_run_commands_records_each_exit_and_flags_ones_that_cannot_run; test_doctor › test_commands_never_run_warn_until_run_commands; setup steps `[instructed]` |
+| SET-FR-017 | Greenfield with two or more apps: one polyglot monorepo (`apps/`, `packages/`, `docs/`, `infras/` only if the user says yes), every folder a `packages` entry; the user is asked who works in the repo (profile `lean` or `large`, never inferred); with an API and a client, `packages/api-contract/v<N>/` and per-app generated clients; `large` gets CODEOWNERS, per-app CI and the release runbook and no root test command. | `[instructed]` monorepo.md |
+| SET-FR-018 | `builtin:ci:<package>` renders one workflow for that package only: its steps and toolchain, run on its path, `packages/**` and its own file; an unknown package is an error. `builtin:codeowners` renders `project.owners` in config order and fails when there are none. | `[enforced]` test_scaffold › test_builtin_ci_per_package, test_builtin_ci_unknown_package_is_an_error, test_builtin_codeowners |
+| SET-FR-019 | The contract check (`builtin:contract-check` running `contract-check.sh`) fails a pull request that makes a breaking change to, or removes, a contract version published on the base branch; additions and new version folders pass. | `[enforced]` test_contract_check › test_additive_edit_and_new_version_pass, test_breaking_edit_to_published_version_fails, test_removed_published_version_fails; test_scaffold › test_builtin_contract_check |
 
 ### Ownership and keyed merges
 

@@ -169,6 +169,7 @@ Each round spawns a new `verifier`, which runs build, lint, typecheck and tests 
   constitution.md          project principles
   design-system.md         the design system UI work follows (UI projects; yours)
   lint/                    sdlc lint snippets your ESLint/Ruff config imports (seeded)
+  ci/contract-check.sh     the API contract check CI runs (multi-app repos that chose it; seeded)
   <feature>/
     state.md               track, stage, gate log, deviations, open questions
     spec.md  design.md  plan.md  test-report.md  qa-report.md  review.md  security.md  release.md  retro.md
@@ -218,13 +219,15 @@ Setup writes `.sdlc/config.json`; it's yours to edit and holds only what differs
 |---|---|
 | `commands` | `install`, `test`, `lint`, `typecheck`, `build` as the team runs them. `null` means the step doesn't apply to this stack |
 | `packages` | Monorepo instead of `commands`: `[{"name", "path", "stack", "commands"}]`, each run from its path. A root `commands.test` (e.g. `turbo run test`) counts for every package |
+| `project.profile`, `project.owners` | Multi-app repos: `lean` or `large` (the answer to "who works here"), and for `large` the CODEOWNERS entries (`{pattern: [handles]}`, in order) |
+| `api_contract` | Multi-app repos with the contract check: `{"path", "spec"}` of the versioned API contract |
 | `verify.order` | Order of the verify steps (default lint, typecheck, build, test) |
 | `areas.*` | Path patterns for the policy rules: `source`, `tests`, `migrations`, `sensitive`, `ci` |
 | `ci` | `os` matrix (default `["ubuntu-latest"]`; add `"windows-latest"` if teammates develop on Windows) and toolchain versions for the generated workflow |
 | `baseline` | Where the known-failures baseline lives (default `.sdlc/baseline.md`) |
 | `min_plugin_version` | Teammates on an older plugin get a warning to update |
 
-After changing commands or `ci`, run `/sdlc:upgrade` so the generated CI workflow follows. Don't edit `.sdlc/scaffold.lock.json` by hand. Why it's designed this way: [ADR 0001](adr/0001-project-setup-upgrade-eject.md), [ADR 0002](adr/0002-record-the-repos-own-commands.md); the `scaffold.py` reference is in the [runbook](runbook.md#setup-upgrade-eject-internals).
+After changing commands or `ci`, run `/sdlc:upgrade` so the generated CI workflow follows. Don't edit `.sdlc/scaffold.lock.json` by hand. Why it's designed this way: [ADR 0001](adr/0001-project-setup-upgrade-eject.md), [ADR 0002](adr/0002-record-the-repos-own-commands.md), [ADR 0005](adr/0005-greenfield-monorepo-layout.md); the `scaffold.py` reference is in the [runbook](runbook.md#setup-upgrade-eject-internals).
 
 ## Glossary
 
