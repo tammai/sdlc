@@ -65,7 +65,7 @@ Plugin-owned files are named `sdlc-*` (or `sdlc.md`); everything else belongs to
 
 ## Hard stops (always ask)
 
-Stack choice (greenfield) · the commands (brownfield) · installing any tool · each audit batch before it is written · each AI-config migration · adding CI to a repo that already has CI · lint config import · constitution · design system · enabling the plugin for the team · PR vs local merge. Everything else proceeds without asking.
+Stack choice (greenfield) · monorepo team size, team handles, `infras/` and the contract check (`references/monorepo.md`) · the commands (brownfield) · installing any tool · each audit batch before it is written · each AI-config migration · adding CI to a repo that already has CI · lint config import · constitution · design system · enabling the plugin for the team · PR vs local merge. Everything else proceeds without asking.
 
 ## Report
 

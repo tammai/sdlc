@@ -8,6 +8,8 @@
 
 **Input**: User description: "[original request]"
 
+**References**: [links to the docs/ artifacts this feature builds on: BA specs, QA test cases, designs. Link, never copy. Delete the line if there are none.]
+
 ## User Scenarios & Testing *(mandatory)*
 
 <!--
