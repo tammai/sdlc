@@ -12,3 +12,4 @@
 - 2026-10-22 update knowledge/gotchas/windows-stdout-encoding.md — subprocess text=True decoding crashed diff_stats.py on a non-ASCII diff (from the QA live run)
 - 2026-10-23 update knowledge/gotchas/windows-stdout-encoding.md, .claude/rules/hooks.md, .claude/rules/scripts.md — text=True crash recurred in verify_freshness.py (from 1.5.0 release distill)
 - 2026-10-23 add knowledge/gotchas/rendering-svg-diagrams.md — Playwright couldn't render the diagrams; stale counts in the layers SVG (from 1.5.0 release distill)
+- 2026-10-23 add knowledge/gotchas/hook-inputs.md — freshness hook missed failing runs; role guard keyed on agent_type (from 1.6.0 release distill)

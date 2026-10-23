@@ -27,7 +27,7 @@ rect{stroke-width:.5}.sep{stroke-width:.5}
 }
 </style>
 <text class="tx" x="20" y="30" font-size="20" font-weight="500">SDLC plugin layers</text>
-<text class="mu" x="20" y="54" font-size="12">How sdlc 1.5.0 is built, from what the user types down to what lands in their repo. Each band is one plugin structure and arrows show who calls whom.</text>
+<text class="mu" x="20" y="54" font-size="12">How sdlc 1.6.0 is built, from what the user types down to what lands in their repo. Each band is one plugin structure and arrows show who calls whom.</text>
 <text class="mu" x="20" y="71" font-size="12">Hooks sit outside the stack because Claude Code fires them, not the workflow.</text>
 <g class="cmd"><rect class="ch" x="20" y="100" width="11" height="11" rx="2"/></g>
 <text class="tx dir" x="37" y="106" font-size="12">commands/</text>
@@ -457,13 +457,13 @@ rect{stroke-width:.5}.sep{stroke-width:.5}
 <text class="mu" x="154.0" y="1723.5" font-size="12">.claude-plugin/</text>
 <rect class="ch" x="254.0" y="1716.0" width="202.6" height="20" rx="4"/>
 <text class="tx" x="262.0" y="1726.0" font-size="12">plugin.json</text>
-<text class="mu" x="343.6" y="1726.0" font-size="10.5">name sdlc, v1.5.0</text>
+<text class="mu" x="343.6" y="1726.0" font-size="10.5">name sdlc, v1.6.0</text>
 <rect class="ch" x="461.6" y="1716.0" width="129.0" height="20" rx="4"/>
 <text class="tx" x="469.6" y="1726.0" font-size="12">marketplace.json</text>
 <text class="mu" x="154.0" y="1752.5" font-size="12">Verification</text>
 <rect class="ch" x="254.0" y="1745.0" width="212.1" height="20" rx="4"/>
 <text class="tx" x="262.0" y="1755.0" font-size="12">tests/</text>
-<text class="mu" x="310.4" y="1755.0" font-size="10.5">11 test modules + helpers</text>
+<text class="mu" x="310.4" y="1755.0" font-size="10.5">12 test modules + helpers</text>
 <text class="mu" x="154.0" y="1781.5" font-size="12">Docs</text>
 <rect class="ch" x="254.0" y="1774.0" width="282.2" height="20" rx="4"/>
 <text class="tx" x="262.0" y="1784.0" font-size="12">docs/guidebook, playbook, runbook, prd</text>
