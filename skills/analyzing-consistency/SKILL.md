@@ -5,11 +5,13 @@ description: Use after the implementation plan is written and before coding star
 
 # Analyzing Consistency
 
+Paths: `<intents>` is the feature's documents folder, `<state>` its state file and `<docs>` the sdlc docs folder (`docs_dir`); `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" paths <feature>` prints them for this repo's layout.
+
 Adapted from GitHub Spec Kit's `analyze` command (MIT, see NOTICE.md).
 
 **Read-only.** Do not edit any file. Produce a report, then offer fixes the user must approve.
 
-The constitution (`.sdlc/constitution.md`, if present) is non-negotiable here: a conflict with a MUST principle is always CRITICAL, and the fix is to change the spec/design/plan, not to reinterpret the principle.
+The constitution (`<docs>/constitution.md`, if present) is non-negotiable here: a conflict with a MUST principle is always CRITICAL, and the fix is to change the spec/design/plan, not to reinterpret the principle.
 
 ## 1. Load (only what you need)
 

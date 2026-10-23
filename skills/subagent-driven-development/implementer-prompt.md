@@ -1,5 +1,7 @@
 # Implementer Subagent Prompt Template
 
+Paths: `<intents>` is the feature's documents folder, `<state>` its state file and `<docs>` the sdlc docs folder (`docs_dir`); `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" paths <feature>` prints them for this repo's layout.
+
 Use this template when dispatching an implementer subagent.
 
 ```
@@ -78,7 +80,7 @@ Subagent (general-purpose):
     - Comments say *why* the code can't show, nothing else: no narration ("Step 1",
       "Now we…"), no restating code, no references to this task or its history. Doc
       comments only on exported API, one line by default. Match the file's comment density.
-    - UI work: read `.sdlc/design-system.md` first and follow it strictly. Tokens only
+    - UI work: read `<docs>/design-system.md` first and follow it strictly. Tokens only
       (no raw hex/rgb, arbitrary Tailwind values or inline styles), the system's
       components, no generic AI styling (gradients, glassmorphism, emoji icons, filler
       copy), every state the task names. A missing token or component is a concern to

@@ -6,6 +6,8 @@ allowed-tools: ["Bash", "Glob", "Grep", "Read", "Task"]
 
 # Comprehensive PR Review
 
+Paths: `<intents>` is the feature's documents folder, `<state>` its state file and `<docs>` the sdlc docs folder (`docs_dir`); `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" paths <feature>` prints them for this repo's layout.
+
 Run a comprehensive pull request review using multiple specialized agents, each focusing on a different aspect of code quality.
 
 **Review Aspects (optional):** "$ARGUMENTS"
@@ -42,7 +44,7 @@ Run a comprehensive pull request review using multiple specialized agents, each 
    - **If comments/docs added, or diff stats flag comment-heavy files**: comment-analyzer
    - **If error handling changed**: silent-failure-hunter
    - **If types added/modified**: type-design-analyzer
-   - **If UI files changed** (paths in `areas.ui`, from `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" config`): ui-reviewer, with `.sdlc/design-system.md`. Its High findings are Critical. Add "visual check requested" to its brief only when the user asked for screenshots.
+   - **If UI files changed** (paths in `areas.ui`, from `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" config`): ui-reviewer, with `<docs>/design-system.md`. Its High findings are Critical. Add "visual check requested" to its brief only when the user asked for screenshots.
    - **Before the other reviewers**: code-simplifier (polish and refine), so they review the code that will merge
 
 5. **Launch Review Agents**

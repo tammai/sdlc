@@ -5,6 +5,8 @@ description: Use when saving a lesson, decision, gotcha or runbook so future age
 
 # Managing Knowledge (3-tier loading)
 
+Paths: `<intents>` is the feature's documents folder, `<state>` its state file and `<docs>` the sdlc docs folder (`docs_dir`); `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" paths <feature>` prints them for this repo's layout.
+
 Goal: the agent sees the right knowledge at the right moment, and nothing else. Context is the budget; every always-loaded line costs every session.
 
 | Tier | Where | Loads | Budget |
@@ -41,7 +43,7 @@ For each candidate (from a retro, a review, a debugging session, or the user say
    - `knowledge/decisions/<yyyy-mm>-<slug>.md` — `type: decision` (context, decision, alternatives, consequences)
    - `knowledge/gotchas/<slug>.md` — `type: gotcha` (symptom, cause, fix, how to detect)
    - `knowledge/runbooks/<slug>.md` — `type: runbook` (when, steps, verify, rollback)
-   - `knowledge/features/<slug>.md` — `type: feature` (one paragraph + links to `.sdlc/<slug>/spec.md`, `design.md`, `retro.md`)
+   - `knowledge/features/<slug>.md` — `type: feature` (one paragraph + links to `<intents>/spec.md`, `design.md`, `retro.md`)
    Template: `${CLAUDE_PLUGIN_ROOT}/templates/knowledge/doc.md`. Link related docs with relative Markdown links.
 6. **Wire it in:** add one line to `knowledge/index.md` (path + ≤12-word description) and, for path-related docs, a link from the matching tier-2 rule. An unlinked tier-3 doc is invisible — never leave one.
 7. **Log it:** `knowledge/log.md` → `- YYYY-MM-DD <add|update|remove> <path> — <why> (from <feature>)`.

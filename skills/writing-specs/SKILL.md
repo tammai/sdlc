@@ -1,9 +1,11 @@
 ---
 name: writing-specs
-description: Use when turning a feature request or a brainstorm into a written requirements spec (what and why, no implementation), before any design or planning. Writes .sdlc/<feature>/spec.md and a spec-quality checklist.
+description: Use when turning a feature request or a brainstorm into a written requirements spec (what and why, no implementation), before any design or planning. Writes the feature's spec.md and a spec-quality checklist.
 ---
 
 # Writing Specs
+
+Paths: `<intents>` is the feature's documents folder, `<state>` its state file and `<docs>` the sdlc docs folder (`docs_dir`); `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" paths <feature>` prints them for this repo's layout.
 
 Adapted from GitHub Spec Kit's `specify` command (MIT, see NOTICE.md).
 
@@ -11,14 +13,14 @@ A spec says **what** users need and **why**. It never says how: no languages, fr
 
 ## Inputs
 
-- The feature request, and `.sdlc/<feature>/brainstorm.md` if Stage 1 started with brainstorming.
-- `.sdlc/constitution.md` if it exists (project principles; treat MUST rules as hard constraints).
+- The feature request, and `<intents>/brainstorm.md` if Stage 1 started with brainstorming.
+- `<docs>/constitution.md` if it exists (project principles; treat MUST rules as hard constraints).
 - Template: `${CLAUDE_PLUGIN_ROOT}/templates/spec-template.md`
 
 ## Steps
 
-1. **Name the feature.** If the orchestrator already chose the name, use it. Otherwise: `<yyyy-mm-dd>-<slug>`, or `<yyyy-mm-dd>-<ticket>-<slug>` when the request names a ticket (`2026-10-22-PROJ-123-month-filter`; a GitHub issue is `gh-42`). The date is today's, the same as `Started:`; the slug is 2–4 kebab-case words, action-noun where possible (`user-auth`, `fix-payment-timeout`), keeping technical terms (OAuth2, JWT). If `.sdlc/<name>/` already exists and isn't the feature being resumed, add `-2` (then `-3`, …). The feature's branch and `knowledge/features/<name>.md` use the same name. The feature directory is `.sdlc/<name>/`.
-2. **Copy the template** to `.sdlc/<name>/spec.md` and fill it, keeping section order and headings.
+1. **Name the feature.** If the orchestrator already chose the name, use it. Otherwise: `<yyyy-mm-dd>-<slug>`, or `<yyyy-mm-dd>-<ticket>-<slug>` when the request names a ticket (`2026-10-22-PROJ-123-month-filter`; a GitHub issue is `gh-42`). The date is today's, the same as `Started:`; the slug is 2–4 kebab-case words, action-noun where possible (`user-auth`, `fix-payment-timeout`), keeping technical terms (OAuth2, JWT). If `<intents>/` already exists and isn't the feature being resumed, add `-2` (then `-3`, …). The feature's branch and `knowledge/features/<name>.md` use the same name. The feature directory is `<intents>/`.
+2. **Copy the template** to `<intents>/spec.md` and fill it, keeping section order and headings.
 3. **Extract** actors, actions, data, constraints from the request.
 4. **Unclear points:** make an informed guess from context and industry norms, and record it under Assumptions. Mark `[NEEDS CLARIFICATION: <specific question>]` only when the choice changes scope or UX, several reasonable readings exist, and no sensible default does. **Maximum 3 markers.** Priority: scope > security/privacy > UX > technical detail.
 5. **User scenarios** with acceptance scenarios (Given/When/Then). If no clear user flow exists, stop and say so.
@@ -30,7 +32,7 @@ A spec says **what** users need and **why**. It never says how: no languages, fr
 
 ## Quality check
 
-Write `.sdlc/<name>/checklists/requirements.md`:
+Write `<intents>/checklists/requirements.md`:
 
 ```markdown
 # Spec Quality Checklist: <feature>

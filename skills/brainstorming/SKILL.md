@@ -5,6 +5,8 @@ description: "You MUST use this before any creative work - creating features, bu
 
 # Brainstorming
 
+Paths: `<intents>` is the feature's documents folder, `<state>` its state file and `<docs>` the sdlc docs folder (`docs_dir`); `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" paths <feature>` prints them for this repo's layout.
+
 You are very good at building. You build what you believe your human
 partner wants, and that belief is usually thinner than it feels. This
 skill is for finding out what they actually want, and why, before
@@ -223,7 +225,7 @@ or two each and goes straight to your human partner, without the
 builder check.
 
 **Where it goes:** in a software repo,
-`.sdlc/<feature>/brainstorm.md`, committed. The orchestrator turns it into
+`<intents>/brainstorm.md`, committed. The orchestrator turns it into
 `spec.md` (requirements) and `design.md` (the chosen approach).
 Otherwise, ask. Your human partner's preferences override both.
 

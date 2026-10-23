@@ -7,7 +7,7 @@ $S status          # drift must be "behind"
 $S upgrade-plan    # add / regenerate / replace / review / restore / template_gone + pending_migrations
 ```
 
-Summarize the plan for the user in a few lines (counts per bucket, each migration's summary). If a feature is mid-stage (`.sdlc/*/state.md` with `Status: active` past Stage 3), recommend finishing it first; continue only if the user confirms. `--dry-run` requested → stop after the summary.
+Summarize the plan for the user in a few lines (counts per bucket, each migration's summary). If a feature is mid-stage (a feature state file, `.sdlc/state/*.md` or the old `.sdlc/*/state.md`, with `Status: active` past Stage 3), recommend finishing it first; continue only if the user confirms. `--dry-run` requested → stop after the summary.
 
 Clean working tree, then branch `sdlc/upgrade-<from>-<to>`. One commit per bucket.
 

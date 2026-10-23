@@ -5,6 +5,8 @@ description: Use when a project has no .sdlc/config.json yet (new or existing re
 
 # Setting Up Projects
 
+Paths: `<intents>` is the feature's documents folder, `<state>` its state file and `<docs>` the sdlc docs folder (`docs_dir`); `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" paths <feature>` prints them for this repo's layout.
+
 Decisions behind it: `${CLAUDE_PLUGIN_ROOT}/docs/adr/0001-project-setup-upgrade-eject.md` and `0002-record-the-repos-own-commands.md`. This skill is the procedure; `scripts/scaffold.py` keeps the records exact. You make the judgment calls, the script does the bookkeeping. Never hand-edit `.sdlc/scaffold.lock.json`.
 
 ```bash
@@ -35,7 +37,7 @@ Every file the plugin places is in one class (the lock records it). Respect it i
 | Seeded | `.claude/hookify/sdlc-*.md`, `.github/workflows/sdlc-verify.yml`, `.sdlc/lint/*` | `$S render --if-unchanged`; exit 2 → show the user a diff, never overwrite |
 | Keyed merge | `.claude/settings.json` allow entries and plugin-enablement keys, `.gitignore` lines | only via `$S allow` / `$S enable-plugin` / `$S gitignore` |
 | Commands | `commands` / `packages[].commands` in `.sdlc/config.json` | user-owned data; `$S contract` checks, `$S commands` prints the verify plan |
-| User-owned | `CLAUDE.md`, `.sdlc/constitution.md`, `.sdlc/design-system.md`, `knowledge/**`, `.sdlc/baseline.md`, other `.claude/rules/*.md` | write once with approval; afterwards only through approved migrations |
+| User-owned | `CLAUDE.md`, `<docs>/constitution.md`, `<docs>/design-system.md`, `knowledge/**`, `.sdlc/baseline.md`, other `.claude/rules/*.md` | write once with approval; afterwards only through approved migrations |
 
 Plugin-owned files are named `sdlc-*` (or `sdlc.md`); everything else belongs to the project.
 
@@ -45,7 +47,7 @@ Plugin-owned files are named `sdlc-*` (or `sdlc.md`); everything else belongs to
 
 **Mode:** greenfield when the repo has no source files (ignore README, LICENSE, docs, dotfiles); brownfield otherwise. If it's unclear (only docs, a spike folder), ask.
 
-1. `detect` – `$S init --kind <greenfield|brownfield>`. Then follow `references/greenfield.md` or `references/brownfield.md` for the stack, commands, baseline, audit and CI steps. Both end with the project's commands recorded and checked (`$S contract` → `"ok": true`).
+1. `detect` – first `$S status` → `docs_site`: if it names a file, the repo builds a site from `docs/`, so `docs/sdlc` (where sdlc documents go) would be published. Say so and ask where they go: `.sdlc` itself, a folder of their choice, or `docs/sdlc` anyway. Then `$S init --kind <greenfield|brownfield> --docs-dir <that folder>` (default `docs/sdlc`). If `init` reports `legacy_features` (features from before setup), run `$S relocate --docs-dir <d>` (preview), then `--apply` once the user agrees. Then follow `references/greenfield.md` or `references/brownfield.md` for the stack, commands, baseline, audit and CI steps. Both end with the project's commands recorded and checked (`$S contract` → `"ok": true`).
 2. Then the common steps below, in order.
 
 ### Common steps
@@ -59,13 +61,13 @@ Plugin-owned files are named `sdlc-*` (or `sdlc.md`); everything else belongs to
 | `enable-plugin` | **Ask first** (it makes Claude Code prompt every teammate who trusts the repo to install sdlc): `$S enable-plugin` adds the sdlc marketplace and `enabledPlugins` to `.claude/settings.json`, keeping keys the user already set. Declined → record the step and say so. |
 | `gitignore` | `$S gitignore --add ".sdlc/.work/" ".claude/*.local.md"` |
 | `constitution` | `sdlc:project-constitution`, inferring from the repo and the interview; keep the default **V. Simplicity**. User approves. |
-| `design-system` | Only when the project has UI: files match `areas.ui`, or the greenfield stack has a web, mobile or desktop UI. No UI → record the step and say so. First fix `areas.ui` to the real UI paths (e.g. `lib/**/*.dart` for Flutter, `**/*View.swift`). **Existing system:** find it (tokens or theme files, Tailwind theme or `@theme`, the UI library in the manifest, shadcn's `components.json`, a `components/ui` folder, Storybook) and fill `.sdlc/design-system.md` from `${CLAUDE_PLUGIN_ROOT}/templates/design-system-template.md`, pointing at it rather than copying values. **None:** propose one mainstream component library for the stack plus a minimal token set (color roles, spacing, type scale, radius), create the tokens file in the stack's usual place, and fill the doc from it; never invent a full bespoke system. User approves. |
+| `design-system` | Only when the project has UI: files match `areas.ui`, or the greenfield stack has a web, mobile or desktop UI. No UI → record the step and say so. First fix `areas.ui` to the real UI paths (e.g. `lib/**/*.dart` for Flutter, `**/*View.swift`). **Existing system:** find it (tokens or theme files, Tailwind theme or `@theme`, the UI library in the manifest, shadcn's `components.json`, a `components/ui` folder, Storybook) and fill `<docs>/design-system.md` from `${CLAUDE_PLUGIN_ROOT}/templates/design-system-template.md`, pointing at it rather than copying values. **None:** propose one mainstream component library for the stack plus a minimal token set (color roles, spacing, type scale, radius), create the tokens file in the stack's usual place, and fill the doc from it; never invent a full bespoke system. User approves. |
 | `knowledge` | If `knowledge/index.md` is missing: `sdlc:managing-knowledge` setup, **steps 1 and 3 only** (index, log, folders, area rules). Skip its `CLAUDE.md` step: the knowledge pointer already lives in `.claude/rules/sdlc.md`, and setup never creates or edits `CLAUDE.md`. Brownfield: the audit's approved drafts go here. User-owned from the start. |
 | `finalize` | `$S step-done finalize --complete`, final commit, then **ask**: open a PR (`gh pr create`, body lists what was added and why) or merge `sdlc/setup` locally. Never push or merge without the answer. |
 
 ## Hard stops (always ask)
 
-Stack choice (greenfield) · monorepo team size, team handles, `infras/` and the contract check (`references/monorepo.md`) · the commands (brownfield) · installing any tool · each audit batch before it is written · each AI-config migration · adding CI to a repo that already has CI · lint config import · constitution · design system · enabling the plugin for the team · PR vs local merge. Everything else proceeds without asking.
+Stack choice (greenfield) · where sdlc documents go when the repo has a docs site · monorepo team size, team handles, `infras/` and the contract check (`references/monorepo.md`) · the commands (brownfield) · installing any tool · each audit batch before it is written · each AI-config migration · adding CI to a repo that already has CI · lint config import · constitution · design system · enabling the plugin for the team · PR vs local merge. Everything else proceeds without asking.
 
 ## Report
 

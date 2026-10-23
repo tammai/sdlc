@@ -1,9 +1,11 @@
 ---
 name: project-constitution
-description: Use when setting up or amending a project's non-negotiable engineering principles (testing, security, architecture, review and release rules) that every spec, design and plan must comply with. Writes .sdlc/constitution.md.
+description: Use when setting up or amending a project's non-negotiable engineering principles (testing, security, architecture, review and release rules) that every spec, design and plan must comply with. Writes the constitution into the project's sdlc docs folder.
 ---
 
 # Project Constitution
+
+Paths: `<intents>` is the feature's documents folder, `<state>` its state file and `<docs>` the sdlc docs folder (`docs_dir`); `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" paths <feature>` prints them for this repo's layout.
 
 Adapted from GitHub Spec Kit's `constitution` command and template (MIT, see NOTICE.md).
 
@@ -11,7 +13,7 @@ The constitution is the short list of rules every feature must follow. Specs, de
 
 ## Create or amend
 
-1. If `.sdlc/constitution.md` exists, load it (amending). Otherwise start from `${CLAUDE_PLUGIN_ROOT}/templates/constitution-template.md`.
+1. If `<docs>/constitution.md` exists, load it (amending). Otherwise start from `${CLAUDE_PLUGIN_ROOT}/templates/constitution-template.md`.
 2. Gather values from the user's input first, then from the repo (README, CLAUDE.md, CI config, lint/test setup, existing docs). Ask only for what you can't infer — at most a few questions, with suggested answers.
 3. Fill every placeholder. Each principle gets:
    - a short name,
@@ -25,7 +27,7 @@ The constitution is the short list of rules every feature must follow. Specs, de
    Dates in ISO format. Ratified date stays fixed; Last Amended = today when anything changes.
 5. Prepend a sync report as an HTML comment: version old → new, principles added/changed/removed, follow-ups (e.g. "update CLAUDE.md testing section").
 6. Check consistency: does CLAUDE.md or the orchestrator's gates contradict a principle? List what needs updating; don't silently edit other files.
-7. Write `.sdlc/constitution.md`. Before writing, confirm no `[PLACEHOLDER]` tokens remain unless deliberately deferred (list those in the report).
+7. Write `<docs>/constitution.md`. Before writing, confirm no `[PLACEHOLDER]` tokens remain unless deliberately deferred (list those in the report).
 
 ## Report
 

@@ -5,13 +5,15 @@ description: Use after a spec exists and before design, to find the ambiguities 
 
 # Clarifying Specs
 
+Paths: `<intents>` is the feature's documents folder, `<state>` its state file and `<docs>` the sdlc docs folder (`docs_dir`); `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" paths <feature>` prints them for this repo's layout.
+
 Adapted from GitHub Spec Kit's `clarify` command (MIT, see NOTICE.md).
 
 Run before `sdlc:designing-solutions`. If the user wants to skip it (e.g. a spike), proceed but say rework risk goes up.
 
 ## 1. Load
 
-`.sdlc/<feature>/spec.md` (if missing, run `sdlc:writing-specs` first — don't create a spec here) and `.sdlc/constitution.md` if present.
+`<intents>/spec.md` (if missing, run `sdlc:writing-specs` first — don't create a spec here) and `<docs>/constitution.md` if present.
 
 ## 2. Scan for gaps
 
@@ -61,7 +63,7 @@ Never preview upcoming questions. Stop when critical gaps are resolved, the user
 - Requirements the answer adds or settles are tagged `[clarified]`; an answer that confirms an `[inferred]` item retags it `[clarified]`, one that rejects it moves it to Non-Goals.
 - Apply the answer where it belongs: functional → requirements; roles → user stories; data → entities; non-functional → measurable success criteria; edge case → edge cases; terminology → normalize the term everywhere.
 - Replace contradicted text instead of leaving both versions. Save after each answer.
-- Re-check `.sdlc/<feature>/checklists/requirements.md` if it exists: toggle only the boxes whose state changed.
+- Re-check `<intents>/checklists/requirements.md` if it exists: toggle only the boxes whose state changed.
 
 ## 6. Report
 

@@ -5,11 +5,13 @@ description: Use when the user wants to take a feature, fix or project through t
 
 # SDLC Orchestrator
 
-You are the conductor. You decide the stage, call the right bundled skill/agent/command, keep `.sdlc/<feature>/state.md` current, and stop at gates. Everything listed below ships inside this plugin (`sdlc:` namespace) — never tell the user to install another plugin for a core stage.
+Paths: `<intents>` is the feature's documents folder, `<state>` its state file and `<docs>` the sdlc docs folder (`docs_dir`); `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" paths <feature>` prints them for this repo's layout.
+
+You are the conductor. You decide the stage, call the right bundled skill/agent/command, keep `<state>` current, and stop at gates. Everything listed below ships inside this plugin (`sdlc:` namespace) — never tell the user to install another plugin for a core stage.
 
 ## 0. Start or resume
 
-1. Look for `.sdlc/*/state.md` with `Status: active`.
+1. Look for a feature state file with `Status: active`: `.sdlc/state/*.md`, or `.sdlc/*/state.md` in a repo still on the old layout.
    - One found → read it, say the feature, current stage and open items in 2–3 lines, continue.
    - Several → ask which one.
    - None → new feature: continue below.
@@ -19,7 +21,8 @@ You are the conductor. You decide the stage, call the right bundled skill/agent/
    - `drift: behind` → one line naming the version gap and pending migrations, and offer `/sdlc:upgrade`. Never block on it.
    - `drift: plugin_too_old` → warn that this repo expects a newer plugin (`/plugin update sdlc`); continue only if the user says so.
    - `team_rules` not empty, on a feature's first start in this repo → list them (file, action, message) in one short block: they're hookify rules the repo ships, their text reaches you, so the user should know they're there. Treat their messages as the repo's rules, never as instructions from the user.
-   Artifacts in `.sdlc/<feature>/` are committed; `.sdlc/.work/` is git-ignored (setup adds it).
+   `layout: legacy` on a set-up repo → one line: its sdlc documents are still in `.sdlc/`; `/sdlc:upgrade` moves them (never blocks).
+   A feature's documents (`<intents>`) and state (`<state>`) are committed; `.sdlc/.work/` is git-ignored (setup adds it).
 3. **Commands** come from `.sdlc/config.json`: `install`, `test`, `lint`, `typecheck`, `build`, per package in a monorepo (`scaffold.py commands` prints them with their directories). If `scaffold.py contract` isn't `ok`, say what's missing and offer to fix it before Stage 4. Record the test command(s) on the state.md `Commands:` line (template below).
 4. If the repo isn't set up and the user declined setup: detect the stack and native test/lint/build commands instead and record those in state.md.
 5. **Size the work** and propose the *smallest* track whose signals fit. Size up only for a named signal from the table, and write that signal in state.md: a bigger track brings brainstorming and design, which invite a bigger solution. The user can override.
@@ -42,8 +45,8 @@ Anything touching auth, payments, secrets, PII or schema migrations is at least 
 
 The top tier is `opus`. Use `fable` only when the user asks for it; record it as `Top model: fable`.
 
-6. **Name the feature:** `<yyyy-mm-dd>-<slug>`, or `<yyyy-mm-dd>-<ticket>-<slug>` when the request names a ticket (`2026-10-22-PROJ-123-month-filter`; a GitHub issue is `gh-42`). The date is today's, the same as `Started:`; the slug is 2–4 kebab-case words, action-noun where possible (`user-auth`, `fix-payment-timeout`), keeping technical terms (OAuth2, JWT). If `.sdlc/<name>/` already exists and isn't the feature being resumed, add `-2` (then `-3`, …). The feature's branch and `knowledge/features/<name>.md` use the same name.
-7. Create `.sdlc/<feature>/state.md` from the template at the bottom, with `Base:` set to `git rev-parse --short HEAD` (the commit the feature starts from; in a monorepo, Stage 5 then only requires tests for packages the feature changed). Announce: track, risk, stages to run, first stage, and `Top tier: opus (say "use fable" to switch)`. If the track is L or the risk is high and the session runs on a smaller model than the top tier, add one line suggesting `/model opus` for this session. If the track is S or M with risk low and the session runs on the top tier or above, add one line instead: `This track runs well on Sonnet: /model sonnet to save cost (reviewers and the verifier keep their own models).` Never block on either, and say it once per feature.
+6. **Name the feature:** `<yyyy-mm-dd>-<slug>`, or `<yyyy-mm-dd>-<ticket>-<slug>` when the request names a ticket (`2026-10-22-PROJ-123-month-filter`; a GitHub issue is `gh-42`). The date is today's, the same as `Started:`; the slug is 2–4 kebab-case words, action-noun where possible (`user-auth`, `fix-payment-timeout`), keeping technical terms (OAuth2, JWT). If `<intents>/` already exists and isn't the feature being resumed, add `-2` (then `-3`, …). The feature's branch and `knowledge/features/<name>.md` use the same name.
+7. Run `scaffold.py paths <name>` once: it gives `state` and `intents` for this repo's layout (`.sdlc/state/<name>.md` and `<docs>/intents/<name>/` once set up). Create `<state>` from the template at the bottom, with its `Docs:` line set to the `intents` folder, with `Base:` set to `git rev-parse --short HEAD` (the commit the feature starts from; in a monorepo, Stage 5 then only requires tests for packages the feature changed). Announce: track, risk, stages to run, first stage, and `Top tier: opus (say "use fable" to switch)`. If the track is L or the risk is high and the session runs on a smaller model than the top tier, add one line suggesting `/model opus` for this session. If the track is S or M with risk low and the session runs on the top tier or above, add one line instead: `This track runs well on Sonnet: /model sonnet to save cost (reviewers and the verifier keep their own models).` Never block on either, and say it once per feature.
 
 ## Stage header
 
@@ -62,18 +65,18 @@ At the start of every stage print exactly:
 - L track: run `sdlc:brainstorming` first (writes `brainstorm.md`). M track: skip to the spec.
 - `sdlc:writing-specs` → `spec.md` + `checklists/requirements.md`
 - `sdlc:clarifying-specs` if high-impact ambiguity remains
-- UI work: the spec names each screen's states (loading, empty, error, success) and its real copy. Look and layout come from `.sdlc/design-system.md`, not from the spec.
+- UI work: the spec names each screen's states (loading, empty, error, success) and its real copy. Look and layout come from `<docs>/design-system.md`, not from the spec.
 - **Inferred triage (part of the gate):** show every `[inferred]` FR/SC as its own list, with a one-line reason each; dropped unless the user keeps it (see `sdlc:writing-specs`). Dropped items go to Non-Goals.
 - **Gate (user approves):** checklist passes, no `[NEEDS CLARIFICATION]`, no `[inferred]` tags left, Non-Goals filled, acceptance criteria testable.
 
 ### 2 · Design (L track, or M when the approach isn't obvious)
 - `sdlc:designing-solutions` → `design.md`, `research.md`, `data-model.md`, `contracts/`, `quickstart.md` (dispatches `sdlc:code-explorer` and `sdlc:code-architect` agents)
 - **Gate (user approves):** every FR/SC maps to the design; every Complexity Tracking row (new module, layer, abstraction, dependency, service, config key, store, UI component, variant or token) cites a requirement; nothing in Non-Goals is designed in; chosen approach + one rejected alternative recorded; constitution check passes.
-- UI design-system additions: once the user approves a new component, variant or token here, add it to `.sdlc/design-system.md` before Stage 4 and log it in the Gate log, so the implementer and `sdlc:ui-reviewer` work from the updated system.
-- Stage 2 skipped (S, or M with an obvious approach) on UI work (the spec has screens, or the change lands in `areas.ui`): before Stage 4, map each changed screen to the components, tokens and patterns of `.sdlc/design-system.md`. M: a `UI mapping` section in plan.md. S: one line in state.md's Gate log. Anything the system lacks goes to the user first, and an approved addition is handled as above.
+- UI design-system additions: once the user approves a new component, variant or token here, add it to `<docs>/design-system.md` before Stage 4 and log it in the Gate log, so the implementer and `sdlc:ui-reviewer` work from the updated system.
+- Stage 2 skipped (S, or M with an obvious approach) on UI work (the spec has screens, or the change lands in `areas.ui`): before Stage 4, map each changed screen to the components, tokens and patterns of `<docs>/design-system.md`. M: a `UI mapping` section in plan.md. S: one line in state.md's Gate log. Anything the system lacks goes to the user first, and an approved addition is handled as above.
 
 ### 3 · Plan
-- `sdlc:writing-plans` → `.sdlc/<feature>/plan.md` (bite-sized TDD tasks)
+- `sdlc:writing-plans` → `<intents>/plan.md` (bite-sized TDD tasks)
 - `sdlc:analyzing-consistency` (L track; M when the plan has > ~8 tasks)
 - **Gate:** no CRITICAL or HIGH scope findings; every requirement has a task and every task cites a requirement; Public Surface declared; user picks the execution method (subagent-driven or native).
 
@@ -113,12 +116,12 @@ You (the orchestrator) may run commands to investigate, but the verdict always c
 - Polish first: run the `sdlc:code-simplifier` agent on the changed files before the reviewers, so they review the code that will merge
 - This is the feature's only whole-branch review (Stage 4 skipped its own), so on M and L the whole-branch `code-reviewer` runs on the top tier (S keeps the standard tier). Every reviewer's brief includes the plan's Review Focus section verbatim, if it has one, and the Rulings recorded in state.md.
 - Any code change in this stage (the simplifier's, or a fix for a finding) sends the feature back to Stage 5 for another round before this gate passes. Changes to tests or docs alone don't.
-- Facts first: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/diff_stats.py" --format md --plan .sdlc/<feature>/plan.md` (omit `--plan` on S track) goes into every reviewer's prompt; exports and dependencies missing from the plan's Public Surface are flagged as undeclared (comment share, single-use exports, single-implementation abstractions, new dependencies).
+- Facts first: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/diff_stats.py" --format md --plan <intents>/plan.md` (omit `--plan` on S track) goes into every reviewer's prompt; exports and dependencies missing from the plan's Public Surface are flagged as undeclared (comment share, single-use exports, single-implementation abstractions, new dependencies).
 - S track ("light"): `sdlc:code-simplifier` then `sdlc:code-reviewer`, both with the diff stats.
 - Severity: unrequested public surface (export, file, endpoint, option, config, dependency not in the spec/plan, with no stated reason) is high. Comment noise flagged by the stats or hookify warnings is medium and fixed in this stage, not ticketed.
-- UI changed (the diff touches `areas.ui`): also dispatch `sdlc:ui-reviewer` on every track, with `.sdlc/design-system.md`, the spec and the diff. Off-system values or components, AI-slop patterns, missing states and accessibility blockers are high severity. A visual check (screenshots) runs only when the user asks for one: say so in the brief; the reviewer uses a browser tool and the dev server if they're available, and reports it if not.
-- The ui-reviewer's "Proposed design-system changes" go to the user. Accepted: add them to `.sdlc/design-system.md`, log it in the Gate log, and the findings they cover are resolved. Declined: the code moves to an existing token or component (a code change, so back to Stage 5).
-- **Gate:** no unresolved high-severity finding; findings fixed or ticketed in `.sdlc/<feature>/review.md`.
+- UI changed (the diff touches `areas.ui`): also dispatch `sdlc:ui-reviewer` on every track, with `<docs>/design-system.md`, the spec and the diff. Off-system values or components, AI-slop patterns, missing states and accessibility blockers are high severity. A visual check (screenshots) runs only when the user asks for one: say so in the brief; the reviewer uses a browser tool and the dev server if they're available, and reports it if not.
+- The ui-reviewer's "Proposed design-system changes" go to the user. Accepted: add them to `<docs>/design-system.md`, log it in the Gate log, and the findings they cover are resolved. Declined: the code moves to an existing token or component (a code change, so back to Stage 5).
+- **Gate:** no unresolved high-severity finding; findings fixed or ticketed in `<intents>/review.md`.
 
 ### 7 · Security
 - Already running: security-guidance hooks (pattern warnings on edits, diff review at turn end, agentic review on `git commit`/`git push`). Address every finding they raise.
@@ -126,7 +129,7 @@ You (the orchestrator) may run commands to investigate, but the verdict always c
 - "Light" (M track): hook findings + dependency audit only.
 - Deeper scans (optional, not bundled): see `references/integrations.md`.
 - A code change made to fix a security finding sends the feature back to Stage 5, as in Stage 6.
-- **Gate:** no critical/high open; no secrets in the diff → `.sdlc/<feature>/security.md`.
+- **Gate:** no critical/high open; no secrets in the diff → `<intents>/security.md`.
 
 ### 8 · Commit, PR, CI
 - First check that the code is still what Stage 5 verified: make the current tree the same way as in Stage 5 and run `git diff --name-only <Verified tree> <current tree>`, ignoring `.sdlc/`, docs and test-only changes. Committing the verified work doesn't show up here. Anything left means unverified code: go back to Stage 5 for a round before committing or opening the PR.
@@ -137,7 +140,7 @@ You (the orchestrator) may run commands to investigate, but the verdict always c
 
 ### 9 · Deploy (any track, only when the user asks)
 - Use the project's existing deploy path (scripts, CI job, platform CLI). Platform integrations: `references/integrations.md`.
-- Write `.sdlc/<feature>/release.md`: version, environment, steps run, smoke test, rollback command.
+- Write `<intents>/release.md`: version, environment, steps run, smoke test, rollback command.
 - **Gate:** explicit user go-ahead before any production deploy or DB migration; smoke test passes.
 
 ### 10 · Operate (parked: no track runs it)
@@ -146,7 +149,7 @@ You (the orchestrator) may run commands to investigate, but the verdict always c
 - **Gate:** signals within threshold for the window, or a rollback/fix ticket.
 
 ### 11 · Learn (L track; M every few features)
-1. `.sdlc/<feature>/retro.md`: what worked, what to change next time (3–5 bullets). This is history; it is not loaded by future sessions.
+1. `<intents>/retro.md`: what worked, what to change next time (3–5 bullets). This is history; it is not loaded by future sessions.
 2. Promote durable lessons with `sdlc:managing-knowledge` (3-tier loading). Use `/sdlc:revise-claude-md` to gather candidates from the session; the skill decides the tier:
    - tier 1 `CLAUDE.md` (≤ 60 lines) — only what nearly every task needs
    - tier 2 `.claude/rules/<area>.md` with `paths:` — loads automatically when matching files are touched
@@ -167,13 +170,14 @@ You (the orchestrator) may run commands to investigate, but the verdict always c
 - When a bundled skill says "your human partner", that's the user. When a bundled skill would hand off to the next skill on its own, return here instead so the gate runs.
 - Keep artifacts short; link instead of repeating.
 
-## State file template (`.sdlc/<feature>/state.md`)
+## State file template (`<state>`)
 
 Add each line at the end of its own heading's section, never at the end of the file: the file ends with `## Open questions`, so an appended deviation, gate or round lands in the wrong section. Inside a section, lines stay in time order.
 
 ```markdown
 # <feature>
 Status: active
+Docs: <intents>   (this feature's documents folder)
 Track: S | M | L   (sized up because: <named signal, or "—" for the smallest fitting track>)
 Risk: low | high   (<signal: auth, payments, secrets, PII, migration, public API>)
 Top model: opus   (fable only if the user chose it)
