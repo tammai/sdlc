@@ -20,7 +20,6 @@ Test commands: `commands.test` / `packages[].commands.test` from .sdlc/config.js
 State lives in .sdlc/.work/verify-freshness.json. Never fails the session: any error exits 0 silently and leaves
 .sdlc/.work/verify-freshness.error, which /sdlc:doctor reports; the next clean run removes it.
 """
-import glob
 import json
 import os
 import re
@@ -30,6 +29,8 @@ import subprocess
 import sys
 import tempfile
 from datetime import datetime, timezone
+
+import sdlc_layout  # sibling module: where feature state and sdlc documents live
 
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 NON_CODE_DIRS = (".sdlc/", "knowledge/", ".claude/", ".git/", "docs/")
@@ -73,8 +74,8 @@ def project_root(cwd):
 def feature_base(root, feature):
     """The commit the feature started from (`Base:` in its state.md), or None."""
     try:
-        text = open(os.path.join(root, ".sdlc", feature, "state.md"), encoding="utf-8").read()
-    except OSError:
+        text = open(os.path.join(root, sdlc_layout.features(root)[feature]["state"]), encoding="utf-8").read()
+    except (OSError, KeyError):
         return None
     m = re.search(r"^Base:\s*`?([0-9a-f]{7,40})\b", text, re.M)
     return m.group(1) if m else None
@@ -111,16 +112,16 @@ def initial_scope_state(root, feature, scopes):
 
 
 def active_verify_feature(root):
-    for path in glob.glob(os.path.join(root, ".sdlc", "*", "state.md")):
+    for name, f in sdlc_layout.features(root).items():
         try:
-            text = open(path, encoding="utf-8").read()
+            text = open(os.path.join(root, f["state"]), encoding="utf-8").read()
         except OSError:
             continue
         if re.search(r"^Status:\s*active\b", text, re.M | re.I) and re.search(
             r"^Current:\s*Stage\s*5\b", text, re.M | re.I
         ):
             m = re.search(r"test:\s*`([^`]+)`", text)
-            return os.path.basename(os.path.dirname(path)), (m.group(1).strip() if m else None)
+            return name, (m.group(1).strip() if m else None)
     return None, None
 
 
@@ -243,7 +244,8 @@ def is_code_file(root, file_path):
     if not file_path:
         return False
     rel = os.path.relpath(os.path.abspath(file_path), root).replace(os.sep, "/")
-    if rel.startswith("..") or rel.startswith(NON_CODE_DIRS):
+    docs = sdlc_layout.docs_dir(root)
+    if rel.startswith("..") or rel.startswith(NON_CODE_DIRS) or (docs and rel.startswith(docs + "/")):
         return False
     return not rel.lower().endswith(NON_CODE_EXT)
 

@@ -14,13 +14,13 @@ next prompt accepts it: the current values become the new anchor. Only a prompt 
 the user can send one. A damaged record is a notice too; a deleted one can't be told from a first run (Known
 gaps in spec 02). State: .sdlc/.work/trust-anchor.json. Any error: no output.
 """
-import glob
 import hashlib
 import json
 import os
 import re
 import sys
 
+import sdlc_layout  # sibling module: where feature state and sdlc documents live
 import verify_freshness as vf  # sibling hook: project root, git, worktree trees, freshness state
 
 STATE = os.path.join(".sdlc", ".work", "trust-anchor.json")
@@ -85,7 +85,7 @@ def check(root, name, text, anchor):
             notices.append("the commands in .sdlc/config.json differ from Base")
         anchor["commands_seen"] = cmds_now
     st = stage(text)
-    spec = read(os.path.join(root, ".sdlc", name, "spec.md"))
+    spec = read(os.path.join(root, sdlc_layout.features(root).get(name, {}).get("intents", ""), "spec.md"))
     digest = hashlib.sha256(spec.encode("utf-8")).hexdigest() if spec is not None else None
     if st is not None and st >= 5:
         first = anchor.setdefault("spec", digest)
@@ -148,9 +148,9 @@ def main():
         saved = {}
     features, left = {}, []
     seen = set()
-    for p in glob.glob(os.path.join(root, ".sdlc", "*", "state.md")):
-        text = read(p) or ""
-        name = os.path.basename(os.path.dirname(p))
+    located = sdlc_layout.features(root)
+    for name, f in located.items():
+        text = read(os.path.join(root, f["state"])) or ""
         seen.add(name)
         status = (field(text, "Status") or "").lower()
         was = saved.get(name, {})
@@ -177,7 +177,7 @@ def main():
             anchor["status"] = "active"
             notices = check(root, name, text, anchor)
             anchor["fields_seen"] = {f: field(text, f) for f in FIELDS}
-            spec = read(os.path.join(root, ".sdlc", name, "spec.md"))
+            spec = read(os.path.join(root, located[name]["intents"], "spec.md"))
             anchor["spec_seen"] = hashlib.sha256(spec.encode("utf-8")).hexdigest() if spec is not None else None
             fresh = [n for n in notices if n not in anchor.get("notices", [])]
             anchor["notices"] = notices

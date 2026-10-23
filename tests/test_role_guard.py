@@ -29,6 +29,13 @@ class RoleGuardTest(ProjectTestCase):
         self.assertEqual(self.call("Edit", ".sdlc/login/spec.md", "sdlc:verifier"), "deny")  # no moving the goalposts
         self.assertEqual(self.call("Write", ".sdlc/.work/trust-anchor.json", "sdlc:verifier"), "deny")
 
+    def test_verifier_and_qa_tester_work_in_the_docs_folder(self):
+        self.write(".sdlc/config.json", '{"docs_dir": "docs/sdlc"}')
+        self.assertIsNone(self.call("Write", "docs/sdlc/intents/login/test-report.md", "sdlc:verifier"))
+        self.assertEqual(self.call("Edit", "docs/sdlc/intents/login/spec.md", "sdlc:verifier"), "deny")
+        self.assertIsNone(self.call("Read", "docs/sdlc/intents/login/spec.md", "sdlc:qa-tester"))
+        self.assertIsNone(self.call("Write", "docs/sdlc/intents/login/qa-report.md", "sdlc:qa-tester"))
+
     def test_qa_tester_reads_the_spec_but_not_the_code(self):
         self.assertIsNone(self.call("Read", ".sdlc/login/spec.md", "sdlc:qa-tester"))
         self.assertIsNone(self.call("Read", "README.md", "sdlc:qa-tester"))

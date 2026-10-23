@@ -40,6 +40,13 @@ class ModelRouterTest(ProjectTestCase):
         self.assertEqual(out["hookSpecificOutput"]["permissionDecision"], "deny")
         self.assertIn("name the subagent's model", out["hookSpecificOutput"]["permissionDecisionReason"])
 
+    def test_active_feature_in_the_new_layout_is_seen(self):
+        os.remove(self.path(".sdlc/login/state.md"))
+        self.write(".sdlc/config.json", json.dumps({"docs_dir": "docs/sdlc"}))
+        self.write(".sdlc/state/login.md", "# login\nStatus: active\nTrack: M\nRisk: low\nTop model: opus\n")
+        out = self.dispatch(subagent_type="sdlc:verifier")
+        self.assertEqual(out["hookSpecificOutput"]["permissionDecision"], "deny")
+
     def test_fable_with_the_users_opt_in_goes_ahead(self):
         self.write(".sdlc/login/state.md", "# login\nStatus: active\nTrack: M\nRisk: low\nTop model: fable\n")
         self.assertIsNone(self.dispatch(subagent_type="sdlc:code-reviewer", model="fable"))

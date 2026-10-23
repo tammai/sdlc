@@ -11,12 +11,13 @@ No active feature, or any error: no output, the dispatch goes ahead.
 While a feature is active, every dispatch is logged to .sdlc/.work/dispatches.jsonl (time, the features' current
 stage, agent, model, denied or not), so a gate can check which agent did a stage's work.
 """
-import glob
 import json
 import os
 import re
 import sys
 from datetime import datetime, timezone
+
+import sdlc_layout  # sibling module: where feature state and sdlc documents live
 
 REVIEWERS = {"code-reviewer", "feature-reviewer", "ui-reviewer", "verifier", "qa-tester"}
 TIERS = "haiku (cheap), sonnet (standard), opus (top); see Model Selection in sdlc:subagent-driven-development"
@@ -24,7 +25,8 @@ TIERS = "haiku (cheap), sonnet (standard), opus (top); see Model Selection in sd
 
 def active_states(root):
     states = []
-    for path in glob.glob(os.path.join(root, ".sdlc", "*", "state.md")):
+    for f in sdlc_layout.features(root).values():
+        path = os.path.join(root, f["state"])
         try:
             text = open(path, encoding="utf-8").read()
         except OSError:

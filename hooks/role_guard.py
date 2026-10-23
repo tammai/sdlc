@@ -4,16 +4,18 @@
 PreToolUse on file tools. Claude Code names the subagent making a call in `agent_type` (`sdlc:<agent>`); calls
 from the main session or other plugins' agents get no output. Denies, with the reason the agent sees:
   - a reviewer editing any file: reviewers report, they don't fix
-  - the verifier editing anything but test-report.md, .sdlc/baseline.md (it removes items that pass) and
-    .sdlc/.work/redgreen/ (its worktree): not source, the spec, config, state.md or the hooks' own state
-  - the qa-tester reading or searching project files other than .sdlc/ and READMEs, or writing anything but
-    qa-report.md and .sdlc/.work/qa/
+  - the verifier editing anything but test-report.md (in .sdlc/ or the docs folder), .sdlc/baseline.md (it removes
+    items that pass) and .sdlc/.work/redgreen/ (its worktree): not source, the spec, config, state or the hooks' state
+  - the qa-tester reading or searching project files other than .sdlc/, the docs folder (docs_dir) and READMEs, or
+    writing anything but qa-report.md and .sdlc/.work/qa/
 Paths outside the project (scratch dirs) are left alone. Bash stays open to all of them: they need it for git,
 tests and running the software, so that part of each role is still instructions. Any error: no output.
 """
 import json
 import os
 import sys
+
+import sdlc_layout  # sibling module: where feature state and sdlc documents live
 
 REVIEWERS = {"code-reviewer", "comment-analyzer", "feature-reviewer", "pr-test-analyzer", "silent-failure-hunter",
              "type-design-analyzer", "ui-reviewer"}
@@ -27,10 +29,11 @@ def rel_path(root, tool_input, cwd):
     return None if rel.startswith("..") else rel  # None: outside the project
 
 
-def problem(agent, tool, rel):
+def problem(agent, tool, rel, root):
     if rel is None:
         return None
-    in_sdlc = rel == ".sdlc" or rel.startswith(".sdlc/")
+    docs = sdlc_layout.docs_dir(root)
+    in_sdlc = rel == ".sdlc" or rel.startswith(".sdlc/") or bool(docs) and (rel == docs or rel.startswith(docs + "/"))
     if agent in REVIEWERS and tool in WRITES:
         return f"sdlc: {agent} reports findings; it doesn't edit files. Put the fix in your report instead."
     if agent == "verifier" and tool in WRITES and not (
@@ -55,7 +58,7 @@ def main():
             return
         root = os.path.abspath(os.environ.get("CLAUDE_PROJECT_DIR") or data.get("cwd") or os.getcwd())
         rel = rel_path(root, data.get("tool_input") or {}, data.get("cwd"))
-        reason = problem(agent.split(":", 1)[1], data.get("tool_name", ""), rel)
+        reason = problem(agent.split(":", 1)[1], data.get("tool_name", ""), rel, root)
         if reason:
             print(json.dumps({"hookSpecificOutput": {
                 "hookEventName": "PreToolUse",
