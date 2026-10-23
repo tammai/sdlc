@@ -13,6 +13,7 @@ Usage: python3 scaffold.py [--root DIR] <command> [args]   (see `python3 scaffol
 Stdlib only, Python 3.9+.
 """
 import argparse
+import glob
 import hashlib
 import json
 import os
@@ -147,9 +148,26 @@ def cmd_init(p, a):
     return {"initialized": True, "scaffold_version": version, "kind": a.kind}
 
 
+def team_rules(p):
+    """The repo's own hookify rules (not sdlc-*): their messages reach the model, so they're shown, not trusted."""
+    rules = []
+    for path in sorted(glob.glob(p.path(".claude/hookify/*.md"))):
+        name = os.path.basename(path)
+        if name.startswith("sdlc-"):
+            continue
+        with open(path, encoding="utf-8", errors="replace") as f:
+            text = f.read()
+        front, _, body = text.partition("\n---")
+        field = lambda k: (re.search(rf"^{k}:\s*(\S+)", front, re.M) or [None, None])[1]
+        rules.append({"file": f".claude/hookify/{name}", "event": field("event"), "action": field("action") or "warn",
+                      "enabled": (field("enabled") or "true").lower() != "false",
+                      "message": body.strip()[:200]})
+    return rules
+
+
 def cmd_status(p, a):
     pv = plugin_version()
-    out = {"plugin_version": pv, "configured": p.config is not None}
+    out = {"plugin_version": pv, "configured": p.config is not None, "team_rules": team_rules(p)}
     if p.lock is None:
         out.update(setup="none", drift=None)
         return out
@@ -364,7 +382,9 @@ def cmd_run_commands(p, a):
         runs.setdefault(step["scope"] or ROOT_SCOPE, {})[step["step"]] = rec
         if not rec["ran"]:
             not_runnable.append(f"{step['scope'] or ROOT_SCOPE} {step['step']}")
-    lock["command_runs"] = runs
+    # The lock is committed: keep the outcome, never the output (it can hold tokens); the tail is printed only
+    lock["command_runs"] = {name: {k: {f: r[f] for f in ("command", "ran", "exit", "at")} for k, r in steps.items()}
+                            for name, steps in runs.items()}
     p.save()
     if not_runnable:
         raise CommandsFailed({"scopes": runs, "not_runnable": not_runnable})

@@ -45,6 +45,7 @@ Conventions apply while code is written (policy rules), are checked as it happen
 |---|---|---|
 | GRD-FR-030 | Setup seeds `.sdlc/lint/eslint.sdlc.mjs` (complexity, depth, params, function length, TODOs, console; relaxed for tests) and `ruff.sdlc.toml` (complexity, branches, args, nesting, commented-out code, print, TODOs); the user's config imports them with an approved diff. | `[instructed]` setting-up-projects; templates render `[enforced]` test_project_templates › test_every_template_renders_without_leftover_placeholders |
 | GRD-FR-031 | A correction made twice and mechanically checkable becomes a hookify rule, not more text. | `[instructed]` managing-knowledge, orchestrator §11 |
+| GRD-FR-032 | `scaffold.py status` lists the repo's own hookify rules (every `.claude/hookify/*.md` not named `sdlc-*`) with event, action, enabled and message; `/sdlc:status` and the orchestrator's first start in a repo show them, since their text reaches the model. | `[enforced]` test_scaffold › test_status_lists_the_repos_own_hookify_rules; showing them `[instructed]` status.md, orchestrator §0 |
 
 ## Edge cases
 

@@ -66,6 +66,14 @@ class ScaffoldTest(ProjectTestCase):
         self.assertEqual(out["setup"], "none")
         self.assertFalse(out["configured"])
 
+    def test_status_lists_the_repos_own_hookify_rules(self):
+        # A cloned repo's rules reach the model; they're listed so the user can look before trusting them
+        self.write(".claude/hookify/sdlc-dangerous-rm.md", "---\nname: sdlc-dangerous-rm\nevent: bash\naction: block\n---\nx\n")
+        self.write(".claude/hookify/team-no-eval.md", "---\nname: team-no-eval\nenabled: true\nevent: file\naction: block\n---\nUse JSON.parse.\n")
+        self.assertEqual(self.sc("status")["team_rules"],
+                         [{"file": ".claude/hookify/team-no-eval.md", "event": "file", "action": "block", "enabled": True,
+                           "message": "Use JSON.parse."}])
+
     def test_init_writes_config_and_lock(self):
         self.init("greenfield")
         self.assertEqual(self.lock()["scaffold_version"], "1.3.0")
@@ -464,6 +472,7 @@ class ScaffoldTest(ProjectTestCase):
         self.assertFalse(runs["lint"]["ran"])  # could not start: setup can't complete
         self.assertEqual(out["not_runnable"], ["(root) lint"])
         self.assertEqual(self.sc("contract")["runs"]["(root)"]["test"]["command"], "git no-such-subcommand")
+        self.assertNotIn("tail", self.lock()["command_runs"]["(root)"]["test"])  # output stays out of the committed lock
 
     def test_commands_verify_plan(self):
         self.commands_config(packages=[
