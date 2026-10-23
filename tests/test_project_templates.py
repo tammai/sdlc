@@ -36,7 +36,8 @@ class ProjectTemplatesTest(ProjectTestCase):
         rules = {os.path.basename(p)[:-3] for p in shipped("rules", "*.md")} - {"sdlc"}
         used = set()
         for p in shipped("rules", "*.md"):
-            used |= set(re.findall(r"config\.areas\.(\w+)", open(p).read()))
+            with open(p) as f:
+                used |= set(re.findall(r"config\.areas\.(\w+)", f.read()))
         self.assertEqual(used - set(areas), set(), "rule templates reference undefined areas")
         self.assertTrue(rules)
 

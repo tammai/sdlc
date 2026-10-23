@@ -34,13 +34,15 @@ class DoctorTest(ProjectTestCase):
 
     def configure(self, **config):
         path = self.path(".sdlc/config.json")
-        data = json.load(open(path))
+        with open(path) as f:
+            data = json.load(f)
         data.update(config)
         self.write(".sdlc/config.json", json.dumps(data))
 
     def lock(self, **changes):
         path = self.path(".sdlc/scaffold.lock.json")
-        data = json.load(open(path))
+        with open(path) as f:
+            data = json.load(f)
         data.update(changes)
         self.write(".sdlc/scaffold.lock.json", json.dumps(data))
 
