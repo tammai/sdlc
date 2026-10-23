@@ -59,8 +59,12 @@ def candidate(root, ref, name, older_than):
     if age < older_than:
         return {"feature": name, "skip": f"done {age} days ago (under {older_than})"}
     # Deleting from the working tree is only safe when it matches what git already holds.
-    if git(root, "status", "--porcelain", "--", loc["state"], loc["intents"]):
-        return {"feature": name, "skip": "uncommitted changes in its folder"}
+    dirty = git(root, "status", "--porcelain", "--", loc["state"], loc["intents"])
+    if dirty is None or dirty:
+        return {"feature": name, "skip": "uncommitted changes in its folder" if dirty else "git status failed"}
+    folder = os.path.realpath(os.path.join(root, loc["intents"]))
+    if not folder.startswith(os.path.realpath(root) + os.sep):
+        return {"feature": name, "skip": f"{loc['intents']} is outside the repo"}
     local = os.path.join(root, loc["state"])
     with open(local, encoding="utf-8", errors="replace") as f:
         if not re.search(r"^Status:\s*done\b", f.read(), re.M | re.I):

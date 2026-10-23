@@ -32,6 +32,11 @@ class LayoutTest(ProjectTestCase):
         self.assertEqual(sorted(f), ["both", "old"])
         self.assertEqual((f["both"]["layout"], f["old"]["layout"]), ("new", "legacy"))
 
+    def test_an_invalid_recorded_docs_dir_counts_as_legacy(self):
+        self.write(".sdlc/config.json", json.dumps({"docs_dir": "../outside"}))
+        self.assertIsNone(sdlc_layout.docs_dir(self.root))
+        self.assertEqual(sdlc_layout.paths(self.root)["layout"], "legacy")
+
     def test_validate_docs_dir(self):
         self.assertEqual(sdlc_layout.validate_docs_dir("docs\\sdlc/"), "docs/sdlc")
         self.assertEqual(sdlc_layout.validate_docs_dir(".sdlc"), ".sdlc")

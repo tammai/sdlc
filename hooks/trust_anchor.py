@@ -51,7 +51,9 @@ def commands(text):
         cfg = json.loads(text or "{}")
     except ValueError:
         return None
-    return json.dumps({"commands": cfg.get("commands"), "packages": cfg.get("packages")}, sort_keys=True)
+    # docs_dir too: the freshness hook and the role guard treat that folder as non-code
+    return json.dumps({"commands": cfg.get("commands"), "packages": cfg.get("packages"),
+                       "docs_dir": cfg.get("docs_dir")}, sort_keys=True)
 
 
 def read(path):
@@ -82,7 +84,7 @@ def check(root, name, text, anchor):
         cmds_base = commands(vf.git(root, "show", f"{base}:.sdlc/config.json"))
         cmds_now = commands(read(os.path.join(root, ".sdlc", "config.json")))
         if cmds_base and cmds_now != anchor.get("commands_ok", cmds_base):
-            notices.append("the commands in .sdlc/config.json differ from Base")
+            notices.append("the commands or docs_dir in .sdlc/config.json differ from Base")
         anchor["commands_seen"] = cmds_now
     st = stage(text)
     spec = read(os.path.join(root, sdlc_layout.features(root).get(name, {}).get("intents", ""), "spec.md"))

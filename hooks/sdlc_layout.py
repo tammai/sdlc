@@ -15,13 +15,17 @@ SDLC = ".sdlc"
 
 
 def docs_dir(root):
-    """The recorded docs location, or None for a legacy repo (also when config is missing or unreadable)."""
+    """The recorded docs location, or None for a legacy repo (also when config is missing, unreadable, or the value
+    isn't a valid in-repo folder: hooks grant access by it, so a bad value must not widen anything)."""
     try:
         with open(os.path.join(root, SDLC, "config.json"), encoding="utf-8") as f:
             value = json.load(f).get("docs_dir")
     except (OSError, ValueError, AttributeError):
         return None
-    return value if isinstance(value, str) and value else None
+    try:
+        return validate_docs_dir(value) if isinstance(value, str) and value else None
+    except ValueError:
+        return None
 
 
 def validate_docs_dir(value):

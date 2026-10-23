@@ -34,14 +34,16 @@ def problem(agent, tool, rel, root):
         return None
     docs = sdlc_layout.docs_dir(root)
     in_sdlc = rel == ".sdlc" or rel.startswith(".sdlc/") or bool(docs) and (rel == docs or rel.startswith(docs + "/"))
+    # Reports go in a feature's folder only: .sdlc/ (old layout) or <docs>/intents/, never elsewhere in the docs
+    in_reports = rel.startswith(".sdlc/") or bool(docs) and rel.startswith(docs + "/intents/")
     if agent in REVIEWERS and tool in WRITES:
         return f"sdlc: {agent} reports findings; it doesn't edit files. Put the fix in your report instead."
     if agent == "verifier" and tool in WRITES and not (
-            rel.endswith("/test-report.md") and in_sdlc or rel == ".sdlc/baseline.md" or rel.startswith(".sdlc/.work/redgreen/")):
+            rel.endswith("/test-report.md") and in_reports or rel == ".sdlc/baseline.md" or rel.startswith(".sdlc/.work/redgreen/")):
         return ("sdlc: the verifier writes only test-report.md, the baseline and its .sdlc/.work/redgreen/ worktree: it never edits "
                 "source, the spec, config or state.md. Report the problem; the fix goes back to Stage 4.")
     if agent == "qa-tester":
-        if tool in WRITES and not (rel.endswith("/qa-report.md") and in_sdlc or rel.startswith(".sdlc/.work/qa/")):
+        if tool in WRITES and not (rel.endswith("/qa-report.md") and in_reports or rel.startswith(".sdlc/.work/qa/")):
             return "sdlc: the qa-tester writes only qa-report.md and scratch files under .sdlc/.work/qa/."
         readme = os.path.basename(rel).upper().startswith("README")
         if tool in READS and not (in_sdlc or readme):
