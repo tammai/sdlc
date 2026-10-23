@@ -548,6 +548,14 @@ class ScaffoldTest(ProjectTestCase):
                      'bash .sdlc/ci/contract-check.sh "origin/${{ github.base_ref }}" packages/api-contract openapi.yaml'):
             self.assertIn(want, text)
 
+    def test_builtin_codeowners(self):
+        self.commands_config(commands={"test": "make test"}, project={"profile": "large", "owners": {
+            "/apps/web/": ["@acme/web"], "/packages/api-contract/": ["@acme/backend", "@acme/leads"]}})
+        lines = [l for l in self.sc("preview", "builtin:codeowners")["text"].splitlines() if not l.startswith("#")]
+        self.assertEqual(lines, ["/apps/web/ @acme/web", "/packages/api-contract/ @acme/backend @acme/leads"])
+        self.write(".sdlc/config.json", json.dumps({"min_plugin_version": "1.3.0", "commands": {"test": "make test"}}))
+        self.assertIn("no project.owners", self.sc("preview", "builtin:codeowners", expect=1)["error"])
+
     def test_builtin_ci_needs_commands(self):
         self.commands_config()
         self.assertIn("no commands", self.sc("preview", "builtin:ci", expect=1)["error"])

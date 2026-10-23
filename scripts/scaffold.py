@@ -553,6 +553,17 @@ def generate_contract_check(p):
     return "\n".join(lines) + "\n"
 
 
+def generate_codeowners(p):
+    """CODEOWNERS from `project.owners`, in config order: the last matching line wins, so order is the user's."""
+    owners = effective_config(p.config).get("project", {}).get("owners") or {}
+    if not owners:
+        raise ValueError("no project.owners in .sdlc/config.json (set `{pattern: [handles]}`)")
+    lines = [f"# Managed by the sdlc plugin v{plugin_version()} (seeded: replaced on upgrade only while unedited).",
+             "# Generated from project.owners in .sdlc/config.json."]
+    lines += [f"{pattern} {' '.join(handles)}" for pattern, handles in owners.items()]
+    return "\n".join(lines) + "\n"
+
+
 def render_source(template, p):
     if template == "builtin:ci":
         return generate_ci(p)
@@ -560,6 +571,8 @@ def render_source(template, p):
         return generate_ci(p, template[len("builtin:ci:"):])
     if template == "builtin:contract-check":
         return generate_contract_check(p)
+    if template == "builtin:codeowners":
+        return generate_codeowners(p)
     with open(os.path.join(PLUGIN_ROOT, template), encoding="utf-8") as f:
         return render_text(f.read(), p)
 
