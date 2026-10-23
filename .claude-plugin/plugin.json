@@ -1,7 +1,7 @@
 {
   "name": "sdlc",
   "displayName": "SDLC",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "One plugin for the whole software lifecycle: an orchestrator with stage gates, spec-driven requirements and design, TDD planning and execution, multi-agent review, security hooks, commit/PR commands, and CLAUDE.md upkeep.",
   "author": {
     "name": "Tâm Mai",
