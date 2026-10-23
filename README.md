@@ -72,7 +72,7 @@ The orchestrator sizes it and proposes the smallest track that fits; you can ove
 |---|---|---|
 | **S** fix | bug or tweak, 1–3 files | implement → verify → light review → PR |
 | **M** feature | a few files to a few days | spec → plan → implement → verify → review → light security → PR (+ design if the approach isn't obvious) |
-| **L** project | new service, unclear approach, or auth/payments/migrations/public API | all 11, including design, deploy, operate, learn |
+| **L** project | new service, unclear approach, or auth/payments/migrations/public API | stages 1–8 and 11, including design and learn; deploy on request |
 
 Each stage prints what it uses and its exit gate. Artifacts go to `.sdlc/<feature>/` (commit them).
 
@@ -82,7 +82,7 @@ The orchestrator runs on its own between these stops, and always asks you here:
 
 - **Spec (M, L):** read the `[inferred]` list, requirements nobody asked for. Each is dropped unless you keep it. Approve the spec.
 - **Design (L, or M when unclear):** every new module, abstraction or dependency must cite a requirement in the Complexity Tracking table. Approve the design.
-- **Plan:** check the Public Surface list (everything new others can see), then pick subagent-driven or inline execution.
+- **Plan:** check the Public Surface list (everything new others can see), then pick subagent-driven or native execution.
 - **Verify** needs no decision: a fresh `verifier` agent runs your commands each round, at most 3. Only *new* failures count, not baseline ones. If code changes after the last full test run, a hook won't let the turn finish until tests are rerun.
 - **Merge, production deploy, DB migrations:** always yours.
 
@@ -143,8 +143,8 @@ Skills such as `sdlc:writing-specs` or `sdlc:test-driven-development` are used b
 | 6 | Review | `/sdlc:review-pr`, `/sdlc:code-review`, `requesting-code-review`, `receiving-code-review`, `code-reviewer`, `feature-reviewer`, `comment-analyzer`, `type-design-analyzer`, `code-simplifier`, `ui-reviewer` (UI diffs), `diff_stats.py` |
 | 7 | Security | security-guidance hooks (always on), reviewer agents with a security brief, dependency audit |
 | 8 | PR / CI | `finishing-a-development-branch`, `/sdlc:commit`, `/sdlc:commit-push-pr`, `/sdlc:clean_gone` |
-| 9 | Deploy | project's own deploy path + `release.md` |
-| 10 | Operate | watch window with agreed signals |
+| 9 | Deploy | on request: project's own deploy path + `release.md` |
+| 10 | Operate | parked, no track runs it: watch window with agreed signals |
 | 11 | Learn | `managing-knowledge` (3-tier), `/sdlc:revise-claude-md`, `/sdlc:knowledge-audit`, `/sdlc:hookify`, `project-constitution` |
 
 Always on: security-guidance hooks, the verify-freshness hook (Stage 5 only; per package in a monorepo), the model-router hook (while a feature is active: every subagent dispatch names its model, Fable only on your request, and each dispatch is logged), the trust-anchor hook (tells you when the risk, baseline, commands or spec change under a feature, or it leaves Stage 5 with untested code), the role-guard hook (reviewers can't edit files, the verifier writes only its report and the baseline, the qa-tester can't read the code), hookify rules (personal `.claude/hookify.*.local.md`, team `.claude/hookify/*.md`), TypeScript LSP.

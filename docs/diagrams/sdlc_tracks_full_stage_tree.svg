@@ -105,10 +105,10 @@ rect{stroke-width:.5}
 <g class="run"><rect x="460" y="452" width="180" height="30" rx="4"/><text class="r" x="550.0" y="467">8 PR / CI</text>
 <circle class="dot" cx="630" cy="467" r="3.5"/>
 </g>
-<g class="run"><rect x="460" y="490" width="180" height="30" rx="4"/><text class="r" x="550.0" y="505">9 Deploy</text>
+<g class="opt"><rect x="460" y="490" width="180" height="30" rx="4"/><text class="r" x="550.0" y="505">9 Deploy · on ask</text>
 <circle class="dot" cx="630" cy="505" r="3.5"/>
 </g>
-<g class="run"><rect x="460" y="528" width="180" height="30" rx="4"/><text class="r" x="550.0" y="543">10 Operate</text>
+<g class="skip"><rect x="460" y="528" width="180" height="30" rx="4"/><text class="r" x="550.0" y="543">10 Operate</text>
 </g>
 <g class="run"><rect x="460" y="566" width="180" height="30" rx="4"/><text class="r" x="550.0" y="581">11 Learn</text>
 </g>

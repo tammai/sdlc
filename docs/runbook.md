@@ -277,7 +277,7 @@ The test suite runs hooks and scripts as subprocesses; this checks the installed
 
 **E. An S fix through Verify (must)**
 1. `/sdlc:start fix: add returns a string when given numeric strings`. It proposes track S and creates `.sdlc/<feature>/state.md`.
-2. Stage 4 writes a failing test first, then the fix.
+2. Stage 4 dispatches one implementer subagent with `model: haiku`, which writes a failing test first, then the fix.
 3. Stage 5 spawns a **fresh** verifier agent, which appends a round to `test-report.md`.
 4. While in Stage 5, ask Claude to change a source file **with a shell command** (e.g. `sed -i`), then end the turn: it's **blocked**, and the message names the test command. Run it; the turn then ends normally.
 5. Stage 6 runs the reviewer with diff stats; Stage 8 stops before merging and asks you.

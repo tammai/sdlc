@@ -43,11 +43,11 @@ Files named `sdlc-*` belong to the plugin; everything else is yours.
 |---|---|---|
 | **S · fix** | bug or tweak, 1–3 files, clear expected behavior | 4 → 5 → 6 (light) → 8 |
 | **M · feature** | a few files to a few days, approach mostly obvious | 1 → 3 → 4 → 5 → 6 → 7 (light) → 8, plus 2 if the approach is unclear |
-| **L · project** | new service or module, unclear approach, or touches auth, payments, data migration, public API | all 11 |
+| **L · project** | new service or module, unclear approach, or touches auth, payments, data migration, public API | 1–8 → 11 (9 on request) |
 
 Anything touching auth, payments, secrets, PII or schema migrations is at least M and always gets the full Stage 7. You can override the size at any time.
 
-**Risk and models.** Risk is recorded apart from size: `Risk: high` for auth, payments, secrets, PII, schema migrations or a public API. Track and risk pick each subagent's model tier: cheap `haiku`, standard `sonnet`, top `opus`. A high-risk change gets `opus` reviewers even on the S track. Fable is used only if you ask for it ("use fable"), which sets `Top model: fable` in `state.md`. See [sdlc_tracks_full_stage_tree.svg](diagrams/sdlc_tracks_full_stage_tree.svg).
+**Risk and models.** Risk is recorded apart from size: `Risk: high` for auth, payments, secrets, PII, schema migrations or a public API. Track and risk pick each subagent's model tier: cheap `haiku`, standard `sonnet`, top `opus`. A high-risk change gets `opus` reviewers even on the S track. The S fix itself goes to one implementer subagent on that tier, not the session. The session's own model is yours: the start announcement suggests `/model opus` for L or high-risk work on a smaller model, and `/model sonnet` for S or low-risk M work on Opus or above. It says so once and never blocks. Fable is used only if you ask for it ("use fable"), which sets `Top model: fable` in `state.md`. See [sdlc_tracks_full_stage_tree.svg](diagrams/sdlc_tracks_full_stage_tree.svg).
 
 ## The 11 stages
 
@@ -61,8 +61,8 @@ Anything touching auth, payments, secrets, PII or schema migrations is at least 
 | 6 | Review | `review.md` | No unresolved high-severity finding; the rest fixed or ticketed |
 | 7 | Security | `security.md` | No critical or high finding open, no secrets in the diff |
 | 8 | Commit, PR, CI | PR | CI green. **Never merged without you saying so** |
-| 9 | Deploy | `release.md` | **Your go-ahead** before any production deploy or DB migration; smoke test passes |
-| 10 | Operate | | Agreed signals stay within threshold for the watch window, or a rollback/fix ticket exists |
+| 9 | Deploy (on request) | `release.md` | **Your go-ahead** before any production deploy or DB migration; smoke test passes |
+| 10 | Operate (parked: no track runs it) | | Agreed signals stay within threshold for the watch window, or a rollback/fix ticket exists |
 | 11 | Learn | `retro.md`, knowledge updates | Lessons promoted and linked, CLAUDE.md ≤ 60 lines, `state.md` marked `Status: done` |
 
 Each stage starts with a header so you always know where you are:

@@ -21,7 +21,7 @@ Teams that try to fix this assemble several plugins and conventions by hand, eac
 
 ## 3. Goals
 
-1. **One install, whole lifecycle:** spec, design, plan, implement, verify, review, security, ship, deploy, operate, learn, with no dependency on other plugins.
+1. **One install, whole lifecycle:** spec, design, plan, implement, verify, review, security, ship, deploy, learn (operate is parked), with no dependency on other plugins.
 2. **Process sized to the work:** S, M or L tracks; the smallest track that fits by default.
 3. **Gates with human decisions at the right points:** spec, design, execution method, merge, production deploy, migrations.
 4. **Truthful verification:** an independent verifier per round, tests that must fail without the change, test results that can't go stale unnoticed, and old failures that don't block new work.

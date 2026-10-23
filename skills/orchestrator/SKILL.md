@@ -1,6 +1,6 @@
 ---
 name: orchestrator
-description: Use when the user wants to take a feature, fix or project through the software lifecycle end to end (spec, design, plan, build, test, review, security, ship, operate, learn), or asks where they are in that flow. Sizes the work, runs each stage with the bundled skills, agents and commands, and enforces stage gates via .sdlc/state.md.
+description: Use when the user wants to take a feature, fix or project through the software lifecycle end to end (spec, design, plan, build, test, review, security, ship, learn), or asks where they are in that flow. Sizes the work, runs each stage with the bundled skills, agents and commands, and enforces stage gates via .sdlc/state.md.
 ---
 
 # SDLC Orchestrator
@@ -28,7 +28,7 @@ You are the conductor. You decide the stage, call the right bundled skill/agent/
 |---|---|---|
 | **S – fix** | bug or tweak, 1–3 files, clear expected behavior | 4 → 5 → 6 (light) → 8 |
 | **M – feature** | a few files to a few days, approach mostly obvious | 1 (spec, no brainstorm) → 3 → 4 → 5 → 6 → 7 (light) → 8 |
-| **L – project** | new service/module, unclear approach, or touches auth, payments, data migration, public API | all stages 1–11 |
+| **L – project** | new service/module, unclear approach, or touches auth, payments, data migration, public API | 1 → 2 → … → 8 → 11 (9 only on request; 10 parked) |
 
 Anything touching auth, payments, secrets, PII or schema migrations is at least M and always gets full Stage 7.
 
@@ -43,7 +43,7 @@ Anything touching auth, payments, secrets, PII or schema migrations is at least 
 The top tier is `opus`. Use `fable` only when the user asks for it; record it as `Top model: fable`.
 
 6. **Name the feature:** `<yyyy-mm-dd>-<slug>`, or `<yyyy-mm-dd>-<ticket>-<slug>` when the request names a ticket (`2026-10-22-PROJ-123-month-filter`; a GitHub issue is `gh-42`). The date is today's, the same as `Started:`; the slug is 2–4 kebab-case words, action-noun where possible (`user-auth`, `fix-payment-timeout`), keeping technical terms (OAuth2, JWT). If `.sdlc/<name>/` already exists and isn't the feature being resumed, add `-2` (then `-3`, …). The feature's branch and `knowledge/features/<name>.md` use the same name.
-7. Create `.sdlc/<feature>/state.md` from the template at the bottom, with `Base:` set to `git rev-parse --short HEAD` (the commit the feature starts from; in a monorepo, Stage 5 then only requires tests for packages the feature changed). Announce: track, risk, stages to run, first stage, and `Top tier: opus (say "use fable" to switch)`. If the track is L or the risk is high and the session runs on a smaller model than the top tier, add one line suggesting `/model opus` for this session. Never block on it, and never suggest a downgrade.
+7. Create `.sdlc/<feature>/state.md` from the template at the bottom, with `Base:` set to `git rev-parse --short HEAD` (the commit the feature starts from; in a monorepo, Stage 5 then only requires tests for packages the feature changed). Announce: track, risk, stages to run, first stage, and `Top tier: opus (say "use fable" to switch)`. If the track is L or the risk is high and the session runs on a smaller model than the top tier, add one line suggesting `/model opus` for this session. If the track is S or M with risk low and the session runs on the top tier or above, add one line instead: `This track runs well on Sonnet: /model sonnet to save cost (reviewers and the verifier keep their own models).` Never block on either, and say it once per feature.
 
 ## Stage header
 
@@ -68,21 +68,23 @@ At the start of every stage print exactly:
 
 ### 2 · Design (L track, or M when the approach isn't obvious)
 - `sdlc:designing-solutions` → `design.md`, `research.md`, `data-model.md`, `contracts/`, `quickstart.md` (dispatches `sdlc:code-explorer` and `sdlc:code-architect` agents)
-- **Gate (user approves):** every FR/SC maps to the design; every Complexity Tracking row (new module, layer, abstraction, dependency, service, config key, store) cites a requirement; nothing in Non-Goals is designed in; chosen approach + one rejected alternative recorded; constitution check passes.
+- **Gate (user approves):** every FR/SC maps to the design; every Complexity Tracking row (new module, layer, abstraction, dependency, service, config key, store, UI component, variant or token) cites a requirement; nothing in Non-Goals is designed in; chosen approach + one rejected alternative recorded; constitution check passes.
+- UI design-system additions: once the user approves a new component, variant or token here, add it to `.sdlc/design-system.md` before Stage 4 and log it in the Gate log, so the implementer and `sdlc:ui-reviewer` work from the updated system.
+- Stage 2 skipped (S, or M with an obvious approach) on UI work (the spec has screens, or the change lands in `areas.ui`): before Stage 4, map each changed screen to the components, tokens and patterns of `.sdlc/design-system.md`. M: a `UI mapping` section in plan.md. S: one line in state.md's Gate log. Anything the system lacks goes to the user first, and an approved addition is handled as above.
 
 ### 3 · Plan
 - `sdlc:writing-plans` → `.sdlc/<feature>/plan.md` (bite-sized TDD tasks)
 - `sdlc:analyzing-consistency` (L track; M when the plan has > ~8 tasks)
-- **Gate:** no CRITICAL or HIGH scope findings; every requirement has a task and every task cites a requirement; Public Surface declared; user picks the execution method (subagent-driven or inline).
+- **Gate:** no CRITICAL or HIGH scope findings; every requirement has a task and every task cites a requirement; Public Surface declared; user picks the execution method (subagent-driven or native).
 
 ### 4 · Implement
 - Isolation: `sdlc:using-git-worktrees` (L track, or whenever the working tree is dirty)
-- Execution: `sdlc:subagent-driven-development` (default for L) or `sdlc:executing-plans` (inline); `sdlc:dispatching-parallel-agents` for truly independent tasks
+- Execution: `sdlc:subagent-driven-development` (default for L) or `sdlc:executing-plans` (native); `sdlc:dispatching-parallel-agents` for truly independent tasks
 - One whole-branch review per feature, in Stage 6: tell the execution skill to skip its own final whole-branch review ("Stage 6 reviews the branch"). Per-task reviews still run. Record the `Ruling:` lines it reports in state.md's Gate log, so Stage 6 sees them.
 - Always on: `sdlc:test-driven-development`; `sdlc:systematic-debugging` the moment something fails unexpectedly
 - Optional loop for a single well-specified task with a machine-checkable finish: `/sdlc:ralph-loop "<task>" --completion-promise "DONE" --max-iterations 15`
 - Background: the security-guidance hooks warn on risky edits; hookify rules (if any) enforce team rules
-- S track: no plan file — write a failing test reproducing the bug, fix, done.
+- S track: no plan file. Dispatch one implementer on the implementer tier from the table above (`sdlc:subagent-driven-development`'s `implementer-prompt.md`, with a brief file you write in place of a plan task): the bug and the expected behaviour; a failing test reproducing the bug first (a new test file is allowed), then the fix, then the full suite; on UI work, the UI mapping line from the Gate log; and "stop with BLOCKED if the fix needs more than 3 files, touches auth, payments, secrets, PII or migrations, or the cause stays unclear". Don't write the fix in this session; with no subagent tool, do it here and say so. A BLOCKED for one of those reasons moves the feature to M.
 - **Gate:** every plan task checked; build + full test suite pass; no TODO without a ticket.
 
 ### 5 · Verify (rounds, max 3)
@@ -115,6 +117,7 @@ You (the orchestrator) may run commands to investigate, but the verdict always c
 - S track ("light"): `sdlc:code-simplifier` then `sdlc:code-reviewer`, both with the diff stats.
 - Severity: unrequested public surface (export, file, endpoint, option, config, dependency not in the spec/plan, with no stated reason) is high. Comment noise flagged by the stats or hookify warnings is medium and fixed in this stage, not ticketed.
 - UI changed (the diff touches `areas.ui`): also dispatch `sdlc:ui-reviewer` on every track, with `.sdlc/design-system.md`, the spec and the diff. Off-system values or components, AI-slop patterns, missing states and accessibility blockers are high severity. A visual check (screenshots) runs only when the user asks for one: say so in the brief; the reviewer uses a browser tool and the dev server if they're available, and reports it if not.
+- The ui-reviewer's "Proposed design-system changes" go to the user. Accepted: add them to `.sdlc/design-system.md`, log it in the Gate log, and the findings they cover are resolved. Declined: the code moves to an existing token or component (a code change, so back to Stage 5).
 - **Gate:** no unresolved high-severity finding; findings fixed or ticketed in `.sdlc/<feature>/review.md`.
 
 ### 7 · Security
@@ -132,12 +135,13 @@ You (the orchestrator) may run commands to investigate, but the verdict always c
 - PR description links spec.md, test-report.md and, if a QA round ran, qa-report.md.
 - **Gate:** CI green. **Never merge without the user saying so.**
 
-### 9 · Deploy (L track, or whenever the user asks)
+### 9 · Deploy (any track, only when the user asks)
 - Use the project's existing deploy path (scripts, CI job, platform CLI). Platform integrations: `references/integrations.md`.
 - Write `.sdlc/<feature>/release.md`: version, environment, steps run, smoke test, rollback command.
 - **Gate:** explicit user go-ahead before any production deploy or DB migration; smoke test passes.
 
-### 10 · Operate (L track)
+### 10 · Operate (parked: no track runs it)
+- Skipped on every track until the team has a monitoring process; strike it out in state.md. Run it only if the user asks.
 - Agree a watch window and 1–3 signals (error rate, a key metric, latency). Check them with whatever monitoring the project has (see `references/integrations.md`).
 - **Gate:** signals within threshold for the window, or a rollback/fix ticket.
 

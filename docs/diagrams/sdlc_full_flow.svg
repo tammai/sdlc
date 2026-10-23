@@ -118,7 +118,7 @@ rect{stroke-width:.5}
 <g class="skill"><rect x="148" y="592" width="214" height="116" rx="6"/>
 <text class="s" x="158" y="610">using-git-worktrees (L)</text>
 <text class="s" x="158" y="626">subagent-driven-development or</text>
-<text class="s" x="158" y="642">executing-plans (inline)</text>
+<text class="s" x="158" y="642">executing-plans (native)</text>
 <text class="s" x="158" y="658">dispatching-parallel-agents</text>
 <text class="s" x="158" y="674">test-driven-development</text>
 <text class="s" x="158" y="690">systematic-debugging on failure</text>
@@ -224,7 +224,7 @@ rect{stroke-width:.5}
 <text class="s" x="752" y="1042">CI green. Never merges without you</text>
 <text class="s" x="752" y="1058">saying so</text>
 </g>
-<g class="stage"><rect x="30" y="1120" width="110" height="68" rx="8"/><text class="t c" x="85.0" y="1146">9 Deploy</text><text class="s c" x="85.0" y="1164">L, on ask</text></g>
+<g class="stage"><rect x="30" y="1120" width="110" height="68" rx="8"/><text class="t c" x="85.0" y="1146">9 Deploy</text><text class="s c" x="85.0" y="1164">on ask</text></g>
 <line class="a" marker-end="url(#arrow)" x1="85.0" y1="1108" x2="85.0" y2="1120"/>
 <g class="skill"><rect x="148" y="1120" width="214" height="68" rx="6"/>
 <text class="s" x="158" y="1138">Project's own deploy path</text>
@@ -237,7 +237,7 @@ rect{stroke-width:.5}
 <text class="s" x="752" y="1154">deploy or DB migration; smoke</text>
 <text class="s" x="752" y="1170">test passes</text>
 </g>
-<g class="stage"><rect x="30" y="1200" width="110" height="52" rx="8"/><text class="t c" x="85.0" y="1218">10 Operate</text><text class="s c" x="85.0" y="1236">L</text></g>
+<g class="stage"><rect x="30" y="1200" width="110" height="52" rx="8"/><text class="t c" x="85.0" y="1218">10 Operate</text><text class="s c" x="85.0" y="1236">parked</text></g>
 <line class="a" marker-end="url(#arrow)" x1="85.0" y1="1188" x2="85.0" y2="1200"/>
 <g class="skill"><rect x="148" y="1200" width="214" height="52" rx="6"/>
 <text class="s" x="158" y="1218">Project monitoring</text>

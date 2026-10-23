@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Begin one task of an inline plan execution in a single call: extract the
+# Begin one task of a native plan execution in a single call: extract the
 # task's brief (via subagent-driven-development's task-brief, so both skills
 # share one workspace) and record BASE, the commit the task's review range is
-# cut from. One tool call instead of two, because every call in an inline
+# cut from. One tool call instead of two, because every call in a native
 # session is a turn that re-reads the whole context.
 #
 # Usage: task-start PLAN_FILE TASK_NUMBER

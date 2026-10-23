@@ -31,7 +31,7 @@ Situation-by-situation plays. Each says what to say or run, what the orchestrato
 **Say:** `/sdlc:start fix: export button 500s when the report is empty`
 
 1. The orchestrator proposes S: bug, few files, clear behavior. Stages run 4 → 5 → 6 (light) → 8. No spec, design or plan file.
-2. Stage 4: a failing test that reproduces the bug comes first, then the fix. If something fails unexpectedly, `systematic-debugging` takes over.
+2. Stage 4: one implementer subagent on the cheap tier writes a failing test that reproduces the bug, then the fix. The session doesn't write the fix itself, so it costs the same on any session model. If something fails unexpectedly, `systematic-debugging` takes over.
 3. Stage 5: a fresh `verifier` runs the full suite. The repro test must be among its evidence.
 4. Stage 6: `code-simplifier`, then `code-reviewer`, both given `diff_stats.py` facts.
 5. Stage 8: PR and CI.
@@ -47,7 +47,7 @@ Situation-by-situation plays. Each says what to say or run, what the orchestrato
 1. Stages 1 → 3 → 4 → 5 → 6 → 7 (light) → 8. Stage 2 joins if the approach isn't obvious.
 2. **Stage 1:** `writing-specs` produces `spec.md`. Read the `[inferred]` list the orchestrator shows. Each item is dropped unless you keep it, so keep only what you actually want. **You approve** the spec.
 3. **Stage 2 (when it runs):** read the Complexity Tracking table. Anything that doesn't cite a requirement should come out. **You approve** the design.
-4. **Stage 3:** check the Public Surface section: it's everything new that others can see. **You pick** subagent-driven (default for larger plans) or inline execution.
+4. **Stage 3:** check the Public Surface section: it's everything new that others can see. **You pick** subagent-driven (default for larger plans) or native execution.
 5. Stages 4–8 run on their own unless a gate fails.
 
 **Good habits:** state non-goals up front; answer clarification questions concisely; challenge any addition you didn't ask for before approving the spec, not after the code exists.
@@ -56,10 +56,10 @@ Situation-by-situation plays. Each says what to say or run, what the orchestrato
 
 **Say:** `/sdlc:start build an invoicing service with PDF output`
 
-1. All 11 stages. Stage 1 begins with `brainstorming` (writes `brainstorm.md`); it may open a visual companion that needs Node.
+1. Stages 1–8 and 11 (Stage 9 only when you ask; Stage 10 is parked). Stage 1 begins with `brainstorming` (writes `brainstorm.md`); it may open a visual companion that needs Node.
 2. Design dispatches `code-explorer` and `code-architect`. Expect options: minimal, minimal plus one named extension, pragmatic. Minimal is recommended unless it fails a named requirement.
 3. Stage 4 uses a git worktree and subagent-driven development: a fresh implementer per task, a task review after each.
-4. Stage 7 is full. Stage 9 needs your go-ahead; Stage 10 agrees a watch window and 1–3 signals; Stage 11 writes `retro.md` and promotes lessons.
+4. Stage 7 is full. Stage 11 writes `retro.md` and promotes lessons.
 
 **You decide:** spec, design, execution method, merge, deploy, migrations.
 
@@ -132,8 +132,8 @@ It does not skip hard stops that protect irreversible actions without your expli
 
 1. Stage 8: `finishing-a-development-branch` offers merge, PR or keep, and cleans up worktrees. `/sdlc:commit-push-pr` opens the PR with links to `spec.md`, `test-report.md` and, if a QA round ran, `qa-report.md`. `/sdlc:clean_gone` prunes merged local branches afterward.
 2. **CI must be green. The orchestrator never merges without you saying so.**
-3. Stage 9 (L, or on request): uses the project's existing deploy path. It writes `release.md` (version, environment, steps run, smoke test, rollback command). You give the go-ahead before production or a migration. The smoke test must pass.
-4. Stage 10: check the agreed signals for the watch window. Out of threshold means a rollback or fix ticket.
+3. Stage 9 (any track, on request): uses the project's existing deploy path. It writes `release.md` (version, environment, steps run, smoke test, rollback command). You give the go-ahead before production or a migration. The smoke test must pass.
+4. Stage 10 (parked: no track runs it for now): check the agreed signals for the watch window. Out of threshold means a rollback or fix ticket.
 
 ## 11. Run an autonomous loop
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Close one task of an inline plan execution in a single call: run the task's
+# Close one task of a native plan execution in a single call: run the task's
 # test command, keep its full output in the workspace, print the tail, and —
 # only if the command succeeded — append the completion line to the ledger.
 # A failing command records nothing: the task is not complete.

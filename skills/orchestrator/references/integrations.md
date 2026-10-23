@@ -14,7 +14,7 @@ These connect to outside services (they're MCP servers or need accounts/credenti
 | 7 Security | Deep scans | Claude Security (Anthropic; license doesn't allow bundling — install separately), Semgrep, Aikido, Sonatype Guide, Endor Labs |
 | 8 PR / CI | PRs, CI status | GitHub, GitLab (the bundled commands also work with plain `gh`) |
 | 9 Deploy | Hosting | Vercel, Netlify, Railway, Cloudflare, Firebase, AWS (Deploy on AWS / aws-core / AWS Serverless), Azure, Terraform |
-| 10 Operate | Errors, metrics, flags | Sentry, Datadog, PostHog, PagerDuty |
+| 10 Operate (parked) | Errors, metrics, flags | Sentry, Datadog, PostHog, PagerDuty |
 | 11 Learn | Docs site | Mintlify |
 
 Plugin catalogs change. If a listed option can't be found, say so and continue without it.
