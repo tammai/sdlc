@@ -51,7 +51,7 @@ class TrustAnchorTest(ProjectTestCase):
         self.state()
         self.stop()
         self.write(".sdlc/baseline.md", BASELINE.format(rows="| api | t › old | boom | abc |\n| api | t › new | x | def |\n"))
-        self.assertIn("baseline.md has 2 failing tests", self.stop()["systemMessage"])
+        self.assertIn("didn't at Base: api | t › new", self.stop()["systemMessage"])
 
     def test_leaving_stage_5_with_code_changed_since_the_last_full_run(self):
         self.state(stage=5)

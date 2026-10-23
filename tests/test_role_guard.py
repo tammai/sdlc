@@ -27,6 +27,7 @@ class RoleGuardTest(ProjectTestCase):
         self.assertIsNone(self.call("Write", ".sdlc/login/test-report.md", "sdlc:verifier"))
         self.assertEqual(self.call("Edit", "src/a.ts", "sdlc:verifier"), "deny")
         self.assertEqual(self.call("Edit", ".sdlc/login/spec.md", "sdlc:verifier"), "deny")  # no moving the goalposts
+        self.assertEqual(self.call("Write", ".sdlc/.work/trust-anchor.json", "sdlc:verifier"), "deny")
 
     def test_qa_tester_reads_the_spec_but_not_the_code(self):
         self.assertIsNone(self.call("Read", ".sdlc/login/spec.md", "sdlc:qa-tester"))

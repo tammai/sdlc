@@ -3,14 +3,16 @@
 
 The files the other hooks trust (state.md, spec.md, baseline.md, config.json) are writable by the agent they
 check, so this can't prevent a change; it makes one visible. For each active feature, on Stop:
-  - `Track:`, `Risk:` or `Top model:` differs from the value first seen
-  - `.sdlc/baseline.md` lists more failing tests than at the feature's `Base:` commit (it may only shrink)
+  - `Track:`, `Risk:`, `Top model:` or `Base:` differs from the value first seen
+  - `.sdlc/baseline.md` lists a failing test it didn't at the feature's `Base:` commit (it may only shrink)
   - the commands in `.sdlc/config.json` differ from those at `Base:`
   - `spec.md` changed after the feature entered Stage 5
-  - the feature left Stage 5 for a later stage while code differed from its last full test run
-A new notice blocks the stop once, with a systemMessage so the user sees it (a second stop only warns). The
-user's next prompt accepts it: the current values become the new anchor. Only a prompt clears a notice, because
-only the user can send one. State: .sdlc/.work/trust-anchor.json. Any error: no output.
+  - the feature left Stage 5 while code differed from its last full test run, or moved past it without it
+  - a feature seen active stopped being active, other than by finishing (`Status: done`)
+A new notice blocks the stop once, with a systemMessage so the user sees it; it doesn't block again. The user's
+next prompt accepts it: the current values become the new anchor. Only a prompt clears a notice, because only
+the user can send one. A damaged record is a notice too; a deleted one can't be told from a first run (Known
+gaps in spec 02). State: .sdlc/.work/trust-anchor.json. Any error: no output.
 """
 import glob
 import hashlib
@@ -22,12 +24,13 @@ import sys
 import verify_freshness as vf  # sibling hook: project root, git, worktree trees, freshness state
 
 STATE = os.path.join(".sdlc", ".work", "trust-anchor.json")
-FIELDS = ("Track", "Risk", "Top model")
+FIELDS = ("Track", "Risk", "Top model", "Base")  # Base: the baseline and commands are compared at it
 
 
 def field(text, name):
-    m = re.search(rf"^{name}:\s*(\S+)", text, re.M)
-    return m.group(1) if m else None
+    # Same matching as the hooks that act on these fields (model_router: re.I); every line counts, not just the first
+    found = re.findall(rf"^{name}:\s*(\S+)", text, re.M | re.I)
+    return ",".join(found) if found else None
 
 
 def stage(text):
@@ -36,9 +39,11 @@ def stage(text):
 
 
 def baseline_failures(text):
+    """The failing tests the baseline lists, as `package | test` keys (swapping one for another still shows)."""
     m = re.search(r"^##\s+Failing tests\s*$(.*?)(?=^##\s|\Z)", text or "", re.M | re.S)
     rows = [l for l in (m.group(1) if m else "").splitlines() if l.startswith("|") and not l.startswith("|---")]
-    return max(len(rows) - 1, 0)  # minus the header row
+    keys = [" | ".join(c.strip() for c in row.strip("|").split("|")[:2]) for row in rows[1:]]  # minus the header
+    return sorted(set(keys))
 
 
 def commands(text):
@@ -69,8 +74,10 @@ def check(root, name, text, anchor):
     if base:
         at_base = vf.git(root, "show", f"{base}:.sdlc/baseline.md")
         now = baseline_failures(read(os.path.join(root, ".sdlc", "baseline.md")))
-        if at_base is not None and now > anchor.get("baseline_ok", baseline_failures(at_base)):
-            notices.append(f"baseline.md has {now} failing tests, {baseline_failures(at_base)} at Base")
+        if at_base is not None:
+            added = sorted(set(now) - set(anchor.get("baseline_ok", baseline_failures(at_base))))
+            if added:
+                notices.append(f"baseline.md lists failing tests it didn't at Base: {', '.join(added[:5])}")
         anchor["baseline_seen"] = now
         cmds_base = commands(vf.git(root, "show", f"{base}:.sdlc/config.json"))
         cmds_now = commands(read(os.path.join(root, ".sdlc", "config.json")))
@@ -84,7 +91,10 @@ def check(root, name, text, anchor):
         first = anchor.setdefault("spec", digest)
         if digest != first:
             notices.append("spec.md changed after the feature entered Stage 5")
-    if anchor.get("stage") == 5 and st is not None and st > 5:
+    prev = anchor.get("stage")
+    if prev is not None and prev < 5 < (st or 0):
+        notices.append(f"went from Stage {prev} to Stage {st} without Stage 5")
+    elif prev == 5 and st is not None and st > 5:
         changed = changed_since_full_run(root, name)
         if changed:
             notices.append(f"left Stage 5 for Stage {st} with code changed since the last full test run: "
@@ -126,23 +136,36 @@ def main():
     if not root or event not in ("Stop", "UserPromptSubmit"):
         return
     path = os.path.join(root, STATE)
+    corrupt = False
     try:
         saved = json.load(open(path, encoding="utf-8"))
-    except (OSError, ValueError):
+        corrupt = not isinstance(saved, dict)
+    except OSError:
         saved = {}
-    features = {}
+    except ValueError:
+        corrupt = True
+    if corrupt:  # its own record was damaged: start over, but say so
+        saved = {}
+    features, left = {}, []
     for p in glob.glob(os.path.join(root, ".sdlc", "*", "state.md")):
         text = read(p) or ""
-        if re.search(r"^Status:\s*active\b", text, re.M | re.I):
-            features[os.path.basename(os.path.dirname(p))] = text
+        name = os.path.basename(os.path.dirname(p))
+        status = (field(text, "Status") or "").lower()
+        if status == "active":
+            features[name] = text
+        elif saved.get(name, {}).get("status") == "active" and status != "done":
+            # Leaving active switches the model router and freshness hook off for it, so it's shown
+            left.append(f"{name}: Status: active → {status or 'missing'}")
+            saved[name]["status"] = status
     if event == "UserPromptSubmit":
         for anchor in saved.values():
             if anchor.get("notices"):
                 accept(anchor)
     else:
-        new = []
+        new = list(left)
         for name, text in features.items():
             anchor = saved.setdefault(name, {})
+            anchor["status"] = "active"
             notices = check(root, name, text, anchor)
             anchor["fields_seen"] = {f: field(text, f) for f in FIELDS}
             spec = read(os.path.join(root, ".sdlc", name, "spec.md"))
@@ -150,6 +173,8 @@ def main():
             fresh = [n for n in notices if n not in anchor.get("notices", [])]
             anchor["notices"] = notices
             new += [f"{name}: {n}" for n in fresh]
+        if corrupt:
+            new.append("the trust anchor's own record (.sdlc/.work/trust-anchor.json) was damaged and was reset")
         if new:
             msg = "Verification anchors changed: " + "; ".join(new) + "."
             if data.get("stop_hook_active"):
