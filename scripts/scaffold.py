@@ -153,10 +153,11 @@ def team_rules(p):
     rules = []
     for path in sorted(glob.glob(p.path(".claude/hookify/*.md"))):
         name = os.path.basename(path)
-        if name.startswith("sdlc-"):
+        # A symlink could pull any local file into the model's context through this listing
+        if name.startswith("sdlc-") or os.path.islink(path):
             continue
         with open(path, encoding="utf-8", errors="replace") as f:
-            text = f.read()
+            text = f.read(8192)
         front, _, body = text.partition("\n---")
         field = lambda k: (re.search(rf"^{k}:\s*(\S+)", front, re.M) or [None, None])[1]
         rules.append({"file": f".claude/hookify/{name}", "event": field("event"), "action": field("action") or "warn",

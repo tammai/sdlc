@@ -39,7 +39,8 @@ Stage 5 decides whether the work does what the spec says, using evidence that is
 | VER-FR-034 | Its verdict fails on a failed scenario or spec edge case, or a Blocker probe (crash, hang, data loss, leaked internals or wrong result, on an input the spec covers). Probes stay inside the spec's stated limits and never touch Non-Goals; a failure that needs a new requirement is Major and goes to the user. The user decides what a FAIL means for the feature. | `[instructed]` qa-tester.md, orchestrator §5 |
 | VER-FR-035 | The model router denies `qa-tester` below `opus` on `Risk: high`, like the verifier. | `[enforced]` test_model_router › test_qa_tester_below_opus_is_denied_on_high_risk |
 | VER-FR-036 | The qa-tester leaves the working tree as it found it: files the running software created are removed, and any it couldn't remove are reported. | `[instructed]` qa-tester.md |
-| VER-FR-038 | The role-guard hook denies the verifier file edits outside `.sdlc/`, and the qa-tester Read, Grep and Glob on project files other than `.sdlc/` and READMEs, and writes other than `qa-report.md` and `.sdlc/.work/qa/`. | `[enforced]` test_role_guard › test_verifier_writes_only_under_sdlc, test_qa_tester_reads_the_spec_but_not_the_code |
+| VER-FR-038 | The role-guard hook denies the verifier file edits other than `test-report.md`, `.sdlc/baseline.md` and `.sdlc/.work/` (so not the spec, config or state.md), and the qa-tester Read, Grep and Glob on project files other than `.sdlc/` and READMEs, and writes other than `qa-report.md` and `.sdlc/.work/qa/`. | `[enforced]` test_role_guard › test_verifier_writes_only_its_report_baseline_and_scratch, test_qa_tester_reads_the_spec_but_not_the_code |
+| VER-FR-039 | When the feature has `contracts/`, the verifier checks each declared interface against the build with a test or run, and a missing or different one fails the round. | `[instructed]` verifier.md |
 
 ### Freshness hook
 
@@ -73,7 +74,7 @@ Stage 5 decides whether the work does what the spec says, using evidence that is
 
 ## Known gaps
 
-- The role-guard hook stops the qa-tester's Read, Grep and Glob on project files outside `.sdlc/` and READMEs, and the verifier's file edits outside `.sdlc/`. Both keep Bash, so `cat src/…` or a `sed` edit is still only instructed against. The qa-tester runs only on request because one live run didn't justify its cost.
+- The role-guard hook stops the qa-tester's Read, Grep and Glob on project files outside `.sdlc/` and READMEs, and the verifier's file edits outside its report, the baseline and `.sdlc/.work/`. Both keep Bash, so `cat src/…` or a `sed` edit is still only instructed against. The qa-tester runs only on request because one live run didn't justify its cost.
 - Red-green runs `install` in a fresh worktree each round: it takes time and may use the network.
 - Red-green on a refactor: tests that pass on Base are expected, and the verifier lists them; a criterion relying only on such a test has no evidence.
 - `.only` inside a test file and unusual custom filters aren't detected by the hook (a guardrail warns on `.only` instead).

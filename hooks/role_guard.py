@@ -4,7 +4,8 @@
 PreToolUse on file tools. Claude Code names the subagent making a call in `agent_type` (`sdlc:<agent>`); calls
 from the main session or other plugins' agents get no output. Denies, with the reason the agent sees:
   - a reviewer editing any file: reviewers report, they don't fix
-  - the verifier editing anything outside .sdlc/ (test-report.md, baseline.md, .sdlc/.work/)
+  - the verifier editing anything but test-report.md, .sdlc/baseline.md (it removes items that pass) and
+    .sdlc/.work/ (its red-green worktree): not source, the spec, config or state.md
   - the qa-tester reading or searching project files other than .sdlc/ and READMEs, or writing anything but
     qa-report.md and .sdlc/.work/qa/
 Paths outside the project (scratch dirs) are left alone. Bash stays open to all of them: they need it for git,
@@ -32,8 +33,10 @@ def problem(agent, tool, rel):
     in_sdlc = rel == ".sdlc" or rel.startswith(".sdlc/")
     if agent in REVIEWERS and tool in WRITES:
         return f"sdlc: {agent} reports findings; it doesn't edit files. Put the fix in your report instead."
-    if agent == "verifier" and tool in WRITES and not in_sdlc:
-        return "sdlc: the verifier never edits source. Report the failure; the fix goes back to Stage 4."
+    if agent == "verifier" and tool in WRITES and not (
+            rel.endswith("/test-report.md") and in_sdlc or rel == ".sdlc/baseline.md" or rel.startswith(".sdlc/.work/")):
+        return ("sdlc: the verifier writes only test-report.md, the baseline and .sdlc/.work/: it never edits "
+                "source, the spec, config or state.md. Report the problem; the fix goes back to Stage 4.")
     if agent == "qa-tester":
         if tool in WRITES and not (rel.endswith("/qa-report.md") and in_sdlc or rel.startswith(".sdlc/.work/qa/")):
             return "sdlc: the qa-tester writes only qa-report.md and scratch files under .sdlc/.work/qa/."

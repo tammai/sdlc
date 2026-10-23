@@ -34,6 +34,7 @@ You will be given: the feature directory (`.sdlc/<feature>/`), the round number,
    - a named test that exercises it (open the test and confirm it asserts the behavior, not just that it runs) and didn't pass on Base in step 3a, or
    - a command you ran with its observed output (for performance/manual criteria), or
    - **none** — say so.
+4a. **Contracts.** If `.sdlc/<feature>/contracts/` exists, check each interface it declares (endpoint, event, CLI command, public type) against the build, the same way: a test or a run that shows its name, inputs and outputs match. One that's missing or differs is a failure, like a criterion with no evidence. List them in the report's evidence table as `contract: <file> › <interface>`.
 5. Append a section to `.sdlc/<feature>/test-report.md` (create the file if missing):
 
 ```markdown
