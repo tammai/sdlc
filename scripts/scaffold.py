@@ -23,6 +23,10 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 
+# The resolver sits beside the hooks; found from this file, not CLAUDE_PLUGIN_ROOT (tests point that at a fake plugin)
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "hooks"))
+import sdlc_layout  # noqa: E402
+
 PLUGIN_ROOT = os.environ.get("CLAUDE_PLUGIN_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG = ".sdlc/config.json"
 LOCK = ".sdlc/scaffold.lock.json"
@@ -139,13 +143,19 @@ def cmd_init(p, a):
     if p.lock is not None and not a.force:
         raise ValueError(f"{LOCK} already exists (setup started or done); use status, or --force to restart")
     version = plugin_version()
+    docs = sdlc_layout.validate_docs_dir(a.docs_dir)
     if p.config is None:  # overrides only; everything else comes from the plugin defaults
         p.config = {"min_plugin_version": version, "project": {"kind": a.kind}}
+    # Features from before setup stay where they are until `relocate` moves them: never a half-moved repo
+    legacy = [n for n, f in sdlc_layout.features(p.root).items() if f["layout"] == "legacy"]
+    if not legacy:
+        p.config["docs_dir"] = docs
     p.lock = {"scaffold_version": version, "files": {}, "merged": {},
               "migrations": {"applied": [], "skipped": {}},
               "setup": {"kind": a.kind, "completed_steps": [], "complete": False}}
     p.save()
-    return {"initialized": True, "scaffold_version": version, "kind": a.kind}
+    return {"initialized": True, "scaffold_version": version, "kind": a.kind, "docs_dir": p.config.get("docs_dir"),
+            "legacy_features": legacy}
 
 
 def team_rules(p):
@@ -166,9 +176,25 @@ def team_rules(p):
     return rules
 
 
+DOCS_SITE_MARKERS = ("docusaurus.config.js", "docusaurus.config.ts", "docusaurus.config.mjs", "mkdocs.yml",
+                     "mkdocs.yaml", "docs/.vitepress", "docs/conf.py")
+
+
+def docs_site(p):
+    """The file that shows the repo builds a site from docs/ (so docs/sdlc would be published), or None."""
+    for marker in DOCS_SITE_MARKERS:
+        if os.path.exists(p.path(marker)):
+            return marker
+    astro = sorted(glob.glob(p.path("astro.config.*")))
+    if astro and os.path.isdir(p.path("src/content/docs")):
+        return os.path.basename(astro[0])
+    return None
+
+
 def cmd_status(p, a):
     pv = plugin_version()
-    out = {"plugin_version": pv, "configured": p.config is not None, "team_rules": team_rules(p)}
+    out = {"plugin_version": pv, "configured": p.config is not None, "team_rules": team_rules(p),
+           "docs_site": docs_site(p), "layout": sdlc_layout.paths(p.root)["layout"]}
     if p.lock is None:
         out.update(setup="none", drift=None)
         return out
@@ -190,6 +216,10 @@ def cmd_status(p, a):
                files={path: {"class": e["class"], "state": p.file_state(path, e)}
                       for path, e in sorted(p.lock.get("files", {}).items())})
     return out
+
+
+def cmd_paths(p, a):
+    return sdlc_layout.paths(p.root, a.name)
 
 
 def cmd_config(p, a):
@@ -272,7 +302,7 @@ def format_value(node, flt):
 
 
 def render_text(template_text, p):
-    ctx = {"plugin_version": plugin_version(), "config": effective_config(p.config)}
+    ctx = {"plugin_version": plugin_version(), "config": effective_config(p.config), "layout": sdlc_layout.paths(p.root)}
     missing = []
 
     def lookup(m):
@@ -801,9 +831,12 @@ def cmd_upgrade_plan(p, a):
 
 def eject_plan(p):
     lock = p.require_lock()
+    layout = sdlc_layout.paths(p.root)
+    keep = [CONFIG, layout["constitution"], layout["design_system"], ".sdlc/baseline.md", "knowledge/",
+            layout["state_root"] + ("<feature>.md" if layout["layout"] == "new" else "<feature>/"),
+            layout["intents_root"] + "<feature>/"]
     plan = {"delete": [], "ask": [], "already_gone": [], "unmerge": lock.get("merged", {}),
-            "keep": [CONFIG, ".sdlc/constitution.md", ".sdlc/design-system.md", ".sdlc/baseline.md", "knowledge/",
-                     ".sdlc/<feature>/"]}
+            "keep": list(dict.fromkeys(keep))}
     for path, e in sorted(lock.get("files", {}).items()):
         state = p.file_state(path, e)
         if state == "missing":
@@ -860,7 +893,13 @@ def build_parser():
     s = sub.add_parser("init", help="start setup: write lock (and a default config if none)")
     s.add_argument("--kind", choices=["greenfield", "brownfield"], required=True)
     s.add_argument("--force", action="store_true")
+    s.add_argument("--docs-dir", default=sdlc_layout.DOCS_DEFAULT,
+                   help=f"where sdlc documents live (default {sdlc_layout.DOCS_DEFAULT}); recorded as docs_dir")
     s.set_defaults(fn=cmd_init)
+
+    s = sub.add_parser("paths", help="where a feature's state and documents live in this repo's layout")
+    s.add_argument("name", nargs="?")
+    s.set_defaults(fn=cmd_paths)
 
     sub.add_parser("status", help="setup state, drift, pending migrations, file states").set_defaults(fn=cmd_status)
     sub.add_parser("config", help="effective config (plugin defaults + project overrides)").set_defaults(fn=cmd_config)

@@ -35,6 +35,6 @@ class LayoutTest(ProjectTestCase):
     def test_validate_docs_dir(self):
         self.assertEqual(sdlc_layout.validate_docs_dir("docs\\sdlc/"), "docs/sdlc")
         self.assertEqual(sdlc_layout.validate_docs_dir(".sdlc"), ".sdlc")
-        for bad in (".", "..", "../x", "/abs", ".git", ".git/x"):
+        for bad in (".", "..", "../x", "/abs", ".git", ".git/x", ".GIT/x", "docs/.git. /x"):
             with self.assertRaises(ValueError, msg=bad):
                 sdlc_layout.validate_docs_dir(bad)

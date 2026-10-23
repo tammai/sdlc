@@ -403,7 +403,7 @@ class ScaffoldTest(ProjectTestCase):
 
     def test_init_writes_overrides_only(self):
         self.init()
-        self.assertEqual(set(self.config()), {"min_plugin_version", "project"})
+        self.assertEqual(set(self.config()), {"min_plugin_version", "project", "docs_dir"})
 
     def test_yaml_list_and_json_filters(self):
         self.init()
@@ -556,6 +556,26 @@ class ScaffoldTest(ProjectTestCase):
         self.assertEqual(lines, ["/apps/web/ @acme/web", "/packages/api-contract/ @acme/backend @acme/leads"])
         self.write(".sdlc/config.json", json.dumps({"min_plugin_version": "1.3.0", "commands": {"test": "make test"}}))
         self.assertIn("no project.owners", self.sc("preview", "builtin:codeowners", expect=1)["error"])
+
+    def test_init_records_docs_dir_and_paths_resolve(self):
+        self.sc("init", "--kind", "greenfield", "--docs-dir", "handbook/sdlc/")
+        self.assertEqual(self.config()["docs_dir"], "handbook/sdlc")
+        self.assertEqual(self.sc("paths", "2026-10-23-x")["intents"], "handbook/sdlc/intents/2026-10-23-x/")
+        os.remove(self.path(".sdlc/config.json"))
+        self.assertIn("not inside the repo", self.sc("init", "--kind", "greenfield", "--force", "--docs-dir", "../x",
+                                                     expect=1)["error"])
+
+    def test_status_names_a_docs_site(self):
+        self.write("mkdocs.yml", "site_name: x\n")
+        self.assertEqual(self.sc("status")["docs_site"], "mkdocs.yml")
+
+    def test_templates_name_the_repos_layout_paths(self):
+        self.init()
+        self.template("templates/project/l.md", "{{layout.constitution}}")
+        self.write(".sdlc/config.json", "{}")  # legacy: no docs_dir
+        self.assertEqual(self.sc("preview", "templates/project/l.md")["text"], ".sdlc/constitution.md")
+        self.write(".sdlc/config.json", json.dumps({"docs_dir": "docs/sdlc"}))
+        self.assertEqual(self.sc("preview", "templates/project/l.md")["text"], "docs/sdlc/constitution.md")
 
     def test_builtin_ci_needs_commands(self):
         self.commands_config()

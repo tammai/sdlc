@@ -33,7 +33,8 @@ def validate_docs_dir(value):
         raise ValueError(f"docs_dir {value!r} is not inside the repo: give a path relative to the repo root")
     if norm == ".":
         raise ValueError("docs_dir can't be the repo root: name a folder")
-    if norm == ".git" or norm.startswith(".git/"):
+    # Windows and macOS match names case-insensitively and Windows drops trailing dots and spaces: .GIT, ".git."
+    if any(part.rstrip(". ").lower() == ".git" for part in norm.split("/")):
         raise ValueError("docs_dir can't be inside .git")
     return norm
 
