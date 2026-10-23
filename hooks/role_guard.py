@@ -36,7 +36,9 @@ def problem(agent, tool, rel, root):
     in_sdlc = rel == ".sdlc" or rel.startswith(".sdlc/") or bool(docs) and (rel == docs or rel.startswith(docs + "/"))
     # Reports go in a feature's folder only: .sdlc/ (old layout) or <docs>/intents/, never elsewhere in the docs
     folder, _, _ = rel.rpartition("/")
-    in_reports = (folder.count("/") == 1 and folder.startswith(".sdlc/") and folder not in (".sdlc/state", ".sdlc/.work")
+    # Case-folded, trailing dots and spaces dropped: Windows and macOS would open .sdlc/STATE/ as .sdlc/state/
+    in_reports = (folder.count("/") == 1 and folder.startswith(".sdlc/")
+                  and folder.split("/")[1].rstrip(". ").lower() not in ("state", ".work")
                   or bool(docs) and folder.startswith(docs + "/intents/") and "/" not in folder[len(docs + "/intents/"):])
     if agent in REVIEWERS and tool in WRITES:
         return f"sdlc: {agent} reports findings; it doesn't edit files. Put the fix in your report instead."
