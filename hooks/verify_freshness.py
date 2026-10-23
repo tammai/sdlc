@@ -5,9 +5,10 @@ Active only while an .sdlc feature is in Stage 5 (Verify). Freshness is tracked 
 monorepo (`packages` in .sdlc/config.json), or the whole project.
   - PostToolUse Edit/Write/MultiEdit/NotebookEdit on a code file -> the owning package goes stale (a file outside
                                                                      every package: all of them)
-  - PostToolUse Bash running a scope's full test command, in that  -> that scope goes fresh (records time, HEAD,
-    scope's directory (`cd <path> && <test>`, or the session cwd)     worktree tree); a root `commands.test` next to
-                                                                     packages makes every scope fresh
+  - PostToolUse / PostToolUseFailure Bash running a scope's full   -> that scope goes fresh (records time, HEAD,
+    test command, in that scope's directory (`cd <path> && <test>`,   worktree tree and the result: pass, fail, or
+    or the session cwd)                                               unknown when piped); a root `commands.test`
+                                                                     next to packages makes every scope fresh
   - Stop                                                          -> in a git repo, diff the worktree against each
                                                                      scope's tree from its last full run (catches
                                                                      edits via Bash, formatters, subagents); block if
@@ -16,7 +17,8 @@ monorepo (`packages` in .sdlc/config.json), or the whole project.
 The worktree tree is built with a throwaway copy of the git index (the real index is never touched).
 Test commands: `commands.test` / `packages[].commands.test` from .sdlc/config.json; without a config, the
 `test:` command in state.md, else generic runner patterns.
-State lives in .sdlc/.work/verify-freshness.json. Never fails the session: any error exits 0.
+State lives in .sdlc/.work/verify-freshness.json. Never fails the session: any error exits 0 silently and leaves
+.sdlc/.work/verify-freshness.error, which /sdlc:doctor reports; the next clean run removes it.
 """
 import glob
 import json
@@ -48,6 +50,9 @@ SHELL_SEP = re.compile(r"\|\||&&|[|;&]")
 # Redirects (2>&1, >out, &>log, <in) are removed, not cut at: arguments after them still filter the run
 REDIRECT = re.compile(r"&?\d*[<>]{1,2}&?\s*[^\s;&|<>]*")
 GO_ALL_PACKAGES = ("./...", "...", ".")
+LONE_PIPE = re.compile(r"(?<!\|)\|(?!\|)")
+ERROR_FILE = os.path.join(".sdlc", ".work", "verify-freshness.error")
+_root = None  # for the error marker
 
 
 def now():
@@ -301,7 +306,8 @@ def fresh_scopes(command, scopes, root_tests, root, cwd, configured):
 def main():
     data = json.load(sys.stdin)
     event = data.get("hook_event_name", "")
-    root = project_root(data.get("cwd"))
+    global _root
+    root = _root = project_root(data.get("cwd"))
     if not root:
         return
     feature, test_cmd = active_verify_feature(root)
@@ -315,10 +321,10 @@ def main():
     for sc in scopes:
         st["scopes"].setdefault(sc["name"], {"stale": True, "reason": "no full test run recorded in Stage 5 yet"})
 
-    if event == "PostToolUse":
+    if event in ("PostToolUse", "PostToolUseFailure"):
         tool = data.get("tool_name", "")
         tin = data.get("tool_input") or {}
-        if tool in EDIT_TOOLS:
+        if tool in EDIT_TOOLS and event == "PostToolUse":
             fp = tin.get("file_path") or tin.get("notebook_path")
             if is_code_file(root, fp):
                 rel = norm(os.path.relpath(os.path.abspath(fp), root))
@@ -329,14 +335,16 @@ def main():
         elif tool == "Bash":
             cmd = tin.get("command", "")
             resp = data.get("tool_response") or {}
-            if isinstance(resp, dict) and resp.get("interrupted"):
+            if data.get("is_interrupt") or (isinstance(resp, dict) and resp.get("interrupted")):
                 return
             names = fresh_scopes(cmd, scopes, root_tests, root, data.get("cwd"), configured)
             if names:
                 tree, head = worktree_tree(root), git_head(root)
+                # A non-zero exit arrives as PostToolUseFailure; a pipe reports its last command's exit, not the tests'
+                result = "fail" if event == "PostToolUseFailure" else "unknown" if LONE_PIPE.search(cmd) else "pass"
                 for name in names:
                     st["scopes"][name].update(stale=False, reason="", last_test_at=now(), last_test_cmd=cmd,
-                                              head=head, tree=tree)
+                                              last_result=result, head=head, tree=tree)
                 save(root, st)
         return
 
@@ -379,6 +387,14 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except Exception:
-        pass
+        if _root and os.path.exists(os.path.join(_root, ERROR_FILE)):
+            os.remove(os.path.join(_root, ERROR_FILE))
+    except Exception as e:
+        try:
+            if _root:
+                os.makedirs(os.path.dirname(os.path.join(_root, ERROR_FILE)), exist_ok=True)
+                with open(os.path.join(_root, ERROR_FILE), "w", encoding="utf-8") as f:
+                    f.write(f"{now()} {type(e).__name__}: {e}\n")
+        except Exception:
+            pass
     sys.exit(0)

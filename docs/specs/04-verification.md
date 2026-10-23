@@ -55,8 +55,9 @@ Stage 5 decides whether the work does what the spec says, using evidence that is
 | VER-FR-018 | The block message names each stale scope, the reason (files, up to five plus a count) and the exact command to rerun. | `[enforced]` › test_block_message_names_the_test_command, test_block_message_names_the_config_command, test_lists_at_most_five_changed_files |
 | VER-FR-019 | A second consecutive block only warns, to avoid loops. | `[enforced]` › test_second_consecutive_stop_only_warns |
 | VER-FR-020 | Switching feature resets state; the full run records the commit; state lives in `.sdlc/.work/verify-freshness.json`. | `[enforced]` › test_switching_feature_resets_freshness, test_records_git_head_on_fresh_run |
-| VER-FR-021 | Never fails the session: bad input, a corrupt state file or its own error exits 0 silently. Works from a subdirectory cwd. | `[enforced]` › test_bad_input_exits_zero_silently, test_corrupt_state_file_is_recovered, test_found_from_subdirectory_cwd |
+| VER-FR-021 | Never fails the session: bad input, a corrupt state file or its own error exits 0 silently; its own error leaves `.sdlc/.work/verify-freshness.error`, which `/sdlc:doctor` reports and the next clean run removes. Works from a subdirectory cwd. | `[enforced]` › test_bad_input_exits_zero_silently, test_corrupt_state_file_is_recovered, test_found_from_subdirectory_cwd, test_own_error_leaves_a_marker; test_doctor › test_freshness_hook_error_warns |
 | VER-FR-022 | Monorepo with a `Base:` commit in `state.md`: on entering Stage 5 only packages with changes since the base (committed, uncommitted or untracked) start stale; untouched ones start fresh from a worktree snapshot, so later changes to them still count. No base, or no changes detected: every package starts stale. | `[enforced]` › test_only_packages_changed_since_the_feature_base_start_stale, test_untouched_package_still_goes_stale_when_it_changes_later, test_without_a_base_every_package_starts_stale, test_no_changes_since_base_keeps_everything_stale |
+| VER-FR-023 | A full run counts whether it passes or fails: a non-zero exit arrives as `PostToolUseFailure`, which the hook also handles (baselined failures make a red run normal). Each scope records `last_result`: `pass`, `fail`, or `unknown` when the command pipes its output (the pipe reports the last command's exit). The verdict on failures stays with the verifier and the baseline. | `[enforced]` › test_failing_full_run_makes_fresh_and_records_the_failure |
 
 ## Edge cases
 
@@ -75,4 +76,6 @@ Stage 5 decides whether the work does what the spec says, using evidence that is
 - Red-green runs `install` in a fresh worktree each round: it takes time and may use the network.
 - Red-green on a refactor: tests that pass on Base are expected, and the verifier lists them; a criterion relying only on such a test has no evidence.
 - `.only` inside a test file and unusual custom filters aren't detected by the hook (a guardrail warns on `.only` instead).
-- Whether the hook fires for tool calls made inside subagents hasn't been checked in a live session; the worktree diff at the turn's end covers their edits regardless.
+- Hooks fire for tool calls inside subagents (checked in a headless session on 2026-10-23; the input names the agent in `agent_type`), and the worktree diff at the turn's end covers their edits regardless.
+- Two features in Stage 5 at once: the state is named after the first one found, but freshness is about the worktree's code, which they share, so both are guarded.
+- A run that exceeds the hook's 10-second timeout is killed by Claude Code and leaves no error marker.

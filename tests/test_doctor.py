@@ -196,6 +196,12 @@ class DoctorTest(ProjectTestCase):
         self.write(".sdlc/.work/verify-freshness.json", "{bad")
         self.assertEqual(self.check("verify freshness")["status"], "warn")
 
+    def test_freshness_hook_error_warns(self):
+        self.write(".sdlc/.work/verify-freshness.error", "2026-10-23T00:00:00Z AttributeError: boom\n")
+        c = self.check("verify freshness hook")
+        self.assertEqual(c["status"], "warn")
+        self.assertIn("AttributeError: boom", c["detail"])
+
     def test_doctor_changes_nothing(self):
         self.setup_repo("brownfield")
         before = sorted(os.path.relpath(os.path.join(d, f), self.root) for d, _, fs in os.walk(self.root) for f in fs)

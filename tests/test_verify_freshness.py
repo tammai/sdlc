@@ -95,6 +95,24 @@ class VerifyFreshnessTest(ProjectTestCase):
         self.assertFalse(st["stale"])
         self.assertEqual(st["last_test_cmd"], "npm test")
 
+    def test_failing_full_run_makes_fresh_and_records_the_failure(self):
+        # A non-zero exit arrives as PostToolUseFailure, not PostToolUse; baselined failures make that normal
+        self.set_state()
+        payload = {"hook_event_name": "PostToolUseFailure", "cwd": self.root, "tool_name": "Bash",
+                   "tool_input": {"command": "npm test"}, "error": "Exit code 1", "is_interrupt": False}
+        run_hook(HOOK, payload, self.root)
+        self.assertAllows()
+        self.assertEqual(self.scope_state()["last_result"], "fail")
+        self.bash("npm test | tail -5")
+        self.assertEqual(self.scope_state()["last_result"], "unknown")  # the pipe's exit code is tail's
+
+    def test_own_error_leaves_a_marker(self):
+        self.set_state()
+        self.write(".sdlc/config.json", json.dumps({"packages": [1]}))
+        code, out, raw, err = run_hook(HOOK, {"hook_event_name": "Stop", "cwd": self.root}, self.root)
+        self.assertEqual((code, out), (0, None))
+        self.assertTrue(os.path.exists(self.path(".sdlc/.work/verify-freshness.error")))
+
     def test_code_edit_after_test_run_makes_stale(self):
         self.set_state()
         self.bash("npm test")

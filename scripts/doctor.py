@@ -282,11 +282,19 @@ def check_repo(r, root):
     if os.path.exists(fresh):
         try:
             st = json.load(open(fresh, encoding="utf-8"))
-            r.add(g, "verify freshness", "ok", f"{st.get('feature')}: " + ("stale: " + st.get("reason", "")
-                                                                        if st.get("stale") else "fresh"))
+            scopes = st.get("scopes") or {"": st}
+            stale = [(n + ": " if n not in ("", "(root)") else "") + s.get("reason", "")
+                     for n, s in scopes.items() if s.get("stale")]
+            r.add(g, "verify freshness", "ok", f"{st.get('feature')}: " + ("stale: " + "; ".join(stale)
+                                                                        if stale else "fresh"))
         except ValueError:
             r.add(g, "verify freshness", "warn", "state file is corrupt (the hook recovers on the next full run)",
                   f"delete .sdlc/.work/verify-freshness.json · {RUNBOOK} R4")
+    error = os.path.join(root, ".sdlc", ".work", "verify-freshness.error")
+    if os.path.exists(error):
+        with open(error, encoding="utf-8", errors="replace") as f:
+            r.add(g, "verify freshness hook", "warn", "its last run failed, so it didn't guard that turn: "
+                  + f.read().strip()[:200], "report it with the file's contents; the next clean run clears it")
 
 
 def to_markdown(report):
