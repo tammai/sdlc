@@ -143,7 +143,8 @@ def cmd_init(p, a):
     if p.lock is not None and not a.force:
         raise ValueError(f"{LOCK} already exists (setup started or done); use status, or --force to restart")
     version = plugin_version()
-    docs = sdlc_layout.validate_docs_dir(a.docs_dir)
+    # A restart (--force) keeps the location already recorded unless one is given: documents may already be there
+    docs = sdlc_layout.validate_docs_dir(a.docs_dir or sdlc_layout.docs_dir(p.root) or sdlc_layout.DOCS_DEFAULT)
     if p.config is None:  # overrides only; everything else comes from the plugin defaults
         p.config = {"min_plugin_version": version, "project": {"kind": a.kind}}
     # Features from before setup stay where they are until `relocate` moves them: never a half-moved repo
@@ -893,23 +894,26 @@ def git_out(p, *args):
 
 
 def relocate_plan(p, docs):
-    """[[from, to], ...] for every legacy feature and doc still in .sdlc/, and the names whose target exists."""
+    """[[from, to], ...] for every tracked file of each legacy feature and doc still in .sdlc/, and the names whose
+    target exists. Only tracked files: git mv refuses ignored ones (.DS_Store), and a failure part-way would strand the
+    rest. state.md moves last, so an interrupted run leaves the feature readable where it was."""
     moves, conflicts = [], []
     for path in sorted(glob.glob(p.path(".sdlc/*/state.md"))):
         name = os.path.basename(os.path.dirname(path))
         if name in ("state", "intents"):
             continue
         src = f".sdlc/{name}"
-        planned = [[f"{src}/state.md", f".sdlc/state/{name}.md"]]
-        planned += [[f"{src}/{e}", f"{docs}/intents/{name}/{e}"] for e in sorted(os.listdir(p.path(src)))
-                    if e != "state.md"]
+        tracked = [f for f in git_out(p, "ls-files", "--", src).splitlines() if f != f"{src}/state.md"]
+        planned = [[f, f"{docs}/intents/{name}/{f[len(src) + 1:]}"] for f in sorted(tracked)]
+        planned.append([f"{src}/state.md", f".sdlc/state/{name}.md"])
         if any(os.path.exists(p.path(dst)) for _, dst in planned):
             conflicts.append(name)
         else:
             moves += planned
+    tracked_docs = set(git_out(p, "ls-files", "--", ".sdlc/constitution.md", ".sdlc/design-system.md").splitlines())
     for doc in ("constitution.md", "design-system.md"):
         src, dst = f".sdlc/{doc}", f"{docs}/{doc}"
-        if src != dst and os.path.exists(p.path(src)):
+        if src != dst and src in tracked_docs:
             if os.path.exists(p.path(dst)):
                 conflicts.append(doc)
             else:
@@ -918,11 +922,12 @@ def relocate_plan(p, docs):
 
 
 def cmd_relocate(p, a):
-    """Dry run by default. --apply moves with git mv; docs_dir is recorded only once nothing is left to move."""
+    """Dry run by default. --apply moves with git mv, all or nothing: any conflict and nothing moves, so the repo is
+    never half-moved; docs_dir is recorded with the move."""
     docs = sdlc_layout.validate_docs_dir(a.docs_dir or sdlc_layout.docs_dir(p.root) or sdlc_layout.DOCS_DEFAULT)
     moves, conflicts = relocate_plan(p, docs)
     out = {"docs_dir": docs, "moves": moves, "conflicts": conflicts, "applied": False}
-    if not a.apply:
+    if not a.apply or conflicts:
         return out
     if git_out(p, "status", "--porcelain").strip():
         raise ValueError("uncommitted changes: commit or stash them first, so the move is one reviewable commit")
@@ -930,14 +935,14 @@ def cmd_relocate(p, a):
     for src, dst in moves:
         os.makedirs(os.path.dirname(p.path(dst)), exist_ok=True)
         git_out(p, "mv", src, dst)
-        for key in [k for k in lock.get("files", {}) if k == src or k.startswith(src + "/")]:
-            lock["files"][dst + key[len(src):]] = lock["files"].pop(key)
-    for src in {s.rsplit("/", 1)[0] for s, _ in moves if s.count("/") > 1}:  # emptied feature folders
-        if os.path.isdir(p.path(src)) and not os.listdir(p.path(src)):
-            os.rmdir(p.path(src))
-    if not conflicts:
-        p.config = p.config or {}
-        p.config["docs_dir"] = docs
+        if src in lock.get("files", {}):
+            lock["files"][dst] = lock["files"].pop(src)
+    for feature in {s.split("/")[1] for s, _ in moves if s.count("/") > 1}:  # tidy emptied feature folders
+        for d, _, _ in sorted(os.walk(p.path(f".sdlc/{feature}")), key=lambda w: -len(w[0])):
+            if not os.listdir(d):
+                os.rmdir(d)
+    p.config = p.config or {}
+    p.config["docs_dir"] = docs
     p.save()
     out["applied"] = True
     return out
@@ -953,8 +958,8 @@ def build_parser():
     s = sub.add_parser("init", help="start setup: write lock (and a default config if none)")
     s.add_argument("--kind", choices=["greenfield", "brownfield"], required=True)
     s.add_argument("--force", action="store_true")
-    s.add_argument("--docs-dir", default=sdlc_layout.DOCS_DEFAULT,
-                   help=f"where sdlc documents live (default {sdlc_layout.DOCS_DEFAULT}); recorded as docs_dir")
+    s.add_argument("--docs-dir",
+                   help=f"where sdlc documents live (default: the recorded docs_dir, else {sdlc_layout.DOCS_DEFAULT})")
     s.set_defaults(fn=cmd_init)
 
     s = sub.add_parser("paths", help="where a feature's state and documents live in this repo's layout")

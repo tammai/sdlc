@@ -328,7 +328,7 @@ Every command prints one JSON object. Exit codes: 0 ok, 1 error, 2 refused becau
 |---|---|
 | `init --kind greenfield\|brownfield [--docs-dir <d>]` | start setup: write the lock, plus a minimal `config.json` if none exists, and record `docs_dir` (default `docs/sdlc`; left unset while features from before setup are still in `.sdlc/`, reported as `legacy_features`) |
 | `paths [<feature>]` | where this repo keeps a feature's state and documents, the constitution and the design system (`layout`: `new` or `legacy`) |
-| `relocate [--docs-dir <d>] [--apply]` | move an old-layout repo: state to `.sdlc/state/`, documents to `<d>` with `git mv`; dry run unless `--apply`; clean tree only; stops on a feature in both layouts; records `docs_dir` when nothing is left |
+| `relocate [--docs-dir <d>] [--apply]` | move an old-layout repo: state to `.sdlc/state/`, documents to `<d>` with `git mv`; tracked files only; dry run unless `--apply`; clean tree only; all or nothing (any conflict moves nothing); records `docs_dir` |
 | `status` | setup state, steps done, drift (`current` / `behind` / `ahead` / `plugin_too_old`), pending migrations, file states, `layout`, and `docs_site` (the file that shows `docs/` is published as a site) |
 | `config` | effective config: plugin defaults merged with the project's overrides |
 | `step-done <step> [--complete]` | record setup progress (resumable) |

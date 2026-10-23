@@ -611,11 +611,29 @@ class ScaffoldTest(ProjectTestCase):
         self.assertEqual(self.sc("relocate", "--apply")["moves"], [])
 
     def test_relocate_stops_on_a_name_in_both_layouts(self):
-        self.legacy_repo([".sdlc/f1/state.md", ".sdlc/state/f1.md"])
+        self.legacy_repo([".sdlc/f1/state.md", ".sdlc/state/f1.md", ".sdlc/f2/state.md"])
         out = self.sc("relocate", "--apply")
         self.assertEqual(out["conflicts"], ["f1"])
-        self.assertTrue(os.path.exists(self.path(".sdlc/f1/state.md")))
+        self.assertFalse(out["applied"])
+        for path in (".sdlc/f1/state.md", ".sdlc/f2/state.md"):  # nothing moves: never half-moved
+            self.assertTrue(os.path.exists(self.path(path)), path)
         self.assertNotIn("docs_dir", self.config())
+
+    def test_relocate_moves_only_tracked_files(self):
+        self.legacy_repo([".gitignore", ".sdlc/f1/state.md", ".sdlc/f1/spec.md"])
+        self.write(".gitignore", ".DS_Store\n")
+        self.write(".sdlc/f1/.DS_Store", "x")
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "ignore")
+        self.sc("relocate", "--apply")
+        self.assertTrue(os.path.exists(self.path("docs/sdlc/intents/f1/spec.md")))
+        self.assertTrue(os.path.exists(self.path(".sdlc/state/f1.md")))
+        self.assertEqual(self.config()["docs_dir"], "docs/sdlc")
+
+    def test_init_force_keeps_a_recorded_docs_dir(self):
+        self.sc("init", "--kind", "greenfield", "--docs-dir", "my/docs")
+        self.sc("init", "--kind", "greenfield", "--force")
+        self.assertEqual(self.config()["docs_dir"], "my/docs")
 
     def test_relocate_refuses_a_dirty_tree(self):
         self.legacy_repo([".sdlc/f1/state.md"])
