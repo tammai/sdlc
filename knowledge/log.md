@@ -10,3 +10,5 @@
 - 2026-10-22 add knowledge/gotchas/frontmatter-colon-breaks-yaml.md; update .claude/rules/skills.md — silent-failure-hunter frontmatter failed validate since 1.2.0 (from 1.4.0 release distill)
 - 2026-10-22 update knowledge/gotchas/windows-stdout-encoding.md — Python 3.15 UTF-8 mode hid the cp1252 crashes (from 1.4.0 release distill)
 - 2026-10-22 update knowledge/gotchas/windows-stdout-encoding.md — subprocess text=True decoding crashed diff_stats.py on a non-ASCII diff (from the QA live run)
+- 2026-10-23 update knowledge/gotchas/windows-stdout-encoding.md, .claude/rules/hooks.md, .claude/rules/scripts.md — text=True crash recurred in verify_freshness.py (from 1.5.0 release distill)
+- 2026-10-23 add knowledge/gotchas/rendering-svg-diagrams.md — Playwright couldn't render the diagrams; stale counts in the layers SVG (from 1.5.0 release distill)
