@@ -8,6 +8,8 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 No migration. `/sdlc:upgrade` regenerates the CI workflow with the Node 24 action pins.
 
+The release smoke test was skipped at the maintainer's request. The changes were checked by the suite (207 tests) and `claude plugin validate .`.
+
 ### Changed
 - An S-track fix goes to one implementer subagent on the cheap tier (standard on high risk) instead of the session, so it no longer runs at your session model's price.
 - When a feature starts on the S track, or M with low risk, in an Opus or Fable session, the orchestrator suggests `/model sonnet` once. It never blocks; reviewers and the verifier keep their own models.
