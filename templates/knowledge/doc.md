@@ -14,7 +14,7 @@ updated: <YYYY-MM-DD>
 <!-- gotcha:    ## Symptom / ## Cause / ## Fix / ## How to detect early -->
 <!-- runbook:   ## When to use / ## Steps / ## Verify / ## Rollback -->
 <!-- convention: the rule, the reason, one good and one bad example -->
-<!-- feature:   one paragraph, then links to .sdlc/<slug>/spec.md, design.md, retro.md -->
+<!-- feature:   one paragraph, then links to the feature's spec.md, design.md, retro.md (`scaffold.py paths <slug>` gives the folder) -->
 
 ## Related
 -

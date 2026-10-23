@@ -6,7 +6,7 @@ paths:
 # UI (sdlc policy)
 
 Design system
-- Read `.sdlc/design-system.md` before UI work. It names the tokens, the component library and the patterns this project uses; follow it strictly.
+- Read `{{layout.design_system}}` before UI work. It names the tokens, the component library and the patterns this project uses; follow it strictly.
 - Colors, spacing, type, radius, shadows and motion come from tokens only: no raw hex/rgb, arbitrary Tailwind values (`w-[13px]`) or inline `style=`.
 - Reuse the design system's components. A new component, variant or token needs a stated reason, and goes into the design system, not inline.
 - No design system file yet? Say so and ask before building UI; don't invent one silently.

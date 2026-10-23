@@ -18,4 +18,4 @@ conditions:
     pattern: (?<![\w&/])#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})\b|\b(rgba?|hsla?|oklch|oklab|lab|lch)\(\s*[\d.]|[\w-]-\[(#|-?\d)[^\]\s]*\]|\bstyle=(\{\{|")
 ---
 
-**Hard-coded style value.** Use the design system's tokens and components (`.sdlc/design-system.md`): no raw hex/rgb colors, arbitrary Tailwind values like `bg-[#123456]` or `w-[13px]`, or inline `style=`. If no token fits, propose adding one to the design system instead of inlining the value.
+**Hard-coded style value.** Use the design system's tokens and components (`{{layout.design_system}}`): no raw hex/rgb colors, arbitrary Tailwind values like `bg-[#123456]` or `w-[13px]`, or inline `style=`. If no token fits, propose adding one to the design system instead of inlining the value.
