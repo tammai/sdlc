@@ -4,6 +4,8 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
+## 1.7.0 — 2026-10-23
+
 Migration: `1.7.0-artifact-layout` (moves existing repos; `/sdlc:upgrade` previews it first).
 
 ### Changed
