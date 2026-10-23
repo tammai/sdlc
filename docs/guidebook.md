@@ -4,7 +4,7 @@ What the plugin is, how it thinks, and where things live. For "what do I do when
 
 ## The idea
 
-`sdlc` is one Claude Code plugin that takes a piece of work from request to shipped and learned-from. An **orchestrator** skill is the conductor: it sizes the work, runs one stage at a time, calls the bundled skills, subagents and commands for that stage, records progress in `.sdlc/<feature>/state.md`, and stops at **gates**. Nothing outside the plugin is needed for the core stages.
+`sdlc` is one Claude Code plugin that takes a piece of work from request to shipped and learned-from. An **orchestrator** skill is the conductor: it sizes the work, runs one stage at a time, calls the bundled skills, subagents and commands for that stage, records progress in `.sdlc/state/<feature>.md`, and stops at **gates**. Nothing outside the plugin is needed for the core stages.
 
 Three ideas carry the design:
 
@@ -166,14 +166,15 @@ Each round spawns a new `verifier`, which runs build, lint, typecheck and tests 
   config.json              the project's commands (per package in a monorepo) and overrides on the plugin's defaults (yours)
   scaffold.lock.json       what the plugin placed, versions, migrations (machine-only)
   baseline.md              known failures from before setup (yours)
-  constitution.md          project principles
-  design-system.md         the design system UI work follows (UI projects; yours)
+  state/<feature>.md       track, stage, gate log, deviations, open questions, and the feature's Docs: folder
   lint/                    sdlc lint snippets your ESLint/Ruff config imports (seeded)
   ci/contract-check.sh     the API contract check CI runs (multi-app repos that chose it; seeded)
-  <feature>/
-    state.md               track, stage, gate log, deviations, open questions
-    spec.md  design.md  plan.md  test-report.md  qa-report.md  review.md  security.md  release.md  retro.md
   .work/                   scratch, git-ignored (also verify-freshness.json)
+docs/sdlc/                 docs_dir: the documents people read (default; setup asks when the repo publishes docs/)
+  constitution.md          project principles (yours)
+  design-system.md         the design system UI work follows (UI projects; yours)
+  intents/<feature>/
+    brainstorm.md  spec.md  design.md  plan.md  test-report.md  qa-report.md  review.md  security.md  release.md  retro.md
 knowledge/                 tier 3, on-demand docs (index.md links everything)
 .claude/rules/<area>.md    tier 2, loads when matching paths are touched (yours)
 .claude/rules/sdlc*.md     plugin policy rules: workflow, code style, tests, migrations, sensitive areas, CI (generated)
@@ -182,11 +183,11 @@ knowledge/                 tier 3, on-demand docs (index.md links everything)
 CLAUDE.md                  tier 1, at most 60 lines (never touched by the plugin)
 ```
 
-Each feature folder is named `<yyyy-mm-dd>-<slug>` (with a ticket key after the date when there is one, e.g. `2026-10-22-PROJ-123-month-filter`), so folders sort by start date and a new feature never reuses an old one's folder; the branch uses the same name. Commit everything under `.sdlc/<feature>/`. Only `.sdlc/.work/` is ignored.
+Each feature (its state file and its documents folder) is named `<yyyy-mm-dd>-<slug>` (with a ticket key after the date when there is one, e.g. `2026-10-22-PROJ-123-month-filter`), so folders sort by start date and a new feature never reuses an old one's folder; the branch uses the same name. Commit its state and everything under `docs/sdlc/intents/<feature>/`. Only `.sdlc/.work/` is ignored. A repo set up before 1.7.0 keeps everything in `.sdlc/<feature>/` until `/sdlc:upgrade` moves it; the hooks read both layouts meanwhile ([ADR 0006](adr/0006-split-sdlc-docs-from-machinery.md)).
 
 ### `state.md`
 
-Resume depends on this file. The orchestrator looks for `.sdlc/*/state.md` with `Status: active`; one match resumes, several asks which, none starts a new feature.
+Resume depends on this file. The orchestrator looks for `.sdlc/state/*.md` with `Status: active`; one match resumes, several asks which, none starts a new feature.
 
 ```markdown
 # <feature>
@@ -221,13 +222,14 @@ Setup writes `.sdlc/config.json`; it's yours to edit and holds only what differs
 | `packages` | Monorepo instead of `commands`: `[{"name", "path", "stack", "commands"}]`, each run from its path. A root `commands.test` (e.g. `turbo run test`) counts for every package |
 | `project.profile`, `project.owners` | Multi-app repos: `lean` or `large` (the answer to "who works here"), and for `large` the CODEOWNERS entries (`{pattern: [handles]}`, in order) |
 | `api_contract` | Multi-app repos with the contract check: `{"path", "spec"}` of the versioned API contract |
+| `docs_dir` | Where the sdlc documents live (default `docs/sdlc`; `.sdlc` or another in-repo folder if `docs/` is published as a site). Set by setup or the 1.7.0 upgrade; without it a repo is on the old all-in-`.sdlc/` layout |
 | `verify.order` | Order of the verify steps (default lint, typecheck, build, test) |
 | `areas.*` | Path patterns for the policy rules: `source`, `tests`, `migrations`, `sensitive`, `ci` |
 | `ci` | `os` matrix (default `["ubuntu-latest"]`; add `"windows-latest"` if teammates develop on Windows) and toolchain versions for the generated workflow |
 | `baseline` | Where the known-failures baseline lives (default `.sdlc/baseline.md`) |
 | `min_plugin_version` | Teammates on an older plugin get a warning to update |
 
-After changing commands or `ci`, run `/sdlc:upgrade` so the generated CI workflow follows. Don't edit `.sdlc/scaffold.lock.json` by hand. Why it's designed this way: [ADR 0001](adr/0001-project-setup-upgrade-eject.md), [ADR 0002](adr/0002-record-the-repos-own-commands.md), [ADR 0005](adr/0005-greenfield-monorepo-layout.md); the `scaffold.py` reference is in the [runbook](runbook.md#setup-upgrade-eject-internals).
+After changing commands or `ci`, run `/sdlc:upgrade` so the generated CI workflow follows. Don't edit `.sdlc/scaffold.lock.json` by hand. Why it's designed this way: [ADR 0001](adr/0001-project-setup-upgrade-eject.md), [ADR 0002](adr/0002-record-the-repos-own-commands.md), [ADR 0005](adr/0005-greenfield-monorepo-layout.md), [ADR 0006](adr/0006-split-sdlc-docs-from-machinery.md); the `scaffold.py` reference is in the [runbook](runbook.md#setup-upgrade-eject-internals).
 
 ## Glossary
 
@@ -240,8 +242,8 @@ After changing commands or `ci`, run `/sdlc:upgrade` so the generated CI workflo
 | Public Surface | Declared list of everything new that callers or users can see |
 | Complexity Tracking | Design table that ties every addition to a requirement |
 | Deviation | A gate you chose to skip, recorded in `state.md` |
-| Constitution | Project principles in `.sdlc/constitution.md`, checked in Stage 2 |
-| Design system | `.sdlc/design-system.md`: the library, tokens, components and patterns UI work must use; checked by `ui-reviewer` in Stage 6 |
+| Constitution | Project principles in `docs/sdlc/constitution.md`, checked in Stage 2 |
+| Design system | `docs/sdlc/design-system.md`: the library, tokens, components and patterns UI work must use; checked by `ui-reviewer` in Stage 6 |
 | Project commands | `install`, `test`, `lint`, `typecheck`, `build` in `.sdlc/config.json`, per package in a monorepo |
 | Baseline | Failures that existed before setup; Stage 5 only fails on new ones |
 | Scaffold version / drift | The plugin version a repo was set up or upgraded with; "behind" means `/sdlc:upgrade` has work to do |

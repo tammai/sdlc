@@ -21,8 +21,8 @@ Operational procedures: install, check health, fix what breaks, maintain the plu
 | Project config (overrides on plugin defaults) | `.sdlc/config.json` |
 | What the plugin placed, scaffold version, migrations | `.sdlc/scaffold.lock.json` (never edit by hand) |
 | Known failures from before setup | `.sdlc/baseline.md` |
-| Feature state | `.sdlc/<feature>/state.md` |
-| Feature artifacts | `.sdlc/<feature>/*.md` (committed) |
+| Feature state | `.sdlc/state/<feature>.md` |
+| Feature artifacts | `docs/sdlc/intents/<feature>/*.md` (committed) |
 | Scratch | `.sdlc/.work/` (git-ignored) |
 | Verify freshness state | `.sdlc/.work/verify-freshness.json` |
 | Ralph loop state | `.claude/ralph-loop.local.md` |
@@ -63,7 +63,7 @@ Smoke test in a scratch repo:
 2. `/sdlc:doctor`: no ❌. Expected warnings: the repo isn't set up yet, and (before the first session finishes) the reviewer environment.
 3. `/sdlc:status` says the repo isn't set up and lists no features.
 4. `/sdlc:setup` with a one-line description: it proposes a stack, and after your OK writes `.sdlc/config.json` and the rest on a `sdlc/setup` branch. Run `/sdlc:doctor` again: the repo checks are ✅.
-5. `/sdlc:start` with a tiny request creates `.sdlc/<feature>/state.md` and announces a track and first stage.
+5. `/sdlc:start` with a tiny request creates `.sdlc/state/<feature>.md` and announces a track and first stage.
 
 ## Health check
 
@@ -266,7 +266,7 @@ The test suite runs hooks and scripts as subprocesses; this checks the installed
 1. `/sdlc:setup a tiny TypeScript library that adds two numbers`.
 2. It asks a few stack questions and **waits for your approval** before generating anything.
 3. It works on a `sdlc/setup` branch with one commit per step; `.sdlc/config.json` has the five commands; it runs them and they pass.
-4. The repo has `.claude/rules/sdlc*.md`, `.claude/hookify/sdlc-*.md`, `.github/workflows/sdlc-verify.yml`, `.sdlc/constitution.md`, `knowledge/index.md`, `.sdlc/scaffold.lock.json`; `CLAUDE.md` untouched.
+4. The repo has `.claude/rules/sdlc*.md`, `.claude/hookify/sdlc-*.md`, `.github/workflows/sdlc-verify.yml`, `docs/sdlc/constitution.md`, `knowledge/index.md`, `.sdlc/scaffold.lock.json`; `CLAUDE.md` untouched.
 5. It asks PR or local merge; pick local merge. `/sdlc:doctor` now shows the repo checks ✅.
 6. Interrupt test (should): in a second throwaway repo, stop setup midway (Esc), run `/sdlc:setup` again; it resumes after the last finished step.
 
@@ -276,7 +276,7 @@ The test suite runs hooks and scripts as subprocesses; this checks the installed
 3. Ask Claude to write `const k = "sk-ant-api03-…"` with 30+ characters after the prefix: blocked.
 
 **E. An S fix through Verify (must)**
-1. `/sdlc:start fix: add returns a string when given numeric strings`. It proposes track S and creates `.sdlc/<feature>/state.md`.
+1. `/sdlc:start fix: add returns a string when given numeric strings`. It proposes track S and creates `.sdlc/state/<feature>.md`.
 2. Stage 4 dispatches one implementer subagent with `model: haiku`, which writes a failing test first, then the fix.
 3. Stage 5 spawns a **fresh** verifier agent, which appends a round to `test-report.md`.
 4. While in Stage 5, ask Claude to change a source file **with a shell command** (e.g. `sed -i`), then end the turn: it's **blocked**, and the message names the test command. Run it; the turn then ends normally.
@@ -326,8 +326,10 @@ Every command prints one JSON object. Exit codes: 0 ok, 1 error, 2 refused becau
 
 | Command | Does |
 |---|---|
-| `init --kind greenfield\|brownfield` | start setup: write the lock, plus a minimal `config.json` if none exists |
-| `status` | setup state, steps done, drift (`current` / `behind` / `ahead` / `plugin_too_old`), pending migrations, file states |
+| `init --kind greenfield\|brownfield [--docs-dir <d>]` | start setup: write the lock, plus a minimal `config.json` if none exists, and record `docs_dir` (default `docs/sdlc`; left unset while features from before setup are still in `.sdlc/`, reported as `legacy_features`) |
+| `paths [<feature>]` | where this repo keeps a feature's state and documents, the constitution and the design system (`layout`: `new` or `legacy`) |
+| `relocate [--docs-dir <d>] [--apply]` | move an old-layout repo: state to `.sdlc/state/`, documents to `<d>` with `git mv`; dry run unless `--apply`; clean tree only; stops on a feature in both layouts; records `docs_dir` when nothing is left |
+| `status` | setup state, steps done, drift (`current` / `behind` / `ahead` / `plugin_too_old`), pending migrations, file states, `layout`, and `docs_site` (the file that shows `docs/` is published as a site) |
 | `config` | effective config: plugin defaults merged with the project's overrides |
 | `step-done <step> [--complete]` | record setup progress (resumable) |
 | `contract` | check the commands per scope: required ones present, package paths exist, tools on PATH; reports the recorded runs |

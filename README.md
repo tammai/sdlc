@@ -57,7 +57,7 @@ One row per check (✅ / ⚠️ / ❌) for your machine, the plugin and the curr
 - Both get policy rules, guardrails (hookify), lint snippets, a permission allowlist for your commands, CI generated from those commands, a constitution and a knowledge folder. Projects with UI also get a **design system** record: the library, tokens and components you already use, or a mainstream library and minimal tokens you approve.
 - Ends by asking: open a PR, or merge locally.
 
-What lands in the repo: `.sdlc/config.json` (your commands; to change one later, see [Configuration](docs/guidebook.md#configuration)), `.sdlc/constitution.md`, `.sdlc/design-system.md` (UI projects), `.claude/rules/sdlc-*.md`, `.claude/hookify/sdlc-*.md`, `.claude/settings.json` (command allowlist; with your approval, the sdlc marketplace and `enabledPlugins` so teammates are offered the plugin), `.github/workflows/sdlc-verify.yml`, `knowledge/`, and for existing code `.sdlc/baseline.md`. Your `CLAUDE.md` is never touched.
+What lands in the repo: `.sdlc/config.json` (your commands; to change one later, see [Configuration](docs/guidebook.md#configuration)), `docs/sdlc/constitution.md`, `docs/sdlc/design-system.md` (UI projects), `.claude/rules/sdlc-*.md`, `.claude/hookify/sdlc-*.md`, `.claude/settings.json` (command allowlist; with your approval, the sdlc marketplace and `enabledPlugins` so teammates are offered the plugin), `.github/workflows/sdlc-verify.yml`, `knowledge/`, and for existing code `.sdlc/baseline.md`. Your `CLAUDE.md` is never touched.
 
 ### 3. Start a piece of work
 
@@ -74,7 +74,7 @@ The orchestrator sizes it and proposes the smallest track that fits; you can ove
 | **M** feature | a few files to a few days | spec → plan → implement → verify → review → light security → PR (+ design if the approach isn't obvious) |
 | **L** project | new service, unclear approach, or auth/payments/migrations/public API | stages 1–8 and 11, including design and learn; deploy on request |
 
-Each stage prints what it uses and its exit gate. Artifacts go to `.sdlc/<feature>/` (commit them).
+Each stage prints what it uses and its exit gate. Documents go to `docs/sdlc/intents/<feature>/` and state to `.sdlc/state/<feature>.md` (commit both; `docs_dir` in config moves the documents elsewhere, e.g. when `docs/` is a published site).
 
 ### 4. Decide at the gates
 
@@ -159,7 +159,7 @@ Keeps always-loaded context small while agents still find what they need:
 | 2 | `.claude/rules/<area>.md` with `paths:` | automatically when matching files are touched |
 | 3 | `knowledge/**.md` (Open Knowledge Format) | on demand, via `knowledge/index.md` and links from tier 2 |
 
-Retros in `.sdlc/<feature>/retro.md` are history only. Durable lessons are promoted in Stage 11; things corrected twice become hookify rules. Run `/sdlc:knowledge-audit` when CLAUDE.md grows.
+Retros in `docs/sdlc/intents/<feature>/retro.md` are history only. Durable lessons are promoted in Stage 11; things corrected twice become hookify rules. Run `/sdlc:knowledge-audit` when CLAUDE.md grows.
 
 ## Limitations
 

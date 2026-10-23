@@ -21,7 +21,7 @@ Security feedback runs continuously while code is written, plus an explicit pass
 | SEC-FR-005 | Kill switches and toggles via environment: `SECURITY_GUIDANCE_DISABLE`, `ENABLE_PATTERN_RULES`, `ENABLE_CODE_SECURITY_REVIEW`, `ENABLE_COMMIT_REVIEW`, `ENABLE_STOP_REVIEW`, `MAX_STOP_HOOK_FIRINGS`, `MAX_DIFF_FILES`. | `[vendored]` |
 | SEC-FR-006 | Writing a real-looking secret is blocked (file tools, notebook cells and Bash commands); editing sensitive files warns. | `[enforced]` test_guardrails › test_file_guardrails_on_write |
 | SEC-FR-007 | Stage 7 full pass: `feature-reviewer` and `code-reviewer` with a security-only brief (injection, authz, secrets, SSRF, XSS, unsafe deserialization, dependency risk) and the stack's dependency audit; light (M) = hook findings plus dependency audit. | `[instructed]` orchestrator §7 |
-| SEC-FR-008 | Gate: no critical or high finding open, no secrets in the diff; results in `.sdlc/<feature>/security.md`. Work on auth, payments, secrets, PII or migrations always gets the full pass. | `[instructed]` orchestrator §0, §7; rules/sensitive.md |
+| SEC-FR-008 | Gate: no critical or high finding open, no secrets in the diff; results in `docs/sdlc/intents/<feature>/security.md`. Work on auth, payments, secrets, PII or migrations always gets the full pass. | `[instructed]` orchestrator §0, §7; rules/sensitive.md |
 
 ## Non-goals
 
