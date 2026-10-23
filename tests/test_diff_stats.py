@@ -25,7 +25,7 @@ class DiffStatsTest(ProjectTestCase):
         subprocess.run(["git", "-C", self.root, "-c", "user.email=t@t", "-c", "user.name=t", *args], check=True)
 
     def stats(self, *args):
-        p = subprocess.run([sys.executable, SCRIPT, "--root", self.root, *args], capture_output=True, text=True)
+        p = subprocess.run([sys.executable, SCRIPT, "--root", self.root, *args], capture_output=True, encoding="utf-8", errors="replace")
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
         return json.loads(p.stdout) if "--format" not in args else p.stdout
 
@@ -200,7 +200,7 @@ class DiffStatsTest(ProjectTestCase):
         self.assertEqual((r["flags"], r["totals"]["new_files"]), ([], 0))
 
     def test_not_a_git_repo(self):
-        p = subprocess.run([sys.executable, SCRIPT, "--root", os.path.dirname(self.root)], capture_output=True, text=True)
+        p = subprocess.run([sys.executable, SCRIPT, "--root", os.path.dirname(self.root)], capture_output=True, encoding="utf-8", errors="replace")
         self.assertEqual(p.returncode, 1)
         self.assertIn("error", json.loads(p.stdout))
 

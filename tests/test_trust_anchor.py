@@ -47,6 +47,12 @@ class TrustAnchorTest(ProjectTestCase):
         self.prompt()
         self.assertIsNone(self.stop())
 
+    def test_removing_an_active_features_state_is_a_notice(self):
+        self.state()
+        self.stop()
+        os.remove(self.path(".sdlc/login/state.md"))
+        self.assertIn("state.md was removed while active", self.stop()["systemMessage"])
+
     def test_a_new_baseline_failure_is_a_notice(self):
         self.state()
         self.stop()

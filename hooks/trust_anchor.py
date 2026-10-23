@@ -147,16 +147,25 @@ def main():
     if corrupt:  # its own record was damaged: start over, but say so
         saved = {}
     features, left = {}, []
+    seen = set()
     for p in glob.glob(os.path.join(root, ".sdlc", "*", "state.md")):
         text = read(p) or ""
         name = os.path.basename(os.path.dirname(p))
+        seen.add(name)
         status = (field(text, "Status") or "").lower()
+        was = saved.get(name, {})
         if status == "active":
             features[name] = text
-        elif saved.get(name, {}).get("status") == "active" and status != "done":
-            # Leaving active switches the model router and freshness hook off for it, so it's shown
-            left.append(f"{name}: Status: active → {status or 'missing'}")
-            saved[name]["status"] = status
+        elif was.get("status") == "active":
+            # Leaving active switches the model router and freshness hook off for it, so it's shown; finishing
+            # is the one normal way out, from Stage 8 on
+            if status != "done" or (was.get("stage") or 0) < 8:
+                left.append(f"{name}: Status: active → {status or 'missing'} at Stage {was.get('stage')}")
+            was["status"] = status
+    for name, was in saved.items():
+        if was.get("status") == "active" and name not in seen:
+            left.append(f"{name}: its state.md was removed while active")
+            was["status"] = "removed"
     if event == "UserPromptSubmit":
         for anchor in saved.values():
             if anchor.get("notices"):

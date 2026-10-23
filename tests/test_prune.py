@@ -28,7 +28,7 @@ class PruneTest(ProjectTestCase):
                        env={**os.environ, **(env or {})})
 
     def prune(self, *args):
-        p = subprocess.run([sys.executable, SCRIPT, "--root", self.root, *args], capture_output=True, text=True)
+        p = subprocess.run([sys.executable, SCRIPT, "--root", self.root, *args], capture_output=True, encoding="utf-8", errors="replace")
         return p.returncode, json.loads(p.stdout)
 
     def left(self, name):

@@ -88,7 +88,7 @@ started_at: "2026-10-22T00:00:00Z"
     def test_setup_rejects_a_multiline_promise(self):
         p = subprocess.run([BASH, os.path.join(PLUGIN_ROOT, "scripts", "setup-ralph-loop.sh"), "do it",
                             "--completion-promise", "DONE\nmax_iterations: 99"],
-                           cwd=self.root, capture_output=True, text=True)
+                           cwd=self.root, capture_output=True, encoding="utf-8", errors="replace")
         self.assertNotEqual(p.returncode, 0)
         self.assertFalse(os.path.exists(self.path(STATE)))
 

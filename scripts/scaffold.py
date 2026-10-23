@@ -458,14 +458,14 @@ STACK_ALIASES = {"typescript": "node", "ts": "node", "javascript": "node", "js":
                  "uv": "python", "kotlin": "java", "gradle": "java", "maven": "java",
                  "csharp": "dotnet", "fsharp": "dotnet", "cargo": "rust", "bash": "shell", "sh": "shell"}
 CI_SETUP = {
-    "node": ["- uses: actions/setup-node@v4", "  with:", '    node-version: "{node_version}"', "- run: corepack enable"],
-    "python": ["- uses: astral-sh/setup-uv@v6"],
-    "go": ["- uses: actions/setup-go@v5", "  with:", "    go-version-file: {go_mod}"],
+    "node": ["- uses: actions/setup-node@v7", "  with:", '    node-version: "{node_version}"', "- run: corepack enable"],
+    "python": ["- uses: astral-sh/setup-uv@v10"],
+    "go": ["- uses: actions/setup-go@v7", "  with:", "    go-version-file: {go_mod}"],
     "rust": ["- uses: dtolnay/rust-toolchain@stable", "  with:", "    components: clippy, rustfmt"],
     "dart": ["- uses: dart-lang/setup-dart@v1"],
     "flutter": ["- uses: subosito/flutter-action@v2", "  with:", "    channel: stable"],
-    "java": ["- uses: actions/setup-java@v4", "  with:", "    distribution: temurin", '    java-version: "{java_version}"'],
-    "dotnet": ["- uses: actions/setup-dotnet@v4", "  with:", '    dotnet-version: "{dotnet_version}"'],
+    "java": ["- uses: actions/setup-java@v6", "  with:", "    distribution: temurin", '    java-version: "{java_version}"'],
+    "dotnet": ["- uses: actions/setup-dotnet@v6", "  with:", '    dotnet-version: "{dotnet_version}"'],
     "shell": ["- run: sudo apt-get install -y shellcheck shfmt bats"],
 }
 
@@ -502,7 +502,7 @@ def generate_ci(p):
         "defaults:", "  run:", "    shell: bash  # Git Bash on Windows runners: same shell everywhere", "",
         "jobs:", "  verify:", "    strategy:", "      fail-fast: false", "      matrix:",
         f"        os: {json.dumps(ci.get('os', ['ubuntu-latest']))}",
-        "    runs-on: ${{ matrix.os }}", "    timeout-minutes: 30", "    steps:", pad + "- uses: actions/checkout@v4"]
+        "    runs-on: ${{ matrix.os }}", "    timeout-minutes: 30", "    steps:", pad + "- uses: actions/checkout@v7"]
     for st in project_stacks(p.config):
         if st in CI_SETUP:
             lines += [pad + x.format(**values) for x in CI_SETUP[st]]

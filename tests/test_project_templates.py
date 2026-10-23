@@ -54,7 +54,7 @@ class ProjectTemplatesTest(ProjectTestCase):
             "commands": {"install": "uv sync --frozen", "test": "uv run pytest", "lint": "uv run ruff check .",
                          "typecheck": "uv run mypy .", "build": None}}))
         text = self.sc("preview", "builtin:ci")["text"]
-        self.assertIn("astral-sh/setup-uv@v6", text)
+        self.assertIn("astral-sh/setup-uv@v10", text)
         self.assertIn('os: ["ubuntu-latest"]', text)
         order = [l.strip() for l in text.splitlines() if l.strip().startswith("uv ")]
         self.assertEqual(order, ["uv sync --frozen", "uv run ruff check .", "uv run mypy .", "uv run pytest"])

@@ -500,7 +500,7 @@ class ScaffoldTest(ProjectTestCase):
         text = self.read(".github/workflows/sdlc-verify.yml")
         self.assertIn('os: ["ubuntu-latest", "windows-latest"]', text)
         self.assertIn("runs-on: ${{ matrix.os }}", text)
-        self.assertIn("actions/setup-node@v4", text)
+        self.assertIn("actions/setup-node@v7", text)
         self.assertIn("shell: bash", text)
         steps = [l.strip() for l in text.splitlines() if l.strip().startswith(("- name:", "pnpm"))]
         self.assertEqual(steps, ['- name: "install"', "pnpm install --frozen-lockfile", '- name: "lint"', "pnpm lint",
@@ -515,7 +515,7 @@ class ScaffoldTest(ProjectTestCase):
             {"name": "app", "path": "apps/mobile", "stack": "elixir", "commands": {"test": "mix test"}}])
         self.write("services/api/go.mod", "module x\n")
         text = self.sc("preview", "builtin:ci")["text"]
-        for want in ("actions/setup-go@v5", "go-version-file: services/api/go.mod", "dtolnay/rust-toolchain@stable",
+        for want in ("actions/setup-go@v7", "go-version-file: services/api/go.mod", "dtolnay/rust-toolchain@stable",
                      "# TODO: add the toolchain setup for 'elixir'", '- name: "core · lint"',
                      "working-directory: libs/core"):
             self.assertIn(want, text)

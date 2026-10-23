@@ -14,7 +14,7 @@ COMMANDS = {k: "git --version" for k in ("install", "test", "lint", "typecheck",
 
 class DoctorTest(ProjectTestCase):
     def doctor(self, expect=None):
-        p = subprocess.run([sys.executable, DOCTOR, "--root", self.root], capture_output=True, text=True,
+        p = subprocess.run([sys.executable, DOCTOR, "--root", self.root], capture_output=True, encoding="utf-8", errors="replace",
                            env={**os.environ, "CLAUDE_PLUGIN_ROOT": PLUGIN_ROOT})
         report = json.loads(p.stdout)
         if expect is not None:
@@ -54,8 +54,11 @@ class DoctorTest(ProjectTestCase):
             self.assertIn(key, checks)
         self.assertEqual(checks[("plugin", "hook scripts")]["status"], "ok")
 
+    # Windows looks in the running interpreter's folder before PATH, so an empty PATH can't hide a python3.exe there
+    @unittest.skipIf(os.path.exists(os.path.join(os.path.dirname(sys.executable), "python3.exe")),
+                     "python3.exe sits next to the interpreter; Windows finds it even with an empty PATH")
     def test_missing_python3_fails(self):
-        p = subprocess.run([sys.executable, DOCTOR, "--root", self.root], capture_output=True, text=True,
+        p = subprocess.run([sys.executable, DOCTOR, "--root", self.root], capture_output=True, encoding="utf-8", errors="replace",
                            env={**os.environ, "CLAUDE_PLUGIN_ROOT": PLUGIN_ROOT, "PATH": ""})
         checks = {(c["group"], c["check"]): c for c in json.loads(p.stdout)["checks"]}
         self.assertEqual(checks[("environment", "python3")]["status"], "fail")
