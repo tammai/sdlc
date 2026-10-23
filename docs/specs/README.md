@@ -9,7 +9,7 @@ Numbered in the order you meet them: setup first, then the lifecycle and its sta
 | 01 | [Setup, upgrade and eject](01-setup-upgrade-eject.md) | Project setup, commands per package, generated CI, upgrades, eject | Once per repo, then per plugin release |
 | 02 | [Orchestration](02-orchestration.md) | Tracks, stages, gates, hard stops, state and resume | Every piece of work |
 | 03 | [Scope tracing and review](03-scope-and-review.md) | Scope traced from spec to diff; review facts and severity | Stages 1–3, 6 |
-| 04 | [Verification](04-verification.md) | Verifier rounds with red-green, the QA tester, the freshness hook, the baseline | Stage 5 |
+| 04 | [Verification](04-verification.md) | Verifier rounds with red-green, the on-demand QA tester, the freshness hook, the baseline | Stage 5 |
 | 05 | [Security](05-security.md) | Security-guidance hooks and the Stage 7 pass | Always on; Stage 7 |
 | 06 | [Guardrails and conventions](06-guardrails-and-conventions.md) | Policy rules, hookify engine and guardrails, lint snippets | Always on |
 | 07 | [Knowledge](07-knowledge.md) | Three-tier knowledge, promotion, audit | Stages 1 and 11 |

@@ -57,7 +57,7 @@ Anything touching auth, payments, secrets, PII or schema migrations is at least 
 | 2 | Design | `design.md`, `research.md`, `data-model.md`, `contracts/`, `quickstart.md` | **You approve.** Every requirement maps to the design, every added module or dependency cites a requirement, constitution check passes |
 | 3 | Plan | `plan.md` | No CRITICAL or HIGH scope findings, every task cites a requirement, Public Surface declared. **You pick the execution method** |
 | 4 | Implement | code, tests | Every plan task checked, build and full test suite pass, no TODO without a ticket |
-| 5 | Verify (max 3 rounds) | `test-report.md`, `qa-report.md` (M, L) | Fresh verifier and qa-tester PASS on the current commit, no test gap rated 8+, no high-severity silent failure |
+| 5 | Verify (max 3 rounds) | `test-report.md` | Fresh verifier PASS on the current commit, no test gap rated 8+, no high-severity silent failure |
 | 6 | Review | `review.md` | No unresolved high-severity finding; the rest fixed or ticketed |
 | 7 | Security | `security.md` | No critical or high finding open, no secrets in the diff |
 | 8 | Commit, PR, CI | PR | CI green. **Never merged without you saying so** |
@@ -100,7 +100,7 @@ In a set-up repo the full run is the `test` command from `.sdlc/config.json`, wi
 
 Failures listed in `.sdlc/baseline.md` (recorded at brownfield setup) don't fail a round: the verifier fails only on **new** failures, removes baseline items that now pass, and never adds any. Accepting a new failure into the baseline is your decision, recorded as a Deviation.
 
-Each round spawns a new `verifier`, which runs build, lint, typecheck and tests fresh, proves each acceptance criterion, and appends a section to `test-report.md`. It also checks red-green: in a throwaway worktree with the feature's code put back to `Base:`, the feature's tests must fail; a test that still passes doesn't count as evidence. In M and L, a new `qa-tester` runs alongside: it never sees the code, runs the feature against the spec's scenarios and edge cases the way a user would (CLI, HTTP, browser or a script), and writes `qa-report.md`; a failed scenario fails the round. A later round reruns it only if non-test code changed since its last PASS. `pr-test-analyzer` and `silent-failure-hunter` run alongside too. If a round fails, the work goes back to Stage 4 for the listed failures only. After round 3 fails, the orchestrator stops and brings you what still fails, what each round changed, and a root-cause hypothesis.
+Each round spawns a new `verifier`, which runs build, lint, typecheck and tests fresh, proves each acceptance criterion, and appends a section to `test-report.md`. It also checks red-green: in a throwaway worktree with the feature's code put back to `Base:`, the feature's tests must fail; a test that still passes doesn't count as evidence. In M and L, `pr-test-analyzer` and `silent-failure-hunter` run alongside. When you ask for a QA round, a new `qa-tester` runs the feature against the spec's scenarios and edge cases the way a user would (CLI, HTTP, browser or a script), without being told about the code, and writes `qa-report.md`; you decide what its failures mean, and it isn't part of the gate. If a round fails, the work goes back to Stage 4 for the listed failures only. After round 3 fails, the orchestrator stops and brings you what still fails, what each round changed, and a root-cause hypothesis.
 
 ## Building blocks
 
@@ -121,7 +121,7 @@ Each round spawns a new `verifier`, which runs build, lint, typecheck and tests 
 |---|---|
 | `code-explorer`, `code-architect` | Stage 2: trace existing code, propose architectures |
 | `verifier` | Stage 5: fresh, independent verification each round, including red-green |
-| `qa-tester` | Stage 5 (M, L): runs the feature against the spec as a user would, without reading the code |
+| `qa-tester` | On request: runs the feature against the spec as a user would, without reading the code (not part of any gate) |
 | `pr-test-analyzer`, `silent-failure-hunter` | Stage 5 and 6: test gaps (rated 1–10), swallowed errors |
 | `code-reviewer`, `comment-analyzer`, `type-design-analyzer`, `code-simplifier` | Stage 6, chosen by `/sdlc:review-pr` based on the diff |
 | `ui-reviewer` | Stage 6 when UI files change: design-system conformance, AI-slop styling, states, accessibility; screenshots on request |

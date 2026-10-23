@@ -94,7 +94,7 @@ Each round, a **new** verifier runs everything fresh, so flaky results show up a
 
 **A failure that existed before your change:** if it's listed in `.sdlc/baseline.md` it doesn't fail the round. If it isn't, the verifier reports it as new and may ask to baseline it; that's your call, recorded as a Deviation. Baseline items that now pass are removed automatically.
 
-**The qa-tester failed a scenario but the tests pass:** the tests prove something other than what the spec says. Back in Stage 4, write a failing test that reproduces the qa-tester's steps first. **A scenario marked "not run":** it doesn't fail the round, but the gate names it; add the missing run step to `quickstart.md` or check it yourself.
+**A QA round you asked for failed a scenario but the tests pass:** the tests prove something other than what the spec says. If you send it back to Stage 4, write a failing test that reproduces the qa-tester's steps first. **A scenario marked "not run":** add the missing run step to `quickstart.md` or check it yourself.
 
 **"Doesn't prove the change":** that test passes with your code put back to `Base:`, so it can't be the evidence for a criterion. Make it assert the new behavior, or point the criterion at a test that does.
 
@@ -130,7 +130,7 @@ It does not skip hard stops that protect irreversible actions without your expli
 
 ## 10. Merge and deploy
 
-1. Stage 8: `finishing-a-development-branch` offers merge, PR or keep, and cleans up worktrees. `/sdlc:commit-push-pr` opens the PR with links to `spec.md`, `test-report.md` and, on M and L, `qa-report.md`. `/sdlc:clean_gone` prunes merged local branches afterward.
+1. Stage 8: `finishing-a-development-branch` offers merge, PR or keep, and cleans up worktrees. `/sdlc:commit-push-pr` opens the PR with links to `spec.md`, `test-report.md` and, if a QA round ran, `qa-report.md`. `/sdlc:clean_gone` prunes merged local branches afterward.
 2. **CI must be green. The orchestrator never merges without you saying so.**
 3. Stage 9 (L, or on request): uses the project's existing deploy path. It writes `release.md` (version, environment, steps run, smoke test, rollback command). You give the go-ahead before production or a migration. The smoke test must pass.
 4. Stage 10: check the agreed signals for the watch window. Out of threshold means a rollback or fix ticket.

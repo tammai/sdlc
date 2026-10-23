@@ -89,17 +89,18 @@ Set `Current: Stage 5 – Verify` in state.md first — that switches on the fre
 
 Each round:
 1. **Spawn a NEW `sdlc:verifier` agent.** Always a fresh spawn — never resume or message a verifier from an earlier round, and never verify inline in this context. Brief it with: feature dir, round number, the build/lint/typecheck/test commands from state.md. It runs everything fresh, proves each acceptance criterion, and appends `## Round N — <time> — commit <hash>` to `test-report.md`.
-2. In parallel (M and L tracks), spawn fresh `sdlc:pr-test-analyzer` (gaps rated 1–10) and `sdlc:silent-failure-hunter` on the current diff, and a fresh `sdlc:qa-tester`. Brief the qa-tester with the feature dir, round number, the commands and whether a browser tool is available. Give it no diff, plan or test files: it runs the feature against the spec as a user would and appends to `qa-report.md`. In a later round, rerun it only if non-test files changed since its last PASS (`git diff --name-only <its commit>`, ignoring `.sdlc/` and docs); otherwise its PASS carries over: say so in the round's log line.
+2. In parallel (M and L tracks), spawn fresh `sdlc:pr-test-analyzer` (gaps rated 1–10) and `sdlc:silent-failure-hunter` on the current diff.
 3. Log the round in state.md under `## Verify rounds`: `Round N — <commit> — PASS/FAIL — <one-line reason>`.
 4. Verdict:
-   - Verifier PASS, qa-tester PASS (scenarios it reports as "not run" don't fail it), no test gap rated ≥ 8, no high-severity silent failure → gate passes. qa-tester Major findings go into `review.md` for Stage 6. PASS means no *new* failures: failures listed in `.sdlc/baseline.md` don't fail the round. If the verifier asks to baseline a failure, that's a user decision, recorded under Deviations; it's never added silently.
+   - Verifier PASS, no test gap rated ≥ 8, no high-severity silent failure → gate passes. PASS means no *new* failures: failures listed in `.sdlc/baseline.md` don't fail the round. If the verifier asks to baseline a failure, that's a user decision, recorded under Deviations; it's never added silently.
    - Otherwise → back to Stage 4 for the listed failures only (TDD: failing test first, `sdlc:systematic-debugging` for anything unexplained), then set Stage 5 again and start the next round with another fresh verifier.
 5. **Round cap:** after round 3 fails, stop. Bring the user: what still fails, what each round changed, and the root-cause hypothesis. The user decides (more rounds, change scope, revisit the design).
 
 You (the orchestrator) may run commands to investigate, but the verdict always comes from that round's fresh verifier — `sdlc:verification-before-completion` applies to anything you claim yourself.
 
-- S track: one verifier per round (no analyzer, hunter or qa-tester); the bug's repro test must be among the evidence and must fail on Base (the verifier's red-green check).
-- **Gate:** latest round's verifier verdict PASS on the current commit, and (M and L) a qa-tester PASS on a commit whose non-test files match the current one (no code edits since — the hook enforces this); every acceptance criterion has evidence; no gap ≥ 8; no skipped or retried-until-green test touching this feature. Name any acceptance scenario the qa-tester couldn't run, and why, when you report the gate. On a pass, set `Verified:` in state.md to that commit.
+- S track: one verifier per round (no analyzer or hunter); the bug's repro test must be among the evidence and must fail on Base (the verifier's red-green check).
+- QA round, only when the user asks for one: spawn a fresh `sdlc:qa-tester` with the feature dir, the commands and whether a browser tool is available, and no diff, plan or test files. It runs the feature against the spec as a user would and writes `qa-report.md`. Bring its failures to the user, who decides whether they send the feature back to Stage 4; it isn't part of the gate.
+- **Gate:** latest round's verifier verdict PASS on the current commit (no code edits since — the hook enforces this); every acceptance criterion has evidence; no gap ≥ 8; no skipped or retried-until-green test touching this feature. On a pass, set `Verified:` in state.md to that commit.
 
 ### 6 · Review
 - The reviewer must not be the context that wrote the code.
@@ -108,7 +109,7 @@ You (the orchestrator) may run commands to investigate, but the verdict always c
 - Handling feedback: `sdlc:receiving-code-review` (verify before agreeing; push back with evidence)
 - Polish first: run the `sdlc:code-simplifier` agent on the changed files before the reviewers, so they review the code that will merge
 - This is the feature's only whole-branch review (Stage 4 skipped its own), so on M and L the whole-branch `code-reviewer` runs on the top tier (S keeps the standard tier). Every reviewer's brief includes the plan's Review Focus section verbatim, if it has one, and the Rulings recorded in state.md.
-- Any code change in this stage (the simplifier's, or a fix for a finding) sends the feature back to Stage 5 for another round before this gate passes (the qa-tester rerun rule still applies). Changes to tests or docs alone don't.
+- Any code change in this stage (the simplifier's, or a fix for a finding) sends the feature back to Stage 5 for another round before this gate passes. Changes to tests or docs alone don't.
 - Facts first: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/diff_stats.py" --format md --plan .sdlc/<feature>/plan.md` (omit `--plan` on S track) goes into every reviewer's prompt; exports and dependencies missing from the plan's Public Surface are flagged as undeclared (comment share, single-use exports, single-implementation abstractions, new dependencies).
 - S track ("light"): `sdlc:code-simplifier` then `sdlc:code-reviewer`, both with the diff stats.
 - Severity: unrequested public surface (export, file, endpoint, option, config, dependency not in the spec/plan, with no stated reason) is high. Comment noise flagged by the stats or hookify warnings is medium and fixed in this stage, not ticketed.
@@ -127,7 +128,7 @@ You (the orchestrator) may run commands to investigate, but the verdict always c
 - First check that the code is still what Stage 5 verified: `git diff --name-only <Verified:>` plus untracked files, ignoring `.sdlc/`, docs and test-only changes. Anything left means unverified code: go back to Stage 5 for a round before committing or opening the PR.
 - `sdlc:finishing-a-development-branch` to decide merge/PR/keep and clean up worktrees
 - `/sdlc:commit` or `/sdlc:commit-push-pr`; `/sdlc:clean_gone` to prune merged branches
-- PR description links spec.md, test-report.md and qa-report.md (M and L).
+- PR description links spec.md, test-report.md and, if a QA round ran, qa-report.md.
 - **Gate:** CI green. **Never merge without the user saying so.**
 
 ### 9 · Deploy (L track, or whenever the user asks)
@@ -182,7 +183,7 @@ Current: Stage <n> – <name>
 - [ ] 2 Design     — design.md
 - [ ] 3 Plan       — plan.md
 - [ ] 4 Implement
-- [ ] 5 Verify     — test-report.md, qa-report.md
+- [ ] 5 Verify     — test-report.md
 - [ ] 6 Review     — review.md
 - [ ] 7 Security   — security.md
 - [ ] 8 PR / CI    — PR:
