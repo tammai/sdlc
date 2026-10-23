@@ -69,14 +69,17 @@ def main():
         root = os.environ.get("CLAUDE_PROJECT_DIR") or data.get("cwd") or os.getcwd()
         states = active_states(root)
         reason = problem(data.get("tool_input") or {}, states) if states else None
-        if states:
-            log(root, data.get("tool_input") or {}, states, reason)
         if reason:
             print(json.dumps({"hookSpecificOutput": {
                 "hookEventName": "PreToolUse",
                 "permissionDecision": "deny",
                 "permissionDecisionReason": reason,
             }}))
+        if states:
+            try:  # a failed log write must never cost the deny above
+                log(root, data.get("tool_input") or {}, states, reason)
+            except OSError:
+                pass
     except Exception:
         pass
 
