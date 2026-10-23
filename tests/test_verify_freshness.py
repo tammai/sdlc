@@ -105,6 +105,10 @@ class VerifyFreshnessTest(ProjectTestCase):
         self.assertEqual(self.scope_state()["last_result"], "fail")
         self.bash("npm test | tail -5")
         self.assertEqual(self.scope_state()["last_result"], "unknown")  # the pipe's exit code is tail's
+        self.bash("npm test 2>&1; echo exit=$?")  # seen live: the exit is echo's
+        self.assertEqual(self.scope_state()["last_result"], "unknown")
+        self.bash("npm install && npm test 2>&1")
+        self.assertEqual(self.scope_state()["last_result"], "pass")
 
     def test_own_error_leaves_a_marker(self):
         self.set_state()

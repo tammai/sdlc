@@ -195,9 +195,11 @@ Current: Stage <n> – <name>
 
 ## Verify rounds
 - Round 1 — <commit> — PASS/FAIL — <reason>
+- (each new round goes below the last one)
 
 ## Gate log
 - <date> Stage n: pass/fail — note
+- (oldest first: each new line goes at the bottom of this list, never under the heading)
 
 ## Deviations
 -

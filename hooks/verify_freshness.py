@@ -7,7 +7,7 @@ monorepo (`packages` in .sdlc/config.json), or the whole project.
                                                                      every package: all of them)
   - PostToolUse / PostToolUseFailure Bash running a scope's full   -> that scope goes fresh (records time, HEAD,
     test command, in that scope's directory (`cd <path> && <test>`,   worktree tree and the result: pass, fail, or
-    or the session cwd)                                               unknown when piped); a root `commands.test`
+    or the session cwd)                                               unknown when a command runs after it); a root `commands.test`
                                                                      next to packages makes every scope fresh
   - Stop                                                          -> in a git repo, diff the worktree against each
                                                                      scope's tree from its last full run (catches
@@ -50,7 +50,6 @@ SHELL_SEP = re.compile(r"\|\||&&|[|;&]")
 # Redirects (2>&1, >out, &>log, <in) are removed, not cut at: arguments after them still filter the run
 REDIRECT = re.compile(r"&?\d*[<>]{1,2}&?\s*[^\s;&|<>]*")
 GO_ALL_PACKAGES = ("./...", "...", ".")
-LONE_PIPE = re.compile(r"(?<!\|)\|(?!\|)")
 ERROR_FILE = os.path.join(".sdlc", ".work", "verify-freshness.error")
 _root = None  # for the error marker
 
@@ -287,6 +286,14 @@ def match_full_run(command, tests):
     return end
 
 
+def exit_is_the_tests(command, tests):
+    end = match_full_run(command, tests)
+    if end is None:
+        return False
+    after = SHELL_SEP.split(REDIRECT.sub(" ", command[end:]))[1:]
+    return not any(part.strip(" ()\t\n") for part in after)
+
+
 def fresh_scopes(command, scopes, root_tests, root, cwd, configured):
     """Names of the scopes a Bash command fully tests."""
     end = match_full_run(command, root_tests) if root_tests else None
@@ -340,8 +347,11 @@ def main():
             names = fresh_scopes(cmd, scopes, root_tests, root, data.get("cwd"), configured)
             if names:
                 tree, head = worktree_tree(root), git_head(root)
-                # A non-zero exit arrives as PostToolUseFailure; a pipe reports its last command's exit, not the tests'
-                result = "fail" if event == "PostToolUseFailure" else "unknown" if LONE_PIPE.search(cmd) else "pass"
+                # A non-zero exit arrives as PostToolUseFailure. It's the tests' only when nothing runs after them
+                # (`| tail`, `; echo $?` report their own exit)
+                tests = [sc["tests"] for sc in scopes if sc["name"] in names] + [root_tests]
+                last = any(exit_is_the_tests(cmd, t) for t in tests)
+                result = ("fail" if event == "PostToolUseFailure" else "pass") if last else "unknown"
                 for name in names:
                     st["scopes"][name].update(stale=False, reason="", last_test_at=now(), last_test_cmd=cmd,
                                               last_result=result, head=head, tree=tree)
