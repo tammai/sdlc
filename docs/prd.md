@@ -99,8 +99,9 @@ Adds UI design-system enforcement (rule, guardrail, `ui-reviewer`, setup step), 
 
 ## 11. Known gaps and open questions
 
+- **Live checks after 1.5.0 (2026-10-23, headless on Windows, about $3):** an M feature in the brownfield monorepo through Stage 8 (subagent-driven, red-green with `install`, dispatches logged per stage, simplifier before the opus review, `Verified:` tree checked); then probes of a failing full run (`last_result: fail`), a reviewer Edit denied by the role guard, a Risk change reaching the user, and the model router holding a reviewer to opus on high risk.
 - **Release smoke test (1.5.0, 2026-10-23, headless on Windows):** every must item passed again; the S fix ran the simplifier before the reviewer and recorded `Verified:`. Known issues are under 1.5.0 in the changelog.
 - **Release smoke test (1.4.0, 2026-10-22, headless sessions on Windows):** install, doctor, greenfield and brownfield setup (including resume after an interrupt), guardrails, an S fix through Verify, upgrade and eject all passed; hook warnings and block reasons reach Claude, and the model router named a tier for every dispatch. It found and fixed CRLF hashing and a freshness filter bug. Known issues are listed under 1.4.0 in the changelog.
-- **Prompt-only guarantees:** most stage gates (spec checklist, design mapping, review severity) rely on skill instructions plus user approval; only freshness, guardrails, the surface check and file ownership are mechanical. Each spec marks which is which.
+- **Prompt-only guarantees:** most stage gates (spec checklist, design mapping, review severity) rely on skill instructions plus user approval; mechanical are freshness, guardrails, the surface check, file ownership, the model router and its dispatch log, the role guard's file-tool limits, and the trust anchor's notices (which make a change visible rather than prevent it). Each spec marks which is which.
 - **Security-guidance hooks** are vendored and not covered by this repo's tests.
 - **Generated CI** has not run on GitHub yet (validated as YAML and against local toolchains only); `actionlint` not run.

@@ -10,10 +10,12 @@
   capability specs in `docs/specs/`.
 - **Method:** static review plus the stdlib test suite run on the reviewer's machine. No live
   Claude Code session, model dispatch, or vendored security-hook execution was exercised.
-- **Status:** nothing in the repository was changed by this review. Addressed for 1.5.0: PIPE-03 (review
-  input uses `Base:`), PIPE-09's two stale doc claims, PIPE-05's missing router tests, PIPE-02 (`Verified:`
-  commit, simplifier before review, Stage 7 and 8 re-verify) and PIPE-04 for the five read-only reviewers.
-  The rest is in `docs/backlog.md`.
+- **Status:** nothing in the repository was changed by this review. All ten findings have been addressed
+  since (1.5.0 and the release after it): PIPE-01 by the trust-anchor hook, which makes changes visible
+  rather than preventing them; PIPE-04 and PIPE-05 by the role guard and the dispatch log, whose limits
+  are listed in specs 02–04 (Bash stays open; the main session can write the hooks' state); PIPE-06 by
+  counting failing runs and recording their result; the rest as recommended. The measured Windows test
+  failures don't reproduce on the maintainer's machine; CI now runs the suite on Windows.
 
 ## Executive summary
 
