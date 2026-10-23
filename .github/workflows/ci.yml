@@ -24,7 +24,8 @@ jobs:
           python-version: "3.12"
       - name: python3 on PATH (hooks start with it)
         if: runner.os == 'Windows'
-        run: cp "$(dirname "$(which python)")/python.exe" "$(dirname "$(which python)")/python3.exe"
+        # setup-python usually ships python3.exe already; copy only when it doesn't
+        run: command -v python3 || cp "$(dirname "$(which python)")/python.exe" "$(dirname "$(which python)")/python3.exe"
       - run: git config --global user.email ci@example.com && git config --global user.name ci
       - run: python3 -m unittest discover -s tests -t tests
 
