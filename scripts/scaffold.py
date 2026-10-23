@@ -531,11 +531,35 @@ def generate_ci(p, package=None):
     return "\n".join(lines) + "\n"
 
 
+def generate_contract_check(p):
+    """Workflow that fails a PR making a breaking change to a published contract version (contract-check.sh)."""
+    cfg = effective_config(p.config)
+    contract = cfg.get("api_contract") or {}
+    if not contract.get("path") or not contract.get("spec"):
+        raise ValueError("no api_contract in .sdlc/config.json (set `api_contract.path` and `api_contract.spec`)")
+    path = contract["path"].rstrip("/")
+    pad = " " * 6
+    lines = [
+        f"# Managed by the sdlc plugin v{plugin_version()} (seeded: replaced on upgrade only while unedited).",
+        "# Published contract versions take additions only: see .sdlc/ci/contract-check.sh.",
+        "name: sdlc contract", "", "on:", "  pull_request:", "    paths:", f"      - {json.dumps(path + '/**')}", "",
+        "permissions:", "  contents: read", "",
+        "jobs:", "  contract:", "    runs-on: ubuntu-latest", "    timeout-minutes: 15", "    steps:",
+        pad + "- uses: actions/checkout@v7", pad + "  with:", pad + "    fetch-depth: 0",
+        pad + "- uses: actions/setup-go@v7", pad + "  with:", pad + "    go-version: stable",
+        pad + f"- run: go install github.com/oasdiff/oasdiff@v{cfg.get('ci', {}).get('oasdiff_version', '1.33.0')}",
+        pad + "- name: \"published versions only grow\"",
+        pad + f'  run: bash .sdlc/ci/contract-check.sh "origin/${{{{ github.base_ref }}}}" {path} {contract["spec"]}']
+    return "\n".join(lines) + "\n"
+
+
 def render_source(template, p):
     if template == "builtin:ci":
         return generate_ci(p)
     if template.startswith("builtin:ci:"):
         return generate_ci(p, template[len("builtin:ci:"):])
+    if template == "builtin:contract-check":
+        return generate_contract_check(p)
     with open(os.path.join(PLUGIN_ROOT, template), encoding="utf-8") as f:
         return render_text(f.read(), p)
 

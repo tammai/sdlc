@@ -539,6 +539,15 @@ class ScaffoldTest(ProjectTestCase):
         self.commands_config(packages=[{"name": "web", "path": "apps/web", "commands": {"test": "pnpm test"}}])
         self.assertIn("no package named 'mobile'", self.sc("preview", "builtin:ci:mobile", expect=1)["error"])
 
+    def test_builtin_contract_check(self):
+        self.commands_config(commands={"test": "make test"},
+                             api_contract={"path": "packages/api-contract", "spec": "openapi.yaml"},
+                             ci={"oasdiff_version": "1.11.7"})
+        text = self.sc("preview", "builtin:contract-check")["text"]
+        for want in ('"packages/api-contract/**"', "fetch-depth: 0", "github.com/oasdiff/oasdiff@v1.11.7",
+                     'bash .sdlc/ci/contract-check.sh "origin/${{ github.base_ref }}" packages/api-contract openapi.yaml'):
+            self.assertIn(want, text)
+
     def test_builtin_ci_needs_commands(self):
         self.commands_config()
         self.assertIn("no commands", self.sc("preview", "builtin:ci", expect=1)["error"])
