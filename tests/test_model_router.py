@@ -1,4 +1,5 @@
 """hooks/model_router.py: subagent dispatches name a model, and fable needs the user's opt-in."""
+import json
 import os
 import unittest
 
@@ -51,6 +52,13 @@ class ModelRouterTest(ProjectTestCase):
 
     def test_forks_are_exempt(self):
         self.assertIsNone(self.dispatch(subagent_type="fork"))
+
+    def test_dispatches_are_logged_with_the_stage(self):
+        self.write(".sdlc/login/state.md", "# login\nStatus: active\nRisk: low\nCurrent: Stage 5 – Verify\n")
+        self.dispatch(subagent_type="general-purpose", model="sonnet", description="verify round 1")
+        with open(self.path(".sdlc/.work/dispatches.jsonl"), encoding="utf-8") as f:
+            entry = json.loads(f.read().splitlines()[-1])
+        self.assertEqual((entry["stages"], entry["agent"], entry["model"]), (["Stage 5 – Verify"], "general-purpose", "sonnet"))
 
     def test_no_active_feature_is_silent(self):
         self.write(".sdlc/login/state.md", "# login\nStatus: done\n")

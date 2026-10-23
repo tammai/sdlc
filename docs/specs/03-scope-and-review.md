@@ -47,6 +47,7 @@ Every addition is traced to a request from spec to diff, and review gets measure
 | SCO-FR-023 | Severity: unrequested public surface without a stated reason is high (blocks the gate); comment noise is medium and fixed in Stage 6. S track runs code-simplifier then code-reviewer. | `[instructed]` orchestrator §6, review-pr.md |
 | SCO-FR-024 | Feedback is verified before agreeing; pushback with evidence; YAGNI check on "professional" additions. | `[instructed]` receiving-code-review (vendored) |
 | SCO-FR-025 | One whole-branch review per feature, in Stage 6: under the orchestrator, `executing-plans` and `subagent-driven-development` skip their own final whole-branch review (per-task reviews still run) and report their Rulings, which go into `state.md`. Stage 6 reviewers get the plan's Review Focus and those Rulings; on M and L its whole-branch `code-reviewer` runs on the top tier; the simplifier runs before the reviewers; any code change in Stage 6 or Stage 7 (the simplifier's or a fix) goes back to Stage 5 for another round, and Stage 8 checks that the code still matches the `Verified:` commit before committing. | `[instructed]` orchestrator §4, §6; executing-plans, final-review.md (vendored, patched) |
+| SCO-FR-026 | The role-guard hook denies Edit, Write, MultiEdit and NotebookEdit inside the project to `sdlc:` reviewers (code-reviewer, comment-analyzer, feature-reviewer, pr-test-analyzer, silent-failure-hunter, type-design-analyzer, ui-reviewer); other callers get no output. | `[enforced]` test_role_guard › test_reviewer_cannot_edit |
 
 ## Non-goals
 
@@ -56,5 +57,5 @@ Every addition is traced to a request from spec to diff, and review gets measure
 ## Known gaps
 
 - Spec, design and plan tracing are instructions plus user approval. The S track has no plan, so the surface check doesn't apply there.
-- Reviewer agents have no Edit or Write tools, but they keep Bash (for `git diff`), so "the reviewer doesn't fix" is still partly instructed. `ui-reviewer` and `qa-tester` aren't scoped: they need browser tools whose names differ per install.
+- Reviewers can't edit files: five have no Edit or Write tools, and the role-guard hook denies file edits to every `sdlc:` reviewer, `ui-reviewer` included. They keep Bash (for `git diff`, tests and browsers), so a shell edit is still only instructed against; the freshness hook's worktree diff catches one during Stage 5.
 - Export detection is regex-based for TS/JS, Python and Go; other languages get comment counts only.

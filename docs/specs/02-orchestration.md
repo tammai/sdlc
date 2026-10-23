@@ -2,7 +2,7 @@
 
 The orchestrator takes a request through the lifecycle: sizes it, runs one stage at a time with the bundled pieces, records progress in `.sdlc/<feature>/state.md`, and stops at gates.
 
-**Entry points:** `/sdlc:start [request]`, `/sdlc:status` · **Source:** `skills/orchestrator/SKILL.md`, `commands/start.md`, `hooks/model_router.py`
+**Entry points:** `/sdlc:start [request]`, `/sdlc:status` · **Source:** `skills/orchestrator/SKILL.md`, `commands/start.md`, `hooks/model_router.py`, `hooks/role_guard.py`
 
 ## User scenarios
 
@@ -30,6 +30,7 @@ The orchestrator takes a request through the lifecycle: sizes it, runs one stage
 | ORC-FR-013 | `state.md` follows the template: Status, Track (with size-up signal), Risk, Top model, Commands, Started, Base (the commit the feature started from), Current; sections Stages, Verify rounds, Gate log, Deviations, Open questions. | `[instructed]` orchestrator template; parsed by the freshness hook and doctor `[enforced]` test_doctor › test_feature_state |
 | ORC-FR-014 | Risk is recorded apart from size (`high` for auth, payments, secrets, PII, schema migrations, public API) and, with the track, sets each dispatch's model tier: cheap `haiku`, standard `sonnet`, top `opus`. `fable` only when the user chooses it (`Top model: fable`); escalation stops at the top tier. | `[instructed]` orchestrator §0, subagent-driven-development Model Selection |
 | ORC-FR-015 | While a feature is active, a subagent dispatch is denied, with the reason Claude sees, when it names no model, names `fable` without `Top model: fable` in every active `state.md`, or runs code-reviewer, feature-reviewer, ui-reviewer, verifier or qa-tester below `opus` on `Risk: high`. Forks are exempt; no active feature or a hook error never blocks. | `[enforced]` test_model_router › test_dispatch_naming_a_tier_goes_ahead, test_fable_without_the_users_opt_in_is_denied, test_qa_tester_below_opus_is_denied_on_high_risk, test_dispatch_without_a_model_is_denied, test_fable_with_the_users_opt_in_goes_ahead, test_high_risk_floor_applies_to_reviewers_only, test_forks_are_exempt, test_no_active_feature_is_silent |
+| ORC-FR-017 | While a feature is active, every dispatch is logged to `.sdlc/.work/dispatches.jsonl` with the time, the features' current stage, agent, model and whether it was denied. The Stage 5 gate counts only a verdict from an `sdlc:verifier` dispatched in Stage 5. | `[enforced]` test_model_router › test_dispatches_are_logged_with_the_stage; gate check `[instructed]` orchestrator §5 |
 | ORC-FR-016 | A new feature is named `<yyyy-mm-dd>-<slug>`, or `<yyyy-mm-dd>-<ticket>-<slug>` when the request names a ticket (a GitHub issue is `gh-<n>`); an existing `.sdlc/<name>/` that isn't being resumed gets `-2`, `-3`, …; the branch and `knowledge/features/<name>.md` use the same name. | `[instructed]` orchestrator §0, writing-specs |
 
 ## Edge cases

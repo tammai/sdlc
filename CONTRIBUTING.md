@@ -15,7 +15,8 @@ sdlc/
 ├── hooks/
 │   ├── hooks.json           which script runs on which event
 │   ├── verify_freshness.py  Stage 5 stale/fresh test tracking (original)
-│   ├── model_router.py      checks each subagent dispatch's model (original)
+│   ├── model_router.py      checks each subagent dispatch's model, logs dispatches (original)
+│   ├── role_guard.py        keeps the plugin's agents to their role's file access (original)
 │   ├── pretooluse.py, stop.py, userpromptsubmit.py   hookify entry points (vendored)
 │   ├── posttooluse.py       hookify, kept for parity with upstream but not registered
 │   ├── stop-hook.sh         ralph-loop (vendored)
@@ -47,7 +48,7 @@ sdlc/
 ├── CHANGELOG.md  NOTICE.md  LICENSE  README.md
 ```
 
-Original to this plugin: the orchestrator and setting-up-projects skills, `managing-knowledge`, the `verifier`, `qa-tester` and `ui-reviewer` agents, `verify_freshness.py`, `model_router.py`, everything in `scripts/` except the ralph script, `templates/project/`, `templates/knowledge/`, `templates/design-system-template.md`, `migrations/`, `tests/`, `docs/`. Everything else is vendored; `NOTICE.md` says what came from where and what was changed.
+Original to this plugin: the orchestrator and setting-up-projects skills, `managing-knowledge`, the `verifier`, `qa-tester` and `ui-reviewer` agents, `verify_freshness.py`, `model_router.py`, `role_guard.py`, everything in `scripts/` except the ralph script, `templates/project/`, `templates/knowledge/`, `templates/design-system-template.md`, `migrations/`, `tests/`, `docs/`. Everything else is vendored; `NOTICE.md` says what came from where and what was changed.
 
 ## Dev loop
 

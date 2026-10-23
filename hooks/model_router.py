@@ -8,12 +8,15 @@ PreToolUse on Agent/Task. Denies, with the reason Claude sees:
 Forks are exempt: they always run on the session model. Picking the tier for a task stays with
 Model Selection in sdlc:subagent-driven-development; this only enforces its floor and ceiling.
 No active feature, or any error: no output, the dispatch goes ahead.
+While a feature is active, every dispatch is logged to .sdlc/.work/dispatches.jsonl (time, the features' current
+stage, agent, model, denied or not), so a gate can check which agent did a stage's work.
 """
 import glob
 import json
 import os
 import re
 import sys
+from datetime import datetime, timezone
 
 REVIEWERS = {"code-reviewer", "feature-reviewer", "ui-reviewer", "verifier", "qa-tester"}
 TIERS = "haiku (cheap), sonnet (standard), opus (top); see Model Selection in sdlc:subagent-driven-development"
@@ -47,6 +50,17 @@ def problem(tool_input, states):
     return None
 
 
+def log(root, tool_input, states, reason):
+    stages = [m.group(1).strip() for s in states for m in [re.search(r"^Current:\s*(.+)$", s, re.M)] if m]
+    entry = {"time": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "stages": stages,
+             "agent": tool_input.get("subagent_type") or "general-purpose", "model": tool_input.get("model"),
+             "denied": bool(reason)}
+    path = os.path.join(root, ".sdlc", ".work", "dispatches.jsonl")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(entry) + "\n")
+
+
 def main():
     try:
         data = json.load(sys.stdin)
@@ -55,6 +69,8 @@ def main():
         root = os.environ.get("CLAUDE_PROJECT_DIR") or data.get("cwd") or os.getcwd()
         states = active_states(root)
         reason = problem(data.get("tool_input") or {}, states) if states else None
+        if states:
+            log(root, data.get("tool_input") or {}, states, reason)
         if reason:
             print(json.dumps({"hookSpecificOutput": {
                 "hookEventName": "PreToolUse",
