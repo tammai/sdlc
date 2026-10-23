@@ -87,4 +87,4 @@ Keep it lean: the plugin's own code-style rule applies here too (why-only commen
 
 ## Releasing
 
-Follow [Release a new version](docs/runbook.md#release-a-new-version) in the runbook: tests and validate, bump `version`, add a migration if projects need one, move the changelog notes under the version, distill the cycle's lessons with `sdlc:managing-knowledge` (`CLAUDE.md`, `.claude/rules/`, `knowledge/`), commit, pass the [smoke test](docs/runbook.md#smoke-test-before-a-release) in real sessions, then `claude plugin tag . --push`.
+Follow [Release a new version](docs/runbook.md#release-a-new-version) in the runbook: tests and validate, bump `version`, add a migration if projects need one, move the changelog notes under the version, distill the cycle's lessons with `sdlc:managing-knowledge` (`CLAUDE.md`, `.claude/rules/`, `knowledge/`), commit, pass the [smoke test](docs/runbook.md#smoke-test-before-a-release) in real sessions, then `claude plugin tag . --push` and publish the GitHub release with `gh release create`.
