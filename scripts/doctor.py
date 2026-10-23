@@ -190,6 +190,13 @@ def check_repo(r, root):
         if tools:
             r.add(g, "command tools", "warn", "not found on PATH: " + "; ".join(tools),
                   f"install the tool, or fix the command in .sdlc/config.json · {RUNBOOK} R13")
+        runs = contract.get("runs") or {}
+        unrun = [f"{'' if name == scaffold.ROOT_SCOPE else name + ': '}{key}"
+                 for name, sc in contract["scopes"].items() for key in scaffold.verify_steps(p.config, name)
+                 if not (runs.get(name, {}).get(key) or {}).get("ran")]
+        if status["setup"] == "complete" and unrun:
+            r.add(g, "commands run", "warn", "never run successfully since recorded: " + ", ".join(unrun),
+                  f"python3 scripts/scaffold.py run-commands · {RUNBOOK} R13")
         cfg = scaffold.effective_config(p.config)
         if cfg.get("project", {}).get("kind") == "brownfield":
             b = os.path.join(root, cfg.get("baseline", ".sdlc/baseline.md"))

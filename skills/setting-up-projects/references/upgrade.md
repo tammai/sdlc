@@ -21,7 +21,7 @@ Clean working tree, then branch `sdlc/upgrade-<from>-<to>`. One commit per bucke
 4. **Restore** (seeded, deleted by the user): offer once; yes → `$S render … --class seeded`, no → `$S forget <path>`.
 5. **Template gone** (the plugin no longer ships it): ask whether to delete the file; either way `$S forget <path>`.
 6. **Keyed merges:** re-run the `allowlist` and `gitignore` steps (and `enable-plugin` if the user approved it at setup) from `SKILL.md`; they only add what's missing.
-7. **Commands:** `$S contract`. A newly required command missing → propose it in `.sdlc/config.json` (diff, approved). Commands changed since setup → the CI workflow shows up under *replace* or *review* above (it's generated from them).
+7. **Commands:** `$S contract`. A newly required command missing → propose it in `.sdlc/config.json` (diff, approved). Commands changed since setup → the CI workflow shows up under *replace* or *review* above (it's generated from them), and `$S run-commands` runs the changed ones' scopes again (a changed command's old run no longer counts; `contract` drops it from `runs`).
 8. **Migrations**, in the order listed: read `${CLAUDE_PLUGIN_ROOT}/<path>` for each, apply its steps as diffs the user approves, then `$S migration <id> --applied`. Declined → `$S migration <id> --skipped "<reason>"`; it's never asked again unless the user runs upgrade with `--revisit` (`$S migrations --revisit` lists them).
 9. **Version:** `$S set-version <plugin version> --min-plugin <highest min_plugin_version among applied migrations, if any>`.
 10. Final commit, then **ask**: open a PR or merge locally.

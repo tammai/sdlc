@@ -30,7 +30,7 @@ Use the commands the generated project already defines (`package.json` scripts, 
 
 Monorepo or several stacks: `packages` instead of `commands`, one entry per package with `name`, `path`, `stack` and its own five commands, each run from its `path`. A workspace tool's root-level test command (`pnpm -r test`, `turbo run test`) can go in root `commands.test`; it then counts as a full run for every package.
 
-Check: `$S contract` → `ok: true` and `tools_ok: true`. Then run every command from `$S commands` (install first, then the verify plan), each in its `cwd`; all must pass. Fix the skeleton, not the command, if they don't.
+Check: `$S contract` → `ok: true` and `tools_ok: true`. Then `$S run-commands` (install first, then the verify plan, each in its `cwd`, every exit recorded in the lock); every command must have run and exited 0. Fix the skeleton, not the command, if they don't.
 
 ## `ci`
 

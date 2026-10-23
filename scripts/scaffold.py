@@ -18,7 +18,9 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
+from datetime import datetime, timezone
 
 PLUGIN_ROOT = os.environ.get("CLAUDE_PLUGIN_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG = ".sdlc/config.json"
@@ -35,6 +37,10 @@ PLACEHOLDER = re.compile(r"\{\{\s*([A-Za-z0-9_.]+)\s*(?:\|\s*([a-z_]+)\s*)?\}\}"
 
 class Refused(Exception):
     pass
+
+
+class CommandsFailed(Exception):
+    """run-commands: some command couldn't start; carries the full result for the JSON output."""
 
 
 # --- io ---------------------------------------------------------------------------
@@ -320,6 +326,57 @@ def resolves(exe, cwd):
     return shutil.which(exe) is not None
 
 
+def shell():
+    """bash for the POSIX-style commands configs hold; on Windows, Git's bash, not System32's (WSL)."""
+    found = shutil.which("bash")
+    if found and "system32" not in found.lower():
+        return [found, "-c"]
+    git = shutil.which("git")
+    for cand in ([os.path.join(os.path.dirname(os.path.dirname(git)), "bin", "bash.exe")] if git else []):
+        if os.path.exists(cand):
+            return [cand, "-c"]
+    return None
+
+
+def cmd_run_commands(p, a):
+    """Run install, then the verify plan, each in its directory; record every exit in the lock. A command that
+    can't start (tool missing, timeout) fails this; a non-zero exit is only recorded (a known failure is normal
+    in brownfield; the baseline step classifies it)."""
+    lock = p.require_lock()
+    sh = shell()
+    plan = verify_plan(p.config)
+    runs, not_runnable = {}, []
+    for step in plan["install"] + plan["verify"]:
+        cwd = p.path(step["cwd"])
+        exe = executable(step["run"])
+        rec = {"command": step["run"], "ran": False, "exit": None,
+               "at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
+        if exe and resolves(exe, cwd):
+            try:
+                proc = subprocess.run(sh + [step["run"]] if sh else step["run"], shell=not sh, cwd=cwd,
+                                      capture_output=True, encoding="utf-8", errors="replace", timeout=a.timeout)
+                rec.update(exit=proc.returncode, ran=proc.returncode not in (126, 127),
+                           tail=(proc.stdout + proc.stderr).strip()[-300:])
+            except subprocess.TimeoutExpired:
+                rec["tail"] = f"timed out after {a.timeout}s"
+        else:
+            rec["tail"] = f"{exe} not found"
+        runs.setdefault(step["scope"] or ROOT_SCOPE, {})[step["step"]] = rec
+        if not rec["ran"]:
+            not_runnable.append(f"{step['scope'] or ROOT_SCOPE} {step['step']}")
+    lock["command_runs"] = runs
+    p.save()
+    if not_runnable:
+        raise CommandsFailed({"scopes": runs, "not_runnable": not_runnable})
+    return {"scopes": runs, "not_runnable": []}
+
+
+def verify_steps(config, scope_name):
+    """The steps run-commands runs for one scope, in order."""
+    plan = verify_plan(config)
+    return [s["step"] for s in plan["install"] + plan["verify"] if (s["scope"] or ROOT_SCOPE) == scope_name]
+
+
 def cmd_contract(p, a):
     cfg = effective_config(p.config)
     required = cfg.get("contract", {}).get("required", [])
@@ -349,6 +406,10 @@ def cmd_contract(p, a):
                                             "ok": not missing and not problems}
     out["ok"] = all(s["ok"] for s in out["scopes"].values())
     out["tools_ok"] = all(not s["not_found"] for s in out["scopes"].values())
+    # Last recorded runs, with any whose command has changed since dropped: they no longer prove anything
+    current = {(sc["name"], k): v for sc in scopes(p.config) for k, v in sc["commands"].items()}
+    out["runs"] = {name: {k: r for k, r in steps.items() if current.get((name, k)) == r.get("command")}
+                   for name, steps in ((p.lock or {}).get("command_runs") or {}).items()}
     return out
 
 
@@ -752,6 +813,9 @@ def build_parser():
 
     sub.add_parser("contract", help="check the project's commands in config (per package in a monorepo)") \
         .set_defaults(fn=cmd_contract)
+    s = sub.add_parser("run-commands", help="run install and the verify plan once; record each exit in the lock")
+    s.add_argument("--timeout", type=int, default=900, help="seconds per command (default 900)")
+    s.set_defaults(fn=cmd_run_commands)
     sub.add_parser("commands", help="scopes and the install/verify plan (what Stage 5 and CI run)") \
         .set_defaults(fn=cmd_commands)
 
@@ -804,6 +868,8 @@ def main(argv=None):
         code = 0
     except Refused as e:
         result, code = {"refused": str(e)}, 2
+    except CommandsFailed as e:
+        result, code = e.args[0], 1
     except (ValueError, OSError) as e:
         result, code = {"error": str(e)}, 1
     sys.stdout.reconfigure(encoding="utf-8")  # a cp1252 pipe (Windows) can't encode non-ASCII paths or summaries

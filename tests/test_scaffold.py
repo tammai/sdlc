@@ -454,6 +454,17 @@ class ScaffoldTest(ProjectTestCase):
         self.assertIn("package without a name", out["scopes"]["?"]["problems"])
         self.assertIn("path 'nowhere' does not exist", out["scopes"]["?"]["problems"])
 
+    def test_run_commands_records_each_exit_and_flags_ones_that_cannot_run(self):
+        self.commands_config(commands={"install": "git --version", "test": "git no-such-subcommand",
+                                       "lint": "nosuchtool-xyz run"})
+        out = self.sc("run-commands", expect=1)
+        runs = out["scopes"]["(root)"]
+        self.assertEqual(runs["install"]["exit"], 0)
+        self.assertNotEqual(runs["test"]["exit"], 0)  # ran but failed: recorded, may be a baselined failure
+        self.assertFalse(runs["lint"]["ran"])  # could not start: setup can't complete
+        self.assertEqual(out["not_runnable"], ["(root) lint"])
+        self.assertEqual(self.sc("contract")["runs"]["(root)"]["test"]["command"], "git no-such-subcommand")
+
     def test_commands_verify_plan(self):
         self.commands_config(packages=[
             {"name": "api", "path": "services/api/", "commands": {"install": "go mod download", "lint": "golangci-lint run",

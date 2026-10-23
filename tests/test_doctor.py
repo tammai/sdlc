@@ -72,6 +72,13 @@ class DoctorTest(ProjectTestCase):
         for name in ("setup", "version", "plugin files", "commands", ".gitignore"):
             self.assertEqual(checks[("repo", name)]["status"], "ok", checks[("repo", name)])
 
+    def test_commands_never_run_warn_until_run_commands(self):
+        self.setup_repo()
+        self.assertEqual(self.check("commands run")["status"], "warn")
+        subprocess.run([sys.executable, SCAFFOLD, "--root", self.root, "run-commands"], check=True,
+                       capture_output=True, env={**os.environ, "CLAUDE_PLUGIN_ROOT": PLUGIN_ROOT})
+        self.assertIsNone(self.check("commands run"))
+
     def test_setup_in_progress(self):
         subprocess.run([sys.executable, SCAFFOLD, "--root", self.root, "init", "--kind", "greenfield"],
                        check=True, capture_output=True)

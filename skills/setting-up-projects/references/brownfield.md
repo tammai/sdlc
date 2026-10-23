@@ -16,7 +16,7 @@ Check: `$S contract` → `ok: true`, and `tools_ok: true` (a tool that isn't ins
 
 ## `baseline` – what fails today
 
-Run the install commands, then every verify command from `$S commands`, each in its `cwd` and separately (so one failure doesn't hide the others). Render `$S render templates/project/baseline.md .sdlc/baseline.md` then `$S forget .sdlc/baseline.md` (user-owned from now on) and fill it in:
+Run `$S run-commands`: it runs install, then every verify command, each in its `cwd` and separately (so one failure doesn't hide the others), and records each exit in the lock. A command listed under `not_runnable` couldn't start (tool missing, timeout): fix the command with the user before going on; setup isn't complete with one. A non-zero exit is fine here; it's what the baseline records. Read each command's output from its `tail` or run it again yourself. Render `$S render templates/project/baseline.md .sdlc/baseline.md` then `$S forget .sdlc/baseline.md` (user-owned from now on) and fill it in:
 
 - failing tests by file › name with a one-line failure
 - lint/type errors as counts per rule and file (not every line)

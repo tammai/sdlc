@@ -323,8 +323,9 @@ Every command prints one JSON object. Exit codes: 0 ok, 1 error, 2 refused becau
 | `status` | setup state, steps done, drift (`current` / `behind` / `ahead` / `plugin_too_old`), pending migrations, file states |
 | `config` | effective config: plugin defaults merged with the project's overrides |
 | `step-done <step> [--complete]` | record setup progress (resumable) |
-| `contract` | check the commands per scope: required ones present, package paths exist, tools on PATH |
+| `contract` | check the commands per scope: required ones present, package paths exist, tools on PATH; reports the recorded runs |
 | `commands` | scopes plus the install steps and verify plan, each with its directory |
+| `run-commands [--timeout S]` | run install and the verify plan once, record each exit in the lock; exit 1 if a command couldn't start |
 | `render <template\|builtin:ci> <dest> [--class seeded] [--if-unchanged]` | render a plugin template (`{{config.x.y}}`, `{{plugin_version}}`) or the generated CI, and record its hash |
 | `preview <template\|builtin:ci>` | render without writing |
 | `record <generated\|seeded> <paths…> [--template T]` / `forget <paths…>` | track files Claude wrote / hand them over to the user |
