@@ -226,7 +226,7 @@ Setup writes `.sdlc/config.json`; it's yours to edit and holds only what differs
 | `verify.order` | Order of the verify steps (default lint, typecheck, build, test) |
 | `areas.*` | Path patterns for the policy rules: `source`, `tests`, `migrations`, `sensitive`, `ci` |
 | `ci` | `os` matrix (default `["ubuntu-latest"]`; add `"windows-latest"` if teammates develop on Windows) and toolchain versions for the generated workflow |
-| `tools.targets` | The team's tools: `claude-code` (default), `cursor`, `codex`. With Cursor or Codex, `AGENTS.md` gets an sdlc block built from `CLAUDE.md` and `.claude/rules/` ([spec 11](specs/11-multi-agent.md)). To add a tool later, set it and run `/sdlc:upgrade` |
+| `tools.targets` | The team's tools: `claude-code` (default), `cursor`, `codex`. With Cursor or Codex, `AGENTS.md` gets an sdlc block built from `CLAUDE.md` and `.claude/rules/` ([spec 11](specs/11-multi-agent.md)). To add a tool later, set it and ask Claude to run `scaffold.py agents` |
 | `baseline` | Where the known-failures baseline lives (default `.sdlc/baseline.md`) |
 | `min_plugin_version` | Teammates on an older plugin get a warning to update |
 

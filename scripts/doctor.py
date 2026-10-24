@@ -204,7 +204,7 @@ def check_repo(r, root):
                 r.add(g, "AGENTS.md", "ok" if agents == "in_sync" else "warn",
                       "the sdlc block matches CLAUDE.md and .claude/rules/" if agents == "in_sync" else
                       "the sdlc block is out of date: Cursor and Codex follow old instructions",
-                      None if agents == "in_sync" else "/sdlc:upgrade, or python3 scripts/scaffold.py agents")
+                      None if agents == "in_sync" else "python3 scripts/scaffold.py agents")
         except ValueError as e:
             r.add(g, "AGENTS.md", "fail", str(e), "fix the line, then python3 scripts/scaffold.py agents")
         cfg = scaffold.effective_config(p.config)

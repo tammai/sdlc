@@ -27,6 +27,7 @@ Tell the user what state their machine, the plugin and the repo are in, and what
 | HLT-FR-008 | Brownfield without a baseline → warn; `.sdlc/.work/` not git-ignored → warn. | `[enforced]` test_doctor › test_brownfield_without_baseline, test_gitignore |
 | HLT-FR-009 | Your rules whose `paths:` match no files → warn (the plugin's own `sdlc-*` policy rules are skipped: they wait for files to exist); hookify rules that don't parse or have a bad regex → fail. | `[enforced]` test_doctor › test_rules_whose_paths_match_nothing, test_hookify_rules_parse |
 | HLT-FR-010 | `CLAUDE.md` over 60 lines → warn; `knowledge/` without an index or with broken links → warn. | `[enforced]` test_doctor › test_claude_md_budget, test_knowledge_index_links |
+| HLT-FR-012 | With Cursor or Codex in `tools.targets`: a stale `AGENTS.md` block → warn; a Claude-only line in its sources → fail ([spec 11](11-multi-agent.md) AGT-FR-005). | `[enforced]` test_doctor › test_agents_md_out_of_date_warns |
 | HLT-FR-011 | Features: malformed `state.md` or several active → warn; freshness state shown, corrupt → warn. | `[enforced]` test_doctor › test_feature_state, test_freshness_state |
 | HLT-FR-012 | The command presents the table, explains failures, groups warnings, and offers only safe local fixes, applying just the ones the user picks; never installs tools or changes the plugin without an explicit yes. | `[instructed]` commands/doctor.md |
 

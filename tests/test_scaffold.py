@@ -662,7 +662,7 @@ class ScaffoldTest(ProjectTestCase):
     def agents_project(self, targets):
         self.sc("init", "--kind", "brownfield", plugin=PLUGIN_ROOT)
         self.write(".sdlc/config.json", json.dumps({"tools": {"targets": targets}}))
-        self.write("CLAUDE.md", "# Repo\n\n@docs/extra.md\nRun `/sdlc:doctor` weekly.\n")
+        self.write("CLAUDE.md", "# Repo\n\n@docs/extra.md\nRun `/sdlc:doctor` weekly.\n\n```python\n@pytest.fixture\n```\n")
         self.write(".claude/rules/api.md", '---\npaths:\n  - "src/api/**"\n---\n# API\n\nVersion every route.\n')
 
     def agents(self, *args, expect=0):
@@ -685,6 +685,7 @@ class ScaffoldTest(ProjectTestCase):
         self.assertIn("Never edit these files", text)
         self.assertIn("Also read `docs/extra.md`.", text)
         self.assertIn("`/sdlc:doctor` (Claude Code)", text)
+        self.assertIn("\r\n@pytest.fixture\r\n", text)  # code samples aren't imports
         self.assertIn("### API\r\n\r\nApplies when working on files matching `src/api/**`.", text)
         self.assertEqual(self.lock()["merged"]["AGENTS.md#sdlc"], ["block"])
 

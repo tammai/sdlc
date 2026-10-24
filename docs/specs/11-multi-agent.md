@@ -7,7 +7,7 @@ Give teammates on Cursor or Codex the repo's conventions, document locations and
 ## User scenarios
 
 1. **Mixed team setup.** Given a brownfield repo with its own `AGENTS.md`, when the lead runs `/sdlc:setup` and picks Cursor and Codex, then `AGENTS.md` gains one sdlc block: the workflow rules, `CLAUDE.md` and every area rule with its file globs. The lead's own text is untouched.
-2. **Convention drift.** Given a teammate edits `.claude/rules/tests.md`, when anyone runs `/sdlc:doctor`, then the `AGENTS.md` check warns and names `/sdlc:upgrade` as the fix.
+2. **Convention drift.** Given a teammate edits `.claude/rules/tests.md`, when anyone runs `/sdlc:doctor`, then the `AGENTS.md` check warns and names `scaffold.py agents` as the fix.
 3. **Claude-only line.** Given `CLAUDE.md` tells Claude to run `${CLAUDE_PLUGIN_ROOT}/scripts/x`, when the block is built, then nothing is written and the error names `CLAUDE.md:<line>`.
 4. **Protected files.** Given a Codex teammate's agent works on a feature, when it reads `AGENTS.md`, then it's told never to edit the feature's state file, `test-report.md` or the baseline, and to ask a Claude Code teammate to run the stage instead.
 
@@ -42,6 +42,8 @@ Every `[enforced]` requirement in specs 02–06 is enforced by one of the mechan
 - **Cursor rules with glob scoping.** Cursor's `.cursor/rules/*.mdc` files would load area rules only for matching files. Phase 1 writes only `AGENTS.md`, so in Cursor every area rule is always loaded. It also avoids loading the same rule twice when a team uses both tools.
 - **Whether Cursor reads `CLAUDE.md` on its own.** The sources disagree and no official page says. If it does, a Cursor user sees the `CLAUDE.md` content twice: once directly, once in the block. This is a smoke-test item.
 - **Codex's 32 KiB cap** on the combined `AGENTS.md` text. The block (workflow rules, `CLAUDE.md` within its 60-line budget, and the policy rules) is about 10 KB, but repos with many area rules should watch it. Nothing checks it yet.
+- **`AGENTS.override.md`.** When a repo has one at its root, Codex reads it instead of `AGENTS.md`, so Codex never sees the block. Nothing detects this yet.
+- **Repos set up before this feature** are never asked the `other-tools` question. Until a migration asks it, someone has to set `tools.targets` by hand and run `scaffold.py agents`. `/sdlc:upgrade` rebuilds the block only when the plugin version changes.
 - **The check in CI** (`agents --check`) needs the plugin's scripts on the CI runner. That waits for phase 2 and the open question of vendoring `scripts/` into `.sdlc/bin/`.
 - **Packaging the plugin for Cursor and Codex** (their plugin formats with skills, agents and hooks) needs a mapping for `${CLAUDE_PLUGIN_ROOT}` in skill text, and testing in the real tools. It isn't part of phase 1.
 - **Ownership fields and the CI checks for the shared invariants** (`Owner:` and `Tool:` in `state.md`, the report and baseline checks) are phase 2. Until then, the protected files are `instructed` only on Cursor and Codex.

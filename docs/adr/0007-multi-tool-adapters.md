@@ -37,7 +37,7 @@ The proposal was written from memory. Checking it against the current docs (2026
 
 - **Good:**
   - a Cursor or Codex teammate gets the repo's conventions, document locations and the protected-file rules, with no copying by hand;
-  - `/sdlc:doctor` and `/sdlc:upgrade` catch a stale block;
+  - `/sdlc:doctor` reports a stale block, and `/sdlc:upgrade` rebuilds it on each plugin release;
   - the user's own `AGENTS.md` text is never touched.
 - **Costs:**
   - in Cursor, area rules load for every file, not only matching ones;
