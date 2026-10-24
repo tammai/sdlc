@@ -1,49 +1,62 @@
-# Spec 11: Teammates on Cursor and Codex
+# Spec 11: Claude Code, Codex, Cursor and Antigravity
 
-Give teammates on Cursor or Codex the repo's conventions, document locations and the rules that protect the sdlc workflow, without copying anything by hand. Say plainly which guarantees their tool can and can't give. Phase 1 of [issue #1](https://github.com/tammai/sdlc/issues/1); the design is in [ADR 0007](../adr/0007-multi-tool-adapters.md).
+The plugin installs and runs on its own in Claude Code, Codex, Cursor and Antigravity. Setup knows which agent is running it and writes that agent's files without asking. When a second agent opens a repo another agent already set up, its setup adds only its own layer and carries over what the first team wrote. [Issue #1](https://github.com/tammai/sdlc/issues/1); the design is in [ADR 0007](../adr/0007-multi-tool-adapters.md).
 
-**Entry points:** setup's `other-tools` step, `/sdlc:upgrade`, `/sdlc:eject`, `/sdlc:doctor` · **Source:** `scripts/scaffold.py agents`, `templates/project/agents/workflow.md`, `scripts/doctor.py`, `skills/setting-up-projects/`
+**Entry points:** `/sdlc:setup` (or the `setting-up-projects` skill), `/sdlc:upgrade`, `/sdlc:eject`, `/sdlc:doctor` · **Source:** `scripts/scaffold.py host`, `add-host` and `agents`, `scripts/hosts.py`, `templates/project/agents/workflow.md`, the Codex, Cursor and Antigravity manifests, `hosts/`
+
+## Install
+
+| Agent | Install | Reads |
+|---|---|---|
+| Claude Code | `/plugin marketplace add tammai/sdlc`, then `/plugin install sdlc@sdlc` | `.claude-plugin/` |
+| Codex | `codex plugin marketplace add tammai/sdlc`, then `codex plugin add sdlc@sdlc` | `.agents/plugins/marketplace.json`, `.codex-plugin/plugin.json`; Codex turns `commands/` into skills |
+| Cursor | Customize → Import from Repo, or put a clone in `~/.cursor/plugins/local` | `.cursor-plugin/`; agents from `hosts/cursor/agents/` |
+| Antigravity | `agy plugin install https://github.com/tammai/sdlc` (CLI), or a clone in `~/.gemini/config/plugins/` | root `plugin.json`, `skills/`, `agents/` |
 
 ## User scenarios
 
-1. **Mixed team setup.** Given a brownfield repo with its own `AGENTS.md`, when the lead runs `/sdlc:setup` and picks Cursor and Codex, then `AGENTS.md` gains one sdlc block: the workflow rules, `CLAUDE.md` and every area rule with its file globs. The lead's own text is untouched.
-2. **Convention drift.** Given a teammate edits `.claude/rules/tests.md`, when anyone runs `/sdlc:doctor`, then the `AGENTS.md` check warns and names `scaffold.py agents` as the fix.
-3. **Claude-only line.** Given `CLAUDE.md` tells Claude to run `${CLAUDE_PLUGIN_ROOT}/scripts/x`, when the block is built, then nothing is written and the error names `CLAUDE.md:<line>`.
-4. **Protected files.** Given a Codex teammate's agent works on a feature, when it reads `AGENTS.md`, then it's told never to edit the feature's state file, `test-report.md` or the baseline, and to ask a Claude Code teammate to run the stage instead.
+1. **Setup in Codex.** Given the plugin is installed in Codex, when the user asks to set up sdlc in a new repo, then setup records `hosts: ["codex"]` without asking which agent this is. The shared setup runs, and `AGENTS.md` gets the sdlc block with the workflow and the policy rules. Nothing is written under `.claude/`.
+2. **Claude Code joins.** Given that repo, when a Claude Code user runs `/sdlc:setup`, then setup sees it's joining, so it runs only the Claude Code layer (rules, guardrails, allowlist) and `scaffold.py agents`. The team's own `AGENTS.md` text reaches Claude Code through `.claude/rules/sdlc-agents-md.md`. The commands, baseline and constitution are not redone.
+3. **Codex joins a Claude Code repo.** Given a repo Claude Code set up, when a Codex user runs setup, then `AGENTS.md` gains the block, built from `CLAUDE.md`, the team's `.claude/rules/` and the plugin's policy rules. The team's own text outside the block is untouched.
+4. **Can't tell.** Given Codex was started from a Claude Code shell and the plugin was loaded from a checkout, when setup runs, then it asks which agent this is: the only question it asks about hosts.
+5. **Drift.** Given a teammate edits `CLAUDE.md`, when anyone runs `/sdlc:doctor`, then the `AGENTS.md` check warns and names `scaffold.py agents`.
 
 ## Requirements
 
 | ID | Requirement | Guarantee |
 |---|---|---|
-| AGT-FR-001 | `tools.targets` in `.sdlc/config.json` lists the team's tools from `claude-code`, `cursor` and `codex`; the default is `["claude-code"]`, which writes nothing. An unknown value is a config error. | `[enforced]` test_scaffold › test_agents_off_for_claude_only_and_unknown_target_is_an_error |
-| AGT-FR-002 | With `cursor` or `codex` targeted, `scaffold.py agents` writes one `<!-- sdlc:begin … -->`…`<!-- sdlc:end -->` block in the root `AGENTS.md`, which both tools read, so nothing loads twice. The block holds the workflow rules, `CLAUDE.md` and each `.claude/rules/*.md` except `sdlc.md`. Its header names the plugin version and the sources. A rebuild with unchanged sources changes no byte, and the block has no timestamps. | `[enforced]` test_scaffold › test_agents_writes_one_block_and_keeps_the_users_text |
-| AGT-FR-003 | Text outside the block is kept byte for byte, including CRLF line endings; the block follows the file's line endings. | `[enforced]` test_scaffold › test_agents_writes_one_block_and_keeps_the_users_text |
-| AGT-FR-004 | Claude-only constructs are mapped: an `@path` import line becomes "Also read `path`.", and `/sdlc:<cmd>` is marked "(Claude Code)". One with no mapping (`${CLAUDE_PLUGIN_ROOT}`, `scaffold.py`) stops the build, which writes nothing and names the file and line. | `[enforced]` test_scaffold › test_agents_writes_one_block_and_keeps_the_users_text, test_agents_stops_at_a_claude_only_line |
-| AGT-FR-005 | `scaffold.py agents --check` exits 1 when the block differs from a fresh build (line endings ignored), or when it is present but no longer targeted. Doctor warns on a stale block, and fails on a Claude-only line. | `[enforced]` test_scaffold › test_agents_check_and_upgrade_plan_report_drift; test_doctor › test_agents_md_out_of_date_warns |
-| AGT-FR-006 | The block is a keyed merge in the lock (`merged["AGENTS.md#sdlc"]`, plus `file` when the plugin created `AGENTS.md`). `upgrade-plan` reports `agents: stale` so upgrade rebuilds it. Eject removes the block, and the file too if the plugin created it and nothing else is left. | `[enforced]` test_scaffold › test_agents_check_and_upgrade_plan_report_drift, test_eject_removes_the_block_and_a_file_it_created |
-| AGT-FR-007 | Each area rule keeps its scope: its section opens with "Applies when working on files matching" and its `paths:` globs, or "Applies to all files" when it has none. | `[enforced]` test_scaffold › test_agents_writes_one_block_and_keeps_the_users_text |
-| AGT-FR-011 | The workflow section names the documents and state locations for this repo's layout. It forbids editing feature state files, `test-report.md` and the baseline, and says to ask a Claude Code teammate to run the stage instead. It uses no script calls. | `[instructed]` `templates/project/agents/workflow.md`; rendering `[enforced]` test_project_templates › test_every_template_renders_without_leftover_placeholders |
-| AGT-FR-012 | Setup asks which other tools the team uses (a hard stop), records `tools.targets` and builds the block. Changing `CLAUDE.md` or a rule through `sdlc:managing-knowledge` rebuilds it. | `[instructed]` setting-up-projects `other-tools`, managing-knowledge step 8 |
+| AGT-FR-001 | `scaffold.py host` names the running agent (`claude-code`, `codex`, `cursor`, `antigravity`). The plugin's install folder decides (`.claude/plugins`, `.codex/plugins`, `.cursor`, `.gemini` or `.agents/plugins`); if it names none, exactly one agent's environment markers decide; otherwise the host is `null` and `init` refuses without `--host`. | `[enforced]` test_scaffold › test_host_comes_from_the_install_folder_then_the_environment |
+| AGT-FR-002 | `init` records the host in the lock (`hosts`). In a set-up repo, `host` reports `joining: true` for an agent not yet recorded, and `add-host` records it; an unknown host is an error. Locks without `hosts` count as Claude Code's. | `[enforced]` test_scaffold › test_a_second_agent_joins_and_gets_one_block_with_the_users_text_kept, test_a_repo_without_claude_code_gets_no_claude_files |
+| AGT-FR-003 | With any host besides Claude Code recorded, `scaffold.py agents` writes one `<!-- sdlc:begin … -->`…`<!-- sdlc:end -->` block in the root `AGENTS.md`, which Codex, Cursor and Antigravity all read, so nothing loads twice. It holds the workflow section, `CLAUDE.md`, the plugin's policy rules (rendered from its templates) and the team's own `.claude/rules/`. A rebuild with unchanged sources changes no byte. Text outside the block is kept byte for byte, CRLF included. | `[enforced]` test_scaffold › test_a_second_agent_joins_and_gets_one_block_with_the_users_text_kept |
+| AGT-FR-004 | Claude-only constructs are mapped: an `@path` import line becomes "Also read `path`." (not inside code fences), and `/sdlc:<cmd>` is marked "(Claude Code)". One with no mapping (`${CLAUDE_PLUGIN_ROOT}`, `scaffold.py`) stops the build, which writes nothing and names the file and line. | `[enforced]` test_scaffold › test_a_second_agent_joins_and_gets_one_block_with_the_users_text_kept, test_agents_stops_at_a_claude_only_line |
+| AGT-FR-005 | With Claude Code recorded and team text in `AGENTS.md` outside the block, `agents` writes `.claude/rules/sdlc-agents-md.md` (generated, in the lock) with that text, and removes it when the text is gone. | `[enforced]` test_scaffold › test_a_second_agent_joins_and_gets_one_block_with_the_users_text_kept, test_a_repo_without_claude_code_gets_no_claude_files |
+| AGT-FR-006 | `agents --check` exits 1 when the block or the mirror differs from a fresh build; `upgrade-plan` reports `agents: stale`; doctor warns, and fails on a Claude-only line. Upgrade adds the Claude Code rules and guardrails only when Claude Code is a recorded host. Eject removes the block, and `AGENTS.md` too if the plugin created it. | `[enforced]` test_scaffold › test_agents_check_and_upgrade_plan_report_drift, test_a_repo_without_claude_code_gets_no_claude_files, test_eject_removes_the_block_and_a_file_it_created; test_doctor › test_agents_md_out_of_date_warns |
+| AGT-FR-007 | Each area rule in the block keeps its scope: "Applies when working on files matching" its `paths:` globs, or "Applies to all files". | `[enforced]` test_scaffold › test_a_second_agent_joins_and_gets_one_block_with_the_users_text_kept |
+| AGT-FR-008 | `scripts/hosts.py build` writes the Codex, Cursor and Antigravity manifests from `.claude-plugin/` (same name, version and description), and Cursor's agents with `model: inherit`, plus `readonly: true` when an agent's listed tools include no edit tool. `check` exits 1 when any differs; CI runs it. | `[enforced]` test_hosts › test_build_writes_every_host_and_check_catches_drift |
+| AGT-FR-009 | Setup runs the Claude Code steps (rules, guardrails, allowlist, plugin enablement) only on Claude Code. A joining agent skips the shared steps and adds only its layer. Every skill, command and agent that names `${CLAUDE_PLUGIN_ROOT}` says how to find the plugin folder where it isn't filled in. | `[instructed]` setting-up-projects (Which flow, Join), the note in each file |
+| AGT-FR-011 | The workflow section names this repo's document and state locations, and says to start work through the plugin. It forbids hand edits to feature state files, `test-report.md` and the baseline, and uses no script calls. | `[instructed]` `templates/project/agents/workflow.md`; rendering `[enforced]` test_project_templates › test_every_template_renders_without_leftover_placeholders |
 
-## Guarantees per tool
+## Guarantees per agent
 
-Every `[enforced]` requirement in specs 02–06 is enforced by one of the mechanisms below, and the mechanism decides what a teammate's tool gets.
+Every `[enforced]` requirement in specs 02–06 rests on one of these mechanisms, and the mechanism decides what each agent gets.
 
-| Mechanism | Examples | Claude Code | Cursor | Codex |
-|---|---|---|---|---|
-| Plugin hook (`hooks/hooks.json`) | role guard, freshness, model router, trust anchor, hookify guardrails, security hooks | enforced | instructed: the block carries the rule; plugin hooks don't run | instructed |
-| Plugin script run by a skill | scaffold, diff_stats Public Surface check, doctor | enforced | n/a: run by a Claude Code teammate | n/a |
-| Subagent isolation | fresh verifier, read-only reviewers | enforced | n/a in phase 1 | n/a |
-| Generated CI (`sdlc-verify`) | the full test suite on the merged code | enforced | enforced | enforced |
-| Policy rules (`.claude/rules/`) | code style, tests, migrations, sensitive areas, CI, UI | instructed | instructed, through the block | instructed, through the block |
+| Mechanism | Examples | Claude Code | Codex | Cursor | Antigravity |
+|---|---|---|---|---|---|
+| Plugin hook | role guard, freshness, model router, trust anchor, hookify guardrails, security hooks | enforced | instructed: no hooks yet | instructed: no hooks yet | instructed: no hooks yet |
+| Plugin script run by a skill | scaffold, doctor, `diff_stats.py` | enforced | enforced, if the agent finds the plugin folder | same | same |
+| Subagent roles | fresh verifier, read-only reviewers | enforced (tools per agent) | instructed: Codex agents can't be made read-only, and plugin agents aren't loaded | reviewers `readonly`; the verifier instructed | instructed: agents load from `agents/` in Claude's format, untested |
+| Generated CI (`sdlc-verify`) | the full test suite on the merged code | enforced | enforced | enforced | enforced |
+| Policy rules | code style, tests, migrations, sensitive areas, CI, UI | `.claude/rules/`, glob-scoped | `AGENTS.md` block, always loaded | same | same |
 
 ## Known gaps
 
-- **Cursor rules with glob scoping.** Cursor's `.cursor/rules/*.mdc` files would load area rules only for matching files. Phase 1 writes only `AGENTS.md`, so in Cursor every area rule is always loaded. It also avoids loading the same rule twice when a team uses both tools.
-- **Whether Cursor reads `CLAUDE.md` on its own.** The sources disagree and no official page says. If it does, a Cursor user sees the `CLAUDE.md` content twice: once directly, once in the block. This is a smoke-test item.
-- **Codex's 32 KiB cap** on the combined `AGENTS.md` text. The block (workflow rules, `CLAUDE.md` within its 60-line budget, and the policy rules) is about 10 KB, but repos with many area rules should watch it. Nothing checks it yet.
-- **`AGENTS.override.md`.** When a repo has one at its root, Codex reads it instead of `AGENTS.md`, so Codex never sees the block. Nothing detects this yet.
-- **Repos set up before this feature** are never asked the `other-tools` question. Until a migration asks it, someone has to set `tools.targets` by hand and run `scaffold.py agents`. `/sdlc:upgrade` rebuilds the block only when the plugin version changes.
-- **The check in CI** (`agents --check`) needs the plugin's scripts on the CI runner. That waits for phase 2 and the open question of vendoring `scripts/` into `.sdlc/bin/`.
-- **Packaging the plugin for Cursor and Codex** (their plugin formats with skills, agents and hooks) needs a mapping for `${CLAUDE_PLUGIN_ROOT}` in skill text, and testing in the real tools. It isn't part of phase 1.
-- **Ownership fields and the CI checks for the shared invariants** (`Owner:` and `Tool:` in `state.md`, the report and baseline checks) are phase 2. Until then, the protected files are `instructed` only on Cursor and Codex.
+- **Not run in the real tools yet.** Codex loaded a Claude-format plugin in a probe: it namespaced the skills as `sdlcprobe:…` and turned `commands/` into skills. The probe's commands were blocked by the sandbox, though, and the plugin hadn't been installed from this repo. Cursor and Antigravity aren't installed here. Each needs the smoke test in the runbook.
+- **Finding the plugin folder outside Claude Code** relies on the agent knowing where the file it loaded lives. Codex showed that it knows its `SKILL.md` path; Cursor and Antigravity are unverified.
+- **Antigravity reads `agents/` in Claude's format** (`tools: Glob, Grep`, `model: sonnet`), and its plugin format can't point elsewhere. If it rejects them, the agents need a generated copy and a separate install root.
+- **Codex and the root `plugin.json`.** The root `plugin.json` is Antigravity's, but Codex treats a root `plugin.json` as its portable manifest. It has no Agent Plugins `$schema`, so Codex should fall back to `.codex-plugin/`; this is unverified.
+- **No hooks outside Claude Code.** Each non-Claude manifest points its hooks at an empty file, because the hook scripts read Claude Code payloads only. The tool-neutral `decide(event)` refactor with an adapter per agent is the next phase.
+- **No glob scoping outside Claude Code.** Policy rules sit in `AGENTS.md`, so they always load. Writing `.cursor/rules/*.mdc` or `.agents/rules/*.md` would duplicate them, because those agents read `AGENTS.md` too.
+- **Codex's 32 KiB cap** on the combined `AGENTS.md` text: the block is about 10 KB with every policy rule, and nothing checks the total yet.
+- **`AGENTS.override.md`** at the root makes Codex skip `AGENTS.md`, and with it the block.
+- **Enabling the plugin for the team** exists only for Claude Code (`.claude/settings.json`). Other agents' users install it themselves.
+- **Ownership and the CI checks for the shared invariants** (`Owner:` and `Tool:` in `state.md`, the report and baseline checks) are still to come. Until then, the protected files rely on instructions in every agent except Claude Code.

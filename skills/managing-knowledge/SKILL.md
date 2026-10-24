@@ -3,6 +3,8 @@ name: managing-knowledge
 description: Use when saving a lesson, decision, gotcha or runbook so future agents find it, when setting up a project's knowledge base, or when CLAUDE.md is getting long. Files each item into the right loading tier (CLAUDE.md, path-scoped rule, or knowledge/ doc) so context stays small.
 ---
 
+`${CLAUDE_PLUGIN_ROOT}` is the sdlc plugin's folder. Claude Code fills it in; on other agents it stays as written, so use the installed plugin's folder instead: the one above this file that holds `scripts/` and `skills/`.
+
 # Managing Knowledge (3-tier loading)
 
 Paths: `<intents>` is the feature's documents folder, `<state>` its state file and `<docs>` the sdlc docs folder (`docs_dir`); `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" paths <feature>` prints them for this repo's layout.
@@ -47,7 +49,7 @@ For each candidate (from a retro, a review, a debugging session, or the user say
    Template: `${CLAUDE_PLUGIN_ROOT}/templates/knowledge/doc.md`. Link related docs with relative Markdown links.
 6. **Wire it in:** add one line to `knowledge/index.md` (path + ≤12-word description) and, for path-related docs, a link from the matching tier-2 rule. An unlinked tier-3 doc is invisible — never leave one.
 7. **Log it:** `knowledge/log.md` → `- YYYY-MM-DD <add|update|remove> <path> — <why> (from <feature>)`.
-8. **Changed CLAUDE.md or a rule?** If `tools.targets` in `.sdlc/config.json` names `cursor` or `codex`, run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" agents` so their copy in `AGENTS.md` follows.
+8. **Changed CLAUDE.md, a rule or AGENTS.md?** Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" agents` so the other agents' copy in `AGENTS.md` (and Claude Code's copy of the team's `AGENTS.md` text) follows. It does nothing in a repo only Claude Code uses.
 
 ## Audit (run when CLAUDE.md > 60 lines, or every few features)
 

@@ -4,6 +4,8 @@ description: This skill should be used when the user asks to "create a hookify r
 version: 0.1.0
 ---
 
+`${CLAUDE_PLUGIN_ROOT}` is the sdlc plugin's folder. Claude Code fills it in; on other agents it stays as written, so use the installed plugin's folder instead: the one above this file that holds `scripts/` and `skills/`.
+
 # Writing Hookify Rules
 
 ## Overview

@@ -25,7 +25,7 @@ class DoctorTest(ProjectTestCase):
         return self.doctor()[0].get((group, name))
 
     def setup_repo(self, kind="greenfield"):
-        subprocess.run([sys.executable, SCAFFOLD, "--root", self.root, "init", "--kind", kind],
+        subprocess.run([sys.executable, SCAFFOLD, "--root", self.root, "init", "--kind", kind, "--host", "claude-code"],
                        check=True, capture_output=True)
         subprocess.run([sys.executable, SCAFFOLD, "--root", self.root, "step-done", "finalize", "--complete"],
                        check=True, capture_output=True)
@@ -93,7 +93,7 @@ class DoctorTest(ProjectTestCase):
         self.assertIn("/sdlc:upgrade", found["fix"])
 
     def test_setup_in_progress(self):
-        subprocess.run([sys.executable, SCAFFOLD, "--root", self.root, "init", "--kind", "greenfield"],
+        subprocess.run([sys.executable, SCAFFOLD, "--root", self.root, "init", "--kind", "greenfield", "--host", "claude-code"],
                        check=True, capture_output=True)
         self.assertIn("in progress", self.check("setup")["detail"])
 
@@ -196,8 +196,8 @@ class DoctorTest(ProjectTestCase):
 
     def test_agents_md_out_of_date_warns(self):
         self.setup_repo()
-        self.configure(tools={"targets": ["codex"]})
-        subprocess.run([sys.executable, SCAFFOLD, "--root", self.root, "agents"], check=True, capture_output=True)
+        for args in (["add-host", "codex"], ["agents"]):
+            subprocess.run([sys.executable, SCAFFOLD, "--root", self.root, *args], check=True, capture_output=True)
         self.assertEqual(self.check("AGENTS.md")["status"], "ok")
         self.write("CLAUDE.md", "Use pnpm.\n")
         self.assertEqual(self.check("AGENTS.md")["status"], "warn")

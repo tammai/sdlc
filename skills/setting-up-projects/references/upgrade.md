@@ -1,3 +1,5 @@
+`${CLAUDE_PLUGIN_ROOT}` is the sdlc plugin's folder. Claude Code fills it in; on other agents it stays as written, so use the installed plugin's folder instead: the one above this file that holds `scripts/` and `skills/`.
+
 # Upgrade
 
 Brings a project's scaffold from its `scaffold_version` to the installed plugin's version. Generic material (templates, stage rules, agent prompts) already updated with the plugin; this only patches what lives in the project.

@@ -57,10 +57,5 @@
     "java_version": "21",
     "dotnet_version": "8.0.x",
     "oasdiff_version": "1.33.0"
-  },
-  "tools": {
-    "targets": [
-      "claude-code"
-    ]
   }
 }

@@ -18,7 +18,7 @@ Before the first feature, `/sdlc:setup` prepares the repo once. `/sdlc:start` of
 
 - **Greenfield** (no source yet): a short stack interview; you approve; the ecosystem's own generators build the skeleton; the project's commands and CI pass on day one.
 - **Brownfield** (existing code): the commands you already have, recorded as they are; a **baseline** of what already fails; a deep audit (conventions, git-history gotchas, decisions, area rules) drafted by explorer agents and written only as you approve each batch; existing AI configs (long CLAUDE.md, AGENTS.md, Cursor rules, ADRs) migrated into the three knowledge tiers, one diff per source.
-- **Both:** policy rules, hookify guardrails, lint snippets, a permission allowlist for the project's commands, the sdlc marketplace and `enabledPlugins` in `.claude/settings.json` (only if you approve, so teammates are offered the plugin), `.gitignore` entries, an sdlc block in `AGENTS.md` for teammates on Cursor or Codex (only if you name those tools), a constitution (with the default Simplicity principle), the design system (projects with UI) and the knowledge folder.
+- **Both:** policy rules, hookify guardrails, lint snippets, a permission allowlist for the project's commands, the sdlc marketplace and `enabledPlugins` in `.claude/settings.json` (only if you approve, so teammates are offered the plugin), `.gitignore` entries, an sdlc block in `AGENTS.md` once a second agent (Codex, Cursor, Antigravity) has set up the repo, a constitution (with the default Simplicity principle), the design system (projects with UI) and the knowledge folder.
 
 Setup runs on a `sdlc/setup` branch with one commit per step, resumes where it stopped, and ends by asking whether to open a PR or merge locally.
 
@@ -226,7 +226,6 @@ Setup writes `.sdlc/config.json`; it's yours to edit and holds only what differs
 | `verify.order` | Order of the verify steps (default lint, typecheck, build, test) |
 | `areas.*` | Path patterns for the policy rules: `source`, `tests`, `migrations`, `sensitive`, `ci` |
 | `ci` | `os` matrix (default `["ubuntu-latest"]`; add `"windows-latest"` if teammates develop on Windows) and toolchain versions for the generated workflow |
-| `tools.targets` | The team's tools: `claude-code` (default), `cursor`, `codex`. With Cursor or Codex, `AGENTS.md` gets an sdlc block built from `CLAUDE.md` and `.claude/rules/` ([spec 11](specs/11-multi-agent.md)). To add a tool later, set it and ask Claude to run `scaffold.py agents` |
 | `baseline` | Where the known-failures baseline lives (default `.sdlc/baseline.md`) |
 | `min_plugin_version` | Teammates on an older plugin get a warning to update |
 

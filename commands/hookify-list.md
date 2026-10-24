@@ -3,6 +3,8 @@ description: List all configured hookify rules
 allowed-tools: ["Glob", "Read", "Skill"]
 ---
 
+`${CLAUDE_PLUGIN_ROOT}` is the sdlc plugin's folder. Claude Code fills it in; on other agents it stays as written, so use the installed plugin's folder instead: the one above this file that holds `scripts/` and `skills/`.
+
 # List Hookify Rules
 
 **Load sdlc:writing-hook-rules skill first** to understand rule format.

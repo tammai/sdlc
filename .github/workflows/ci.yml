@@ -28,6 +28,8 @@ jobs:
         run: command -v python3 || cp "$(dirname "$(which python)")/python.exe" "$(dirname "$(which python)")/python3.exe"
       - run: git config --global user.email ci@example.com && git config --global user.name ci
       - run: python3 -m unittest discover -s tests -t tests
+      # The Codex, Cursor and Antigravity files are built from the Claude Code sources; a stale one ships old behaviour
+      - run: python3 scripts/hosts.py check
 
   validate:
     runs-on: ubuntu-latest

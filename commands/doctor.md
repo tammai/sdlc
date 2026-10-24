@@ -2,6 +2,8 @@
 description: Health check for sdlc — machine (git, gh, Python, security reviewer), plugin install, and this repo (setup, version drift, project commands and their tools, rules, hookify rules, knowledge, feature state). Use when something feels off, after installing or upgrading, or before onboarding a teammate.
 ---
 
+`${CLAUDE_PLUGIN_ROOT}` is the sdlc plugin's folder. Claude Code fills it in; on other agents it stays as written, so use the installed plugin's folder instead: the one above this file that holds `scripts/` and `skills/`.
+
 Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/doctor.py" --format md` and show the table as is.
 
 Then, in a few lines:
