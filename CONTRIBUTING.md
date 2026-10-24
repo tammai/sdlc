@@ -34,7 +34,7 @@ sdlc/
 │   ├── spec/design/checklist/constitution-template.md   used by the Stage 1–2 skills
 │   ├── design-system-template.md   setup's design-system step (UI projects)
 │   ├── knowledge/           OKF templates for tier 2/3 knowledge
-│   └── project/             what setup places in a repo: config defaults, rules/, hookify/, lint/, baseline.md
+│   └── project/             what setup places in a repo: config defaults, rules/, hookify/, lint/, agents/ (the AGENTS.md workflow section), baseline.md
 ├── migrations/              <version>-<slug>.md steps that /sdlc:upgrade applies to project-owned files
 ├── examples/hookify/        sample rules
 ├── tests/                   stdlib unittest suite (helpers.py + one file per hook or script)

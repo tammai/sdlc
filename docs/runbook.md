@@ -339,7 +339,8 @@ Every command prints one JSON object. Exit codes: 0 ok, 1 error, 2 refused becau
 | `preview <template\|builtin:…>` | render without writing |
 | `record <generated\|seeded> <paths…> [--template T]` / `forget <paths…>` | track files Claude wrote / hand them over to the user |
 | `allow --add/--remove … [--from-commands]`, `gitignore --add/--remove …` | keyed merges; only ever removes entries the plugin added |
+| `agents [--check]` | rebuild the sdlc block in `AGENTS.md` from `CLAUDE.md`, `.claude/rules/` and `tools.targets` (or remove it when no target needs it); `--check` exits 1 when it's out of date |
 | `migrations [--revisit]`, `migration <id> --applied\|--skipped REASON` | pending migrations (scaffold < version ≤ plugin, numeric order) / record the outcome |
 | `set-version <v> [--min-plugin m]` | advance `scaffold_version`; raises the pin, never lowers it |
-| `upgrade-plan` | regenerate / replace / review / restore / template_gone, plus pending migrations |
+| `upgrade-plan` | regenerate / replace / review / restore / template_gone, `agents` (off, in_sync or stale), plus pending migrations |
 | `eject [--apply] [--also <edited files>]` | dry run by default; applying deletes plugin files, removes recorded entries and the lock |

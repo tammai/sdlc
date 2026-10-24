@@ -52,6 +52,7 @@ Teams that try to fix this assemble several plugins and conventions by hand, eac
 | 08 | Health check and status | [08-health-and-status](specs/08-health-and-status.md) | `/sdlc:doctor`, `/sdlc:status` |
 | 09 | Autonomous loop for one well-specified task | [09-autonomous-loop](specs/09-autonomous-loop.md) | `/sdlc:ralph-loop` |
 | 10 | UI follows the project's design system, without AI slop | [10-ui-design-system](specs/10-ui-design-system.md) | setup, Stage 6 `ui-reviewer`, `/sdlc:review-pr ui` |
+| 11 | Teammates on Cursor and Codex: one managed `AGENTS.md` block | [11-multi-agent](specs/11-multi-agent.md) | setup `other-tools`, `scripts/scaffold.py agents`, `/sdlc:doctor` |
 
 ## 6. Key journeys
 

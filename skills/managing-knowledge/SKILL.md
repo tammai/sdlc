@@ -47,6 +47,7 @@ For each candidate (from a retro, a review, a debugging session, or the user say
    Template: `${CLAUDE_PLUGIN_ROOT}/templates/knowledge/doc.md`. Link related docs with relative Markdown links.
 6. **Wire it in:** add one line to `knowledge/index.md` (path + ≤12-word description) and, for path-related docs, a link from the matching tier-2 rule. An unlinked tier-3 doc is invisible — never leave one.
 7. **Log it:** `knowledge/log.md` → `- YYYY-MM-DD <add|update|remove> <path> — <why> (from <feature>)`.
+8. **Changed CLAUDE.md or a rule?** If `tools.targets` in `.sdlc/config.json` names `cursor` or `codex`, run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" agents` so their copy in `AGENTS.md` follows.
 
 ## Audit (run when CLAUDE.md > 60 lines, or every few features)
 

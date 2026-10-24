@@ -194,6 +194,14 @@ class DoctorTest(ProjectTestCase):
         self.write("CLAUDE.md", "line\n" * 60)
         self.assertEqual(self.check("CLAUDE.md size")["status"], "ok")
 
+    def test_agents_md_out_of_date_warns(self):
+        self.setup_repo()
+        self.configure(tools={"targets": ["codex"]})
+        subprocess.run([sys.executable, SCAFFOLD, "--root", self.root, "agents"], check=True, capture_output=True)
+        self.assertEqual(self.check("AGENTS.md")["status"], "ok")
+        self.write("CLAUDE.md", "Use pnpm.\n")
+        self.assertEqual(self.check("AGENTS.md")["status"], "warn")
+
     def test_knowledge_index_links(self):
         self.write("knowledge/conventions/naming.md", "x")
         self.assertIn("no index.md", self.check("knowledge index")["detail"])

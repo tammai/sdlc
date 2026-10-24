@@ -39,7 +39,7 @@ Present each batch as a list of titles with one-line summaries and end your turn
 
 ## `ai-config` – migrate existing AI instructions (one diff per source)
 
-For each of `CLAUDE.md` (over ~60 lines), `AGENTS.md`, `.cursor/rules/`, `.cursorrules`, `.github/copilot-instructions.md`, `.specify/`, `docs/adr/`: propose where each part goes in the tiers (always-true and short → CLAUDE.md; path-specific → `.claude/rules/<area>.md`; detail → `knowledge/`). Show one diff per source. Originals stay unless the user approves deleting them. Never `@import` the knowledge folder into CLAUDE.md.
+For each of `CLAUDE.md` (over ~60 lines), `AGENTS.md`, `.cursor/rules/`, `.cursorrules`, `.github/copilot-instructions.md`, `.specify/`, `docs/adr/`: propose where each part goes in the tiers (always-true and short → CLAUDE.md; path-specific → `.claude/rules/<area>.md`; detail → `knowledge/`). Show one diff per source. Originals stay unless the user approves deleting them. If the team also uses Cursor or Codex, `AGENTS.md` itself stays: the `other-tools` step adds the sdlc block, which carries the migrated content back to those tools, so only offer to delete the migrated text outside the block. Never `@import` the knowledge folder into CLAUDE.md.
 
 ## `ci`
 

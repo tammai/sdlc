@@ -4,6 +4,9 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
+### Added
+- Teammates on Cursor or Codex: setup asks which other tools the team uses (`tools.targets` in `.sdlc/config.json`). With either one named, `scaffold.py agents` writes one managed block in `AGENTS.md`, which both tools read. The block holds the workflow rules for non-Claude teammates (where documents live, and never to edit state files, `test-report.md` or the baseline), `CLAUDE.md`, and every area rule with its file globs. Claude-only lines are rewritten, or stop the build with the file and line. Your own `AGENTS.md` text is never touched. Upgrade rebuilds the block, eject removes it, and `/sdlc:doctor` warns when it's out of date. Spec 11, ADR 0007. Phase 1 of #1.
+
 ### Changed
 - `/sdlc:start` with a GitHub issue, Linear or Jira link now reads the ticket before sizing the work (`gh issue view` or the tracker's MCP server) and uses it as the request. If the ticket can't be read, it asks for the text instead of guessing from the URL. A ticket link pasted on its own, without `/sdlc:start`, now starts the orchestrator too.
 - The plugin and marketplace descriptions now match the README: S/M/L sizing, up to 11 gated stages, a fresh verifier, design-system-aware UI review and any stack or monorepo. New keywords: `orchestrator`, `monorepo`, `claude-code-plugin`.

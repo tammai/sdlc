@@ -198,6 +198,15 @@ def check_repo(r, root):
         if status["setup"] == "complete" and unrun:
             r.add(g, "commands run", "warn", "never run successfully since recorded: " + ", ".join(unrun),
                   f"python3 scripts/scaffold.py run-commands · {RUNBOOK} R13")
+        try:
+            agents = scaffold.agents_state(p)
+            if agents != "off":
+                r.add(g, "AGENTS.md", "ok" if agents == "in_sync" else "warn",
+                      "the sdlc block matches CLAUDE.md and .claude/rules/" if agents == "in_sync" else
+                      "the sdlc block is out of date: Cursor and Codex follow old instructions",
+                      None if agents == "in_sync" else "/sdlc:upgrade, or python3 scripts/scaffold.py agents")
+        except ValueError as e:
+            r.add(g, "AGENTS.md", "fail", str(e), "fix the line, then python3 scripts/scaffold.py agents")
         cfg = scaffold.effective_config(p.config)
         if cfg.get("project", {}).get("kind") == "brownfield":
             b = os.path.join(root, cfg.get("baseline", ".sdlc/baseline.md"))

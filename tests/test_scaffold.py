@@ -657,6 +657,64 @@ class ScaffoldTest(ProjectTestCase):
         self.template("templates/project/f.md", "{{config.verify|upper}}")
         self.assertIn("unknown template filter", self.sc("preview", "templates/project/f.md", expect=1)["error"])
 
+    # --- AGENTS.md for Cursor and Codex (real workflow template) -----------------------------
+
+    def agents_project(self, targets):
+        self.sc("init", "--kind", "brownfield", plugin=PLUGIN_ROOT)
+        self.write(".sdlc/config.json", json.dumps({"tools": {"targets": targets}}))
+        self.write("CLAUDE.md", "# Repo\n\n@docs/extra.md\nRun `/sdlc:doctor` weekly.\n")
+        self.write(".claude/rules/api.md", '---\npaths:\n  - "src/api/**"\n---\n# API\n\nVersion every route.\n')
+
+    def agents(self, *args, expect=0):
+        return self.sc("agents", *args, expect=expect, plugin=PLUGIN_ROOT)
+
+    def test_agents_writes_one_block_and_keeps_the_users_text(self):
+        self.agents_project(["cursor", "codex"])
+        with open(self.path("AGENTS.md"), "wb") as f:
+            f.write(b"# Ours\r\n\r\nUse pnpm.\r\n")
+        self.agents()
+        with open(self.path("AGENTS.md"), "rb") as f:
+            first = f.read()
+        self.agents()
+        with open(self.path("AGENTS.md"), "rb") as f:
+            self.assertEqual(f.read(), first)  # deterministic: a rebuild changes nothing
+        text = first.decode()
+        self.assertTrue(text.startswith("# Ours\r\n\r\nUse pnpm.\r\n\r\n<!-- sdlc:begin"))
+        self.assertEqual(text.count("<!-- sdlc:begin"), 1)
+        self.assertNotIn("\n", text.replace("\r\n", ""))  # the block follows the file's CRLF
+        self.assertIn("Never edit these files", text)
+        self.assertIn("Also read `docs/extra.md`.", text)
+        self.assertIn("`/sdlc:doctor` (Claude Code)", text)
+        self.assertIn("### API\r\n\r\nApplies when working on files matching `src/api/**`.", text)
+        self.assertEqual(self.lock()["merged"]["AGENTS.md#sdlc"], ["block"])
+
+    def test_agents_stops_at_a_claude_only_line(self):
+        self.agents_project(["codex"])
+        self.write("CLAUDE.md", "# Repo\n\nRun ${CLAUDE_PLUGIN_ROOT}/x.\n")
+        self.assertIn("CLAUDE.md:3:", self.agents(expect=1)["error"])
+        self.assertFalse(os.path.exists(self.path("AGENTS.md")))
+
+    def test_agents_check_and_upgrade_plan_report_drift(self):
+        self.agents_project(["codex"])
+        self.agents()
+        self.assertEqual(self.agents("--check")["state"], "in_sync")
+        self.write(".claude/rules/api.md", "# API\n\nVersion every route, always.\n")
+        self.assertIn("out of date", self.agents("--check", expect=1)["error"])
+        self.assertEqual(self.sc("upgrade-plan", plugin=PLUGIN_ROOT)["agents"], "stale")
+
+    def test_agents_off_for_claude_only_and_unknown_target_is_an_error(self):
+        self.agents_project(["claude-code"])
+        self.assertEqual(self.agents()["result"], "off")
+        self.assertFalse(os.path.exists(self.path("AGENTS.md")))
+        self.write(".sdlc/config.json", json.dumps({"tools": {"targets": ["gemini"]}}))
+        self.assertIn("unknown gemini", self.agents(expect=1)["error"])
+
+    def test_eject_removes_the_block_and_a_file_it_created(self):
+        self.agents_project(["codex"])
+        self.agents()
+        self.sc("eject", "--apply", plugin=PLUGIN_ROOT)
+        self.assertFalse(os.path.exists(self.path("AGENTS.md")))
+
     # --- the real plugin's templates ----------------------------------------------------------
 
     def test_real_rules_template_renders_with_default_config(self):

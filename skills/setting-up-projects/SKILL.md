@@ -35,7 +35,7 @@ Every file the plugin places is in one class (the lock records it). Respect it i
 |---|---|---|
 | Generated | `.claude/rules/sdlc*.md` | `$S render` overwrites freely |
 | Seeded | `.claude/hookify/sdlc-*.md`, `.github/workflows/sdlc-verify.yml`, `.sdlc/lint/*` | `$S render --if-unchanged`; exit 2 → show the user a diff, never overwrite |
-| Keyed merge | `.claude/settings.json` allow entries and plugin-enablement keys, `.gitignore` lines | only via `$S allow` / `$S enable-plugin` / `$S gitignore` |
+| Keyed merge | `.claude/settings.json` allow entries and plugin-enablement keys, `.gitignore` lines, the `<!-- sdlc:begin -->`…`<!-- sdlc:end -->` block in `AGENTS.md` | only via `$S allow` / `$S enable-plugin` / `$S gitignore` / `$S agents`; text outside the block is the user's |
 | Commands | `commands` / `packages[].commands` in `.sdlc/config.json` | user-owned data; `$S contract` checks, `$S commands` prints the verify plan |
 | User-owned | `CLAUDE.md`, `<docs>/constitution.md`, `<docs>/design-system.md`, `knowledge/**`, `.sdlc/baseline.md`, other `.claude/rules/*.md` | write once with approval; afterwards only through approved migrations |
 
@@ -59,6 +59,7 @@ Plugin-owned files are named `sdlc-*` (or `sdlc.md`); everything else belongs to
 | `lint` | JS/TS: `$S render templates/project/lint/eslint.sdlc.mjs .sdlc/lint/eslint.sdlc.mjs --class seeded`, then propose the import in the user's `eslint.config.*` (diff, approved). Python: same with `ruff.sdlc.toml` and `extend = ".sdlc/lint/ruff.sdlc.toml"` in `pyproject.toml`. Run the lint command(s) afterwards: new warnings go to the baseline (brownfield) or get fixed (greenfield). |
 | `allowlist` | `$S allow --from-commands` (adds `Bash(<command>:*)` for every command in config) |
 | `enable-plugin` | **Ask first** (it makes Claude Code prompt every teammate who trusts the repo to install sdlc): `$S enable-plugin` adds the sdlc marketplace and `enabledPlugins` to `.claude/settings.json`, keeping keys the user already set. Declined → record the step and say so. |
+| `other-tools` | **Ask** which tools the team uses besides Claude Code: Cursor, Codex, or none. Record the answer as `tools.targets` in `.sdlc/config.json` (e.g. `["claude-code", "cursor"]`; overrides only, so skip it for none). Then `$S agents`: it writes one managed block in `AGENTS.md`, which both tools read, built from `CLAUDE.md`, `.claude/rules/` and the workflow rules for non-Claude teammates. An error naming a file and line is a Claude-only construct (`${CLAUDE_PLUGIN_ROOT}`, `scaffold.py`): propose rewording it, then run it again. |
 | `gitignore` | `$S gitignore --add ".sdlc/.work/" ".claude/*.local.md"` |
 | `constitution` | `sdlc:project-constitution`, inferring from the repo and the interview; keep the default **V. Simplicity**. User approves. |
 | `design-system` | Only when the project has UI: files match `areas.ui`, or the greenfield stack has a web, mobile or desktop UI. No UI → record the step and say so. First fix `areas.ui` to the real UI paths (e.g. `lib/**/*.dart` for Flutter, `**/*View.swift`). **Existing system:** find it (tokens or theme files, Tailwind theme or `@theme`, the UI library in the manifest, shadcn's `components.json`, a `components/ui` folder, Storybook) and fill `<docs>/design-system.md` from `${CLAUDE_PLUGIN_ROOT}/templates/design-system-template.md`, pointing at it rather than copying values. **None:** propose one mainstream component library for the stack plus a minimal token set (color roles, spacing, type scale, radius), create the tokens file in the stack's usual place, and fill the doc from it; never invent a full bespoke system. User approves. |
@@ -69,7 +70,7 @@ Plugin-owned files are named `sdlc-*` (or `sdlc.md`); everything else belongs to
 
 A hard stop ends your turn: put the question (with your proposal) in one message and wait for the answer before writing anything it covers. Never answer it yourself, even when the choice looks obvious.
 
-Stack choice (greenfield) · where sdlc documents go when the repo has a docs site · monorepo team size, team handles, `infras/` and the contract check (`references/monorepo.md`) · the commands (brownfield) · installing any tool · each audit batch before it is written · each AI-config migration · adding CI to a repo that already has CI · lint config import · constitution · design system · enabling the plugin for the team · PR vs local merge. Everything else proceeds without asking.
+Stack choice (greenfield) · where sdlc documents go when the repo has a docs site · monorepo team size, team handles, `infras/` and the contract check (`references/monorepo.md`) · the commands (brownfield) · installing any tool · each audit batch before it is written · each AI-config migration · adding CI to a repo that already has CI · lint config import · which other tools the team uses · constitution · design system · enabling the plugin for the team · PR vs local merge. Everything else proceeds without asking.
 
 ## Report
 
