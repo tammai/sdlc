@@ -41,6 +41,33 @@ class HostsTest(ProjectTestCase):
         self.assertEqual(code, 1)
         self.assertIn(".codex-plugin/plugin.json", out["stale"])
 
+    def test_commands_become_skills_for_codex_and_antigravity(self):
+        # Neither loads a command that takes $ARGUMENTS; the hook-driven ones can't work without hooks
+        self.write("commands/start.md", "---\ndescription: Start a feature.\nargument-hint: \"[what]\"\n---\n"
+                                        "Status: !`git status`\n\nRequest: $ARGUMENTS\n")
+        self.write("commands/ralph-loop.md", "---\ndescription: Loop.\n---\nLoop.\n")
+        self.assertEqual(self.hosts("build")[0], 0)
+        self.assertEqual(self.read("hosts/skills/start/SKILL.md"),
+                         "---\nname: start\ndescription: Start a feature.\n---\n"
+                         "Status: run `git status`\n\nRequest: <the user's request>\n")
+        self.assertFalse(os.path.exists(self.path("hosts/skills/ralph-loop")))
+        codex = json.loads(self.read(".codex-plugin/plugin.json"))
+        self.assertIn("./hosts/skills/", codex["skills"])
+        self.assertNotEqual(codex["commands"], "./commands/")  # else Codex adds its own copies of some
+        self.assertEqual(json.loads(self.read("plugin.json"))["skills"], "./hosts/skills/")
+
+    def test_antigravity_dist_converts_the_agents_it_would_skip(self):
+        out = os.path.join(self.root, "dist")
+        p = subprocess.run([sys.executable, SCRIPT, "--root", self.root, "dist", "antigravity", out],
+                           capture_output=True, encoding="utf-8")
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        with open(os.path.join(out, "agents", "reviewer.md"), encoding="utf-8") as f:
+            self.assertEqual(f.read(), "---\nname: reviewer\ndescription: Reviews.\nmodel: inherit\n"
+                                       "tools: [\"Glob\", \"Grep\", \"Read\", \"Bash\"]\n---\nReview it.\n")
+        self.assertTrue(os.path.exists(os.path.join(out, "plugin.json")))
+        with open(self.path("agents/reviewer.md"), encoding="utf-8") as f:
+            self.assertIn("model: opus", f.read())  # the Claude Code source is untouched
+
 
 if __name__ == "__main__":
     unittest.main()

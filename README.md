@@ -28,13 +28,13 @@ From the marketplace that hosts it:
 
 Restart the session afterward so the commands and hooks load. To work on the plugin from a checkout instead, see [Contributing](#contributing).
 
-**Other coding agents** (setup detects the agent and writes its own files; [spec 11](docs/specs/11-multi-agent.md)). These installs aren't smoke-tested yet:
+**Other coding agents** (setup detects the agent and writes its own files; [spec 11](docs/specs/11-multi-agent.md)). Setup is smoke-tested in Codex and Antigravity on Windows and in Cursor in WSL:
 
 | Agent | Install |
 |---|---|
 | Codex | `codex plugin marketplace add tammai/sdlc`, then `codex plugin add sdlc@sdlc` |
 | Cursor | Customize → Import from Repo with `https://github.com/tammai/sdlc`, or a clone in `~/.cursor/plugins/local` |
-| Antigravity | `agy plugin install https://github.com/tammai/sdlc`, or a clone in `~/.gemini/config/plugins/` |
+| Antigravity | `python3 scripts/hosts.py dist antigravity <folder>` in a clone, then `agy plugin install <folder>` (a direct `agy plugin install https://github.com/tammai/sdlc` loads only 3 of the 13 agents) |
 
 A repo can be shared by several agents: the first one to run setup does the shared part, and each agent after it adds only its own files.
 
@@ -174,7 +174,7 @@ Retros in `docs/sdlc/intents/<feature>/retro.md` are history only. Durable lesso
 ## Limitations
 
 - **Outside services aren't bundled** (GitHub MCP, Linear, Sentry, Vercel, Playwright, …). Stages that would use them say which to add; see `skills/orchestrator/references/integrations.md`. Anthropic's `claude-security` plugin isn't bundled either (its license reserves all rights); install it separately for deep vulnerability scans.
-- **Codex, Cursor and Antigravity are untested.** They get the skills, the setup that detects them, and the policy rules through `AGENTS.md`, but no one has run the stages in them yet. Hooks (freshness, role, model, security, hookify) run only in Claude Code, and the subagent roles there are instructions, so those guarantees don't hold on the other agents ([spec 11](docs/specs/11-multi-agent.md)).
+- **Codex, Cursor and Antigravity are only partly tested.** They get the skills, the commands as skills (`start`, `setup`, `upgrade`, …; not the Ralph loop or hookify), the setup that detects them, and the policy rules through `AGENTS.md`. Setup has run in each, and a Claude Code join after Codex, but no one has run the stages in them yet. Hooks (freshness, role, model, security, hookify) run only in Claude Code, and the subagent roles there are instructions, so those guarantees don't hold on the other agents ([spec 11](docs/specs/11-multi-agent.md)).
 - **Generated CI is GitHub Actions only.** On other CI systems, run the same commands from `.sdlc/config.json` yourself.
 - **Most gates are instructions plus your approval.** Machine-checked: test freshness (hook), undeclared public surface (`diff_stats.py --plan`), the subagent model floor (model router) and hookify guardrails. Plan consistency on L and larger M plans is checked by a skill (`analyzing-consistency`), not mechanically. The S track has no plan, so unrequested surface there is the reviewer's call.
 - **Freshness detection is heuristic.** It catches edits by any tool and filtered runs (file, name or package arguments), but not every possible filter, and not `.only` inside a test file (a guardrail warns on that instead).

@@ -20,7 +20,11 @@
   ],
   "homepage": "https://github.com/tammai/sdlc",
   "repository": "https://github.com/tammai/sdlc",
-  "skills": "./skills/",
+  "skills": [
+    "./skills/",
+    "./hosts/skills/"
+  ],
+  "commands": "./hosts/codex/commands/",
   "hooks": "./hosts/codex/hooks.json",
   "interface": {
     "displayName": "SDLC",

@@ -35,6 +35,9 @@ The constraints:
 
   Every line passes the Claude-only mapping table. For Claude Code, the team's own `AGENTS.md` text is mirrored into a generated `.claude/rules/sdlc-agents-md.md`.
 - **The mirror replaces the `@AGENTS.md` import that was considered.** The import would have pulled the sdlc block, with its copy of `CLAUDE.md` and the policy rules, back into Claude Code: everything twice, and a cycle.
+- **Claude Code's files stay as they are; the other agents get extra generated files** (amended 2026-10-24, after the first smoke test):
+  - `hosts/skills/` holds the commands as skills, because Codex and Antigravity drop commands that take arguments.
+  - Antigravity installs from `hosts.py dist antigravity`, a copy with agents it accepts. It reads `agents/` itself and rejects Claude's model tiers, and changing the source would have changed which model Claude Code's agents run on. The copy is built from the same commit, so it can't drift the way a separate branch would.
 - **No hooks outside Claude Code yet.** The other manifests point their hooks at an empty file until the hook logic is tool-neutral.
 
 ### Alternatives considered

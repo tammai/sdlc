@@ -194,6 +194,13 @@ class DoctorTest(ProjectTestCase):
         self.write("CLAUDE.md", "line\n" * 60)
         self.assertEqual(self.check("CLAUDE.md size")["status"], "ok")
 
+    def test_claude_hook_tools_are_skipped_in_a_repo_without_claude_code(self):
+        self.setup_repo()
+        self.lock(hosts=["cursor"])
+        checks, _ = self.doctor()
+        for name in ("jq", "security reviewer env"):
+            self.assertEqual(checks[("environment", name)]["status"], "skip", name)
+
     def test_agents_md_out_of_date_warns(self):
         self.setup_repo()
         for args in (["add-host", "codex"], ["agents"]):
