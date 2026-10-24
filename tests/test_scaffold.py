@@ -680,6 +680,8 @@ class ScaffoldTest(ProjectTestCase):
         code, out, raw, err = run_hook([sys.executable, os.path.join(codex_install, "scripts", "scaffold.py"), "--root",
                                         self.root, "host"], "", self.root, env_extra={"CLAUDE_PLUGIN_ROOT": codex_install})
         self.assertEqual((out["host"], out["via"]), ("codex", "install path"), raw + err)  # CLAUDECODE=1 loses
+        moved = {"CLAUDECODE": "", "CODEX_THREAD_ID": "t", "CLAUDE_CONFIG_DIR": os.path.dirname(PLUGIN_ROOT)}
+        self.assertEqual(self.real("host", env=moved)["via"], "install path")  # config folder outside ~/.claude
         self.assertEqual(self.real("host", env={"CLAUDECODE": "", "CURSOR_AGENT": "1"})["host"], "cursor")
         nested = {"CODEX_THREAD_ID": "t"}  # Codex started from a Claude Code shell: can't tell, so setup asks
         self.assertIsNone(self.real("host", env=nested)["host"])
@@ -690,6 +692,7 @@ class ScaffoldTest(ProjectTestCase):
         self.assertTrue(self.real("host", env={"CLAUDECODE": "", "CODEX_THREAD_ID": "t"})["joining"])
         with open(self.path("AGENTS.md"), "wb") as f:
             f.write(b"# Ours\r\n\r\nUse pnpm.\r\n")
+        self.assertIsNone(self.real("agents")["mirror"])  # Claude Code alone: nothing to mirror yet
         self.real("add-host", "codex")
         self.real("agents")
         with open(self.path("AGENTS.md"), "rb") as f:

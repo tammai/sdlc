@@ -303,7 +303,7 @@ The test suite runs hooks and scripts as subprocesses; this checks the installed
 A teammate runs B–E on Windows in Git Bash.
 
 **J. Other agents (should, one per agent the release claims; must once each before calling an agent supported)**
-1. Install from the checkout: Codex `codex plugin marketplace add <checkout>` and `codex plugin add sdlc@sdlc`; Cursor, a copy in `~/.cursor/plugins/local`; Antigravity, `agy plugin install <checkout>`. The agent lists the sdlc skills (Codex: `sdlc:orchestrator`, and `start` as a skill).
+1. Install from the checkout: Codex `codex plugin marketplace add <checkout>` and `codex plugin add sdlc@sdlc` (note which manifest it used, whether `start` appears as a skill, and whether the Claude-format hooks run; on Windows, whether the skills' bash commands work from its PowerShell); Cursor, a copy in `~/.cursor/plugins/local`; Antigravity, `agy plugin install <checkout>`. The agent lists the sdlc skills (Codex: `sdlc:orchestrator`, and `start` as a skill).
 2. In a new repo, ask the agent to set up sdlc. It doesn't ask which agent it is, finds `scaffold.py` through the plugin folder note, and records only that host (`.sdlc/scaffold.lock.json` → `hosts`). `AGENTS.md` has the sdlc block and there's no `.claude/`.
 3. Open the same repo in Claude Code and run `/sdlc:setup`: it joins (`hosts` gains `claude-code`), writes the Claude Code rules and guardrails, doesn't redo the commands or baseline, and `/sdlc:doctor` has no fails.
 4. Antigravity only: its agent list shows the sdlc agents, or the load error, which goes in the notes.

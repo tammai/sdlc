@@ -23,7 +23,7 @@ The constraints:
   - Antigravity's root `plugin.json`.
 
   The skills are shared as they are. Skill text keeps `${CLAUDE_PLUGIN_ROOT}`, with a note telling other agents to use the plugin folder above the file.
-- **Detecting the host.** The plugin's install folder decides (`.claude/plugins`, `.codex/plugins`, `.cursor`, `.gemini`). Environment markers decide only when exactly one agent's markers are present. Setup asks only when neither works.
+- **Detecting the host.** The plugin's install folder decides when it is recognizable (`.claude/plugins`, `.codex/plugins`, `.cursor`, `.gemini`, or inside `CLAUDE_CONFIG_DIR` or `CODEX_HOME`). It is the strongest signal, but not a contract either. Environment markers decide only when exactly one agent's markers are present. Setup asks only when neither works.
 - **Hosts are recorded in the lock.** Shared setup (config, commands, baseline, constitution, design system, CI, knowledge) happens once. Each host adds a layer:
   - **Claude Code:** `.claude/rules`, hookify guardrails, the allowlist and plugin enablement.
   - **Every other host:** the single sdlc block in `AGENTS.md`.

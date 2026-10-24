@@ -738,8 +738,12 @@ HOST_ENV = [("claude-code", ("CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT")),
 
 def detect_host(env=None):
     env = os.environ if env is None else env
-    where = PLUGIN_ROOT.replace("\\", "/").lower() + "/"
+    norm = lambda x: os.path.abspath(x).replace("\\", "/").lower().rstrip("/") + "/"
+    where = norm(PLUGIN_ROOT)
     by_path = next((h for h, marker in HOST_PATHS if marker in where), None)
+    for h, var in (("claude-code", "CLAUDE_CONFIG_DIR"), ("codex", "CODEX_HOME")):  # a relocated config folder
+        if not by_path and env.get(var) and where.startswith(norm(env[var])):
+            by_path = h
     by_env = [h for h, keys in HOST_ENV if any(env.get(k) for k in keys)]
     if by_path:
         return {"host": by_path, "via": "install path", "environment": by_env}
@@ -880,7 +884,8 @@ def agents_md_text(p):
 def agents_mirror(p):
     """The rule that shows Claude Code the team's own AGENTS.md text, or None when there's nothing to show."""
     text = agents_md_text(p)
-    if "claude-code" not in hosts(p) or not text:
+    # Only once another agent shares the repo: a Claude-only setup already migrated AGENTS.md into its own files
+    if "claude-code" not in hosts(p) or not set(hosts(p)) - {"claude-code"} or not text:
         return None
     own = AGENTS_BLOCK.sub("", text).replace("\r\n", "\n").strip()
     if not own:
