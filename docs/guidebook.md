@@ -113,7 +113,7 @@ Each round spawns a new `verifier`, which runs build, lint, typecheck and tests 
 | Specify and design | `brainstorming`, `writing-specs`, `clarifying-specs`, `designing-solutions`, `project-constitution` |
 | Plan and build | `writing-plans`, `analyzing-consistency`, `using-git-worktrees`, `subagent-driven-development`, `executing-plans`, `dispatching-parallel-agents`, `test-driven-development`, `systematic-debugging` |
 | Check | `verification-before-completion`, `requesting-code-review`, `receiving-code-review` |
-| Ship and learn | `finishing-a-development-branch`, `managing-knowledge`, `claude-md-improver`, `writing-hook-rules` |
+| Ship and learn | `finishing-a-development-branch`, `managing-knowledge`, `claude-md-improver`, `writing-hook-rules`, `todo` |
 
 ### Subagents
 
