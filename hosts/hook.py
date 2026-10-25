@@ -14,8 +14,8 @@ Left out: the security review and the Ralph loop (bash launchers and model calls
 plugin's agents on tool calls) and the model router (subagent dispatches carry no model).
 
 Codex: payloads are Claude Code's, except that edits arrive as `apply_patch` with the patch text, which becomes one
-Write or Edit per file, and a failed command arrives as PostToolUse with no exit code, so a full test run records
-`unknown`, not `pass`.
+Write or Edit per file, and a command's output arrives with no exit code, so a full test run records `unknown`, not
+`pass`.
 Cursor: camelCase events with their own output fields (`permission`, `followup_message`), `Shell` for Bash, edits as
 `Write` with the whole file, and an empty cwd: the workspace root stands in.
 Antigravity: camelCase payloads with no event name and no exit code, `run_command`/`edit_file`/`write_file`; it denies
@@ -43,7 +43,6 @@ CHILD_TIMEOUT = 10  # each script's own timeout in hooks/hooks.json
 DEADLINE = 45  # all of them, under the 60 s hosts.py gives the host
 PATCH_FILE = re.compile(r"^\*\*\*\s*(Add|Update|Delete) File:\s*(.+?)$|^\*\*\*\s*Move to:\s*(.+?)$")
 TOO_BIG = "sdlc: too many edits in one call to check them all in time. Split the change into smaller calls."
-EXIT_CODE = re.compile(r"^Exit code: (-?\d+)", re.M)
 
 
 def patch_edits(patch, cwd):
@@ -78,14 +77,11 @@ def codex_events(event, data):
         patch = str((data.get("tool_input") or {}).get("command") or "")
         return [dict(data, hook_event_name=event, **e) for e in patch_edits(patch, cwd)]
     if event == "PostToolUse" and data.get("tool_name") == "Bash":
-        resp = data.get("tool_response")
-        m = EXIT_CODE.match(resp) if isinstance(resp, str) else None
-        if m and m.group(1) != "0":
-            return [dict(data, hook_event_name="PostToolUseFailure")]
-        if not m:  # no exit code: a trailing pipe makes the freshness hook record `unknown` instead of `pass`
-            tin = dict(data.get("tool_input") or {})
-            tin["command"] = str(tin.get("command") or "") + " | cat"
-            return [dict(data, hook_event_name=event, tool_input=tin)]
+        # Codex sends a command's raw output with no exit code; any "Exit code:" there is the command's own text. A
+        # trailing pipe makes the freshness hook record `unknown` instead of `pass`
+        tin = dict(data.get("tool_input") or {})
+        tin["command"] = str(tin.get("command") or "") + " | cat"
+        return [dict(data, hook_event_name=event, tool_input=tin)]
     return [dict(data, hook_event_name=event)]
 
 

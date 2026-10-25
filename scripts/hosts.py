@@ -144,7 +144,8 @@ def antigravity_hooks():
     def entry(event):
         script = "hosts/hook.py antigravity " + event
         return {"type": "command", "command": f"python3 {script} || python {script}", "timeout": 60}
-    tools = "^(run_command|edit_file|write_file|write_to_file|replace_file_content|create_file|delete_file|apply_patch)$"
+    # by verb, not a list: a write tool Antigravity adds later is checked too (multi_replace_file_content, edit_notebook)
+    tools = "^(run_command|.*(edit|write|replace|create|delete|patch|move|rename|notebook).*)$"
     return {"sdlc": {"PreToolUse": [{"matcher": tools, "hooks": [entry("PreToolUse")]}],
                      "PostToolUse": [{"matcher": tools, "hooks": [entry("PostToolUse")]}],
                      "PreInvocation": [entry("UserPromptSubmit")], "Stop": [entry("Stop")]}}

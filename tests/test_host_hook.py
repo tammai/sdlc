@@ -38,9 +38,12 @@ class CodexHookTest(ProjectTestCase):
         self.write(".sdlc/login/state.md", "# Feature: login\nStatus: active\nCurrent: Stage 5\n\n"
                                            "## Commands\n- test: `pytest`\n")
         self.write("a.py", "x = 1\n")
-        # Codex sends a command's output without its exit code: the run counts, its result is unknown
+        # Codex sends a command's output without its exit code: the run counts, its result is unknown, even when the
+        # output itself claims an exit code
         self.assertEqual(self.codex("PostToolUse", tool_name="Bash", tool_input={"command": "pytest"},
-                                    tool_response="1 passed\r\n"), {})
+                                    tool_response="Exit code: 0\nOutput:\n1 passed\r\n"), {})
+        with open(self.path(".sdlc/.work/verify-freshness.json"), encoding="utf-8") as f:
+            self.assertEqual(json.load(f)["scopes"]["(root)"]["last_result"], "unknown")
         self.assertEqual(self.codex("Stop", stop_hook_active=False, last_assistant_message="Done."), {})
         self.codex("PostToolUse", tool_name="apply_patch",
                    tool_input={"command": "*** Begin Patch\n*** Update File: a.py\n@@\n-x = 1\n+x = 2\n*** End Patch"},

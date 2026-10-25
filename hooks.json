@@ -2,7 +2,7 @@
   "sdlc": {
     "PreToolUse": [
       {
-        "matcher": "^(run_command|edit_file|write_file|write_to_file|replace_file_content|create_file|delete_file|apply_patch)$",
+        "matcher": "^(run_command|.*(edit|write|replace|create|delete|patch|move|rename|notebook).*)$",
         "hooks": [
           {
             "type": "command",
@@ -14,7 +14,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "^(run_command|edit_file|write_file|write_to_file|replace_file_content|create_file|delete_file|apply_patch)$",
+        "matcher": "^(run_command|.*(edit|write|replace|create|delete|patch|move|rename|notebook).*)$",
         "hooks": [
           {
             "type": "command",
