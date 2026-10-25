@@ -102,6 +102,11 @@ For a feature too big for one session, so the work can pause, `/clear` and resum
 5. **Gates.** `Slice gates: none` (default): slices run back to back without asking. They stop only for a failed gate (a second verifier FAIL), a backlog change that adds scope, or a hard stop (merge, deploy, migrations, anything irreversible). The user can opt in to stops at `plan`, `review` (show the findings before fixing) or `commit`, e.g. `Slice gates: plan, commit`.
 6. **Backlog changes.** A slice that turns out too big, or work no slice covers: propose the change. A split that keeps the same FRs is made and logged in the Gate log. Anything that adds scope (a new FR, or work outside the spec) waits for the user; never add it silently.
 7. **Context.** At a slice boundary, if the next slice won't fit in what's left of this session, stop with one line: `B<n> done (<commit>). Next: B<m> <title>. Run /clear, then /sdlc:start.` For a long backlog the user can run yolo (`scripts/yolo.py`) instead, which starts a fresh session per slice.
+8. **▶ Feature close**, once every row is `done` (in a fresh session if this one is low on context; `/sdlc:start` lands here). Print the stage header for each step:
+   - Verify (Stage 5): one fresh verifier round on the whole branch, over every acceptance criterion in the spec; a FAIL is handled as in Lite step 3.
+   - Review (Stage 6): the feature's one top-tier `sdlc:code-reviewer`, on `Base..HEAD`, with `diff_stats.py --base <Base>` and one `--plan` per `plan-B*.md` in `<intents>` (the union of their Public Surface is what's declared) and a brief on how the slices fit together. Fixes as in Lite step 4.
+   - Security (Stage 7): light, or full on L and `Risk: high`.
+   - Stage 8: the verified-tree check, then ask about merge, PR or keep (a hard stop). Stage 11 on L.
 
 ## Stages
 
@@ -160,7 +165,7 @@ You (the orchestrator) may run commands to investigate, but the verdict always c
 - On the GitHub PR (after Stage 8 opens it): `/sdlc:code-review`
 - Handling feedback: `sdlc:receiving-code-review` (verify before agreeing; push back with evidence)
 - Polish first: run the `sdlc:code-simplifier` agent on the changed files before the reviewers, so they review the code that will merge
-- This is the feature's only whole-branch review (Stage 4 skipped its own), so on M and L the whole-branch `code-reviewer` runs on the top tier (S and the Lite flow keep the standard tier). Every reviewer's brief includes the plan's Review Focus section verbatim, if it has one, and the Rulings recorded in state.md.
+- This is the feature's only whole-branch review (Stage 4 skipped its own), so on M and L the whole-branch `code-reviewer` runs on the top tier (S and the Lite flow keep the standard tier, except a backlog feature's Feature close, which is its one top-tier review). Every reviewer's brief includes the plan's Review Focus section verbatim, if it has one, and the Rulings recorded in state.md.
 - Any code change in this stage (the simplifier's, or a fix for a finding) sends the feature back to Stage 5 for another round before this gate passes (the Lite flow re-verifies in-session instead; see its step 4). Changes to tests or docs alone don't.
 - Facts first: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/diff_stats.py" --format md --plan <intents>/plan.md` (omit `--plan` on S track) goes into every reviewer's prompt; exports and dependencies missing from the plan's Public Surface are flagged as undeclared (comment share, single-use exports, single-implementation abstractions, new dependencies).
 - S track ("light"): `sdlc:code-simplifier` then `sdlc:code-reviewer`, both with the diff stats.

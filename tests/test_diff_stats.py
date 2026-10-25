@@ -176,6 +176,13 @@ class DiffStatsTest(ProjectTestCase):
         self.assertIsNone(r["surface"])
         self.assertTrue(self.flags(r, "plan has no '## Public Surface' section"))
 
+    def test_feature_close_checks_the_union_of_every_slice_plans_surface(self):
+        one = self.write(".sdlc/login/plan-B1.md", "# B1\n\n## Public Surface\n\n- export `createSession` — FR-001\n")
+        two = self.write(".sdlc/login/plan-B2.md", "# B2\n\n## Public Surface\n\n- export `endSession` — FR-002\n")
+        self.write("src/auth/session.ts", "export function createSession() {}\nexport function endSession() {}\n"
+                                          "export function sneaky() {}\n")
+        self.assertEqual(self.stats("--plan", one, "--plan", two)["surface"]["undeclared_exports"], ["sneaky"])
+
     def test_plan_surface_in_markdown(self):
         self.write("src/auth/session.ts", "export function createSession() {}\n")
         md = self.stats("--plan", self.plan(), "--format", "md")

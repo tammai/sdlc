@@ -2,10 +2,11 @@
 """Diff facts for Stage 6 review: comment share, new files, single-use exports, single-implementation
 interfaces, new dependencies and the list of changed files, for the changes since a base ref (committed +
 uncommitted + untracked). The base defaults to the active feature's `Base:` commit.
-With --plan, new exports and dependencies are checked against the plan's "## Public Surface" list.
+With --plan, new exports and dependencies are checked against the plan's "## Public Surface" list; --plan can repeat
+(feature close: every slice's plan-B<n>.md), and then the union of their lists is what's declared.
 
 Reviewers cite these numbers instead of arguing taste. Informational only: always exits 0 unless git fails.
-Usage: python3 diff_stats.py [--root DIR] [--base REF] [--plan PLAN.md] [--format json|md]
+Usage: python3 diff_stats.py [--root DIR] [--base REF] [--plan PLAN.md ...] [--format json|md]
 Stdlib only, Python 3.9+.
 """
 import argparse
@@ -238,7 +239,7 @@ def check_surface(surface, exports, deps):
 
 # --- main -----------------------------------------------------------------------------------
 
-def collect(root, base, plan=None):
+def collect(root, base, plans=()):
     diff = git(root, "diff", "--no-color", "--no-ext-diff", "-U0", "--diff-filter=AMR", base)
     added = parse_diff(diff)
     status_new = set((git(root, "diff", "--name-only", "--diff-filter=A", base) or "").split())
@@ -308,18 +309,24 @@ def collect(root, base, plan=None):
     for d in deps:
         flags.append(f"new dependency: {d['name']} ({d['file']} {d['section']})")
     surface = None
-    if plan:
-        declared = plan_surface(plan)
-        if declared is None:
-            flags.append(f"plan has no '## Public Surface' section: {plan}")
-        else:
-            surface = check_surface(declared, exports, deps)
-            for name in surface["undeclared_exports"]:
-                flags.append(f"undeclared export: {name} (not in the plan's Public Surface: unrequested surface)")
-            for name in surface["undeclared_dependencies"]:
-                flags.append(f"undeclared dependency: {name} (not in the plan's Public Surface: unrequested surface)")
-            for name in surface["declared_not_built"]:
-                flags.append(f"declared but not built: {name} (in the plan's Public Surface, not in the diff)")
+    declared = None
+    for plan in plans:
+        found = plan_surface(plan)
+        if found is None:
+            flags.append(f"plan not found: {plan}" if not os.path.isfile(plan)
+                         else f"plan has no '## Public Surface' section: {plan}")
+            continue
+        declared = declared or {}
+        for kind, names in found.items():
+            declared.setdefault(kind, []).extend(n for n in names if n not in declared.get(kind, []))
+    if declared is not None:
+        surface = check_surface(declared, exports, deps)
+        for name in surface["undeclared_exports"]:
+            flags.append(f"undeclared export: {name} (not in the plan's Public Surface: unrequested surface)")
+        for name in surface["undeclared_dependencies"]:
+            flags.append(f"undeclared dependency: {name} (not in the plan's Public Surface: unrequested surface)")
+        for name in surface["declared_not_built"]:
+            flags.append(f"declared but not built: {name} (in the plan's Public Surface, not in the diff)")
     return {
         "base": base,
         "totals": {"source_files": len(src), "test_files": len(files) - len(src), "new_files": len(new_files),
@@ -354,15 +361,16 @@ def main(argv=None):
     ap.add_argument("--root", default=".")
     ap.add_argument("--base", help="base ref (default: the feature's `Base:` from state.md beside --plan, or from "
                                    "the only active feature; else merge-base with origin/main|main|master, else HEAD)")
-    ap.add_argument("--plan", help="plan.md whose '## Public Surface' the diff is checked against")
+    ap.add_argument("--plan", action="append", default=[],
+                    help="plan.md whose '## Public Surface' the diff is checked against; repeat for the union")
     ap.add_argument("--format", choices=["json", "md"], default="json")
     a = ap.parse_args(argv)
     sys.stdout.reconfigure(encoding="utf-8")
     root = os.path.abspath(a.root)
     try:
         top = git(root, "rev-parse", "--show-toplevel").strip()
-        plan = os.path.abspath(a.plan) if a.plan else None
-        result = collect(top, a.base or feature_base(top, plan) or default_base(top), plan)
+        plans = [os.path.abspath(p) for p in a.plan]
+        result = collect(top, a.base or feature_base(top, plans[0] if plans else None) or default_base(top), plans)
     except RuntimeError as e:
         print(json.dumps({"error": str(e)}))
         return 1
