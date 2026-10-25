@@ -48,6 +48,16 @@ class ReviewGateTest(ProjectTestCase):
         self.assertIn("+build change", net)
         self.assertIn("+ready change", net)
 
+    def test_deferral_is_capped_so_a_stuck_stage_cant_skip_reviews_forever(self):
+        # The state file is writable by the agent the review checks: a feature left at Stage 4 stops deferring
+        self.stage(4)
+        for n in range(sdlc_review_gate.MAX_DEFER):
+            self.commit("a.ts", f"one\n{n}\n")
+        plan = sdlc_review_gate.decide(self.root, [self.head()[:7]], set())
+        self.assertFalse(plan["defer"])
+        self.assertEqual(len(plan["shas"]), sdlc_review_gate.MAX_DEFER)
+        self.assertEqual(plan["range"][0], self.base)  # the net diff starts at Base: every commit is in it
+
     def test_without_an_active_feature_a_commit_is_reviewed_as_before(self):
         self.commit("b.ts", "2")
         self.assertEqual(sdlc_review_gate.decide(self.root, ["abc1234"], set()),
