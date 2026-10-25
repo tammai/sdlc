@@ -9,6 +9,7 @@ The Claude Code plugin (.claude-plugin/, skills/, commands/, agents/, hooks/) is
   hosts/cursor/agents/*.md        agents with Cursor's frontmatter: model inherit, readonly for read-only roles
   hosts/skills/<command>/SKILL.md commands as skills: Codex and Antigravity drop commands that take $ARGUMENTS
   hosts/codex/hooks.json, hosts/cursor/hooks.json   the plugin's hooks through hosts/hook.py, which adapts the payloads
+  hooks.json                      the same for Antigravity, which reads it at the plugin root
 
 Usage: python3 scripts/hosts.py [--root DIR] build | check   (check exits 1 when a file differs from a fresh build)
        python3 scripts/hosts.py dist antigravity OUT   a copy to `agy plugin install OUT`: Antigravity reads agents/
@@ -137,6 +138,18 @@ def cursor_hooks():
                                     "beforeSubmitPrompt": entry("UserPromptSubmit"), "stop": entry("Stop")}}
 
 
+def antigravity_hooks():
+    """hosts/hook.py under one named hook. Antigravity runs a command in the plugin folder through cmd or sh, with no
+    Windows variant, so it falls back from python3 to python; a hook that fails denies the tool call."""
+    def entry(event):
+        script = "hosts/hook.py antigravity " + event
+        return {"type": "command", "command": f"python3 {script} || python {script}", "timeout": 60}
+    tools = "^(run_command|edit_file|write_file|write_to_file|replace_file_content|create_file|delete_file|apply_patch)$"
+    return {"sdlc": {"PreToolUse": [{"matcher": tools, "hooks": [entry("PreToolUse")]}],
+                     "PostToolUse": [{"matcher": tools, "hooks": [entry("PostToolUse")]}],
+                     "PreInvocation": [entry("UserPromptSubmit")], "Stop": [entry("Stop")]}}
+
+
 def outputs(root):
     plugin = json.loads(read(root, ".claude-plugin/plugin.json"))
     market = json.loads(read(root, ".claude-plugin/marketplace.json"))
@@ -162,6 +175,7 @@ def outputs(root):
                                  skills="./hosts/skills/")),
         "hosts/codex/hooks.json": dump(codex_hooks()),
         "hosts/cursor/hooks.json": dump(cursor_hooks()),
+        "hooks.json": dump(antigravity_hooks()),
     }
     for name in sorted(os.listdir(os.path.join(root, "agents"))):
         if name.endswith(".md"):

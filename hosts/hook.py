@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Run the plugin's Claude Code hooks under another agent. Claude Code never runs this file.
 
-Usage, from hosts/<host>/hooks.json:  python3 hosts/hook.py <host> <event>     host: codex or cursor; event: Claude Code's
+Usage, from the host's hooks.json:  python3 hosts/hook.py <host> <event>   host: codex, cursor or antigravity; event:
+Claude Code's
 
 Turns the host's payload into Claude Code's, runs the hook scripts Claude Code runs for that event, unchanged, as child
 processes, and turns their output back into the host's:
@@ -17,8 +18,11 @@ Write or Edit per file, and a failed command arrives as PostToolUse with no exit
 `unknown`, not `pass`.
 Cursor: camelCase events with their own output fields (`permission`, `followup_message`), `Shell` for Bash, edits as
 `Write` with the whole file, and an empty cwd: the workspace root stands in.
+Antigravity: camelCase payloads with no event name and no exit code, `run_command`/`edit_file`/`write_file`; it denies
+a tool call whose hook prints no decision, and has no prompt hook: PreInvocation stands in.
 
-Never fails the host's turn: any error prints `{}` and exits 0. Stdlib only, Python 3.9+.
+Never fails the host's turn: any error prints `{}` (Antigravity's tool calls: `ask`) and exits 0. Stdlib only,
+Python 3.9+.
 """
 import json
 import os
@@ -179,8 +183,70 @@ def cursor_output(event, m):
     return out
 
 
+def agy_root(data):
+    return os.path.normpath((data.get("workspacePaths") or [""])[0] or ".")
+
+
+def agy_tool(call):
+    """Claude Code's tool name and input for an Antigravity tool call; other write tools count as an edit of the file."""
+    name, args = call.get("name"), call.get("args") or {}
+    if name == "run_command":
+        return "Bash", {"command": str(args.get("CommandLine") or "")}
+    path = str(args.get("Path") or args.get("TargetFile") or "")
+    if name == "write_file":
+        return "Write", {"file_path": path, "content": str(args.get("Content") or "")}
+    if name == "edit_file":
+        return "Edit", {"file_path": path, "old_string": str(args.get("Target") or ""),
+                        "new_string": str(args.get("Replacement") or "")}
+    return "Edit", {"file_path": path, "old_string": "",
+                    "new_string": "\n".join(str(v) for k, v in args.items() if isinstance(v, str) and k != "Path")}
+
+
+def agy_events(event, data):
+    """Claude Code payloads for one Antigravity hook call. Hooks run in the plugin folder: the workspace stands in.
+    PreInvocation stands in for UserPromptSubmit on a prompt's first model call only, and Stop only for a finished turn,
+    as in Claude Code."""
+    payload = {"hook_event_name": event, "cwd": agy_root(data), "session_id": data.get("conversationId", ""),
+               "transcript_path": data.get("transcriptPath", "")}
+    if event == "UserPromptSubmit":
+        return [dict(payload, prompt=data.get("lastUserInput", ""))] if data.get("invocationNum", 0) == 0 else []
+    if event == "Stop":  # Antigravity counts the continues it has granted; Claude Code flags the first one
+        return [dict(payload, stop_hook_active=(data.get("executionNum") or 0) > 0)] \
+            if data.get("terminationReason") == "NO_TOOL_CALL" else []
+    tool, tin = agy_tool(data.get("toolCall") or {})
+    payload.update(tool_name=tool, tool_input=tin)
+    if event == "PostToolUse" and tool == "Bash":
+        if data.get("error"):
+            payload["hook_event_name"] = "PostToolUseFailure"
+        else:  # a failed command also arrives with no error: a trailing pipe makes its result `unknown`, not `pass`
+            tin["command"] += " | cat"
+    return [payload]
+
+
+def agy_output(event, m):
+    """Antigravity's own fields, and no others: it rejects unknown ones. A tool call always gets a decision, because
+    none denies it; `ask` is its usual permission check, so an allow-listed or workspace call still runs unasked."""
+    if event == "PreToolUse":
+        if m["denied"]:
+            return {"decision": "deny", "reason": m["deny"] or "sdlc: denied by a guardrail."}
+        note = m["context"] or m["notes"]
+        return dict({"decision": "ask"}, **({"reason": note} if note else {}))
+    if event == "Stop" and m["blocked"]:
+        return {"decision": "continue", "reason": m["block"] or "sdlc: a hook asked to continue."}
+    if event == "UserPromptSubmit":  # nothing can stop a prompt here: a block is told to the agent instead
+        text = "\n\n".join(p for p in (m["block"], m["context"]) if p)
+        return {"injectSteps": [{"ephemeralMessage": text}]} if text else {}
+    return {}
+
+
 HOSTS = {"codex": (codex_events, codex_output, lambda data: None),
-         "cursor": (cursor_events, cursor_output, cursor_root)}
+         "cursor": (cursor_events, cursor_output, cursor_root),
+         "antigravity": (agy_events, agy_output, agy_root)}
+
+
+def fallback(argv):
+    """What a failed run prints: nothing that blocks, and for Antigravity's tool calls its usual check, not a deny."""
+    return {"decision": "ask"} if argv[1:3] == ["antigravity", "PreToolUse"] else {}
 
 
 def main(argv):
@@ -197,6 +263,6 @@ if __name__ == "__main__":
     try:
         result = main(sys.argv)
     except Exception:
-        result = {}
+        result = fallback(sys.argv)
     sys.stdout.buffer.write((json.dumps(result, ensure_ascii=False) + "\n").encode("utf-8"))
     sys.exit(0)

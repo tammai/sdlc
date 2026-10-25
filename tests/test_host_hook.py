@@ -81,5 +81,44 @@ class CursorHookTest(ProjectTestCase):
         self.assertEqual(self.cursor("Stop", "stop", status="completed", loop_count=1), {})  # no loop
 
 
+class AntigravityHookTest(ProjectTestCase):
+    def agy(self, event, **fields):
+        # Antigravity runs plugin hooks in the plugin folder; the workspace comes in workspacePaths, with forward slashes
+        payload = dict({"conversationId": "c", "workspacePaths": [self.root.replace("\\", "/")]}, **fields)
+        code, out, raw, err = run_hook(ADAPTER + ["antigravity", event], payload, PLUGIN_ROOT, {"CLAUDE_PROJECT_DIR": ""})
+        self.assertEqual(code, 0, err)
+        self.assertIsNotNone(out, f"adapter printed non-JSON: {raw!r}")
+        return out
+
+    def test_a_guardrail_denies_a_command_and_other_calls_keep_the_usual_check(self):
+        os.makedirs(self.path(".claude"), exist_ok=True)
+        shutil.copy(os.path.join(PLUGIN_ROOT, "examples", "hookify", "dangerous-rm.local.md"),
+                    self.path(".claude/hookify.dangerous-rm.local.md"))
+        out = self.agy("PreToolUse", stepIdx=2,
+                       toolCall={"name": "run_command", "args": {"CommandLine": "rm -rf node_modules"}})
+        self.assertEqual(out["decision"], "deny")
+        self.assertIn("block-dangerous-rm", out["reason"])
+        # Antigravity denies a call whose hook gives no decision, so a call no rule objects to, or an error, gets `ask`
+        self.assertEqual(self.agy("PreToolUse", toolCall={"name": "run_command", "args": {"CommandLine": "ls"}}),
+                         {"decision": "ask"})
+        self.assertEqual(run_hook(ADAPTER + ["antigravity", "PreToolUse"], "not json", self.root)[:2],
+                         (0, {"decision": "ask"}))
+
+    def test_an_edit_after_the_tests_continues_the_turn_once(self):
+        self.write(".sdlc/login/state.md", "# Feature: login\nStatus: active\nCurrent: Stage 5\n\n"
+                                           "## Commands\n- test: `pytest`\n")
+        self.write("a.py", "x = 1\n")
+        # A command's result comes with no exit code, even when it fails: the run counts, its result is unknown
+        self.agy("PostToolUse", error="", toolCall={"name": "run_command", "args": {"CommandLine": "pytest"}})
+        stop = {"terminationReason": "NO_TOOL_CALL", "fullyIdle": True, "error": ""}
+        self.assertEqual(self.agy("Stop", executionNum=0, **stop), {})
+        self.agy("PostToolUse", error="", toolCall={"name": "edit_file", "args": {
+            "Path": self.path("a.py"), "Target": "x = 1", "Replacement": "x = 2"}})
+        out = self.agy("Stop", executionNum=0, **stop)
+        self.assertEqual(out["decision"], "continue")
+        self.assertIn("a.py", out["reason"])
+        self.assertEqual(self.agy("Stop", executionNum=1, **stop), {})  # no loop
+
+
 if __name__ == "__main__":
     unittest.main()
