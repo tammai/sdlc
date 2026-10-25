@@ -36,7 +36,7 @@ sdlc/
 │   ├── diff_stats.py        Stage 6 review facts, Public Surface check
 │   ├── hosts.py             builds the other agents' manifests from .claude-plugin/ and agents/ (CI checks them)
 │   ├── backlog.py           the next ready slice of a feature's backlog.md
-│   ├── state.py             every state change in one call: state.md plus the control contract (.sdlc/.work/contract/)
+│   ├── state.py             every state change in one call: state.md plus the control contract (beside it, git-ignored)
 │   ├── autopilot.py              runs a backlog one fresh headless claude session per slice (opt-in)
 │   └── setup-ralph-loop.sh  (vendored)
 ├── templates/

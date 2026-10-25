@@ -34,7 +34,8 @@ class StateTest(ProjectTestCase):
     def setUp(self):
         super().setUp()
         self.md = self.write(".sdlc/state/login.md", STATE)
-        self.contract = self.path(".sdlc/.work/contract/login")
+        self.snapshot_path = self.path(".sdlc/state/login.json")  # beside state.md, git-ignored
+        self.events_path = self.path(".sdlc/state/login.events.jsonl")
 
     def state(self, *args):
         p = subprocess.run([sys.executable, SCRIPT, "--root", self.root, *args], capture_output=True,
@@ -42,7 +43,7 @@ class StateTest(ProjectTestCase):
         return p.returncode, json.loads(p.stdout)
 
     def events(self):
-        path = os.path.join(self.contract, "events.jsonl")
+        path = self.events_path
         if not os.path.exists(path):
             return []
         with open(path, encoding="utf-8") as f:
@@ -56,7 +57,7 @@ class StateTest(ProjectTestCase):
         self.assertIn("Current: Stage 5 – Verify\n", text)
         self.assertIn("- [x] 4 Implement", text)
         self.assertIn("Stage 4: pass — suite green\n\n## Open questions", text)
-        with open(os.path.join(self.contract, "state.json"), encoding="utf-8") as f:
+        with open(self.snapshot_path, encoding="utf-8") as f:
             snapshot = json.load(f)
         self.assertEqual(snapshot["current"], {"stage": 5, "name": "Verify"})
         self.assertIn("contract_version", snapshot)
@@ -79,7 +80,7 @@ class StateTest(ProjectTestCase):
         code, out = self.state("advance", "login", "5")
         self.assertEqual(code, 1)
         self.assertIn("Current:", out["error"])
-        self.assertFalse(os.path.exists(self.contract))
+        self.assertFalse(os.path.exists(self.snapshot_path) or os.path.exists(self.events_path))
 
 
 if __name__ == "__main__":
