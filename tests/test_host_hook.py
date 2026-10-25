@@ -157,8 +157,13 @@ class GuardrailCoverageTest(unittest.TestCase):
         self.assertIn("secret", nested[0]["tool_input"]["new_string"])
         patched = tool({"name": "apply_patch", "args": {
             "Patch": "*** Begin Patch\n*** Add File: b.py\n+secret\n*** End Patch"}}, "/r")
-        self.assertEqual([(os.path.basename(e["tool_input"]["file_path"]), e["tool_input"]["content"]) for e in patched],
-                         [("b.py", "secret\n")])
+        self.assertEqual((patched[0]["tool_input"]["file_path"], patched[0]["tool_input"]["content"]),
+                         (os.path.join("/r", "b.py"), "secret\n"))
+        # patch text inside a file's content doesn't hide the file being written
+        hidden = tool({"name": "write_to_file", "args": {"TargetFile": "/r/.env", "CodeContent": "*** Begin Patch\nKEY=1"}},
+                      "/r")
+        self.assertIn(("/r/.env", "*** Begin Patch\nKEY=1"),
+                      [(e["tool_input"]["file_path"], e["tool_input"].get("new_string")) for e in hidden])
 
 
 if __name__ == "__main__":

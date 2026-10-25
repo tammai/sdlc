@@ -107,7 +107,10 @@ def run_scripts(payload, project_dir, deadline):
             out = json.loads(p.stdout.strip() or "{}")
             if isinstance(out, dict):
                 outs.append(out)
-        except (OSError, ValueError, subprocess.TimeoutExpired):  # as a failed hook in Claude Code: no say
+        except subprocess.TimeoutExpired:
+            if left < CHILD_TIMEOUT:  # cut short by the deadline, not its own timeout: unchecked
+                return outs, False
+        except (OSError, ValueError):  # as a failed hook in Claude Code: no say
             continue
     return outs, True
 
@@ -221,10 +224,9 @@ def agy_tool(call, cwd):
         return [{"tool_name": "Edit", "tool_input": {"file_path": path, "old_string": str(args.get("Target") or ""),
                                                      "new_string": str(args.get("Replacement") or "")}}]
     patch = next((s for s in strings(rest) if "*** Begin Patch" in s), None)
-    if patch:
-        return patch_edits(patch, cwd)
-    return [{"tool_name": "Edit", "tool_input": {"file_path": path, "old_string": "",
-                                                 "new_string": "\n".join(strings(rest))}}]
+    # the whole call is checked as well: patch text inside other content must not hide the file really written
+    return (patch_edits(patch, cwd) if patch else []) + [
+        {"tool_name": "Edit", "tool_input": {"file_path": path, "old_string": "", "new_string": "\n".join(strings(rest))}}]
 
 
 def agy_events(event, data):
