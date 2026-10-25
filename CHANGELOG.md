@@ -5,6 +5,9 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 ## Unreleased
 
 ### Changed
+- Verify and review run in parallel: on the review-ready commit the fresh verifier and the code reviewer start together (with the qa-tester on M, the silent-failure-hunter on the full flow, `pr-test-analyzer` only on L, the ui-reviewer on UI diffs); all findings are fixed together, then one re-verification (a fresh verifier on the full flow, an in-session full suite on Lite). The separate simplifier pass is gone; simplifications come in as review findings.
+- The qa-tester now runs by default in the M verify round (full flow, a single-session Lite feature, a backlog's Feature close), black-box against the spec; its failed scenarios are findings fixed in the same batch. It keeps its runtime files under `.sdlc/.work/qa/`.
+- Specs list the failure modes that apply (concurrent use, scale, data migration, a crash mid-write, untrusted input, I/O errors) as acceptance criteria, and every reviewer checks them along with a recurring-defects list: the plugin's, seeded from eval findings, plus the project's `<docs>/recurring-defects.md`, which Stage 11 extends.
 - The orchestrator skill is now a short core (about 1,000 words: tracks, model tiers, state, what several stages share, rules) plus one reference file per stage, read when that stage starts, so a feature doesn't carry the text of stages it won't run. It changes state only through `state.py`.
 - `Build: native | subagent` in `state.md` (default `native`): `subagent` hands the build to one fresh implementer that returns a summary, so the implementation stays out of the main session's context. Kept off by default until the evals compare the two.
 

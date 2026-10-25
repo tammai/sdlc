@@ -17,7 +17,8 @@
    - tier 2 `.claude/rules/<area>.md` with `paths:`: loads automatically when matching files are touched
    - tier 3 `knowledge/**.md` (OKF): linked from `knowledge/index.md` and from the tier-2 rule
    Always add `knowledge/features/<feature>.md` linking spec, design and retro.
-3. Corrected twice and mechanically checkable → `/sdlc:hookify` (`sdlc:writing-hook-rules` for syntax), not more text.
-4. Constitution changed in practice? → `sdlc:project-constitution` to amend.
-5. CLAUDE.md over 60 lines → run the audit in `sdlc:managing-knowledge`.
+3. A defect review found that has come up before (in this feature or earlier ones): add one line to `<docs>/recurring-defects.md` (create it from the shape in `recurring-defects.md`), so every later reviewer checks it.
+4. Corrected twice and mechanically checkable → `/sdlc:hookify` (`sdlc:writing-hook-rules` for syntax), not more text.
+5. Constitution changed in practice? → `sdlc:project-constitution` to amend.
+6. CLAUDE.md over 60 lines → run the audit in `sdlc:managing-knowledge`.
 - **Gate:** every promoted lesson is linked from `knowledge/index.md` or a tier-2 rule; CLAUDE.md ≤ 60 lines; `state.py set <f> Status done`.

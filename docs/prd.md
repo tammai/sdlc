@@ -45,7 +45,7 @@ Teams that try to fix this assemble several plugins and conventions by hand, eac
 | 01 | Project setup, upgrade, eject; commands per package; generated CI | [01-setup-upgrade-eject](specs/01-setup-upgrade-eject.md) | `/sdlc:setup`, `/sdlc:upgrade`, `/sdlc:eject` |
 | 02 | Orchestrated lifecycle: tracks, the Lite flow, backlog slices, 11 stages, gates, state, resume | [02-orchestration](specs/02-orchestration.md) | `/sdlc:start`, `/sdlc:status`, `hooks/model_router.py`, `scripts/backlog.py`, `scripts/autopilot.py` |
 | 03 | Scope tracing and review facts | [03-scope-and-review](specs/03-scope-and-review.md) | Stages 1–3, 6; `/sdlc:review-pr`, `scripts/diff_stats.py` |
-| 04 | Verification: fresh verifier rounds with red-green, on-demand QA tester, freshness hook, baseline | [04-verification](specs/04-verification.md) | Stage 5, `hooks/verify_freshness.py` |
+| 04 | Verification: fresh verifier rounds with red-green, a black-box QA tester on M, freshness hook, baseline | [04-verification](specs/04-verification.md) | Stage 5, `hooks/verify_freshness.py` |
 | 05 | Security guidance | [05-security](specs/05-security.md) | always-on hooks, Stage 7 |
 | 06 | Guardrails and conventions: policy rules, hookify, lint snippets | [06-guardrails-and-conventions](specs/06-guardrails-and-conventions.md) | `/sdlc:hookify*`, setup |
 | 07 | Three-tier knowledge | [07-knowledge](specs/07-knowledge.md) | `/sdlc:revise-claude-md`, `/sdlc:knowledge-audit`, Stage 11 |

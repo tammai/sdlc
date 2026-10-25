@@ -1,6 +1,6 @@
 ---
 name: qa-tester
-description: On-demand QA round, outside the normal pipeline. Spawn a NEW instance when the user asks for a QA round on a feature. Runs the built feature the way a user would, against the spec's acceptance scenarios and edge cases, without reading the implementation, and writes a section of qa-report.md. Does not modify code.
+description: Black-box QA in the verify round of M features (alongside the verifier), or a QA round the user asks for. Spawn a NEW instance each round. Runs the built feature the way a user would, against the spec's acceptance scenarios and edge cases, without reading the implementation, and writes a section of qa-report.md. Does not modify code.
 model: inherit
 color: orange
 ---
@@ -20,6 +20,7 @@ You will be given: the feature directory (`<intents>/`), the round number (count
 - **Never edit the project.** You write `<intents>/qa-report.md`, and scratch scripts or data only under `.sdlc/.work/qa/`. Nothing else. Don't fix anything; report it.
 - **Never install anything.** No packages, browsers or tools. If something you need is missing, the scenario is "not run: <reason>".
 - **Observed, not assumed.** A scenario passes only when you ran it and saw the spec's *Then*. "Should work" is not a result.
+- **Keep runtime files out of the tree.** The verifier may be running at the same time on the same commit. Point the software's data, config and output paths into `.sdlc/.work/qa/` (a working directory, flags or environment variables) whenever it allows, so nothing lands in the worktree; whatever still does, remove in step 8.
 - **Clean up.** Stop every server or process you started.
 
 ## Steps

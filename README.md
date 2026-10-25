@@ -151,8 +151,8 @@ Skills such as `sdlc:writing-specs` or `sdlc:test-driven-development` are used b
 | 2 | Design | `designing-solutions` + `code-explorer`, `code-architect` agents |
 | 3 | Plan | `writing-plans`, `analyzing-consistency` |
 | 4 | Implement | `using-git-worktrees`, `subagent-driven-development` / `executing-plans`, `dispatching-parallel-agents`, `test-driven-development`, `systematic-debugging`, `/sdlc:ralph-loop` |
-| 5 | Verify | fresh `verifier` agent each round (max 3) with a red-green check, `pr-test-analyzer`, `silent-failure-hunter`, freshness hook; `qa-tester` on request |
-| 6 | Review | `/sdlc:review-pr`, `/sdlc:code-review`, `requesting-code-review`, `receiving-code-review`, `code-reviewer`, `feature-reviewer`, `comment-analyzer`, `type-design-analyzer`, `code-simplifier`, `ui-reviewer` (UI diffs), `diff_stats.py` |
+| 5 | Verify | fresh `verifier` agent each round (max 3) with a red-green check, in parallel with the code reviewer; `qa-tester` on M, `silent-failure-hunter` on the full flow, `pr-test-analyzer` on L; freshness hook |
+| 6 | Review (closing; the reviewers run in Stage 5's round) | `/sdlc:review-pr`, `/sdlc:code-review`, `requesting-code-review`, `receiving-code-review`, `code-reviewer`, `feature-reviewer`, `comment-analyzer`, `type-design-analyzer`, `code-simplifier`, `ui-reviewer` (UI diffs), `diff_stats.py` |
 | 7 | Security | security-guidance hooks (always on), reviewer agents with a security brief, dependency audit |
 | 8 | PR / CI | `finishing-a-development-branch`, `/sdlc:commit`, `/sdlc:commit-push-pr`, `/sdlc:clean_gone` |
 | 9 | Deploy | on request: project's own deploy path + `release.md` |

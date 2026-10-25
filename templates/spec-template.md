@@ -80,6 +80,16 @@
 - What happens when [boundary condition]?
 - How does system handle [error scenario]?
 
+### Failure modes
+
+<!--
+  Only the production edges that apply to this change, each also an acceptance or success criterion:
+  concurrent use, scale or large inputs, persisted-data migration and compatibility, partial failure or a
+  crash mid-write, untrusted input, I/O errors. None apply: say so in one line.
+-->
+
+- [Failure mode, e.g. "crash mid-write: the store is never left half-written" → SC-00N]
+
 ## Requirements *(mandatory)*
 
 <!--

@@ -29,7 +29,7 @@ Propose the *smallest* fitting track; size up only for a named signal, written i
 |---|---|---|---|
 | S, risk low | cheap | standard | hooks only |
 | M, risk low, lite flow | native, or one subagent (`Build:`) | standard | light |
-| M, risk low, full flow | cheap or standard, per task | standard; Stage 6 whole-branch review top | light |
+| M, risk low, full flow | cheap or standard, per task | standard; the round's code-reviewer top | light |
 | L, or risk high | standard | top | top, full Stage 7 |
 | Backlog slice (any track) | native, or one subagent (`Build:`) | standard, top on risk high; Feature close review top | at Feature close: light, full on L or risk high |
 

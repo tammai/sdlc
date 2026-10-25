@@ -31,6 +31,7 @@ A spec says **what** users need and **why**. It never says how: no languages, fr
 7a. **Non-goals:** list what this feature deliberately leaves out, including the obvious extensions a designer might add "while we're at it". This is what stops Stage 2 and 3 from adding them back.
 8. **Key entities** if data is involved.
 9. **Edge cases**: negative paths, empty/error states, limits.
+10. **Failure modes:** list which of these apply to this change, and only those: concurrent use, scale or large inputs, persisted-data migration and compatibility, partial failure or a crash mid-write, untrusted input, I/O errors. Turn each that applies into a testable acceptance criterion (or success criterion), within the spec's ~10-criteria budget, and name them in a short `Failure modes` list so reviewers check them. None apply → say so in one line.
 
 ## Quality check
 
@@ -50,6 +51,7 @@ Write `<intents>/checklists/requirements.md`:
 - [ ] Success criteria are measurable and technology-agnostic
 - [ ] Acceptance scenarios defined for every user story
 - [ ] Edge cases identified
+- [ ] Failure modes that apply are listed, each an acceptance or success criterion
 - [ ] Scope clearly bounded (in / out); Non-Goals section filled
 - [ ] Every FR and SC has a source tag ([user] / [clarified] / [inferred])
 - [ ] No future-proofing without a requirement: "extensible", "flexible", "scalable", "generic", "pluggable", "configurable", "future" only with a concrete, measurable need
