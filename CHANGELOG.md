@@ -4,6 +4,10 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
+### Added
+- `/sdlc:context-diet` (skill `trimming-context`) trims what Claude Code loads into every call for a project, in any repo, with or without sdlc set up. `scripts/context_diet.py` estimates each source's per-call cost from the names and descriptions it lists: enabled plugins (with their MCP servers flagged), personal skills, and claude.ai-synced plugins and skills. It also reads what the project is. The skill proposes `enabledPlugins` set to `false` in `.claude/settings.local.json` for plugins unrelated to the project and writes it only after you approve. That file overrides your user settings for this project only and is never committed; the skill offers `.git/info/exclude` if it isn't ignored. When sdlc is enabled, it also switches off the standalone `security-guidance`, `code-review` and `code-simplifier`, whose hooks and same-name skills duplicate sdlc's. LSP plugins stay on only for languages in the project. Personal and synced skills are listed with advice, never moved. Claude Code only; Codex and Antigravity don't get the command.
+- `/sdlc:setup` offers the context diet on Claude Code, right after `enable-plugin` (asked first). It writes nothing that is committed.
+
 ## 1.8.1 — 2026-10-25
 
 No migration. Only the hook adapter for Codex and Antigravity changed, which Claude Code doesn't load: the suite covers it, and the plugin installs as 1.8.1 in Codex, Antigravity (Windows and WSL) and Cursor with its hooks registered.

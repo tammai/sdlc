@@ -15,7 +15,7 @@ sdlc/
 │                            `hosts.py dist antigravity` builds Antigravity's install copy. hosts/hook.py (hand-written) runs
 │                            the hooks under Codex, Cursor and Antigravity
 ├── agents/                  subagents: verifier, reviewers, code-explorer/architect, simplifier, …
-├── commands/                slash commands (/sdlc:start, setup, upgrade, eject, doctor, status, prune, review-pr, …)
+├── commands/                slash commands (/sdlc:start, setup, upgrade, eject, doctor, status, prune, context-diet, review-pr, …)
 ├── skills/                  skills; orchestrator/ is the conductor, setting-up-projects/ runs setup/upgrade/eject
 ├── hooks/
 │   ├── hooks.json           which script runs on which event
@@ -35,6 +35,7 @@ sdlc/
 │   ├── doctor.py            read-only health check
 │   ├── diff_stats.py        Stage 6 review facts, Public Surface check
 │   ├── hosts.py             builds the other agents' manifests from .claude-plugin/ and agents/ (CI checks them)
+│   ├── context_diet.py      per-source estimate of what Claude Code lists every call (/sdlc:context-diet)
 │   └── setup-ralph-loop.sh  (vendored)
 ├── templates/
 │   ├── spec/design/checklist/constitution-template.md   used by the Stage 1–2 skills
@@ -55,7 +56,7 @@ sdlc/
 ├── CHANGELOG.md  NOTICE.md  LICENSE  README.md
 ```
 
-Original to this plugin: the orchestrator and setting-up-projects skills, `managing-knowledge`, the `verifier`, `qa-tester` and `ui-reviewer` agents, `verify_freshness.py`, `model_router.py`, `role_guard.py`, `trust_anchor.py`, everything in `scripts/` except the ralph script, `templates/project/`, `templates/knowledge/`, `templates/design-system-template.md`, `migrations/`, `tests/`, `docs/`. Everything else is vendored; `NOTICE.md` says what came from where and what was changed.
+Original to this plugin: the orchestrator and setting-up-projects skills, `managing-knowledge`, `trimming-context`, the `verifier`, `qa-tester` and `ui-reviewer` agents, `verify_freshness.py`, `model_router.py`, `role_guard.py`, `trust_anchor.py`, everything in `scripts/` except the ralph script, `templates/project/`, `templates/knowledge/`, `templates/design-system-template.md`, `migrations/`, `tests/`, `docs/`. Everything else is vendored; `NOTICE.md` says what came from where and what was changed.
 
 ## Dev loop
 

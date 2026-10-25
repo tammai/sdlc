@@ -65,6 +65,7 @@ One row per check (✅ / ⚠️ / ❌) for your machine, the plugin and the curr
 - **New repo:** a few stack questions, then a proposal you approve; the ecosystem's own generators build a skeleton whose commands pass on day one.
 - **Existing repo:** records the commands you already use (`pnpm test`, `go test ./...`, `make lint`, …) per package, writes a **baseline** of what already fails so features aren't blamed for it, and drafts conventions, gotchas and per-area rules from the code and git history. Nothing from that audit is written until you approve it.
 - Both get policy rules, guardrails (hookify), lint snippets, a permission allowlist for your commands, CI generated from those commands, a constitution and a knowledge folder. Projects with UI also get a **design system** record: the library, tokens and components you already use, or a mainstream library and minimal tokens you approve.
+- On Claude Code, offers `/sdlc:context-diet` to switch off plugins this project doesn't need. That writes only your uncommitted `.claude/settings.local.json`.
 - Ends by asking: open a PR, or merge locally.
 
 What lands in the repo: `.sdlc/config.json` (your commands; to change one later, see [Configuration](docs/guidebook.md#configuration)), `docs/sdlc/constitution.md`, `docs/sdlc/design-system.md` (UI projects), `.claude/rules/sdlc-*.md`, `.claude/hookify/sdlc-*.md`, `.claude/settings.json` (command allowlist; with your approval, the sdlc marketplace and `enabledPlugins` so teammates are offered the plugin), `.github/workflows/sdlc-verify.yml` and `sdlc-invariants.yml` (checks the shared sdlc files, whichever agent changed them), `knowledge/`, and for existing code `.sdlc/baseline.md`. Your `CLAUDE.md` is never touched.
@@ -136,6 +137,7 @@ A new session needs no re-explaining; `state.md` carries it. To pause a feature,
 | `/sdlc:commit`, `/sdlc:commit-push-pr`, `/sdlc:clean_gone` | Commit; commit, push and open a PR; delete local branches whose remote is gone |
 | `/sdlc:hookify`, `/sdlc:hookify-list`, `/sdlc:hookify-configure`, `/sdlc:hookify-help` | Turn a repeated correction into a rule; list, toggle, explain rules |
 | `/sdlc:revise-claude-md`, `/sdlc:knowledge-audit` | File lessons into the right knowledge tier; keep always-loaded context small |
+| `/sdlc:context-diet` | Estimate what each plugin and skill adds to every call, and turn off the ones this project doesn't need, in `.claude/settings.local.json` after you approve. Works in any repo; Claude Code only |
 | `/sdlc:ralph-loop`, `/sdlc:cancel-ralph`, `/sdlc:ralph-help` | Optional self-iterating loop for one well-specified task |
 
 Skills such as `sdlc:writing-specs` or `sdlc:test-driven-development` are used by the orchestrator at the right stage; you can also ask for one by name.
@@ -170,6 +172,8 @@ Keeps always-loaded context small while agents still find what they need:
 | 3 | `knowledge/**.md` (Open Knowledge Format) | on demand, via `knowledge/index.md` and links from tier 2 |
 
 Retros in `docs/sdlc/intents/<feature>/retro.md` are history only. Durable lessons are promoted in Stage 11; things corrected twice become hookify rules. Run `/sdlc:knowledge-audit` when CLAUDE.md grows.
+
+The other part of the per-call floor is the listings of every enabled plugin, skill and command. `/sdlc:context-diet` estimates them per source and proposes turning the unrelated ones off for this project only. It also turns off the standalone `security-guidance`, `code-review` and `code-simplifier`, which sdlc already bundles.
 
 ## Limitations
 

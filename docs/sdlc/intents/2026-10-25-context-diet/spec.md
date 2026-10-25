@@ -1,6 +1,6 @@
 # Spec: context diet (trim what Claude Code loads into every call)
 
-Status: draft for approval · 2026-10-25
+Status: approved · 2026-10-25
 
 ## Why
 
