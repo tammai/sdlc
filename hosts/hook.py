@@ -190,6 +190,13 @@ def agy_root(data):
 def agy_tool(call):
     """Claude Code's tool name and input for an Antigravity tool call; other write tools count as an edit of the file."""
     name, args = call.get("name"), call.get("args") or {}
+    if isinstance(args, str):  # arguments as JSON text: still checked, not skipped by an error
+        try:
+            args = json.loads(args)
+        except ValueError:
+            args = {"CommandLine": args} if name == "run_command" else {"Content": args}
+    if not isinstance(args, dict):
+        args = {}
     if name == "run_command":
         return "Bash", {"command": str(args.get("CommandLine") or "")}
     path = str(args.get("Path") or args.get("TargetFile") or "")
