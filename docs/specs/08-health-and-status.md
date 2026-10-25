@@ -60,5 +60,5 @@ Tell the user what state their machine, the plugin and the repo are in, and what
 
 ## Non-goals
 
-- Measuring real token counts or MCP tool-definition size: the context diet's numbers are estimates, and `/context` is the ground truth. Doctor doesn't check the floor, which would mean scanning `~/.claude` from doctor.
+- Measuring real token counts or MCP tool-definition size: the context diet's numbers are estimates, and `/context` is the ground truth. Doctor doesn't check the floor, which would mean scanning `~/.claude` from doctor. MCP servers declared only in a marketplace entry (not in the plugin's `.mcp.json` or `plugin.json`) aren't flagged.
 - Fixing problems automatically; checking whether the plugin is enabled in `/plugin` (not visible to a script).

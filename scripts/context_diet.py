@@ -137,7 +137,8 @@ def scan_items(base, manifest, prefix):
 
 
 def mcp_servers(base, manifest):
-    servers = (read_json(os.path.join(base, ".mcp.json")) or {}).get("mcpServers") or {}
+    servers = read_json(os.path.join(base, ".mcp.json")) or {}
+    servers = servers.get("mcpServers", servers)  # both forms ship: wrapped in mcpServers, or the servers at the top
     inline = (manifest or {}).get("mcpServers")
     if isinstance(inline, str):
         inline = (read_json(os.path.normpath(os.path.join(base, inline))) or {}).get("mcpServers")
