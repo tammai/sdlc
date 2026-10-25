@@ -36,6 +36,7 @@ sdlc/
 │   ├── diff_stats.py        Stage 6 review facts, Public Surface check
 │   ├── hosts.py             builds the other agents' manifests from .claude-plugin/ and agents/ (CI checks them)
 │   ├── backlog.py           the next ready slice of a feature's backlog.md
+│   ├── yolo.py              runs a backlog one fresh headless claude session per slice (opt-in)
 │   └── setup-ralph-loop.sh  (vendored)
 ├── templates/
 │   ├── spec/design/checklist/constitution-template.md   used by the Stage 1–2 skills

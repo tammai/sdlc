@@ -84,7 +84,7 @@ The orchestrator sizes it and proposes the smallest track that fits; you can ove
 | **M** feature | a few files to a few days | low risk: the Lite flow, spec-and-tasks (one approval) → implement → verify → review → light security → one commit. High risk or on request: spec → plan → implement → verify → review → light security → PR (+ design if the approach isn't obvious) |
 | **L** project | new service, unclear approach, or auth/payments/migrations/public API | stages 1–8 and 11, including design and learn; deploy on request |
 
-Work bigger than one session gets a backlog of vertical slices instead of one plan: you approve it once with the spec, then each slice is planned, built, verified, reviewed and committed in turn, without stopping unless a gate fails, scope would grow, or a hard stop comes up. `/sdlc:start B<n>` runs a named slice.
+Work bigger than one session gets a backlog of vertical slices instead of one plan: you approve it once with the spec, then each slice is planned, built, verified, reviewed and committed in turn, without stopping unless a gate fails, scope would grow, or a hard stop comes up. `/sdlc:start B<n>` runs a named slice; `scripts/yolo.py <feature>` runs the rest unattended, one fresh session per slice (pass `--permission-mode`, or allowlist the tools, since a headless session can't ask).
 
 Each stage prints what it uses and its exit gate. Documents go to `docs/sdlc/intents/<feature>/` and state to `.sdlc/state/<feature>.md` (commit both; `docs_dir` in config moves the documents elsewhere, e.g. when `docs/` is a published site).
 
