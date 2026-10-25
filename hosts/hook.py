@@ -23,6 +23,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 
 PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPTS = {
@@ -33,15 +34,18 @@ SCRIPTS = {
     "Stop": ["stop.py", "verify_freshness.py", "trust_anchor.py"],
 }
 CHILD_TIMEOUT = 10  # each script's own timeout in hooks/hooks.json
-PATCH_FILE = re.compile(r"^\*\*\* (Add|Update|Delete) File: (.+?)\s*$|^\*\*\* Move to: (.+?)\s*$", re.M)
+DEADLINE = 45  # all of them, under the 60 s hosts.py gives the host
+PATCH_FILE = re.compile(r"^\*\*\*\s*(Add|Update|Delete) File:\s*(.+?)$|^\*\*\*\s*Move to:\s*(.+?)$")
 EXIT_CODE = re.compile(r"^Exit code: (-?\d+)", re.M)
 
 
 def patch_edits(patch, cwd):
-    """One Claude Code Write or Edit input per file an apply_patch touches; a moved file counts at both paths."""
+    """One Claude Code Write or Edit input per file an apply_patch touches; a moved file counts at both paths.
+    Headers match with surrounding spaces, as Codex accepts them. A patch with none is still checked, as one edit of
+    no file, so a guardrail on its content isn't skipped."""
     edits, current = [], None
     for line in patch.replace("\r\n", "\n").split("\n"):
-        m = PATCH_FILE.match(line)
+        m = PATCH_FILE.match(line.strip())
         if m:
             kind, path, moved = m.groups()
             current = {"tool_name": "Write" if kind == "Add" else "Edit",
@@ -49,6 +53,8 @@ def patch_edits(patch, cwd):
             edits.append(current)
         elif current and line[:1] in ("+", "-"):
             current["tool_input"]["new_string" if line[0] == "+" else "old_string"] += line[1:] + "\n"
+    if not edits and patch.strip():
+        edits.append({"tool_name": "Edit", "tool_input": {"file_path": "", "old_string": "", "new_string": patch}})
     for e in edits:
         if e["tool_name"] == "Write":
             e["tool_input"] = {"file_path": e["tool_input"]["file_path"], "content": e["tool_input"]["new_string"]}
@@ -73,7 +79,7 @@ def codex_events(event, data):
     return [dict(data, hook_event_name=event)]
 
 
-def run_scripts(payload, project_dir):
+def run_scripts(payload, project_dir, deadline):
     """Each script's output for one Claude Code payload."""
     env = dict(os.environ, CLAUDE_PLUGIN_ROOT=PLUGIN_ROOT, PYTHONIOENCODING="utf-8")
     env.pop("CLAUDE_PROJECT_DIR", None)  # an agent started from a Claude Code shell inherits that session's project
@@ -81,10 +87,13 @@ def run_scripts(payload, project_dir):
         env["CLAUDE_PROJECT_DIR"] = project_dir
     outs = []
     for name in SCRIPTS.get(payload["hook_event_name"], []):
+        left = deadline - time.monotonic()
+        if left <= 0:  # as a timed-out hook in Claude Code: the call goes ahead
+            break
         try:
             p = subprocess.run([sys.executable, os.path.join(PLUGIN_ROOT, "hooks", name)], input=json.dumps(payload),
                                capture_output=True, encoding="utf-8", errors="replace", env=env,
-                               cwd=payload.get("cwd") or None, timeout=CHILD_TIMEOUT)
+                               cwd=payload.get("cwd") or None, timeout=min(CHILD_TIMEOUT, left))
             out = json.loads(p.stdout.strip() or "{}")
             if isinstance(out, dict):
                 outs.append(out)
@@ -133,9 +142,9 @@ def main(argv):
     host, event = argv[1], argv[2]
     to_claude, to_host, project_dir = HOSTS[host]
     data = json.loads(sys.stdin.buffer.read().decode("utf-8") or "{}")
-    outs = []
+    outs, deadline = [], time.monotonic() + DEADLINE
     for payload in to_claude(event, data):
-        outs += run_scripts(payload, project_dir(data))
+        outs += run_scripts(payload, project_dir(data), deadline)
     return to_host(event, merge(outs))
 
 
