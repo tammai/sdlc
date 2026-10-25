@@ -2,9 +2,9 @@
 """Check the shared sdlc files, whichever agent or person changed them (seeded by the sdlc plugin v{{plugin_version}}).
 
 Only active features count (`Status: active` in their state file):
-  - test-report.md: the latest round has its header, both tables and a verdict; `+dirty` fails; with
-    --require-ancestor, the round's commit is in this code's history.
-  - the baseline: against --base, a new row or a higher lint count needs an active feature's Deviations entry naming it.
+  - test-report.md: the latest round has its header, both tables and a verdict; with --require-ancestor, the round's
+    commit is in this code's history.
+  - the baseline: against --base, a new row or a higher lint count needs a feature's Deviations entry naming it.
   - spec.md: no `[inferred]` tag past Stage 1.
 
 Usage: python3 .sdlc/ci/invariants.py [--base REF] [--require-ancestor]
@@ -76,9 +76,8 @@ def check_report(name, docs, require_ancestor):
             or not re.search(r"^\|\s*Criterion\s*\|\s*Evidence\s*\|\s*Status\s*\|", body, re.M) \
             or not re.search(r"^\*\*Verdict:\*\*\s*(PASS|FAIL)\b", body, re.M):
         problems.append(f"{path}: round {last.group(1)} is missing its checks table, criteria table or verdict")
-    if last.group(3):
-        problems.append(f"{path}: round {last.group(1)} ran on uncommitted changes (+dirty): verify a commit")
-    elif require_ancestor and git("merge-base", "--is-ancestor", last.group(2), "HEAD")[0] != 0:
+    # `+dirty` is normal: the gate records the worktree tree, so a round can cover uncommitted work on that commit
+    if require_ancestor and git("merge-base", "--is-ancestor", last.group(2), "HEAD")[0] != 0:
         problems.append(f"{path}: round {last.group(1)}'s commit {last.group(2)} isn't in this code's history: "
                         "verify again on this code")
     return problems
@@ -117,8 +116,8 @@ def check_baseline(base, deviations):
         names = [key[2]] if key[0] == "test" else [key[3], key[4]]
         if not all(n in deviations for n in names):
             what = key[2] if key[0] == "test" else f"{key[3]} in {key[4]}"
-            problems.append(f"{path}: `{what}` was added or went up without a Deviations entry in an active "
-                            "feature's state file naming it")
+            problems.append(f"{path}: `{what}` was added or went up without a Deviations entry in a feature's "
+                            "state file naming it")
     return problems
 
 
@@ -131,9 +130,9 @@ def main(argv=None):
     problems, deviations = [], ""
     for name, (state_path, docs) in features().items():
         state = read(state_path) or ""
+        deviations += section(state, "Deviations")  # any feature's: one may record it and finish in the same push
         if not re.search(r"^Status:\s*active\b", state, re.M):
             continue
-        deviations += section(state, "Deviations")
         problems += check_report(name, docs, a.require_ancestor)
         stage = STAGE.search(state)
         spec = os.path.join(docs, "spec.md")

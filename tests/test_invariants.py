@@ -55,8 +55,9 @@ class InvariantsTest(ProjectTestCase):
         self.assertEqual(code, 1)
         self.assertIn("isn't in this code's history", out)
         head = self.git("rev-parse", "--short", "HEAD")
+        # a gate can pass on uncommitted work (state.md records the tree), so +dirty on a real commit is fine
         self.write("docs/sdlc/intents/login/test-report.md", ROUND.format(n=2, commit=head + "+dirty"))
-        self.assertIn("+dirty", self.check()[1])
+        self.assertEqual(self.check("--require-ancestor")[0], 0)
         self.write("docs/sdlc/intents/login/test-report.md", f"## Round 3 — now — commit {head}\n\nAll good.\n")
         self.assertIn("missing its checks table, criteria table or verdict", self.check()[1])
 
@@ -71,7 +72,9 @@ class InvariantsTest(ProjectTestCase):
         code, out = self.check("--base", recorded)
         self.assertEqual(code, 1)
         self.assertIn("t.py › test_b", out)
-        self.state(deviation="- 2026-10-25 baseline: t.py › test_b fails since the API change; user approved")
+        # recorded by a feature that finished in the same push
+        self.write(".sdlc/state/login.md", STATE.format(stage=11, deviation="- 2026-10-25 baseline: t.py › test_b fails "
+                                                        "since the API change; user approved").replace("active", "done"))
         self.assertEqual(self.check("--base", recorded)[0], 0)
 
     def test_an_inferred_tag_past_stage_1_fails(self):

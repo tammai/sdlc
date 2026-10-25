@@ -13,7 +13,7 @@ Summarize the plan for the user in a few lines (counts per bucket, each migratio
 
 Clean working tree, then branch `sdlc/upgrade-<from>-<to>`. One commit per bucket.
 
-0. **Add** (policy rules and guardrails new in this plugin version): `$S render <template> <path> --class <class>` for each; list them in the report. One with `exists: true` means a file the plugin never wrote is in the way: show the user both and ask, never overwrite. If the user doesn't want a new one, `$S forget <path>` declines it for good.
+0. **Add** (policy rules and guardrails new in this plugin version, and the invariants check for a repo with sdlc CI): `$S render <template> <path> --class <class>` for each; list them in the report. A new workflow under `.github/workflows/` is a new check for everyone: ask first, and on yes tell the user to make it a required check. One with `exists: true` means a file the plugin never wrote is in the way: show the user both and ask, never overwrite. If the user doesn't want a new one, `$S forget <path>` declines it for good.
 1. **Regenerate** (generated files): `$S render <template> <path>` for each. No questions.
 2. **Replace** (seeded, unedited, template changed): `$S render <template> <path> --class seeded --if-unchanged` for each. No questions; list them in the report.
 3. **Review** (seeded, edited by the user): for each, show the user's file next to `$S preview <template>` and propose a merge that keeps their edits and brings in the new template's changes. The user picks:
