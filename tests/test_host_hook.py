@@ -1,8 +1,12 @@
 """hosts/hook.py: the plugin's hooks under Codex and Cursor, from payloads captured from Codex 0.162 and
 cursor-agent 2026.10.22 (2026-10-25)."""
+import importlib.util
+import io
+import json
 import os
 import shutil
 import unittest
+from unittest import mock
 
 from helpers import PLUGIN_ROOT, ProjectTestCase, run_hook
 
@@ -118,6 +122,43 @@ class AntigravityHookTest(ProjectTestCase):
         self.assertEqual(out["decision"], "continue")
         self.assertIn("a.py", out["reason"])
         self.assertEqual(self.agy("Stop", executionNum=1, **stop), {})  # no loop
+
+
+def load_adapter():
+    spec = importlib.util.spec_from_file_location("host_hook", os.path.join(PLUGIN_ROOT, "hosts", "hook.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+class GuardrailCoverageTest(unittest.TestCase):
+    """What the guardrails see of an edit: nothing an agent sends is left out of the check."""
+
+    def test_lines_after_an_indented_patch_header_count_for_the_file_before_it_too(self):
+        # Codex may read " *** Update File: b.py" as a context line of a.py, so "+secret" may land in a.py
+        patch = "*** Begin Patch\n*** Update File: a.py\n@@\n *** Update File: b.py\n+secret\n*** End Patch"
+        edits = {os.path.basename(e["tool_input"]["file_path"]): e["tool_input"]["new_string"]
+                 for e in load_adapter().patch_edits(patch, "/r")}
+        self.assertEqual(edits, {"a.py": "secret\n", "b.py": "secret\n"})
+
+    def test_a_call_with_more_edits_than_can_be_checked_in_time_is_denied(self):
+        hook = load_adapter()
+        hook.DEADLINE = 0
+        stdin = io.TextIOWrapper(io.BytesIO(json.dumps({"tool_name": "Bash", "tool_input": {"command": "ls"}}).encode()))
+        with mock.patch.object(hook.sys, "stdin", stdin):
+            out = hook.main(["hook.py", "codex", "PreToolUse"])
+        self.assertEqual(out["hookSpecificOutput"]["permissionDecision"], "deny")
+        self.assertIn("Split the change", out["hookSpecificOutput"]["permissionDecisionReason"])
+
+    def test_antigravity_write_tools_are_checked_with_every_argument(self):
+        tool = load_adapter().agy_tool
+        nested = tool({"name": "replace_file_content", "args": {
+            "TargetFile": "/r/a.py", "ReplacementChunks": [{"TargetContent": "x", "ReplacementContent": "secret"}]}}, "/r")
+        self.assertIn("secret", nested[0]["tool_input"]["new_string"])
+        patched = tool({"name": "apply_patch", "args": {
+            "Patch": "*** Begin Patch\n*** Add File: b.py\n+secret\n*** End Patch"}}, "/r")
+        self.assertEqual([(os.path.basename(e["tool_input"]["file_path"]), e["tool_input"]["content"]) for e in patched],
+                         [("b.py", "secret\n")])
 
 
 if __name__ == "__main__":

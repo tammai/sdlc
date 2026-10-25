@@ -42,23 +42,27 @@ SCRIPTS = {
 CHILD_TIMEOUT = 10  # each script's own timeout in hooks/hooks.json
 DEADLINE = 45  # all of them, under the 60 s hosts.py gives the host
 PATCH_FILE = re.compile(r"^\*\*\*\s*(Add|Update|Delete) File:\s*(.+?)$|^\*\*\*\s*Move to:\s*(.+?)$")
+TOO_BIG = "sdlc: too many edits in one call to check them all in time. Split the change into smaller calls."
 EXIT_CODE = re.compile(r"^Exit code: (-?\d+)", re.M)
 
 
 def patch_edits(patch, cwd):
     """One Claude Code Write or Edit input per file an apply_patch touches; a moved file counts at both paths.
-    Headers match with surrounding spaces, as Codex accepts them. A patch with none is still checked, as one edit of
-    no file, so a guardrail on its content isn't skipped."""
-    edits, current = [], None
+    Headers match with surrounding spaces, as Codex accepts them. An indented one may be a context line instead, so
+    the lines after it count for the file before it too. A patch with no header is still checked, as one edit of no
+    file, so a guardrail on its content isn't skipped."""
+    edits, targets = [], []
     for line in patch.replace("\r\n", "\n").split("\n"):
         m = PATCH_FILE.match(line.strip())
         if m:
             kind, path, moved = m.groups()
-            current = {"tool_name": "Write" if kind == "Add" else "Edit",
-                       "tool_input": {"file_path": os.path.join(cwd, moved or path), "old_string": "", "new_string": ""}}
-            edits.append(current)
-        elif current and line[:1] in ("+", "-"):
-            current["tool_input"]["new_string" if line[0] == "+" else "old_string"] += line[1:] + "\n"
+            edit = {"tool_name": "Write" if kind == "Add" else "Edit",
+                    "tool_input": {"file_path": os.path.join(cwd, moved or path), "old_string": "", "new_string": ""}}
+            edits.append(edit)
+            targets = targets + [edit] if line[:1].isspace() else [edit]
+        elif line[:1] in ("+", "-"):
+            for edit in targets:
+                edit["tool_input"]["new_string" if line[0] == "+" else "old_string"] += line[1:] + "\n"
     if not edits and patch.strip():
         edits.append({"tool_name": "Edit", "tool_input": {"file_path": "", "old_string": "", "new_string": patch}})
     for e in edits:
@@ -86,7 +90,7 @@ def codex_events(event, data):
 
 
 def run_scripts(payload, project_dir, deadline):
-    """Each script's output for one Claude Code payload."""
+    """Each script's output for one Claude Code payload, and whether every script ran before the deadline."""
     env = dict(os.environ, CLAUDE_PLUGIN_ROOT=PLUGIN_ROOT, PYTHONIOENCODING="utf-8")
     env.pop("CLAUDE_PROJECT_DIR", None)  # an agent started from a Claude Code shell inherits that session's project
     if project_dir:
@@ -94,8 +98,8 @@ def run_scripts(payload, project_dir, deadline):
     outs = []
     for name in SCRIPTS.get(payload["hook_event_name"], []):
         left = deadline - time.monotonic()
-        if left <= 0:  # as a timed-out hook in Claude Code: the call goes ahead
-            break
+        if left <= 0:
+            return outs, False
         try:
             p = subprocess.run([sys.executable, os.path.join(PLUGIN_ROOT, "hooks", name)], input=json.dumps(payload),
                                capture_output=True, encoding="utf-8", errors="replace", env=env,
@@ -103,9 +107,9 @@ def run_scripts(payload, project_dir, deadline):
             out = json.loads(p.stdout.strip() or "{}")
             if isinstance(out, dict):
                 outs.append(out)
-        except (OSError, ValueError, subprocess.TimeoutExpired):
+        except (OSError, ValueError, subprocess.TimeoutExpired):  # as a failed hook in Claude Code: no say
             continue
-    return outs
+    return outs, True
 
 
 def merge(outs):
@@ -187,8 +191,18 @@ def agy_root(data):
     return os.path.normpath((data.get("workspacePaths") or [""])[0] or ".")
 
 
-def agy_tool(call):
-    """Claude Code's tool name and input for an Antigravity tool call; other write tools count as an edit of the file."""
+def strings(value):
+    """Every string in a JSON value, however nested."""
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, (dict, list)):
+        for v in value.values() if isinstance(value, dict) else value:
+            yield from strings(v)
+
+
+def agy_tool(call, cwd):
+    """Claude Code payload fields for an Antigravity tool call. Patch text counts as one edit per file, and any other
+    write tool as an edit of its file with every string it carries, nested or not, so a guardrail sees all of it."""
     name, args = call.get("name"), call.get("args") or {}
     if isinstance(args, str):  # arguments as JSON text: still checked, not skipped by an error
         try:
@@ -198,15 +212,19 @@ def agy_tool(call):
     if not isinstance(args, dict):
         args = {}
     if name == "run_command":
-        return "Bash", {"command": str(args.get("CommandLine") or "")}
+        return [{"tool_name": "Bash", "tool_input": {"command": str(args.get("CommandLine") or "")}}]
     path = str(args.get("Path") or args.get("TargetFile") or "")
-    if name == "write_file":
-        return "Write", {"file_path": path, "content": str(args.get("Content") or "")}
-    if name == "edit_file":
-        return "Edit", {"file_path": path, "old_string": str(args.get("Target") or ""),
-                        "new_string": str(args.get("Replacement") or "")}
-    return "Edit", {"file_path": path, "old_string": "",
-                    "new_string": "\n".join(str(v) for k, v in args.items() if isinstance(v, str) and k != "Path")}
+    rest = {k: v for k, v in args.items() if k not in ("Path", "TargetFile")}
+    if name == "write_file" and set(rest) <= {"Content"}:
+        return [{"tool_name": "Write", "tool_input": {"file_path": path, "content": str(args.get("Content") or "")}}]
+    if name == "edit_file" and set(rest) <= {"Target", "Replacement"}:
+        return [{"tool_name": "Edit", "tool_input": {"file_path": path, "old_string": str(args.get("Target") or ""),
+                                                     "new_string": str(args.get("Replacement") or "")}}]
+    patch = next((s for s in strings(rest) if "*** Begin Patch" in s), None)
+    if patch:
+        return patch_edits(patch, cwd)
+    return [{"tool_name": "Edit", "tool_input": {"file_path": path, "old_string": "",
+                                                 "new_string": "\n".join(strings(rest))}}]
 
 
 def agy_events(event, data):
@@ -220,14 +238,14 @@ def agy_events(event, data):
     if event == "Stop":  # Antigravity counts the continues it has granted; Claude Code flags the first one
         return [dict(payload, stop_hook_active=(data.get("executionNum") or 0) > 0)] \
             if data.get("terminationReason") == "NO_TOOL_CALL" else []
-    tool, tin = agy_tool(data.get("toolCall") or {})
-    payload.update(tool_name=tool, tool_input=tin)
-    if event == "PostToolUse" and tool == "Bash":
-        if data.get("error"):
-            payload["hook_event_name"] = "PostToolUseFailure"
-        else:  # a failed command also arrives with no error: a trailing pipe makes its result `unknown`, not `pass`
-            tin["command"] += " | cat"
-    return [payload]
+    payloads = [dict(payload, **e) for e in agy_tool(data.get("toolCall") or {}, payload["cwd"])]
+    for p in payloads:
+        if event == "PostToolUse" and p["tool_name"] == "Bash":
+            if data.get("error"):
+                p["hook_event_name"] = "PostToolUseFailure"
+            else:  # a failed command also arrives with no error: a trailing pipe makes its result `unknown`, not `pass`
+                p["tool_input"]["command"] += " | cat"
+    return payloads
 
 
 def agy_output(event, m):
@@ -260,10 +278,14 @@ def main(argv):
     host, event = argv[1], argv[2]
     to_claude, to_host, project_dir = HOSTS[host]
     data = json.loads(sys.stdin.buffer.read().decode("utf-8") or "{}")
-    outs, deadline = [], time.monotonic() + DEADLINE
+    outs, checked, deadline = [], True, time.monotonic() + DEADLINE
     for payload in to_claude(event, data):
-        outs += run_scripts(payload, project_dir(data), deadline)
-    return to_host(event, merge(outs))
+        ran, done = run_scripts(payload, project_dir(data), deadline)
+        outs, checked = outs + ran, checked and done
+    m = merge(outs)
+    if event == "PreToolUse" and not checked:  # too many edits to check in time: the unchecked ones never run
+        m.update(denied=True, deny="\n\n".join(p for p in (m["deny"], TOO_BIG) if p))
+    return to_host(event, m)
 
 
 if __name__ == "__main__":
