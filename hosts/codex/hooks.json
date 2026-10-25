@@ -1,3 +1,54 @@
 {
-  "hooks": {}
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^(Bash|apply_patch)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/hosts/hook.py\" codex PreToolUse",
+            "commandWindows": "python \"${PLUGIN_ROOT}/hosts/hook.py\" codex PreToolUse",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "^(Bash|apply_patch)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/hosts/hook.py\" codex PostToolUse",
+            "commandWindows": "python \"${PLUGIN_ROOT}/hosts/hook.py\" codex PostToolUse",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/hosts/hook.py\" codex UserPromptSubmit",
+            "commandWindows": "python \"${PLUGIN_ROOT}/hosts/hook.py\" codex UserPromptSubmit",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/hosts/hook.py\" codex Stop",
+            "commandWindows": "python \"${PLUGIN_ROOT}/hosts/hook.py\" codex Stop",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  }
 }

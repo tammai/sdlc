@@ -2,7 +2,7 @@
 
 The plugin installs and runs on its own in Claude Code, Codex, Cursor and Antigravity. Setup knows which agent is running it and writes that agent's files without asking. When a second agent opens a repo another agent already set up, its setup adds only its own layer and carries over what the first team wrote. [Issue #1](https://github.com/tammai/sdlc/issues/1); the design is in [ADR 0007](../adr/0007-multi-tool-adapters.md).
 
-**Entry points:** `/sdlc:setup` (or the `setting-up-projects` skill), `/sdlc:upgrade`, `/sdlc:eject`, `/sdlc:doctor` · **Source:** `scripts/scaffold.py host`, `add-host` and `agents`, `scripts/hosts.py`, `templates/project/agents/workflow.md`, the Codex, Cursor and Antigravity manifests, `hosts/`
+**Entry points:** `/sdlc:setup` (or the `setting-up-projects` skill), `/sdlc:upgrade`, `/sdlc:eject`, `/sdlc:doctor` · **Source:** `scripts/scaffold.py host`, `add-host` and `agents`, `scripts/hosts.py`, `hosts/hook.py`, `templates/project/agents/workflow.md`, the Codex, Cursor and Antigravity manifests, `hosts/`
 
 ## Install
 
@@ -36,6 +36,7 @@ The plugin installs and runs on its own in Claude Code, Codex, Cursor and Antigr
 | AGT-FR-012 | `hosts.py build` writes each command in `commands/` as `hosts/skills/<name>/SKILL.md`, except the hook-driven ones (Ralph loop, hookify). `$ARGUMENTS` becomes "<the user's request>" and `` !`cmd` `` becomes "run `cmd`". The Codex manifest lists both skill folders and points `commands` at a folder that doesn't exist, which stops Codex adding its own copies. The root `plugin.json` names `hosts/skills/` for Antigravity. Nothing Claude Code reads changes. | `[enforced]` test_hosts › test_commands_become_skills_for_codex_and_antigravity |
 | AGT-FR-013 | `hosts.py dist antigravity <out>` writes a copy of the plugin with freshly built host files, and agents Antigravity loads: `model: inherit` and `tools` as a list, both of which it requires. The Claude Code `agents/` are untouched. | `[enforced]` test_hosts › test_antigravity_dist_converts_the_agents_it_would_skip |
 | AGT-FR-014 | In a repo whose recorded hosts don't include Claude Code, doctor skips the checks that serve only Claude Code hooks (`jq`, the security reviewer environment) instead of warning. | `[enforced]` test_doctor › test_claude_hook_tools_are_skipped_in_a_repo_without_claude_code |
+| AGT-FR-015 | In Codex, `hosts/hook.py codex <event>` runs hookify, the freshness hook and the trust anchor on Codex's PreToolUse, PostToolUse, UserPromptSubmit and Stop. A deny from any of them denies the call, and a block keeps the agent going. An `apply_patch` counts as one edit per file it touches. A test run counts as `unknown`, because Codex sends no exit code. Any error gives `{}`. `hosts.py build` writes `hosts/codex/hooks.json`, with `commandWindows` for cmd.exe. | `[enforced]` test_host_hook › test_a_guardrail_denies_a_command_in_codex_shape, test_a_patch_after_the_tests_keeps_stage_5_from_finishing |
 | AGT-FR-009 | Setup runs the Claude Code steps (rules, guardrails, allowlist, plugin enablement) only on Claude Code. A joining agent skips the shared steps and adds only its layer. Every skill, command and agent that names `${CLAUDE_PLUGIN_ROOT}` says how to find the plugin folder where it isn't filled in. | `[instructed]` setting-up-projects (Which flow, Join), the note in each file |
 | AGT-FR-011 | The workflow section names this repo's document and state locations, and says to start work through the plugin. It forbids hand edits to feature state files, `test-report.md` and the baseline, and uses no script calls. | `[instructed]` `templates/project/agents/workflow.md`; rendering `[enforced]` test_project_templates › test_every_template_renders_without_leftover_placeholders |
 
@@ -45,7 +46,8 @@ Every `[enforced]` requirement in specs 02–06 rests on one of these mechanisms
 
 | Mechanism | Examples | Claude Code | Codex | Cursor | Antigravity |
 |---|---|---|---|---|---|
-| Plugin hook | role guard, freshness, model router, trust anchor, hookify guardrails, security hooks | enforced | instructed: no hooks yet | instructed: no hooks yet | instructed: no hooks yet |
+| Plugin hook: freshness, trust anchor, hookify guardrails | Stage 5 stale results, changed anchors, team guardrails | enforced | enforced once the hooks are trusted (`/hooks`); guardrails only where Claude Code set them up | instructed: no hooks yet | instructed: no hooks yet |
+| Plugin hook: role guard, model router, security hooks | reviewers can't edit, dispatches name a model, security review | enforced | instructed | instructed | instructed |
 | Plugin script run by a skill | scaffold, doctor, `diff_stats.py` | enforced | enforced, if the agent finds the plugin folder | same | same |
 | Subagent roles | fresh verifier, read-only reviewers | enforced (tools per agent) | instructed: Codex agents can't be made read-only, and plugin agents aren't loaded | reviewers `readonly`; the verifier instructed | instructed: all 13 load from the `dist` copy; no read-only flag |
 | Generated CI (`sdlc-verify`) | the full test suite on the merged code | enforced | enforced | enforced | enforced |
@@ -58,7 +60,12 @@ Every `[enforced]` requirement in specs 02–06 rests on one of these mechanisms
 - **Codex on Windows runs commands in PowerShell.** The skills are written for bash (`S="python3 …"`, `$S status`, heredocs). In the smoke test, Codex rewrote them in PowerShell by itself, and nothing failed on syntax. That is model behaviour, not something the plugin guarantees.
 - **Finding the plugin folder outside Claude Code** relies on the agent knowing where the file it loaded lives. Codex showed that it knows its `SKILL.md` path; Cursor and Antigravity are unverified.
 - **Antigravity needs the `dist` copy.** It reads `agents/` itself and skips any agent with a model tier (`opus`, `sonnet`, `haiku`) or comma-string `tools`. Its `plugin.json` can't point elsewhere, and an install copies only the folder it's given. A direct install from the repo URL loads 3 agents. `agy plugin import` copies the agents unchanged, and imports the Claude Code hooks too, so don't use it.
-- **No hooks outside Claude Code.** Each non-Claude manifest points its hooks at an empty file, because the hook scripts read Claude Code payloads only. The tool-neutral `decide(event)` refactor with an adapter per agent is the next phase.
+- **Hooks outside Claude Code: Codex only.** Smoke-tested in Codex 0.162 on Windows (2026-10-25): a stale Stage 5 Stop was blocked and Codex reran the tests, and a hookify rule denied `rm -rf`.
+  - **Trust.** Codex runs plugin hooks only after the user trusts them in `/hooks`, and again after every plugin update.
+  - **Guardrails need Claude Code.** The hookify rules sit in `.claude/hookify/`, which setup writes only on Claude Code. A Codex-only repo has none.
+  - **Test results.** A full test run in Codex records `last_result: unknown`, because Codex sends a command's output without its exit code.
+  - **Cursor and Antigravity** still point their hooks at an empty file. Their payloads differ more: camelCase in Antigravity, no event name, and fields it rejects. Their adapters come next.
+  - **Left out for now:** the role guard, the model router, the security review and the Ralph loop.
 - **No glob scoping outside Claude Code.** Policy rules sit in `AGENTS.md`, so they always load. Writing `.cursor/rules/*.mdc` or `.agents/rules/*.md` would duplicate them, because those agents read `AGENTS.md` too.
 - **Codex's 32 KiB cap** on the combined `AGENTS.md` text: the block is about 10 KB with every policy rule, and nothing checks the total yet.
 - **`AGENTS.override.md`** at the root makes Codex skip `AGENTS.md`, and with it the block.

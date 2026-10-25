@@ -8,7 +8,8 @@ The Claude Code plugin (.claude-plugin/, skills/, commands/, agents/, hooks/) is
   plugin.json                     Antigravity manifest (root, as `agy plugin install <github url>` expects), plus hosts/skills
   hosts/cursor/agents/*.md        agents with Cursor's frontmatter: model inherit, readonly for read-only roles
   hosts/skills/<command>/SKILL.md commands as skills: Codex and Antigravity drop commands that take $ARGUMENTS
-  hosts/<host>/hooks.json         no hooks yet: the plugin's hooks read Claude Code payloads only
+  hosts/codex/hooks.json          the plugin's hooks through hosts/hook.py, which adapts Codex payloads
+  hosts/cursor/hooks.json         no hooks yet
 
 Usage: python3 scripts/hosts.py [--root DIR] build | check   (check exits 1 when a file differs from a fresh build)
        python3 scripts/hosts.py dist antigravity OUT   a copy to `agy plugin install OUT`: Antigravity reads agents/
@@ -23,7 +24,7 @@ import shutil
 import sys
 
 EDIT_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit"}
-# Driven by the Stop and PreToolUse hooks, which run only in Claude Code
+# The Ralph loop's Stop hook runs only in Claude Code; hookify rules live in .claude/, which only Claude Code's setup writes
 HOOK_COMMANDS = {"cancel-ralph", "ralph-loop", "ralph-help", "hookify", "hookify-configure", "hookify-help",
                  "hookify-list"}
 
@@ -114,6 +115,18 @@ def dist(root, host, out):
     return out
 
 
+def codex_hooks():
+    """hosts/hook.py for each event it adapts. Codex fills in ${PLUGIN_ROOT}, and runs commandWindows in cmd.exe."""
+    def entry(event, matcher=None):
+        script = '"${PLUGIN_ROOT}/hosts/hook.py" codex ' + event
+        group = {"hooks": [{"type": "command", "command": "python3 " + script, "commandWindows": "python " + script,
+                            "timeout": 60}]}
+        return [dict({"matcher": matcher}, **group) if matcher else group]
+    return {"hooks": {"PreToolUse": entry("PreToolUse", "^(Bash|apply_patch)$"),
+                      "PostToolUse": entry("PostToolUse", "^(Bash|apply_patch)$"),
+                      "UserPromptSubmit": entry("UserPromptSubmit"), "Stop": entry("Stop")}}
+
+
 def outputs(root):
     plugin = json.loads(read(root, ".claude-plugin/plugin.json"))
     market = json.loads(read(root, ".claude-plugin/marketplace.json"))
@@ -137,7 +150,7 @@ def outputs(root):
             {"name": plugin["name"], "source": "./", "description": plugin["description"]}]}),
         "plugin.json": dump(dict({k: common[k] for k in ("name", "version", "description") if k in common},
                                  skills="./hosts/skills/")),
-        "hosts/codex/hooks.json": dump({"hooks": {}}),
+        "hosts/codex/hooks.json": dump(codex_hooks()),
         "hosts/cursor/hooks.json": dump({"version": 1, "hooks": {}}),
     }
     for name in sorted(os.listdir(os.path.join(root, "agents"))):
