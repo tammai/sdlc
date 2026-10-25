@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "command": "python3 \"${CURSOR_PLUGIN_ROOT}/hosts/hook.py\" cursor PreToolUse",
+        "timeout": 60,
+        "matcher": "^(Shell|Write|Delete)$"
+      }
+    ],
+    "postToolUse": [
+      {
+        "command": "python3 \"${CURSOR_PLUGIN_ROOT}/hosts/hook.py\" cursor PostToolUse",
+        "timeout": 60,
+        "matcher": "^(Shell|Write|Delete)$"
+      }
+    ],
+    "postToolUseFailure": [
+      {
+        "command": "python3 \"${CURSOR_PLUGIN_ROOT}/hosts/hook.py\" cursor PostToolUseFailure",
+        "timeout": 60,
+        "matcher": "^Shell$"
+      }
+    ],
+    "beforeSubmitPrompt": [
+      {
+        "command": "python3 \"${CURSOR_PLUGIN_ROOT}/hosts/hook.py\" cursor UserPromptSubmit",
+        "timeout": 60
+      }
+    ],
+    "stop": [
+      {
+        "command": "python3 \"${CURSOR_PLUGIN_ROOT}/hosts/hook.py\" cursor Stop",
+        "timeout": 60
+      }
+    ]
+  }
+}

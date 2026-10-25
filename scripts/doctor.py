@@ -45,8 +45,18 @@ def run(cmd, cwd=None, timeout=10):
 
 # --- environment -------------------------------------------------------------------------
 
-def check_environment(r):
+def claude_hosted(root):
+    try:
+        return "claude-code" in scaffold.hosts(scaffold.Project(root))
+    except ValueError:
+        return True
+
+
+def check_environment(r, root):
     g = "environment"
+    # jq and the security reviewer serve Claude Code hooks only; other agents run none yet
+    claude = claude_hosted(root)
+    no_claude = "used only by Claude Code hooks, and this repo has no Claude Code host"
     v = sys.version_info
     r.add(g, "python", "ok" if v >= (3, 9) else "fail", f"{v.major}.{v.minor}.{v.micro}",
           None if v >= (3, 9) else "install Python 3.9+ (hooks and scripts need it)")
@@ -61,8 +71,14 @@ def check_environment(r):
                                      ("gh", "/sdlc:code-review and PR commands", "warn"),
                                      ("jq", "the /sdlc:ralph-loop stop hook (it silently stops looping without it)", "warn")):
         found = shutil.which(tool)
+        if tool == "jq" and not claude:
+            r.add(g, tool, "skip", no_claude)
+            continue
         r.add(g, tool, "ok" if found else status, found or f"not found (needed for {needed_for})",
               None if found else f"install {tool}")
+    if not claude:
+        r.add(g, "security reviewer env", "skip", no_claude)
+        return
     try:
         from hooks import _base  # the security hooks' own resolver and install check
         state = _base.state_dir()
@@ -198,6 +214,16 @@ def check_repo(r, root):
         if status["setup"] == "complete" and unrun:
             r.add(g, "commands run", "warn", "never run successfully since recorded: " + ", ".join(unrun),
                   f"python3 scripts/scaffold.py run-commands · {RUNBOOK} R13")
+        try:
+            agents = scaffold.agents_state(p)
+            if agents != "off":
+                r.add(g, "AGENTS.md", "ok" if agents == "in_sync" else "warn",
+                      f"the sdlc block matches its sources (hosts: {', '.join(scaffold.hosts(p))})"
+                      if agents == "in_sync" else
+                      "the sdlc block or its Claude Code mirror is out of date: some agents follow old instructions",
+                      None if agents == "in_sync" else "python3 scripts/scaffold.py agents")
+        except ValueError as e:
+            r.add(g, "AGENTS.md", "fail", str(e), "fix the line, then python3 scripts/scaffold.py agents")
         cfg = scaffold.effective_config(p.config)
         if cfg.get("project", {}).get("kind") == "brownfield":
             b = os.path.join(root, cfg.get("baseline", ".sdlc/baseline.md"))
@@ -326,7 +352,7 @@ def main(argv=None):
     a = ap.parse_args(argv)
     root = os.path.abspath(a.root)
     r = Report()
-    check_environment(r)
+    check_environment(r, root)
     check_plugin(r)
     check_repo(r, root)
     summary = {k: sum(1 for c in r.checks if c["status"] == k) for k in ("ok", "warn", "fail", "skip")}

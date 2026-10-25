@@ -9,6 +9,11 @@ sdlc/
 ├── .claude-plugin/
 │   ├── plugin.json          name, version (repos record it at setup and upgrade)
 │   └── marketplace.json     marketplace entry for /plugin install
+├── .codex-plugin/, .agents/plugins/, .cursor-plugin/, plugin.json, hooks.json, hosts/
+│                            Codex, Cursor and Antigravity manifests, Cursor agents, hosts/skills (the commands as skills)
+│                            and hosts/<host>/hooks.json, root hooks.json (Antigravity's): built by scripts/hosts.py, never edited;
+│                            `hosts.py dist antigravity` builds Antigravity's install copy. hosts/hook.py (hand-written) runs
+│                            the hooks under Codex, Cursor and Antigravity
 ├── agents/                  subagents: verifier, reviewers, code-explorer/architect, simplifier, …
 ├── commands/                slash commands (/sdlc:start, setup, upgrade, eject, doctor, status, prune, review-pr, …)
 ├── skills/                  skills; orchestrator/ is the conductor, setting-up-projects/ runs setup/upgrade/eject
@@ -29,12 +34,13 @@ sdlc/
 │   ├── scaffold.py          setup/upgrade/eject bookkeeping: lock, file classes, commands, CI generator
 │   ├── doctor.py            read-only health check
 │   ├── diff_stats.py        Stage 6 review facts, Public Surface check
+│   ├── hosts.py             builds the other agents' manifests from .claude-plugin/ and agents/ (CI checks them)
 │   └── setup-ralph-loop.sh  (vendored)
 ├── templates/
 │   ├── spec/design/checklist/constitution-template.md   used by the Stage 1–2 skills
 │   ├── design-system-template.md   setup's design-system step (UI projects)
 │   ├── knowledge/           OKF templates for tier 2/3 knowledge
-│   └── project/             what setup places in a repo: config defaults, rules/, hookify/, lint/, baseline.md
+│   └── project/             what setup places in a repo: config defaults, rules/, hookify/, lint/, agents/ (the AGENTS.md workflow section), baseline.md
 ├── migrations/              <version>-<slug>.md steps that /sdlc:upgrade applies to project-owned files
 ├── examples/hookify/        sample rules
 ├── tests/                   stdlib unittest suite (helpers.py + one file per hook or script)

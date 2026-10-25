@@ -1,3 +1,5 @@
+`${CLAUDE_PLUGIN_ROOT}` is the sdlc plugin's folder. Claude Code fills it in; on other agents it stays as written, so use the installed plugin's folder instead: the one above this file that holds `scripts/` and `skills/`.
+
 # Greenfield monorepo
 
 Two or more apps (web, api, mobile, …) become one polyglot monorepo. It replaces the `stack`, `skeleton`, `commands` and `ci` steps of `greenfield.md`; the step names stay, so resume still works. One app: this file doesn't apply, follow `greenfield.md` as is. Decision: `${CLAUDE_PLUGIN_ROOT}/docs/adr/0005-greenfield-monorepo-layout.md`.

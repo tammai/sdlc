@@ -232,7 +232,7 @@ claude --plugin-dir .                # load it for one session
 ### Release a new version
 
 1. Run the tests and `claude plugin validate .`, and check that CI (`.github/workflows/ci.yml`) is green on the last pushed commit.
-2. Bump `version` in `.claude-plugin/plugin.json`. Repos record this number at setup and upgrade, so every release that changes project files needs a new one.
+2. Bump `version` in `.claude-plugin/plugin.json`, then run `python3 scripts/hosts.py build` so the Codex, Cursor and Antigravity manifests carry it too (CI fails while they differ). Repos record this number at setup and upgrade, so every release that changes project files needs a new one.
 3. Move the `Unreleased` notes in `CHANGELOG.md` under the new version, and update the README if commands, stages, configuration or requirements changed.
 4. If the release changes files that live in projects:
    - templates of generated or seeded files: nothing to do, `/sdlc:upgrade` regenerates or replaces them;
@@ -302,6 +302,12 @@ The test suite runs hooks and scripts as subprocesses; this checks the installed
 **I. Windows (should, if the team uses it)**
 A teammate runs B–E on Windows in Git Bash.
 
+**J. Other agents (should, one per agent the release claims; must once each before calling an agent supported)**
+1. Install from the checkout: Codex `codex plugin marketplace add <checkout>` and `codex plugin add sdlc@sdlc` (note which manifest it used, whether `start` appears as a skill, and whether the Claude-format hooks run; on Windows, whether the skills' bash commands work from its PowerShell); Cursor, a copy in `~/.cursor/plugins/local`; Antigravity, `python3 scripts/hosts.py dist antigravity <folder>` then `agy plugin install <folder>`. The agent lists the sdlc skills, including `start`, `setup` and `upgrade` (Codex: `sdlc:start`, and no `sdlc:source-command-*` duplicates), and Antigravity's `agy agents` lists 13.
+2. In a new repo, ask the agent to set up sdlc. It doesn't ask which agent it is, finds `scaffold.py` through the plugin folder note, and records only that host (`.sdlc/scaffold.lock.json` → `hosts`). `AGENTS.md` has the sdlc block. Under `.claude/` there are at most the knowledge step's area rules (`.claude/rules/<area>.md`, which the block copies), and no `sdlc*` rules, hookify or settings. Codex asks to approve each commit unless you give it full access; that's its sandbox, not a failure.
+3. Open the same repo in Claude Code and run `/sdlc:setup`: it joins (`hosts` gains `claude-code`), writes the Claude Code rules and guardrails, doesn't redo the commands or baseline, and `/sdlc:doctor` has no fails.
+4. Antigravity only: its agent list shows the sdlc agents, or the load error, which goes in the notes.
+
 When every must item passes, record the date and commit in the changelog entry's notes (or the PR) and continue with step 6 above.
 
 ### Add or change a stage rule
@@ -339,7 +345,9 @@ Every command prints one JSON object. Exit codes: 0 ok, 1 error, 2 refused becau
 | `preview <template\|builtin:…>` | render without writing |
 | `record <generated\|seeded> <paths…> [--template T]` / `forget <paths…>` | track files Claude wrote / hand them over to the user |
 | `allow --add/--remove … [--from-commands]`, `gitignore --add/--remove …` | keyed merges; only ever removes entries the plugin added |
+| `host` / `add-host <host>` | the coding agent running (from the plugin's install folder, else the environment), the hosts recorded in the lock, and whether this one is joining / record a joining agent |
+| `agents [--check]` | rebuild the sdlc block in `AGENTS.md` for the recorded hosts (removed when Claude Code is the only one) and `.claude/rules/sdlc-agents-md.md`, Claude Code's copy of the team's own `AGENTS.md` text; `--check` exits 1 when either is out of date |
 | `migrations [--revisit]`, `migration <id> --applied\|--skipped REASON` | pending migrations (scaffold < version ≤ plugin, numeric order) / record the outcome |
 | `set-version <v> [--min-plugin m]` | advance `scaffold_version`; raises the pin, never lowers it |
-| `upgrade-plan` | regenerate / replace / review / restore / template_gone, plus pending migrations |
+| `upgrade-plan` | regenerate / replace / review / restore / template_gone, `agents` (off, in_sync or stale), plus pending migrations |
 | `eject [--apply] [--also <edited files>]` | dry run by default; applying deletes plugin files, removes recorded entries and the lock |

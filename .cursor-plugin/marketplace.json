@@ -1,0 +1,14 @@
+{
+  "name": "sdlc",
+  "owner": {
+    "name": "Tâm Mai",
+    "email": "tammai.it@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "sdlc",
+      "source": "./",
+      "description": "One Claude Code plugin for the whole software lifecycle: an orchestrator sizes each piece of work (S/M/L) and walks it through up to 11 gated stages, from spec and design through TDD, a fresh verifier and multi-agent review to deploy and retro, plus guardrail hooks, design-system-aware UI review and setup/upgrade for any stack or monorepo."
+    }
+  ]
+}

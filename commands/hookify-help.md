@@ -3,6 +3,8 @@ description: Get help with the hookify plugin
 allowed-tools: ["Read"]
 ---
 
+`${CLAUDE_PLUGIN_ROOT}` is the sdlc plugin's folder. Claude Code fills it in; on other agents it stays as written, so use the installed plugin's folder instead: the one above this file that holds `scripts/` and `skills/`.
+
 # Hookify Plugin Help
 
 Explain how the hookify plugin works and how to use it.

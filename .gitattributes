@@ -1,0 +1,2 @@
+# Shell scripts run under WSL and Linux bash, which fail on CRLF
+*.sh text eol=lf
