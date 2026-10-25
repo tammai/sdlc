@@ -35,7 +35,7 @@ Propose the *smallest* fitting track; size up only for a named signal, written i
 
 Tiers (Model Selection in `sdlc:subagent-driven-development`): cheap `haiku`, standard `sonnet`, top `opus` (`fable` only when the user asks: `Top model: fable`). Every dispatch names its `model` (an omitted one inherits the session's); the model router denies a missing model, `fable` without the opt-in, and reviewers, the verifier or qa-tester below `opus` on `Risk: high`.
 
-**`Build: native | subagent`** (default `native`; `state.py set`). `subagent`: you keep spec, state and gates; one fresh standard-tier implementer (`sdlc:subagent-driven-development`'s `implementer-prompt.md`) gets the tasks or slice plan, builds test first, runs the full suite and returns a short summary (files, tests, suite result, open issues). Don't read the implementation; send findings back to that implementer (message it), and only run the suite yourself.
+**`Build: native | subagent`** (default `native`; `state.py set`). `subagent`: you keep spec, state and gates; one fresh standard-tier implementer (`sdlc:subagent-driven-development`'s `implementer-prompt.md`) gets the tasks or slice plan, builds test first, runs the full suite and returns a short summary (files, tests, suite result, open issues); tell it not to commit (Lite and slices commit after verification; full-flow task commits never stage `.sdlc/`). Don't read the implementation; send findings back to that implementer (message it), and only run the suite yourself.
 
 ## State: always through `state.py`
 

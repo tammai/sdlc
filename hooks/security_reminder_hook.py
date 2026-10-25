@@ -1873,7 +1873,9 @@ def handle_commit_review_posttooluse(input_data):
     # exact. Best-effort; failures here never block the review result.
     try:
         full_shas = []
-        for s in shas:
+        # sdlc patch: a widened review that dropped files covers only the commits that triggered it; the deferred
+        # ones stay unreviewed for a later commit or the push review
+        for s in (_sdlc["own"] if _sdlc["range"] and _dropped else shas):
             # See #2099: drop text=True; decode manually for cp1252 safety.
             r = subprocess.run(
                 [*GIT_CMD, "rev-parse", "--verify", "-q", s],

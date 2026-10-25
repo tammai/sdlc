@@ -1,6 +1,6 @@
 # Stage 5 · Verify and review (one parallel round, then one re-verification)
 
-`state.py advance <f> 5 --gate pass` first: `Current: Stage 5 – Verify` switches on the freshness hook. Any code change (by any tool, in git repos) marks test results stale, a full test-suite run (no name filters, no single test file or package) marks them fresh, and finishing a turn while stale is blocked.
+Entered from the Stage 4 gate (`state.py advance <f> 5 --gate pass`; Feature close: `advance <f> 5` from Stage 6). `Current: Stage 5 – Verify` switches on the freshness hook. Any code change (by any tool, in git repos) marks test results stale, a full test-suite run (no name filters, no single test file or package) marks them fresh, and finishing a turn while stale is blocked.
 
 **The round.** On the review-ready commit (build done, full suite green), dispatch at the same time, each fresh, on the same commit:
 - `sdlc:verifier`: feature dir, round number, the build/lint/typecheck/test commands. It runs everything fresh, proves each acceptance criterion and appends `## Round N — <time> — commit <hash>` to `test-report.md`. Never resume or message a verifier from an earlier round, and never verify inline.

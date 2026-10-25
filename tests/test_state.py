@@ -83,6 +83,21 @@ class StateTest(ProjectTestCase):
             self.assertIn("## Deviations\n- 2", f.read())
         self.assertEqual(self.events()[-1]["type"], "deviation_logged")
 
+    def test_advancing_to_the_current_stage_is_refused(self):
+        # A second advance into the same stage ticked it as passed before its gate ran
+        self.state("advance", "login", "5", "--gate", "pass")
+        code, out = self.state("advance", "login", "5", "--gate", "pass")
+        self.assertEqual(code, 1)
+        with open(self.md, encoding="utf-8") as f:
+            self.assertIn("- [ ] 5 Verify", f.read())
+
+    def test_an_old_layout_feature_keeps_its_contract_where_the_ignore_patterns_cover_it(self):
+        os.remove(self.md)
+        self.write(".sdlc/legacy/state.md", STATE)
+        self.assertEqual(self.state("sync", "legacy")[0], 0)
+        self.assertTrue(os.path.exists(self.path(".sdlc/state/legacy.json")))
+        self.assertFalse(os.path.exists(self.path(".sdlc/legacy/state.json")))
+
     def test_a_malformed_state_file_is_reported_not_mirrored(self):
         self.write(".sdlc/state/login.md", STATE.replace("Current: Stage 4 – Implement\n", ""))
         code, out = self.state("advance", "login", "5")

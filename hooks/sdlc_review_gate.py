@@ -68,10 +68,11 @@ def _branch_point(root):
 
 
 def decide(repo_root, shas, reviewed):
-    """{defer, shas, range, active}. defer: review nothing now. shas: the commits this review covers (and marks
-    reviewed), newest first. range: (from, to) for one net `git diff` when widened, else None. active: the gate
-    applied, so an amend is reviewed whole, never as a delta. Never raises."""
-    given = {"defer": False, "shas": list(shas), "range": None, "active": False}
+    """{defer, shas, own, range, active}. defer: review nothing now. shas: the commits this review covers (and
+    marks reviewed), newest first; own: the commits that triggered it, the only ones to mark if the reviewer had to
+    drop files from a widened diff. range: (from, to) for one net `git diff` when widened, else None. active: the
+    gate applied, so an amend is reviewed whole, never as a delta. Never raises."""
+    given = {"defer": False, "shas": list(shas), "own": list(shas), "range": None, "active": False}
     try:
         text = _active_feature(repo_root)
         stage = re.search(r"^Current:\s*Stage\s*(\d+)\b", text or "", re.M)
@@ -88,11 +89,12 @@ def decide(repo_root, shas, reviewed):
         unreviewed = [s for s in since if s not in reviewed]
         if (point and int(stage.group(1)) < 5 and len(unreviewed) < MAX_DEFER
                 and not _touches_guarded_paths(repo_root, full)):
-            return {"defer": True, "shas": [], "range": None, "active": True}
+            return {"defer": True, "shas": [], "own": [], "range": None, "active": True}
         extra = [s for s in unreviewed if s not in full]
         if not extra or len(extra) >= MAX_WIDEN:
-            return {"defer": False, "shas": full, "range": None, "active": True}
+            return {"defer": False, "shas": full, "own": full, "range": None, "active": True}
         covered = all(_git(repo_root, "merge-base", "--is-ancestor", start, s) is not None for s in extra)
-        return {"defer": False, "shas": full + extra, "range": (start if covered else anchor, full[0]), "active": True}
+        return {"defer": False, "shas": full + extra, "own": full, "range": (start if covered else anchor, full[0]),
+                "active": True}
     except Exception:
         return given

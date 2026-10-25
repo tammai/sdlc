@@ -4,10 +4,11 @@
 state.md stays the model's view and the committed record; the hooks read it (`Current: Stage <n> – <name>`,
 `Status:`, `Flow:`, `Base:`). Each call also writes the control contract, git-ignored runtime files a runner or a
 control app reads without knowing the pipeline's internals (docs/specs/12-control-contract.md), beside the state
-file and git-ignored (old layout: state.json, events.jsonl, commands/ in the feature's folder):
+file and git-ignored (in either layout):
   .sdlc/state/<feature>.json            snapshot, derived from state.md (contract_version)
   .sdlc/state/<feature>.events.jsonl    one event per call, appended, never rewritten
   .sdlc/state/<feature>.commands/       the runner's inbox; never read or executed here
+Advancing to the current stage is refused (it would tick the stage before its gate ran).
 Usage: python3 state.py [--root DIR] advance FEATURE STAGE [--gate pass|fail] [--note TEXT]
                                      round FEATURE N pass|fail REASON [--commit SHA]
                                      verified FEATURE COMMIT TREE
@@ -240,6 +241,8 @@ def apply(a, text, backlog_raw):
     if a.cmd == "advance":
         if a.stage not in STAGES:
             raise Refused(f"no Stage {a.stage}")
+        if a.stage == stage:  # a repeated advance would tick the stage before its gate ran
+            raise Refused(f"already at Stage {stage}")
         if a.gate:
             text = append_to_section(text, "Gate log", f"{today()} Stage {stage}: {a.gate}"
                                      + (f" — {a.note}" if a.note else ""))
@@ -302,13 +305,10 @@ def apply(a, text, backlog_raw):
     return text, None, None  # sync
 
 
-def contract_paths(state_path):
-    """(state.json, events.jsonl) beside the state file: `.sdlc/state/<f>.json` and `<f>.events.jsonl`, or
-    `state.json` and `events.jsonl` in an old-layout feature folder."""
-    if os.path.basename(state_path) == "state.md":
-        folder = os.path.dirname(state_path)
-        return os.path.join(folder, "state.json"), os.path.join(folder, "events.jsonl")
-    base = state_path[:-3]
+def contract_paths(root, feature):
+    """(state.json, events.jsonl) as `.sdlc/state/<f>.json` and `<f>.events.jsonl` in either layout, so one set of
+    ignore patterns covers them and an old-layout feature folder holds only documents (relocate moves those)."""
+    base = os.path.join(root, ".sdlc", "state", feature)
     return base + ".json", base + ".events.jsonl"
 
 
@@ -336,7 +336,7 @@ def run(a):
     new, new_backlog, event = apply(a, text, backlog_raw)
     check(new)
     snap = snapshot(a.feature, new, new_backlog if new_backlog is not None else backlog_raw)
-    snapshot_path, events_path = contract_paths(path)
+    snapshot_path, events_path = contract_paths(a.root, a.feature)
     written = []
     try:
         if new_backlog is not None and new_backlog != backlog_raw:
@@ -345,11 +345,14 @@ def run(a):
         if new != text:
             write_atomic(path, new.replace("\n", "\r\n") if crlf else new)
             written.append("state.md")
+        os.makedirs(os.path.dirname(snapshot_path), exist_ok=True)
         write_atomic(snapshot_path, json.dumps(snap, indent=2, ensure_ascii=False))
         if event:
             event = {"ts": snap["updated"], "feature": a.feature, **event}
             with open(events_path, "a", encoding="utf-8") as f:
                 f.write(json.dumps(event, ensure_ascii=False) + "\n")
+                f.flush()
+                os.fsync(f.fileno())
     except OSError as e:
         done = f"; already written: {', '.join(written)} (run sync once the cause is fixed)" if written else ""
         raise Refused(f"{type(e).__name__}: {e}{done}")

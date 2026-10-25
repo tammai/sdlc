@@ -8,6 +8,6 @@ Spec: [spec.md](spec.md) · Branch: `tammai/lite-and-slices` · Each slice gets 
 | B2 | Orchestrator split into a core plus per-stage references, using `state.py` throughout; `Build: native \| subagent` | FR-02, FR-01, FR-10 | 3, 4, 9 | B1 | M | done b414f59 |
 | B3 | Review loop: parallel verify + review, no simplifier, qa-tester on M and single-session Lite, failure modes in specs, recurring-defects list in reviewer briefs | FR-04, FR-07, FR-08, FR-09 | 5, 8 | B2 | M | done ab8471b |
 | B4 | Commit security review once per review-ready diff while a feature is active (Claude Code) | FR-05 | 6 | — | S | done 819f2ef |
-| B5 | Setup leaves the product's manifest, dependencies and tooling alone unless the user agrees | FR-06 | 7 | — | S | done (this commit) |
+| B5 | Setup leaves the product's manifest, dependencies and tooling alone unless the user agrees | FR-06 | 7 | — | S | done bd7cc1b |
 
 Each slice updates the docs for its own requirements and runs the `CONTRIBUTING.md` stale-docs audit on the names it adds; `hosts.py check`, `scaffold.py agents --check` and the suite pass at every commit (FR-10). Tests: one per user-visible behaviour plus the failure that matters most; skill and command text is instructed only. Release notes under Unreleased in `CHANGELOG.md`.

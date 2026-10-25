@@ -3,7 +3,7 @@
 Give each reviewer:
 
 - the spec, the diff facts (the core's `diff_stats.py` call), the plan's Review Focus section verbatim if it has one, and the `Ruling:` lines in the Gate log;
-- the spec's **Failure modes** (the production edges it says apply), each to be checked against the code and its tests;
+- the spec's **Failure modes**: which of these it says apply (concurrent use, scale or large inputs, persisted-data migration and compatibility, partial failure or a crash mid-write, untrusted input, I/O errors), each checked against the code and its tests, and any that clearly applies but the spec left out raised as a finding;
 - these edges by name, each finding rated high when the spec states the behaviour:
   - **Writes:** persisted data survives a crash or a failed write (temp file flushed and synced before the rename, the temp file removed on failure, the original never overwritten by bad input).
   - **Error paths:** every failure the code can hit, I/O included (missing directory, permissions, a full disk), reaches the user in the spec's error format and exit code, never as a raw system error or stack trace.

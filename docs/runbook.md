@@ -145,7 +145,7 @@ The verify-freshness hook is active only while `state.md` says `Current: Stage 5
 ### R9. `state.md` is missing, stale or hand-edited wrong
 
 1. The file is plain markdown; fix it directly. Keep the line format `Current: Stage <n> – <name>` and `Status: active`.
-2. The artifacts (`spec.md`, `plan.md`, `test-report.md`…) are the real record. To rebuild a lost state file, create one from the template in `skills/orchestrator/SKILL.md`, tick the stages whose artifacts exist, and set `Current:` to the next stage.
+2. The artifacts (`spec.md`, `plan.md`, `test-report.md`…) are the real record. To rebuild a lost state file, create one from the template in `skills/orchestrator/references/start.md` (then `state.py sync <feature>`), tick the stages whose artifacts exist, and set `Current:` to the next stage.
 3. Add a Deviations line saying the file was reconstructed.
 
 ### R10. Hooks error on Windows or with an odd Python

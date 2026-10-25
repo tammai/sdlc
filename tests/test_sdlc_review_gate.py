@@ -80,7 +80,7 @@ class ReviewGateTest(ProjectTestCase):
     def test_without_an_active_feature_a_commit_is_reviewed_as_before(self):
         self.commit("b.ts", "2")
         self.assertEqual(sdlc_review_gate.decide(self.root, ["abc1234"], set()),
-                         {"defer": False, "shas": ["abc1234"], "range": None, "active": False})
+                         {"defer": False, "shas": ["abc1234"], "own": ["abc1234"], "range": None, "active": False})
 
     def test_a_feature_whose_base_is_not_in_this_history_defers_nothing(self):
         # A stale state file from another branch must not hold back reviews of unrelated work

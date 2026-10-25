@@ -157,7 +157,7 @@ Each round spawns a new `verifier`, which runs build, lint, typecheck and tests 
 | Hook | Events | Does |
 |---|---|---|
 | hookify | PreToolUse, UserPromptSubmit, Stop | Evaluates rules from `.claude/hookify.*.local.md` (personal, git-ignored) and committed `.claude/hookify/*.md` (team). Rules warn or block |
-| security-guidance | UserPromptSubmit, PostToolUse, Stop | Pattern warnings on edits, diff review at turn end, agentic review after `git commit` and `git push` |
+| security-guidance | UserPromptSubmit, PostToolUse, Stop | Pattern warnings on edits, diff review at turn end, agentic review after `git commit` and `git push` (while a feature is active, build commits before Stage 5 are reviewed with the next review-ready commit; spec 05) |
 | verify-freshness | PostToolUse, PostToolUseFailure, Stop | Stage 5 only (Stages 5–6 on the Lite flow): stale/fresh test tracking (above) |
 | model-router | PreToolUse (Agent) | While a feature is active: denies a subagent dispatch that names no model, asks for Fable without `Top model: fable`, or runs a reviewer below Opus on `Risk: high`; logs every dispatch with the stage to `.sdlc/.work/dispatches.jsonl` |
 | trust-anchor | Stop, UserPromptSubmit | Tells you when what verification trusts changes: Track, Risk, Flow or Top model; new baseline failures; changed commands; the spec after Stage 5 began; leaving Stage 5 with untested code, or on the Lite flow any Stop outside Stages 4–6 with untested code. Your next message accepts it |

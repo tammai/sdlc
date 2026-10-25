@@ -70,7 +70,7 @@ Low-risk M work runs the **Lite flow**: you approve one `spec.md` with its task 
 
 Auth, payments, secrets, PII, schema migrations: the work is **at least M** and **always gets full Stage 7**. `state.md` records `Risk: high`, so the verifier and reviewers run on `opus` (the model-router hook enforces it).
 
-1. Expect the security-guidance hooks to warn on risky edits while you build (pattern warnings, diff review at turn end, a background review after `git commit` and `git push`). Address every finding they raise, or acknowledge it with a reason.
+1. Expect the security-guidance hooks to warn on risky edits while you build (pattern warnings, diff review at turn end, a background review after `git commit` and `git push`; on a feature branch, build commits before Stage 5 wait for the next review-ready commit). Address every finding they raise, or acknowledge it with a reason.
 2. Stage 7 adds an explicit pass: `feature-reviewer` and `code-reviewer` with a security-only brief (injection, authz, secrets, SSRF, XSS, unsafe deserialization, dependency risk) plus the stack's dependency audit.
 3. Gate: no critical or high finding open, no secrets in the diff; written to `security.md`.
 4. DB migrations and production deploys are hard stops. Say go explicitly.
