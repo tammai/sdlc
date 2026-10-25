@@ -7,8 +7,10 @@ check, so this can't prevent a change; it makes one visible. For each active fea
   - `.sdlc/baseline.md` lists a failing test it didn't at the feature's `Base:` commit (it may only shrink)
   - the commands in `.sdlc/config.json` differ from those at `Base:`
   - `spec.md` changed after the feature entered Stage 5
-  - the feature left Stage 5 (on `Flow: lite`, Stages 4-6 for any other stage) while code differed from its last
-    full test run, or moved past Stage 5 without it
+  - the feature left Stage 5 while code differed from its last full test run, or moved past Stage 5 without it
+    (a verifier dispatched in Stage 5 since the last Stop counts, since a turn can run several stages)
+  - on `Flow: lite`, a Stop outside Stages 4-6 finds code that differs from the last full test run (one notice
+    per set of changed files)
   - a feature seen active stopped being active, other than by finishing (`Status: done`)
 A new notice blocks the stop once, with a systemMessage so the user sees it; it doesn't block again. The user's
 next prompt accepts it: the current values become the new anchor. Only a prompt clears a notice, because only
@@ -20,6 +22,7 @@ import json
 import os
 import re
 import sys
+from datetime import datetime, timezone
 
 import sdlc_layout  # sibling module: where feature state and sdlc documents live
 import verify_freshness as vf  # sibling hook: project root, git, worktree trees, freshness state
@@ -96,19 +99,42 @@ def check(root, name, text, anchor):
         if digest != first:
             notices.append("spec.md changed after the feature entered Stage 5")
     prev = anchor.get("stage")
-    # The Lite flow re-verifies fixes in-session, so leaving the build-verify-review loop (Stages 4-6) for anything
-    # else (Stage 7, 8, or the next slice's 3) needs a full run after the last change, like leaving Stage 5
-    lite = re.search(r"^Flow:\s*lite\b", text, re.M | re.I)
-    loop = (4, 5, 6)
-    if prev is not None and prev < 5 < (st or 0):
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")  # the model router's dispatch-log format
+    # Stops are samples: a Lite turn can run Stages 3 to 8 between two of them, so Stage 5 counts as passed when a
+    # verifier was dispatched in it since the last Stop (the evidence the Stage 5 gate trusts)
+    if prev is not None and prev < 5 < (st or 0) and not verifier_since(root, anchor.get("stop_time")):
         notices.append(f"went from Stage {prev} to Stage {st} without Stage 5")
-    elif st is not None and st != prev and (prev == 5 and st > 5 or lite and prev in loop and st not in loop):
+    # The Lite flow re-verifies fixes in-session, so outside the build-verify-review loop (Stages 4-6) the code must
+    # match the last full run: checked at every such Stop, since the move out of the loop may not be seen
+    lite = re.search(r"^Flow:\s*lite\b", text, re.M | re.I)
+    leaving_5 = prev == 5 and st is not None and st > 5
+    if st is not None and prev is not None and (leaving_5 or lite and st not in (4, 5, 6)):
         changed = changed_since_full_run(root, name)
-        if changed:
-            notices.append(f"left Stage {prev} for Stage {st} with code changed since the last full test run: "
-                           + ", ".join(changed[:5]))
+        anchor["untested_seen"] = changed
+        if changed and changed != anchor.get("untested_ok"):
+            where = f"left Stage 5 for Stage {st}" if leaving_5 else f"Stage {st}"  # stable text: seen once
+            notices.append(f"{where} with code changed since the last full test run: " + ", ".join(changed[:5]))
     anchor["stage"] = st
+    anchor["stop_time"] = now
     return notices
+
+
+def verifier_since(root, since):
+    try:
+        with open(os.path.join(root, ".sdlc", ".work", "dispatches.jsonl"), encoding="utf-8") as f:
+            lines = f.read().splitlines()
+    except OSError:
+        return False
+    for line in lines:
+        try:
+            d = json.loads(line)
+        except ValueError:
+            continue
+        if (isinstance(d, dict) and d.get("agent") == "sdlc:verifier" and not d.get("denied")
+                and str(d.get("time", "")) >= (since or "")
+                and any(re.match(r"Stage\s*5\b", str(s)) for s in d.get("stages") or [])):
+            return True
+    return False
 
 
 def changed_since_full_run(root, name):
@@ -134,6 +160,8 @@ def accept(anchor):
         anchor["commands_ok"] = anchor["commands_seen"]
     if "spec_seen" in anchor:
         anchor["spec"] = anchor["spec_seen"]
+    if "untested_seen" in anchor:
+        anchor["untested_ok"] = anchor["untested_seen"]
     anchor["notices"] = []
 
 

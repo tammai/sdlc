@@ -25,15 +25,16 @@ if m and os.environ.get("STUB_MODE", "").startswith("done"):
     text = open(path, encoding="utf-8").read()
     text = re.sub(rf"(?m)^(\| {m.group(0)} \|.*\| )todo( \|)$", r"\1done abc1234\2", text)
     open(path, "w", encoding="utf-8").write(text)
-if not m and os.environ.get("STUB_MODE") == "done-then-fail":
-    sys.exit(1)
+if not m and os.environ.get("STUB_MODE") == "done":  # feature close reaches its Stage 8 question
+    with open(os.environ["STUB_STATE"], "a", encoding="utf-8") as f:
+        f.write("Current: Stage 8 – PR / CI\n")
 '''
 
 
 class YoloTest(ProjectTestCase):
     def setUp(self):
         super().setUp()
-        self.write(".sdlc/state/login.md", "# login\nStatus: active\n")
+        self.state = self.write(".sdlc/state/login.md", "# login\nStatus: active\nCurrent: Stage 5 – Verify\n")
         self.backlog = self.write("docs/sdlc/intents/login/backlog.md", BACKLOG)
         self.log = self.path("calls.log")
         stub = self.write("bin/stub.py", STUB)
@@ -45,7 +46,7 @@ class YoloTest(ProjectTestCase):
 
     def yolo(self, mode):
         env = dict(os.environ, PATH=self.path("bin") + os.pathsep + os.environ["PATH"], STUB_LOG=self.log,
-                   STUB_MODE=mode, STUB_BACKLOG=self.backlog)
+                   STUB_MODE=mode, STUB_BACKLOG=self.backlog, STUB_STATE=self.state)
         p = subprocess.run([sys.executable, SCRIPT, "--root", self.root, "login"], capture_output=True,
                            encoding="utf-8", env=env)
         calls = open(self.log, encoding="utf-8").read().splitlines() if os.path.exists(self.log) else []
@@ -59,7 +60,7 @@ class YoloTest(ProjectTestCase):
     def test_a_failed_feature_close_is_not_reported_as_done(self):
         out, calls = self.yolo("done-then-fail")
         self.assertEqual(calls[-1], "/sdlc:start --yolo")
-        self.assertIn("claude exited 1", out["stopped"])
+        self.assertIn("feature close stopped at Stage 5", out["stopped"])
 
     def test_a_run_that_leaves_its_slice_unchanged_stops(self):
         out, calls = self.yolo("idle")

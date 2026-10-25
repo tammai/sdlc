@@ -159,7 +159,7 @@ Skills such as `sdlc:writing-specs` or `sdlc:test-driven-development` are used b
 | 10 | Operate | parked, no track runs it: watch window with agreed signals |
 | 11 | Learn | `managing-knowledge` (3-tier), `/sdlc:revise-claude-md`, `/sdlc:knowledge-audit`, `/sdlc:hookify`, `project-constitution` |
 
-Always on: security-guidance hooks, the verify-freshness hook (Stage 5 only, or Stages 5–6 on the Lite flow; per package in a monorepo), the model-router hook (while a feature is active: every subagent dispatch names its model, Fable only on your request, and each dispatch is logged), the trust-anchor hook (tells you when the risk, flow, baseline, commands or spec change under a feature, or it leaves Stage 5, or Stage 6 on the Lite flow, with untested code), the role-guard hook (reviewers can't edit files, the verifier writes only its report and the baseline, the qa-tester can't read the code), hookify rules (personal `.claude/hookify.*.local.md`, team `.claude/hookify/*.md`), TypeScript LSP.
+Always on: security-guidance hooks, the verify-freshness hook (Stage 5 only, or Stages 5–6 on the Lite flow; per package in a monorepo), the model-router hook (while a feature is active: every subagent dispatch names its model, Fable only on your request, and each dispatch is logged), the trust-anchor hook (tells you when the risk, flow, baseline, commands or spec change under a feature, or it leaves Stage 5, or on the Lite flow stops outside Stages 4–6, with untested code), the role-guard hook (reviewers can't edit files, the verifier writes only its report and the baseline, the qa-tester can't read the code), hookify rules (personal `.claude/hookify.*.local.md`, team `.claude/hookify/*.md`), TypeScript LSP.
 
 ## Knowledge: 3-tier loading
 

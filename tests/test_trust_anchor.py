@@ -1,7 +1,9 @@
 """hooks/trust_anchor.py: changes to what verification trusts are shown to the user, not made silently."""
+import json
 import os
 import subprocess
 import unittest
+from datetime import datetime, timezone
 
 from helpers import HOOKS, ProjectTestCase, run_hook
 
@@ -92,22 +94,29 @@ class TrustAnchorTest(ProjectTestCase):
         self.full_run()
         self.assertIsNone(self.stop())
 
-    def test_lite_flow_next_slice_after_a_full_run_is_not_a_notice(self):
-        self.state(stage=6, risk="low", flow="lite")
-        self.full_run()
-        self.stop()
-        self.state(stage=3, risk="low", flow="lite")  # the slice is committed; the next one starts at Stage 3
-        self.assertIsNone(self.stop())
-
-    def test_lite_flow_leaving_stage_6_with_an_untested_fix_is_a_notice(self):
-        self.state(stage=6, risk="low", flow="lite")
-        self.full_run()
-        self.stop()
-        self.write("src/login.ts", "export const a = 2\n")  # a review fix with no full run after it
+    def slice_in_one_turn(self, untested_fix=False, end=3):
+        # A whole slice between two Stops, as Lite and back-to-back slices run: no Stop lands in Stages 4-6
         self.state(stage=3, risk="low", flow="lite")
-        out = self.stop()
-        self.assertIn("left Stage 6", out["systemMessage"])
-        self.assertIn("src/login.ts", out["systemMessage"])
+        self.stop()
+        self.write("src/login.ts", "export const a = 2\n")
+        self.state(stage=5, risk="low", flow="lite")
+        self.full_run()
+        self.write(".sdlc/.work/dispatches.jsonl", json.dumps({
+            "time": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "stages": ["Stage 5 – Verify"],
+            "agent": "sdlc:verifier", "model": "sonnet", "denied": False}) + "\n")
+        if untested_fix:
+            self.write("src/login.ts", "export const a = 3\n")  # a review fix with no full run after it
+        self.state(stage=end, risk="low", flow="lite")  # 3: committed, the next slice starts; 8: feature done
+        return self.stop()
+
+    def test_lite_flow_slice_verified_within_one_turn_is_not_a_notice(self):
+        self.assertIsNone(self.slice_in_one_turn(end=8))  # Stage 5 ran unseen: the verifier dispatch shows it
+
+    def test_lite_flow_untested_fix_is_a_notice_until_the_user_accepts_it(self):
+        out = self.slice_in_one_turn(untested_fix=True)
+        self.assertIn("code changed since the last full test run: src/login.ts", out["systemMessage"])
+        self.prompt()
+        self.assertIsNone(self.stop())  # accepted: the same untested change doesn't block every later Stop
 
 
 if __name__ == "__main__":

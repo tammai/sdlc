@@ -159,7 +159,7 @@ Each round spawns a new `verifier`, which runs build, lint, typecheck and tests 
 | security-guidance | UserPromptSubmit, PostToolUse, Stop | Pattern warnings on edits, diff review at turn end, agentic review after `git commit` and `git push` |
 | verify-freshness | PostToolUse, PostToolUseFailure, Stop | Stage 5 only (Stages 5–6 on the Lite flow): stale/fresh test tracking (above) |
 | model-router | PreToolUse (Agent) | While a feature is active: denies a subagent dispatch that names no model, asks for Fable without `Top model: fable`, or runs a reviewer below Opus on `Risk: high`; logs every dispatch with the stage to `.sdlc/.work/dispatches.jsonl` |
-| trust-anchor | Stop, UserPromptSubmit | Tells you when what verification trusts changes: Track, Risk, Flow or Top model; new baseline failures; changed commands; the spec after Stage 5 began; leaving Stage 5 (Lite: or 6) with untested code. Your next message accepts it |
+| trust-anchor | Stop, UserPromptSubmit | Tells you when what verification trusts changes: Track, Risk, Flow or Top model; new baseline failures; changed commands; the spec after Stage 5 began; leaving Stage 5 with untested code, or on the Lite flow any Stop outside Stages 4–6 with untested code. Your next message accepts it |
 | role-guard | PreToolUse (file tools) | Holds the plugin's own agents to their role: reviewers can't edit files, the verifier writes only its report, the baseline and its red-green worktree, the qa-tester can't read or search code. Bash stays open to them |
 | ralph-loop | Stop | Only while a `/sdlc:ralph-loop` is running |
 | SessionStart | SessionStart | Creates a Python environment for the security reviewer on first run |

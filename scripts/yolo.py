@@ -9,6 +9,7 @@ Stops when:
   - the feature isn't `Status: active` any more
   - a slice is `blocked: <reason>`, or nothing is ready while slices remain
   - a run exits non-zero, or leaves its slice's status unchanged (it would loop)
+  - feature close ends anywhere but Stage 8 (it stopped on a failed gate)
 Passes no permission-bypass flag; `--permission-mode` is handed to claude as given (without it or an allowlist,
 a headless session can't edit files or run commands). Claude Code only.
 Usage: python3 yolo.py [--root DIR] [--permission-mode MODE] FEATURE
@@ -99,6 +100,10 @@ def yolo(root, feature, mode, ran):
         if all(backlog.is_done(r) for r in rows):
             run(root, claude, "/sdlc:start --yolo", mode)
             ran.append("feature close")
+            # claude exits 0 when a session ends normally, also one that stopped on a failed gate: read the state
+            stages = re.findall(r"^Current:\s*(Stage\s*\d+)", read(state), re.M | re.I)
+            if not stages or not re.fullmatch(r"Stage\s*8", stages[-1], re.I):
+                raise Stop(f"feature close stopped at {stages[-1] if stages else 'an unknown stage'}: see {state}")
             return "feature close ran: answer its Stage 8 question"
         slice_id = backlog.next_slice(rows)
         if not slice_id:
@@ -111,8 +116,14 @@ def yolo(root, feature, mode, ran):
             raise Stop(f"{slice_id} is still {before} after its run")
 
 
+class Parser(argparse.ArgumentParser):
+    def error(self, message):  # usage errors are one JSON object too
+        print(json.dumps({"stopped": f"usage: {message}", "ran": []}))
+        sys.exit(2)
+
+
 def main(argv=None):
-    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap = Parser(description=__doc__.split("\n")[0])
     ap.add_argument("--root", default=".")
     ap.add_argument("--permission-mode")
     ap.add_argument("feature")

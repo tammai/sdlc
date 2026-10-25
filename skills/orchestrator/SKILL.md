@@ -47,6 +47,7 @@ Anything touching auth, payments, secrets, PII or schema migrations is at least 
 | M, risk low, lite flow | native (this session) | standard, including the Stage 6 review | light |
 | M, risk low, full flow | cheap or standard, per task | standard; Stage 6 whole-branch review top | light |
 | L, or risk high | standard | top | top, full Stage 7 |
+| Backlog slice (any track) | native (this session) | standard, top on risk high; Feature close review top | at Feature close: light, full on L or risk high |
 
 The top tier is `opus`. Use `fable` only when the user asks for it; record it as `Top model: fable`.
 
@@ -91,7 +92,7 @@ Too big for one session (more than about 8 tasks, or several distinct parts): in
 
 For a feature too big for one session, so the work can pause, `/clear` and resume between slices, or run in fresh sessions (yolo). S never gets a backlog; a feature that fits one session keeps its flow.
 
-1. **Backlog.** Copy `${CLAUDE_PLUGIN_ROOT}/templates/backlog-template.md` to `<intents>/backlog.md`: one row per vertical slice (something a test or user can see working end to end), with its FRs, acceptance criteria, dependencies and size. Every spec FR is in some row. **Approval:** on M (Lite flow), with the spec, in one message; on L, at the Stage 3 gate, replacing the plan and the execution-method question.
+1. **Backlog.** Copy `${CLAUDE_PLUGIN_ROOT}/templates/backlog-template.md` to `<intents>/backlog.md`: one row per vertical slice (something a test or user can see working end to end), with its FRs, acceptance criteria, dependencies and size. Every spec FR is in some row. **Approval:** on M (any risk: size the work while writing the spec), with the spec, in one message; on L, at the Stage 3 gate, replacing the plan and the execution-method question. Set `Flow: lite` in the same turn as that gate message, so the user's approval also accepts the trust anchor's `Flow:` notice.
 2. **Flow.** Set `Flow: lite` at any track and risk: every slice runs Lite's inner loop. Lite's strike-out list doesn't apply: Stage 3 is each slice's plan, and L keeps Stage 2 and 11. Tiers follow Model Selection (standard; top on `Risk: high`, which the model router enforces). The Lite size-up rule doesn't apply to a backlog feature. `Base:` stays the feature's start; Stages 7, 8 and 11 run once, at Feature close.
 3. **Pick the slice:** `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/backlog.py" next <intents>/backlog.md` (a slice in progress, else the first `todo` whose dependencies are done; `check <backlog> B<n>` for a named one). In state.md set `Slice: B<n>` and `Slice base: <HEAD>`, and the row to `in progress`.
 4. **Each slice** (Stage 3 → 4 → 5 → 6, with the usual stage headers):
@@ -102,7 +103,7 @@ For a feature too big for one session, so the work can pause, `/clear` and resum
 5. **Gates.** `Slice gates: none` (default): slices run back to back without asking. They stop only for a failed gate (a second verifier FAIL), a backlog change that adds scope, or a hard stop (merge, deploy, migrations, anything irreversible). The user can opt in to stops at `plan`, `review` (show the findings before fixing) or `commit`, e.g. `Slice gates: plan, commit`.
 6. **Backlog changes.** A slice that turns out too big, or work no slice covers: propose the change. A split that keeps the same FRs is made and logged in the Gate log. Anything that adds scope (a new FR, or work outside the spec) waits for the user; never add it silently.
 7. **Context.** At a slice boundary, if the next slice won't fit in what's left of this session, stop with one line: `B<n> done (<commit>). Next: B<m> <title>. Run /clear, then /sdlc:start.` For a long backlog the user can run yolo instead: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/yolo.py" <feature>` from a terminal starts a fresh headless Claude Code session per slice, then one for Feature close, and stops on a blocked slice, a run that changed nothing, or an open trust-anchor notice. Off unless the user asks for it.
-   **In a yolo session** (the request ends with `--yolo`): no one is there to answer. Run the one slice named (or Feature close), then end. Several active features: change nothing and end, saying why. Never ask: `Slice gates` count as `none`, and anything that would ask (a failed gate, a scope-adding backlog change, a hard stop) sets the slice's row to `blocked: <reason>`, saves state and ends the session. Feature close ends at Stage 8's merge, PR or keep question; ask it and end.
+   **In a yolo session** (the request ends with `--yolo`): no one is there to answer. Run the one slice named (or Feature close), then end. Several active features: change nothing and end, saying why. A Feature close that can't reach Stage 8 (a second verifier FAIL, a high finding it can't fix): write why in the Gate log and Open questions, leave `Current:` where it stopped, and end. Never ask: `Slice gates` count as `none`, and anything that would ask (a failed gate, a scope-adding backlog change, a hard stop) sets the slice's row to `blocked: <reason>`, saves state and ends the session. Feature close ends at Stage 8's merge, PR or keep question; ask it and end.
 8. **▶ Feature close**, once every row is `done` (in a fresh session if this one is low on context; `/sdlc:start` lands here). Print the stage header for each step:
    - Verify (Stage 5): one fresh verifier round on the whole branch, over every acceptance criterion in the spec; a FAIL is handled as in Lite step 3.
    - Review (Stage 6): the feature's one top-tier `sdlc:code-reviewer`, on `Base..HEAD`, with `diff_stats.py --base <Base>` and one `--plan` per `plan-B*.md` in `<intents>` (the union of their Public Surface is what's declared) and a brief on how the slices fit together. Fixes as in Lite step 4.
@@ -233,7 +234,7 @@ Status: active
 Docs: <intents>   (this feature's documents folder)
 Track: S | M | L   (sized up because: <named signal, or "—" for the smallest fitting track>)
 Risk: low | high   (<signal: auth, payments, secrets, PII, migration, public API>)
-Flow: lite | full   (lite: M track with risk low, unless the user asked for full)
+Flow: lite | full   (lite: M track with risk low unless the user asked for full, or any backlog feature)
 Top model: opus   (fable only if the user chose it)
 Commands: test: `<commands.test>`   (monorepo: one per package, e.g. api: `cd services/api && go test ./...`; no setup: the detected commands)
 Started: <date>

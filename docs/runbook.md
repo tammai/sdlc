@@ -104,7 +104,7 @@ Cause: the SessionStart hook builds a venv with the Claude Agent SDK in the back
 
 ### R4. Blocked at Stop with "re-run tests"
 
-The verify-freshness hook is active only while `state.md` says `Current: Stage 5 – Verify`.
+The verify-freshness hook is active only while `state.md` says `Current: Stage 5 – Verify`, or Stage 5 or 6 with `Flow: lite`.
 
 1. Run the **full** test command: `commands.test` from `.sdlc/config.json` (monorepo: the stale package's own, from its `path`; the block message names it), or the `test:` command in `state.md`. A filtered run, single test file, pytest node id or single Go package doesn't count.
 2. Make sure no code changed after that run. Formatters, `sed -i` and subagents count as changes; the hook compares the worktree against the tree recorded at the last full run.
