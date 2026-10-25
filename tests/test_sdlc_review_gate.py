@@ -15,9 +15,10 @@ STATE = "# login\nStatus: active\nBase: {base}\nCurrent: Stage {stage} – x\n"
 class ReviewGateTest(ProjectTestCase):
     def setUp(self):
         super().setUp()
-        self.git("init", "-q")
+        self.git("init", "-q", "-b", "main")
         self.commit("a.ts", "one\n")
         self.base = self.head()
+        self.git("checkout", "-q", "-b", "feature")
 
     def git(self, *args):
         return subprocess.run(["git", "-C", self.root, "-c", "user.email=t@t", "-c", "user.name=t", *args],
@@ -57,6 +58,17 @@ class ReviewGateTest(ProjectTestCase):
         self.assertFalse(plan["defer"])
         self.assertEqual(len(plan["shas"]), sdlc_review_gate.MAX_DEFER)
         self.assertEqual(plan["range"][0], self.base)  # the net diff starts at Base: every commit is in it
+
+    def test_moving_base_forward_doesnt_reset_the_deferral_cap(self):
+        # Base: is agent-writable; the cap counts from where the branch left main, which the agent can't move
+        self.stage(4)
+        for n in range(sdlc_review_gate.MAX_DEFER):
+            self.commit("a.ts", f"one\n{n}\n")
+        self.stage(4, base=self.git("rev-parse", "HEAD~1"))
+        plan = sdlc_review_gate.decide(self.root, [self.head()[:7]], set())
+        self.assertFalse(plan["defer"])
+        self.assertEqual(len(plan["shas"]), sdlc_review_gate.MAX_DEFER)
+        self.assertEqual(plan["range"][0], self.base)  # every unreviewed commit is in the diff
 
     def test_without_an_active_feature_a_commit_is_reviewed_as_before(self):
         self.commit("b.ts", "2")

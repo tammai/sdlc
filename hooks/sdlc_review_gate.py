@@ -8,8 +8,11 @@ its `Base:` is an ancestor of HEAD (a state file from another branch never holds
   - from Stage 5 on, the commit is reviewed together with every unreviewed commit since `Base:`, as one net diff
     from `Base:` (`range`), so every hunk of every commit, side branches included, is in what's reviewed.
 The state file is writable by the agent the review checks, so deferral is bounded: never for a commit that
-touches the hooks or the agent's or sdlc's config, and not once MAX_DEFER commits are unreviewed (the review then
-widens). More than MAX_WIDEN unreviewed commits: no widening (the push review still sees them).
+touches the hooks, the agents' instructions or config, or sdlc's state and config (paths read NUL-separated, every
+parent of a merge, both sides of a rename), and not once MAX_DEFER commits are unreviewed, counted from where the
+branch left the default branch (a point `Base:` can't move); the review then widens. The widened diff starts at
+`Base:` only when every commit it covers descends from it, else at that branch point. MAX_WIDEN or more unreviewed
+commits: no widening (the push review still sees them).
 Anything else, or any error: the commits are reviewed exactly as given. The push review is untouched.
 """
 import os
@@ -20,7 +23,8 @@ import sdlc_layout  # sibling module: where feature state lives
 
 MAX_DEFER = 10
 MAX_WIDEN = 30
-NEVER_DEFER = re.compile(r"^(\.claude/|\.sdlc/config\.json$|\.github/|hooks/|\.codex/|\.cursor/|\.agents/)")
+NEVER_DEFER = re.compile(r"^(\.claude/|\.sdlc/(config\.json|state/)|\.github/|hooks/|\.codex/|\.cursor/|\.agents/"
+                         r"|AGENTS\.md$|CLAUDE\.md$|\.mcp\.json$)")
 
 
 def _git(root, *args):
@@ -47,10 +51,19 @@ def _active_feature(root):
 
 def _touches_guarded_paths(root, shas):
     for s in shas:
-        files = _git(root, "show", "--name-only", "--format=", s)
-        if files is None or any(NEVER_DEFER.match(f) for f in files.splitlines()):
+        files = _git(root, "diff-tree", "-r", "--no-commit-id", "--name-only", "-z", "--no-renames", "-m", "--root", s)
+        if files is None or any(NEVER_DEFER.match(f) for f in files.split("\0") if f):
             return True
     return False
+
+
+def _branch_point(root):
+    """Where HEAD left the default branch, which no file in the repo can move; None on the default branch itself."""
+    for ref in ("origin/HEAD", "origin/main", "origin/master", "main", "master"):
+        point = _git(root, "merge-base", "HEAD", ref)
+        if point:
+            return None if point == _git(root, "rev-parse", "HEAD") else point
+    return None
 
 
 def decide(repo_root, shas, reviewed):
@@ -65,8 +78,11 @@ def decide(repo_root, shas, reviewed):
         if not (stage and base) or _git(repo_root, "merge-base", "--is-ancestor", base.group(1), "HEAD") is None:
             return given
         start = _git(repo_root, "rev-parse", "--verify", "-q", base.group(1))
+        anchor = _branch_point(repo_root) or start
+        if anchor != start and _git(repo_root, "merge-base", "--is-ancestor", anchor, start) is None:
+            anchor = start  # Base: predates the branch point (a long-lived branch): count from Base:
         full = [_git(repo_root, "rev-parse", "--verify", "-q", s) or s for s in shas]
-        since = (_git(repo_root, "rev-list", f"{start}..HEAD") or "").split()
+        since = (_git(repo_root, "rev-list", f"{anchor}..HEAD") or "").split()
         unreviewed = [s for s in since if s not in reviewed]
         if (int(stage.group(1)) < 5 and len(unreviewed) < MAX_DEFER
                 and not _touches_guarded_paths(repo_root, full)):
@@ -74,6 +90,7 @@ def decide(repo_root, shas, reviewed):
         extra = [s for s in unreviewed if s not in full]
         if not extra or len(extra) >= MAX_WIDEN:
             return {"defer": False, "shas": full, "range": None, "active": True}
-        return {"defer": False, "shas": full + extra, "range": (start, full[0]), "active": True}
+        covered = all(_git(repo_root, "merge-base", "--is-ancestor", start, s) is not None for s in extra)
+        return {"defer": False, "shas": full + extra, "range": (start if covered else anchor, full[0]), "active": True}
     except Exception:
         return given
