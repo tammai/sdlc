@@ -215,8 +215,10 @@ def check_repo(r, root):
             r.add(g, "commands run", "warn", "never run successfully since recorded: " + ", ".join(unrun),
                   f"python3 scripts/scaffold.py run-commands · {RUNBOOK} R13")
         try:
-            agents = scaffold.agents_state(p)
-            if agents != "off":
+            agents, cut = scaffold.agents_state(p), scaffold.codex_cut(p)
+            if cut:
+                r.add(g, "AGENTS.md", "warn", cut, "python3 scripts/scaffold.py agents after shortening")
+            elif agents != "off":
                 r.add(g, "AGENTS.md", "ok" if agents == "in_sync" else "warn",
                       f"the sdlc block matches its sources (hosts: {', '.join(scaffold.hosts(p))})"
                       if agents == "in_sync" else

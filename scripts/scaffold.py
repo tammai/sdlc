@@ -790,6 +790,7 @@ def cmd_add_host(p, a):
 AGENTS_BLOCK = re.compile(r"<!-- sdlc:begin\b[^\n]*?-->.*?<!-- sdlc:end -->(?:\r?\n)?", re.S)
 AGENTS_WORKFLOW = "templates/project/agents/workflow.md"
 AGENTS_MIRROR = ".claude/rules/sdlc-agents-md.md"
+CODEX_DOC_BYTES = 32 * 1024  # Codex's default project_doc_max_bytes: it reads AGENTS.md text up to this, then stops
 # (pattern, replacement); None means no equivalent outside Claude Code, so the build stops at that line
 CLAUDE_ONLY = [
     (re.compile(r"^@(\S+)\s*$"), r"Also read `\1`."),  # CLAUDE.md import line
@@ -894,6 +895,18 @@ def agents_mirror(p):
             "wrote for other agents. Edit AGENTS.md; setup and upgrade refresh this file. -->\n" + own + "\n")
 
 
+def codex_cut(p):
+    """Why Codex misses part of the block, or None. The root AGENTS.md comes first in what Codex reads and the block
+    sits at its end, so a root file over the cap loses the block's tail; nested AGENTS.md files come after it."""
+    text = agents_md_text(p)
+    size = len(text.encode("utf-8")) if text else 0
+    if "codex" not in hosts(p) or size <= CODEX_DOC_BYTES or not AGENTS_BLOCK.search(text):
+        return None
+    return (f"{AGENTS} is {size // 1024} KiB and Codex reads only the first {CODEX_DOC_BYTES // 1024} KiB, so it misses "
+            "the end of the sdlc block: shorten CLAUDE.md, .claude/rules/ or AGENTS.md's own text, or raise "
+            "project_doc_max_bytes in ~/.codex/config.toml")
+
+
 def agents_state(p):
     """off | in_sync | stale: AGENTS.md's block and the Claude Code mirror against a fresh build (line endings ignored)."""
     want, mirror = agents_block(p), agents_mirror(p)
@@ -967,7 +980,9 @@ def cmd_agents(p, a):
             raise ValueError(f"{AGENTS} or its Claude Code mirror is out of date with CLAUDE.md, .claude/rules/, "
                              "AGENTS.md or the recorded hosts; run `scaffold.py agents`")
         return {"state": agents_state(p), "hosts": hosts(p)}
-    return {"result": write_agents(p, agents_block(p)), "mirror": write_mirror(p), "hosts": hosts(p)}
+    out = {"result": write_agents(p, agents_block(p)), "mirror": write_mirror(p), "hosts": hosts(p)}
+    cut = codex_cut(p)
+    return dict(out, warning=cut) if cut else out
 
 
 # --- migrations ---------------------------------------------------------------------------

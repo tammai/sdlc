@@ -209,6 +209,17 @@ class DoctorTest(ProjectTestCase):
         self.write("CLAUDE.md", "Use pnpm.\n")
         self.assertEqual(self.check("AGENTS.md")["status"], "warn")
 
+    def test_agents_md_past_codex_cap_warns(self):
+        self.setup_repo()
+        self.write("CLAUDE.md", "Keep functions short and name them for what they do.\n" * 700)  # about 36 KiB
+        for args in (["add-host", "codex"], ["agents"]):
+            done = subprocess.run([sys.executable, SCAFFOLD, "--root", self.root, *args], check=True,
+                                  capture_output=True, encoding="utf-8")
+        self.assertIn("32 KiB", json.loads(done.stdout)["warning"])
+        c = self.check("AGENTS.md")
+        self.assertEqual(c["status"], "warn")
+        self.assertIn("misses the end of the sdlc block", c["detail"])
+
     def test_knowledge_index_links(self):
         self.write("knowledge/conventions/naming.md", "x")
         self.assertIn("no index.md", self.check("knowledge index")["detail"])
