@@ -70,6 +70,13 @@ class ReviewGateTest(ProjectTestCase):
         self.assertEqual(len(plan["shas"]), sdlc_review_gate.MAX_DEFER)
         self.assertEqual(plan["range"][0], self.base)  # every unreviewed commit is in the diff
 
+    def test_on_the_default_branch_nothing_is_deferred(self):
+        # No branch point to count deferrals from: fail closed
+        self.git("checkout", "-q", "main")
+        self.stage(4)
+        self.commit("a.ts", "one\non main\n")
+        self.assertFalse(sdlc_review_gate.decide(self.root, [self.head()[:7]], set())["defer"])
+
     def test_without_an_active_feature_a_commit_is_reviewed_as_before(self):
         self.commit("b.ts", "2")
         self.assertEqual(sdlc_review_gate.decide(self.root, ["abc1234"], set()),

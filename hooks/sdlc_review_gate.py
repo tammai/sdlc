@@ -10,7 +10,8 @@ its `Base:` is an ancestor of HEAD (a state file from another branch never holds
 The state file is writable by the agent the review checks, so deferral is bounded: never for a commit that
 touches the hooks, the agents' instructions or config, or sdlc's state and config (paths read NUL-separated, every
 parent of a merge, both sides of a rename), and not once MAX_DEFER commits are unreviewed, counted from where the
-branch left the default branch (a point `Base:` can't move); the review then widens. The widened diff starts at
+branch left the default branch (a point `Base:` can't move; on the default branch itself nothing is deferred); the
+review then widens. The widened diff starts at
 `Base:` only when every commit it covers descends from it, else at that branch point. MAX_WIDEN or more unreviewed
 commits: no widening (the push review still sees them).
 Anything else, or any error: the commits are reviewed exactly as given. The push review is untouched.
@@ -78,13 +79,14 @@ def decide(repo_root, shas, reviewed):
         if not (stage and base) or _git(repo_root, "merge-base", "--is-ancestor", base.group(1), "HEAD") is None:
             return given
         start = _git(repo_root, "rev-parse", "--verify", "-q", base.group(1))
-        anchor = _branch_point(repo_root) or start
+        point = _branch_point(repo_root)  # None on the default branch: nothing to count from, so never defer
+        anchor = point or start
         if anchor != start and _git(repo_root, "merge-base", "--is-ancestor", anchor, start) is None:
             anchor = start  # Base: predates the branch point (a long-lived branch): count from Base:
         full = [_git(repo_root, "rev-parse", "--verify", "-q", s) or s for s in shas]
         since = (_git(repo_root, "rev-list", f"{anchor}..HEAD") or "").split()
         unreviewed = [s for s in since if s not in reviewed]
-        if (int(stage.group(1)) < 5 and len(unreviewed) < MAX_DEFER
+        if (point and int(stage.group(1)) < 5 and len(unreviewed) < MAX_DEFER
                 and not _touches_guarded_paths(repo_root, full)):
             return {"defer": True, "shas": [], "range": None, "active": True}
         extra = [s for s in unreviewed if s not in full]
