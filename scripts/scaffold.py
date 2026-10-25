@@ -593,6 +593,34 @@ def generate_contract_check(p):
     return "\n".join(lines) + "\n"
 
 
+INVARIANTS = [("templates/project/ci/invariants.py", ".sdlc/ci/invariants.py"),
+              ("builtin:invariants", ".github/workflows/sdlc-invariants.yml")]
+
+
+def generate_invariants(p):
+    """Workflow that checks the shared sdlc files (invariants.py): on Linux only, with the history the checks compare."""
+    pad = " " * 6
+    lines = [
+        f"# Managed by the sdlc plugin v{plugin_version()} (seeded: replaced on upgrade only while unedited).",
+        "# Checks test reports, the baseline and specs of active features: see .sdlc/ci/invariants.py.",
+        "name: sdlc invariants", "", "on:", "  pull_request:", "  push:", "    branches: [main, master]", "",
+        "permissions:", "  contents: read", "",
+        "jobs:", "  invariants:", "    runs-on: ubuntu-latest", "    timeout-minutes: 10", "    steps:",
+        pad + "- uses: actions/checkout@v7", pad + "  with:", pad + "    fetch-depth: 0",
+        pad + '- name: "shared sdlc files"',
+        pad + "  env:  # branch names reach the shell only as variables",
+        pad + "    BASE_REF: ${{ github.base_ref }}", pad + "    BEFORE: ${{ github.event.before }}",
+        pad + "  run: |",
+        pad + '    if [ -n "$BASE_REF" ]; then',
+        pad + '      python3 .sdlc/ci/invariants.py --base "origin/$BASE_REF" --require-ancestor',
+        pad + '    elif [ -n "$BEFORE" ] && [ "$BEFORE" != 0000000000000000000000000000000000000000 ]; then',
+        pad + '      python3 .sdlc/ci/invariants.py --base "$BEFORE"',
+        pad + "    else",
+        pad + "      python3 .sdlc/ci/invariants.py",
+        pad + "    fi"]
+    return "\n".join(lines) + "\n"
+
+
 def generate_codeowners(p):
     """CODEOWNERS from `project.owners`, in config order: the last matching line wins, so order is the user's."""
     owners = effective_config(p.config).get("project", {}).get("owners") or {}
@@ -613,6 +641,8 @@ def render_source(template, p):
         return generate_contract_check(p)
     if template == "builtin:codeowners":
         return generate_codeowners(p)
+    if template == "builtin:invariants":
+        return generate_invariants(p)
     if template == "builtin:agents-mirror":
         return agents_mirror(p) or ""
     with open(os.path.join(PLUGIN_ROOT, template), encoding="utf-8") as f:
@@ -1078,6 +1108,14 @@ def cmd_upgrade_plan(p, a):
             if os.path.exists(p.path(dest)):
                 item["exists"] = True  # a file the plugin never wrote is in the way: review, never overwrite
             plan["add"].append(item)
+    # the invariants check sits next to the verify workflow, for every host: offered to repos that chose CI
+    if any(re.fullmatch(r"\.github/workflows/sdlc-verify(-.+)?\.yml", path) for path in tracked):
+        for tpl, dest in INVARIANTS:
+            if dest not in tracked and dest not in declined:
+                item = {"path": dest, "template": tpl, "class": "seeded"}
+                if os.path.exists(p.path(dest)):
+                    item["exists"] = True
+                plan["add"].append(item)
     for path, e in sorted(lock.get("files", {}).items()):
         tpl = e.get("template")
         if not tpl:

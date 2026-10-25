@@ -29,7 +29,7 @@ Setup runs on a `sdlc/setup` branch with one commit per step, resumes where it s
 | Class | Examples | On upgrade |
 |---|---|---|
 | Generated | `.claude/rules/sdlc*.md` | regenerated |
-| Seeded | `.claude/hookify/sdlc-*.md`, `.github/workflows/sdlc-verify.yml`, `.sdlc/lint/*` | replaced only if you haven't edited it; otherwise you choose: merge, skip, or keep yours for good |
+| Seeded | `.claude/hookify/sdlc-*.md`, `.github/workflows/sdlc-verify.yml`, `sdlc-invariants.yml`, `.sdlc/ci/invariants.py`, `.sdlc/lint/*` | replaced only if you haven't edited it; otherwise you choose: merge, skip, or keep yours for good |
 | Keyed merge | allowlist and plugin-enablement keys in `.claude/settings.json`, `.gitignore` lines, the `<!-- sdlc:begin -->` block in `AGENTS.md` | only the entries the plugin added; the block is rebuilt, your text around it is never touched |
 | Yours | the commands in `.sdlc/config.json`, `CLAUDE.md`, constitution, design system, `knowledge/`, baseline, your own rules | changed only by migrations you approve |
 
@@ -170,6 +170,7 @@ In Codex, Cursor and the Antigravity CLI, `hosts/hook.py` runs hookify, verify-f
   baseline.md              known failures from before setup (yours)
   state/<feature>.md       track, stage, gate log, deviations, open questions, and the feature's Docs: folder
   lint/                    sdlc lint snippets your ESLint/Ruff config imports (seeded)
+  ci/invariants.py         checks test reports, the baseline and specs of active features in CI (seeded)
   ci/contract-check.sh     the API contract check CI runs (multi-app repos that chose it; seeded)
   .work/                   scratch, git-ignored (also verify-freshness.json)
 docs/sdlc/                 docs_dir: the documents people read (default; setup asks when the repo publishes docs/)
@@ -182,6 +183,7 @@ knowledge/                 tier 3, on-demand docs (index.md links everything)
 .claude/rules/sdlc*.md     plugin policy rules: workflow, code style, tests, migrations, sensitive areas, CI (generated)
 .claude/hookify/*.md       team hookify rules; sdlc-*.md are the plugin's guardrails (seeded)
 .github/workflows/sdlc-verify.yml   CI generated from the commands in config (seeded)
+.github/workflows/sdlc-invariants.yml   runs .sdlc/ci/invariants.py on pull requests and pushes (seeded)
 CLAUDE.md                  tier 1, at most 60 lines (never touched by the plugin)
 ```
 
@@ -198,6 +200,7 @@ Track: S | M | L   (sized up because: <named signal, or "—">)
 Risk: low | high   (<signal>)
 Top model: opus   (fable only if the user chose it)
 Base: <commit the feature started from>
+Owner: <git email of whoever advances it>   Tool: <claude-code | codex | cursor | antigravity>
 Verified: <commit the Stage 5 gate passed on> tree <worktree tree at that gate>
 Commands: test: `<test command>`   (monorepo: one per package; no setup: the detected command)
 Current: Stage <n> – <name>

@@ -34,6 +34,6 @@ Check: `$S contract` → `ok: true` and `tools_ok: true`. Then `$S run-commands`
 
 ## `ci`
 
-`$S render builtin:ci .github/workflows/sdlc-verify.yml --class seeded` generates the workflow from the commands: one toolchain setup per stack, then install and the verify steps per package (with `working-directory`), on an OS matrix from `ci.os`. Windows contributors → set `"ci": {"os": ["ubuntu-latest", "windows-latest"]}` in `.sdlc/config.json` first. A stack without a known setup action gets a `# TODO` line in the workflow: fill it in and tell the user.
+`$S render builtin:ci .github/workflows/sdlc-verify.yml --class seeded` generates the workflow from the commands: one toolchain setup per stack, then install and the verify steps per package (with `working-directory`), on an OS matrix from `ci.os`. Windows contributors → set `"ci": {"os": ["ubuntu-latest", "windows-latest"]}` in `.sdlc/config.json` first. A stack without a known setup action gets a `# TODO` line in the workflow: fill it in and tell the user. Next to it, `$S render templates/project/ci/invariants.py .sdlc/ci/invariants.py --class seeded` and `$S render builtin:invariants .github/workflows/sdlc-invariants.yml --class seeded`: on every pull request it checks the shared sdlc files (test reports, the baseline, specs) whichever agent or person changed them. Tell the user to make `sdlc invariants` a required check too.
 
 Then continue with the common steps in `SKILL.md`. Greenfield has no baseline: every command passes, so there are no known failures.

@@ -49,7 +49,7 @@ Anything touching auth, payments, secrets, PII or schema migrations is at least 
 The top tier is `opus`. Use `fable` only when the user asks for it; record it as `Top model: fable`.
 
 7. **Name the feature:** `<yyyy-mm-dd>-<slug>`, or `<yyyy-mm-dd>-<ticket>-<slug>` when the request names a ticket (`2026-10-22-PROJ-123-month-filter`; a GitHub issue is `gh-42`). The date is today's, the same as `Started:`; the slug is 2–4 kebab-case words, action-noun where possible (`user-auth`, `fix-payment-timeout`), keeping technical terms (OAuth2, JWT). If `<intents>/` already exists and isn't the feature being resumed, add `-2` (then `-3`, …). The feature's branch and `knowledge/features/<name>.md` use the same name.
-8. Run `scaffold.py paths <name>` once: it gives `state` and `intents` for this repo's layout (`.sdlc/state/<name>.md` and `<docs>/intents/<name>/` once set up). Create `<state>` from the template at the bottom, with its `Docs:` line set to the `intents` folder, with `Base:` set to `git rev-parse --short HEAD` (the commit the feature starts from; in a monorepo, Stage 5 then only requires tests for packages the feature changed). Announce: track, risk, stages to run, first stage, and `Top tier: opus (say "use fable" to switch)`. If the track is L or the risk is high and the session runs on a smaller model than the top tier, add one line suggesting `/model opus` for this session. If the track is S or M with risk low and the session runs on the top tier or above, add one line instead: `This track runs well on Sonnet: /model sonnet to save cost (reviewers and the verifier keep their own models).` Never block on either, and say it once per feature.
+8. Run `scaffold.py paths <name>` once: it gives `state` and `intents` for this repo's layout (`.sdlc/state/<name>.md` and `<docs>/intents/<name>/` once set up). Create `<state>` from the template at the bottom, with its `Docs:` line set to the `intents` folder, with `Base:` set to `git rev-parse --short HEAD` (the commit the feature starts from; in a monorepo, Stage 5 then only requires tests for packages the feature changed), `Owner:` to `git config user.email`, and `Tool:` to the agent running this (`scaffold.py host` names it). Announce: track, risk, stages to run, first stage, and `Top tier: opus (say "use fable" to switch)`. If the track is L or the risk is high and the session runs on a smaller model than the top tier, add one line suggesting `/model opus` for this session. If the track is S or M with risk low and the session runs on the top tier or above, add one line instead: `This track runs well on Sonnet: /model sonnet to save cost (reviewers and the verifier keep their own models).` Never block on either, and say it once per feature.
 
 ## Stage header
 
@@ -167,6 +167,7 @@ You (the orchestrator) may run commands to investigate, but the verdict always c
 
 - Every subagent dispatch names its `model` from the tiers in Model Selection, chosen by `Track:` and `Risk:`. An omitted model inherits the session's, and the `model:` in agent frontmatter is only a fallback. The model-router hook denies a dispatch with no model, `fable` without `Top model: fable`, and a code-reviewer, feature-reviewer, ui-reviewer, verifier or qa-tester below `opus` on `Risk: high`.
 - One stage at a time. Update state.md at every transition (stage, gate result, artifact paths).
+- **Ownership:** before advancing a stage, compare `Owner:` with `git config user.email`. If someone else owns the feature, say who and which tool (`Tool:`), and ask before going on: two people advancing one feature conflict on its state file. On yes, set `Owner:` and `Tool:` to yours and add a Deviations line: `<date> handover from <old owner>`. No `Owner:` line means unowned: write yours at the next transition.
 - **Hard stops — always ask the user:** end of Stage 1, end of Stage 2, choice of execution method, merges, production deploys, DB migrations, anything irreversible.
 - A failed gate means stay in the stage or step back one; write why in state.md.
 - If the user says "skip" / "just ship it": name the gates being skipped, record them under Deviations, then comply.
@@ -187,6 +188,8 @@ Top model: opus   (fable only if the user chose it)
 Commands: test: `<commands.test>`   (monorepo: one per package, e.g. api: `cd services/api && go test ./...`; no setup: the detected commands)
 Started: <date>
 Base: <commit the feature started from>
+Owner: <git config user.email of whoever advances it>
+Tool: <the agent: claude-code | codex | cursor | antigravity>
 Verified: <commit the Stage 5 gate passed on> tree <worktree tree at that gate>
 Current: Stage <n> – <name>
 

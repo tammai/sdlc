@@ -81,6 +81,8 @@ For deeper scanning, see `skills/orchestrator/references/integrations.md`. Claud
 
 New session, same feature: nothing to re-explain. The state file and artifacts carry it.
 
+**Someone else's feature:** the state file names its `Owner:` and `Tool:`. Before advancing a feature you don't own, the orchestrator asks, then records the handover under Deviations.
+
 **Pause a feature:** set `Status:` in its `state.md` to something other than `active` (for example `paused`) so `/sdlc:start` stops picking it up; set it back to resume.
 
 ## 6. Verify keeps failing
@@ -180,7 +182,7 @@ Interrupted? Run `/sdlc:setup` again; it resumes from the last finished step.
 1. Create an empty repo (README and LICENSE are fine) and run `/sdlc:setup what you're building`.
 2. Answer a few stack questions; it proposes the stack, layout and the commands per package. **You approve before anything is generated.** It keeps to what the first feature needs: no auth, database or infra "for later" unless you asked.
 3. The ecosystem's own generators build the skeleton, plus strict types, a test runner, a linter and one passing test per package. Every command must pass.
-4. CI (`.github/workflows/sdlc-verify.yml`) is generated from the same commands. Windows teammates: set `"ci": {"os": ["ubuntu-latest", "windows-latest"]}` in `.sdlc/config.json`.
+4. CI (`.github/workflows/sdlc-verify.yml`) is generated from the same commands, with `sdlc-invariants.yml` next to it to check the shared sdlc files. Windows teammates: set `"ci": {"os": ["ubuntu-latest", "windows-latest"]}` in `.sdlc/config.json`.
 5. Rules, guardrails, constitution and knowledge as in [14](#14-adopt-sdlc-in-an-existing-repo). No baseline: nothing fails yet.
 
 **Several apps** (web, an API, mobile): setup builds one monorepo, with `apps/<name>/` for each app, `packages/` for shared code, `docs/` for BA, QA and design files, and `infras/` only if you say yes. It asks who will work in the repo. A large team with separate roles gets CODEOWNERS, one CI workflow per app and a release runbook (`docs/runbooks/releasing.md`). A solo developer or small team gets one workflow. When one app serves an API another uses, the contract goes in `packages/api-contract/v1/`. Merging a version publishes it, and if you agree, CI blocks breaking changes to published versions. Each app generates its client from the version it uses. Details: `skills/setting-up-projects/references/monorepo.md`.

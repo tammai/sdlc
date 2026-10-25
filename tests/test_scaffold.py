@@ -509,6 +509,20 @@ class ScaffoldTest(ProjectTestCase):
         self.assertNotIn("working-directory", text)
         self.assertEqual(self.lock()["files"][".github/workflows/sdlc-verify.yml"]["template"], "builtin:ci")
 
+    def test_upgrade_offers_the_invariants_check_to_a_repo_with_ci(self):
+        self.commands_config(project={"stack": ["typescript"]}, commands={"install": "pnpm install", "test": "pnpm test"})
+        offered = lambda: {i["path"]: i["template"] for i in self.sc("upgrade-plan")["add"]}
+        self.assertNotIn(".sdlc/ci/invariants.py", offered())  # no CI chosen: nothing to sit next to
+        self.sc("render", "builtin:ci", ".github/workflows/sdlc-verify.yml", "--class", "seeded")
+        self.template("templates/project/ci/invariants.py", "print('ok')\n")
+        self.assertEqual({k: v for k, v in offered().items() if "invariants" in k},
+                         {".sdlc/ci/invariants.py": "templates/project/ci/invariants.py",
+                          ".github/workflows/sdlc-invariants.yml": "builtin:invariants"})
+        for tpl, dest in (("templates/project/ci/invariants.py", ".sdlc/ci/invariants.py"),
+                          ("builtin:invariants", ".github/workflows/sdlc-invariants.yml")):
+            self.sc("render", tpl, dest, "--class", "seeded")
+        self.assertFalse([k for k in offered() if "invariants" in k])
+
     def test_builtin_ci_polyglot(self):
         self.commands_config(packages=[
             {"name": "api", "path": "services/api", "stack": "go", "commands": {"test": "go test ./..."}},

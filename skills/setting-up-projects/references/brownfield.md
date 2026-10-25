@@ -43,6 +43,6 @@ For each of `CLAUDE.md` (over ~60 lines), `AGENTS.md`, `.cursor/rules/`, `.curso
 
 ## `ci`
 
-Existing CI already runs build/lint/test → leave it; point out any step whose command differs from `.sdlc/config.json`, since local and CI shouldn't drift. No CI, or CI that doesn't verify → offer the generated workflow as in `greenfield.md` → `ci` (hard stop: it's a new required check for everyone).
+Existing CI already runs build/lint/test → leave it; point out any step whose command differs from `.sdlc/config.json`, since local and CI shouldn't drift. No CI, or CI that doesn't verify → offer the generated workflow as in `greenfield.md` → `ci` (hard stop: it's a new required check for everyone). Either way, offer the invariants check from `greenfield.md` → `ci`: it checks the sdlc files themselves, which no existing CI does (same hard stop).
 
 Then continue with the common steps in `SKILL.md`. In `lint`, new warnings from the sdlc lint snippet go into the baseline counts rather than being fixed during setup.

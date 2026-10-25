@@ -6,6 +6,7 @@ This repo uses the sdlc workflow. It runs from the sdlc plugin in Claude Code, C
   - `test-report.md` in a feature's documents folder
   - `{{config.baseline}}`, the list of failures that existed before
 - If one of them needs to change, say so, and run the stage through the plugin, or ask a teammate who has the plugin to run it.
+- A feature's state file names its `Owner:` (a git email) and `Tool:` (the agent). Before advancing a feature someone else owns, ask the user first: two people advancing one feature conflict on its state file. When the plugin advances it for a new owner, it records the handover.
 - Use the project's commands exactly as written in `.sdlc/config.json`: `commands`, or for a monorepo, `commands` per package under `packages`. Run them from the package's directory. A full test run is the `test` command with no filters.
 - The project's principles are in `{{layout.constitution}}`. For team knowledge, open `knowledge/index.md` and follow its links as needed.
 - Scratch files go in `.sdlc/.work/`, which git ignores.

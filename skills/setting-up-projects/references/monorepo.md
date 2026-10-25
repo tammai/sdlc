@@ -57,6 +57,7 @@ Check as in `greenfield.md`: `$S contract` ok, `$S run-commands` all exit 0.
 |---|---|
 | `lean` | `$S render builtin:ci .github/workflows/sdlc-verify.yml` |
 | `large` | per package: `$S render builtin:ci:<name> .github/workflows/sdlc-verify-<name>.yml` (runs on that package's path, `packages/**`, root files such as lockfiles and workspace manifests, and its own file); `$S render builtin:codeowners .github/CODEOWNERS` |
+| always | `$S render templates/project/ci/invariants.py .sdlc/ci/invariants.py` and `$S render builtin:invariants .github/workflows/sdlc-invariants.yml`: the shared sdlc files, checked on every pull request |
 | `api_contract` set | `$S render templates/project/ci/contract-check.sh .sdlc/ci/contract-check.sh` and `$S render builtin:contract-check .github/workflows/sdlc-contract.yml` |
 
 `sdlc contract` runs on every pull request: tell the user to make it a required status check, or breaking changes are flagged but not blocked. `large`: tell the user not to mark the per-app workflows as required: a pull request that doesn't touch an app never runs its workflow, so a required check would wait forever.

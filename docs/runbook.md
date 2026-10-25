@@ -341,7 +341,7 @@ Every command prints one JSON object. Exit codes: 0 ok, 1 error, 2 refused becau
 | `contract` | check the commands per scope: required ones present, package paths exist, tools on PATH; reports the recorded runs |
 | `commands` | scopes plus the install steps and verify plan, each with its directory |
 | `run-commands [--timeout S]` | run install and the verify plan once, record each exit in the lock; exit 1 if a command couldn't start |
-| `render <template\|builtin:…> <dest> [--class seeded] [--if-unchanged]` | render a plugin template (`{{config.x.y}}`, `{{plugin_version}}`) or a builtin (`ci`, `ci:<package>`, `contract-check`, `codeowners`), and record its hash |
+| `render <template\|builtin:…> <dest> [--class seeded] [--if-unchanged]` | render a plugin template (`{{config.x.y}}`, `{{plugin_version}}`) or a builtin (`ci`, `ci:<package>`, `contract-check`, `invariants`, `codeowners`), and record its hash |
 | `preview <template\|builtin:…>` | render without writing |
 | `record <generated\|seeded> <paths…> [--template T]` / `forget <paths…>` | track files Claude wrote / hand them over to the user |
 | `allow --add/--remove … [--from-commands]`, `gitignore --add/--remove …` | keyed merges; only ever removes entries the plugin added |

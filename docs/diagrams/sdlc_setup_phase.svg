@@ -72,7 +72,7 @@ text{font-family:anthropic-sans,-apple-system,"system-ui","Segoe UI",sans-serif;
 <line class="a" marker-end="url(#arrow)" x1="175" y1="490" x2="175" y2="506"/>
 <g class="action"><rect x="30" y="578" width="290" height="56" rx="8"/>
 <text class="t" x="175.0" y="597">CI workflow</text>
-<text class="s" x="175.0" y="617">sdlc-verify.yml on PRs and main</text>
+<text class="s" x="175.0" y="617">sdlc-verify + sdlc-invariants</text>
 </g>
 <line class="a" marker-end="url(#arrow)" x1="175" y1="562" x2="175" y2="578"/>
 <g class="action"><rect x="360" y="290" width="290" height="56" rx="8"/>
