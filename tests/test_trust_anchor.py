@@ -117,6 +117,11 @@ class TrustAnchorTest(ProjectTestCase):
         self.assertIn("code changed since the last full test run: src/login.ts", out["systemMessage"])
         self.prompt()
         self.assertIsNone(self.stop())  # accepted: the same untested change doesn't block every later Stop
+        self.state(stage=5, risk="low", flow="lite")  # the next slice: a full run, then a new untested fix
+        self.full_run()
+        self.write("src/login.ts", "export const a = 4\n")
+        self.state(stage=3, risk="low", flow="lite")
+        self.assertIn("src/login.ts", self.stop()["systemMessage"])
 
 
 if __name__ == "__main__":

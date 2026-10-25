@@ -22,7 +22,7 @@ Teams that try to fix this assemble several plugins and conventions by hand, eac
 ## 3. Goals
 
 1. **One install, whole lifecycle:** spec, design, plan, implement, verify, review, security, ship, deploy, learn (operate is parked), with no dependency on other plugins.
-2. **Process sized to the work:** S, M or L tracks; the smallest track that fits by default.
+2. **Process sized to the work:** S, M or L tracks; the smallest track that fits by default. Low-risk M runs the Lite flow (one approval); work bigger than one session runs as a backlog of slices.
 3. **Gates with human decisions at the right points:** spec, design, execution method, merge, production deploy, migrations.
 4. **Truthful verification:** an independent verifier per round, tests that must fail without the change, test results that can't go stale unnoticed, and old failures that don't block new work.
 5. **Scope discipline:** every addition traced to a request from spec to diff; comment noise and over-engineering caught while writing and at review.
@@ -43,7 +43,7 @@ Teams that try to fix this assemble several plugins and conventions by hand, eac
 | # | Capability | Spec | Commands / entry points |
 |---|---|---|---|
 | 01 | Project setup, upgrade, eject; commands per package; generated CI | [01-setup-upgrade-eject](specs/01-setup-upgrade-eject.md) | `/sdlc:setup`, `/sdlc:upgrade`, `/sdlc:eject` |
-| 02 | Orchestrated lifecycle: tracks, 11 stages, gates, state, resume | [02-orchestration](specs/02-orchestration.md) | `/sdlc:start`, `/sdlc:status`, `hooks/model_router.py` |
+| 02 | Orchestrated lifecycle: tracks, the Lite flow, backlog slices, 11 stages, gates, state, resume | [02-orchestration](specs/02-orchestration.md) | `/sdlc:start`, `/sdlc:status`, `hooks/model_router.py`, `scripts/backlog.py`, `scripts/yolo.py` |
 | 03 | Scope tracing and review facts | [03-scope-and-review](specs/03-scope-and-review.md) | Stages 1–3, 6; `/sdlc:review-pr`, `scripts/diff_stats.py` |
 | 04 | Verification: fresh verifier rounds with red-green, on-demand QA tester, freshness hook, baseline | [04-verification](specs/04-verification.md) | Stage 5, `hooks/verify_freshness.py` |
 | 05 | Security guidance | [05-security](specs/05-security.md) | always-on hooks, Stage 7 |

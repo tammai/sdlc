@@ -10,7 +10,7 @@ check, so this can't prevent a change; it makes one visible. For each active fea
   - the feature left Stage 5 while code differed from its last full test run, or moved past Stage 5 without it
     (a verifier dispatched in Stage 5 since the last Stop counts, since a turn can run several stages)
   - on `Flow: lite`, a Stop outside Stages 4-6 finds code that differs from the last full test run (one notice
-    per set of changed files)
+    per untested state of the code)
   - a feature seen active stopped being active, other than by finishing (`Status: done`)
 A new notice blocks the stop once, with a systemMessage so the user sees it; it doesn't block again. The user's
 next prompt accepts it: the current values become the new anchor. Only a prompt clears a notice, because only
@@ -110,8 +110,9 @@ def check(root, name, text, anchor):
     leaving_5 = prev == 5 and st is not None and st > 5
     if st is not None and prev is not None and (leaving_5 or lite and st not in (4, 5, 6)):
         changed = changed_since_full_run(root, name)
-        anchor["untested_seen"] = changed
-        if changed and changed != anchor.get("untested_ok"):
+        # Accepting covers this exact code, not these file names: new untested code in the same files is new
+        anchor["untested_seen"] = vf.worktree_tree(root) if changed else None
+        if changed and anchor["untested_seen"] != anchor.get("untested_ok"):
             where = f"left Stage 5 for Stage {st}" if leaving_5 else f"Stage {st}"  # stable text: seen once
             notices.append(f"{where} with code changed since the last full test run: " + ", ".join(changed[:5]))
     anchor["stage"] = st
