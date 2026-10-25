@@ -30,7 +30,7 @@ class DoctorTest(ProjectTestCase):
         subprocess.run([sys.executable, SCAFFOLD, "--root", self.root, "step-done", "finalize", "--complete"],
                        check=True, capture_output=True)
         self.configure(commands=COMMANDS)
-        self.write(".gitignore", ".sdlc/.work/\n")
+        self.write(".gitignore", ".sdlc/.work/\n.sdlc/state/*.json\n.sdlc/state/*.events.jsonl\n.sdlc/state/*.commands/\n")
 
     def configure(self, **config):
         path = self.path(".sdlc/config.json")
@@ -164,6 +164,14 @@ class DoctorTest(ProjectTestCase):
         self.setup_repo()
         self.write(".gitignore", "node_modules/\n")
         self.assertEqual(self.check(".gitignore")["status"], "warn")
+
+    def test_gitignore_set_up_before_the_control_contract_warns(self):
+        # Repos set up on 1.8.1 ignore only .sdlc/.work/; state.py's contract files would get committed
+        self.setup_repo()
+        self.write(".gitignore", ".sdlc/.work/\n")
+        c = self.check(".gitignore")
+        self.assertEqual(c["status"], "warn")
+        self.assertIn("/sdlc:upgrade", c["fix"])
 
     def test_rules_whose_paths_match_nothing(self):
         self.write("src/api/a.ts", "")

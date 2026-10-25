@@ -238,11 +238,20 @@ def check_repo(r, root):
               "run /sdlc:upgrade to move them to docs/sdlc or a location you choose")
 
     gi = os.path.join(root, ".gitignore")
-    ignored = os.path.exists(gi) and ".sdlc/.work/" in open(gi, encoding="utf-8").read().split()
+    lines = open(gi, encoding="utf-8").read().split() if os.path.exists(gi) else []
+    # The control contract's runtime files (state.py, spec 12): setup adds these; repos set up before get them
+    # from /sdlc:upgrade, which re-runs the gitignore step
+    contract = [x for x in (".sdlc/state/*.json", ".sdlc/state/*.events.jsonl", ".sdlc/state/*.commands/")
+                if x not in lines]
     if os.path.isdir(os.path.join(root, ".sdlc")):
-        r.add(g, ".gitignore", "ok" if ignored else "warn",
-              ".sdlc/.work/ ignored" if ignored else ".sdlc/.work/ is not git-ignored (scratch files may get committed)",
-              None if ignored else "add `.sdlc/.work/` to .gitignore")
+        if ".sdlc/.work/" not in lines:
+            r.add(g, ".gitignore", "warn", ".sdlc/.work/ is not git-ignored (scratch files may get committed)",
+                  "add `.sdlc/.work/` to .gitignore")
+        elif contract:
+            r.add(g, ".gitignore", "warn", "the control contract's files aren't git-ignored: "
+                  + ", ".join(contract), "run /sdlc:upgrade (it re-runs setup's gitignore step)")
+        else:
+            r.add(g, ".gitignore", "ok", ".sdlc/.work/ and the control contract ignored", None)
 
     files = repo_files(root)
     if status["setup"] == "complete":
