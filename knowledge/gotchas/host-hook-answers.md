@@ -16,7 +16,7 @@ On Antigravity, a probe hook printing `{}` blocked every tool call ("tool call d
 - **Antigravity** (CLI 1.4.7): `PreToolUse` needs a `decision`; none, or a failing hook, denies the call. `ask` is its usual permission check: allow-listed commands and workspace edits still run unasked. It rejects unknown output fields.
 - **Cursor:** `permission: "allow"` approves the call outright; leave `permission` out to keep the user's approval.
 - **Codex:** reads Claude Code's fields, but only on the events that take them.
-- **Codex and Antigravity** send a command's output without its exit code (Antigravity's `error` is empty even on exit 3), so a test run counts as `unknown`.
+- **Codex and Antigravity** send a command's output without its exit code (Antigravity's `error` is empty even on exit 3), so a test run counts as `unknown`. Never parse one out of the output: Codex's `Exit code:` envelope is only on `apply_patch`, so on a command it's the command's own text, and a command could fake a pass.
 
 ## Fix
 `hosts/hook.py`: never answer `allow`; Antigravity's tool calls get `ask` on no objection and on any error (`fallback`). Each host's output keeps to that host's documented fields.
