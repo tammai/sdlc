@@ -85,6 +85,23 @@ class TrustAnchorTest(ProjectTestCase):
         self.full_run()
         self.assertIsNone(self.stop())
 
+    def test_lite_flow_next_slice_after_a_full_run_is_not_a_notice(self):
+        self.state(stage=6, risk="low", flow="lite")
+        self.full_run()
+        self.stop()
+        self.state(stage=3, risk="low", flow="lite")  # the slice is committed; the next one starts at Stage 3
+        self.assertIsNone(self.stop())
+
+    def test_lite_flow_leaving_stage_6_with_an_untested_fix_is_a_notice(self):
+        self.state(stage=6, risk="low", flow="lite")
+        self.full_run()
+        self.stop()
+        self.write("src/login.ts", "export const a = 2\n")  # a review fix with no full run after it
+        self.state(stage=3, risk="low", flow="lite")
+        out = self.stop()
+        self.assertIn("left Stage 6", out["systemMessage"])
+        self.assertIn("src/login.ts", out["systemMessage"])
+
 
 if __name__ == "__main__":
     unittest.main()

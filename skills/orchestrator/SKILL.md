@@ -14,7 +14,8 @@ You are the conductor. You decide the stage, call the right bundled skill/agent/
 ## 0. Start or resume
 
 1. Look for a feature state file with `Status: active`: `.sdlc/state/*.md`, or `.sdlc/*/state.md` in a repo still on the old layout.
-   - One found → read it, say the feature, current stage and open items in 2–3 lines, continue.
+   - One found → read it, say the feature, current stage and open items in 2–3 lines, continue. With a `Slice:` line, run `backlog.py next` (Backlog slices): it names the slice in progress or the next ready one. Nothing ready while rows remain (a `blocked:` row, or open dependencies) → say which and stop; every row `done` → Feature close.
+   - The request is `B<n>` (or starts with it) and the active feature has a backlog → that slice, if `backlog.py check` allows it; otherwise say why and stop.
    - Several → ask which one.
    - None → new feature: continue below.
 2. **Project setup.** Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" status`:
@@ -84,6 +85,24 @@ The default for M with `Risk: low`. Set `Flow: lite` in state.md and strike out 
 
 Size up to the full M flow, and say why in one line, when the spec turns out to need a design decision the request doesn't settle, or when risk turns out to be high.
 
+Too big for one session (more than about 8 tasks, or several distinct parts): instead of the Tasks list, write a backlog with the spec and run it as Backlog slices (below). The user approves spec and backlog together, still one approval.
+
+## Backlog slices
+
+For a feature too big for one session, so the work can pause, `/clear` and resume between slices, or run in fresh sessions (yolo). S never gets a backlog; a feature that fits one session keeps its flow.
+
+1. **Backlog.** Copy `${CLAUDE_PLUGIN_ROOT}/templates/backlog-template.md` to `<intents>/backlog.md`: one row per vertical slice (something a test or user can see working end to end), with its FRs, acceptance criteria, dependencies and size. Every spec FR is in some row. **Approval:** on M (Lite flow), with the spec, in one message; on L, at the Stage 3 gate, replacing the plan and the execution-method question.
+2. **Flow.** Set `Flow: lite` at any track and risk: every slice runs Lite's inner loop. Lite's strike-out list doesn't apply: Stage 3 is each slice's plan, and L keeps Stage 2 and 11. Tiers follow Model Selection (standard; top on `Risk: high`, which the model router enforces). The Lite size-up rule doesn't apply to a backlog feature. `Base:` stays the feature's start; Stages 7, 8 and 11 run once, at Feature close.
+3. **Pick the slice:** `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/backlog.py" next <intents>/backlog.md` (a slice in progress, else the first `todo` whose dependencies are done; `check <backlog> B<n>` for a named one). In state.md set `Slice: B<n>` and `Slice base: <HEAD>`, and the row to `in progress`.
+4. **Each slice** (Stage 3 → 4 → 5 → 6, with the usual stage headers):
+   - Plan (Stage 3): `<intents>/plan-B<n>.md`, short: 3–6 tasks, each naming its files, FR and test, plus a `## Public Surface` list. No planning skill.
+   - Build (Stage 4), Verify (Stage 5) and Review (Stage 6) as in Lite steps 2–4. The verifier's brief names this slice's acceptance criteria (its backlog row); the full suite still covers the earlier slices. The reviewer gets only this slice: `diff_stats.py --base <Slice base> --plan <intents>/plan-B<n>.md` and `git diff <Slice base>`.
+   - Commit: first Stage 8's verified-tree check (only that check; the rest of Stage 8 waits for Feature close), then one commit for the slice (code, tests, docs, plan, state) and the row set to `done <commit>` (fill in the hash in the next slice's commit, or a final docs commit). The commit-time security hooks run on it.
+   - Then straight on to the next slice at Stage 3; when every row is `done`, Feature close.
+5. **Gates.** `Slice gates: none` (default): slices run back to back without asking. They stop only for a failed gate (a second verifier FAIL), a backlog change that adds scope, or a hard stop (merge, deploy, migrations, anything irreversible). The user can opt in to stops at `plan`, `review` (show the findings before fixing) or `commit`, e.g. `Slice gates: plan, commit`.
+6. **Backlog changes.** A slice that turns out too big, or work no slice covers: propose the change. A split that keeps the same FRs is made and logged in the Gate log. Anything that adds scope (a new FR, or work outside the spec) waits for the user; never add it silently.
+7. **Context.** At a slice boundary, if the next slice won't fit in what's left of this session, stop with one line: `B<n> done (<commit>). Next: B<m> <title>. Run /clear, then /sdlc:start.` For a long backlog the user can run yolo (`scripts/yolo.py`) instead, which starts a fresh session per slice.
+
 ## Stages
 
 ### 1 · Discover & specify
@@ -103,7 +122,7 @@ Size up to the full M flow, and say why in one line, when the spec turns out to 
 - Stage 2 skipped (S, or M with an obvious approach) on UI work (the spec has screens, or the change lands in `areas.ui`): before Stage 4, map each changed screen to the components, tokens and patterns of `<docs>/design-system.md`. M: a `UI mapping` section in plan.md. S: one line in state.md's Gate log. Anything the system lacks goes to the user first, and an approved addition is handled as above.
 
 ### 3 · Plan
-- `sdlc:writing-plans` → `<intents>/plan.md` (bite-sized TDD tasks)
+- `sdlc:writing-plans` → `<intents>/plan.md` (bite-sized TDD tasks). More than about one session of work (~8–10 tasks, or several distinct parts): a backlog instead (Backlog slices), with the slices' plans written as each starts.
 - `sdlc:analyzing-consistency` (L track; M when the plan has > ~8 tasks)
 - **Gate:** no CRITICAL or HIGH scope findings; every requirement has a task and every task cites a requirement; Public Surface declared; user picks the execution method (subagent-driven or native).
 
@@ -216,6 +235,7 @@ Base: <commit the feature started from>
 Owner: <git config user.email of whoever advances it>
 Tool: <the agent: claude-code | codex | cursor | antigravity>
 Verified: <commit the Stage 5 gate passed on> tree <worktree tree at that gate>
+Slice: B<n>   Slice base: <commit the slice started from>   Slice gates: none   (backlog features only)
 Current: Stage <n> – <name>
 
 ## Stages

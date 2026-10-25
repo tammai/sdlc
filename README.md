@@ -84,6 +84,8 @@ The orchestrator sizes it and proposes the smallest track that fits; you can ove
 | **M** feature | a few files to a few days | low risk: the Lite flow, spec-and-tasks (one approval) → implement → verify → review → light security → one commit. High risk or on request: spec → plan → implement → verify → review → light security → PR (+ design if the approach isn't obvious) |
 | **L** project | new service, unclear approach, or auth/payments/migrations/public API | stages 1–8 and 11, including design and learn; deploy on request |
 
+Work bigger than one session gets a backlog of vertical slices instead of one plan: you approve it once with the spec, then each slice is planned, built, verified, reviewed and committed in turn, without stopping unless a gate fails, scope would grow, or a hard stop comes up. `/sdlc:start B<n>` runs a named slice.
+
 Each stage prints what it uses and its exit gate. Documents go to `docs/sdlc/intents/<feature>/` and state to `.sdlc/state/<feature>.md` (commit both; `docs_dir` in config moves the documents elsewhere, e.g. when `docs/` is a published site).
 
 ### 4. Decide at the gates
@@ -157,7 +159,7 @@ Skills such as `sdlc:writing-specs` or `sdlc:test-driven-development` are used b
 | 10 | Operate | parked, no track runs it: watch window with agreed signals |
 | 11 | Learn | `managing-knowledge` (3-tier), `/sdlc:revise-claude-md`, `/sdlc:knowledge-audit`, `/sdlc:hookify`, `project-constitution` |
 
-Always on: security-guidance hooks, the verify-freshness hook (Stage 5 only, or Stages 5–6 on the Lite flow; per package in a monorepo), the model-router hook (while a feature is active: every subagent dispatch names its model, Fable only on your request, and each dispatch is logged), the trust-anchor hook (tells you when the risk, baseline, commands or spec change under a feature, or it leaves Stage 5 with untested code), the role-guard hook (reviewers can't edit files, the verifier writes only its report and the baseline, the qa-tester can't read the code), hookify rules (personal `.claude/hookify.*.local.md`, team `.claude/hookify/*.md`), TypeScript LSP.
+Always on: security-guidance hooks, the verify-freshness hook (Stage 5 only, or Stages 5–6 on the Lite flow; per package in a monorepo), the model-router hook (while a feature is active: every subagent dispatch names its model, Fable only on your request, and each dispatch is logged), the trust-anchor hook (tells you when the risk, baseline, commands or spec change under a feature, or it leaves Stage 5, or Stage 6 on the Lite flow, with untested code), the role-guard hook (reviewers can't edit files, the verifier writes only its report and the baseline, the qa-tester can't read the code), hookify rules (personal `.claude/hookify.*.local.md`, team `.claude/hookify/*.md`), TypeScript LSP.
 
 ## Knowledge: 3-tier loading
 

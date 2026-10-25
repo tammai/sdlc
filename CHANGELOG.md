@@ -4,7 +4,11 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
+### Added
+- **Backlog slices.** A feature bigger than one session gets `backlog.md`: vertical slices with their FRs, criteria and dependencies, approved once with the spec. Each slice runs the Lite inner loop (short `plan-B<n>.md`, native build, one fresh verifier, one review of the slice's own diff, one commit) and the next starts without asking, unless a gate fails, a backlog change adds scope, or a hard stop comes up. Per-slice stops are opt-in (`Slice gates:`). Near the end of a session it stops at a slice boundary naming the next one. `/sdlc:start B<n>` runs a named slice; `scripts/backlog.py` picks the next ready one.
+
 ### Changed
+- On the Lite flow, leaving Stage 6 with code changed since the last full test run is now a trust-anchor notice, so a review fix can't ride into the commit, or the next slice, untested.
 - Stage 1 asks its questions once: only the ones that would change what gets built, all in one message, or none. Every other open point becomes an `[inferred]` guess that you keep or drop with the spec. Specs no longer carry `[NEEDS CLARIFICATION]` markers, `clarifying-specs` runs only when you ask, and an L brainstorm doesn't re-ask the answers. S asks the same way before the fix when the expected behaviour is unclear.
 - M features with `Risk: low` now run the **Lite flow** by default (`Flow: lite` in `state.md`): one `spec.md` with an `Inferred` list, about 10 acceptance criteria and 3–6 tasks, approved once; a native, test-first build in the session; one fresh standard-tier verifier; one standard-tier review whose brief names durable writes, error paths and loaded data; review fixes re-verified with an in-session full run; light security; one commit. High-risk M work, or a request for the full flow, keeps the previous M stages. In evals it used a third to a half of the full M flow's tokens and 2 approvals instead of 5, with the same hidden-test results. ADR 0008.
 - The verify-freshness hook keeps tracking through Stage 6 on `Flow: lite`, so a review fix must be followed by a full test run before the turn ends, and the trust anchor accepts that rerun instead of flagging the post-verify edit.

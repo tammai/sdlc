@@ -49,6 +49,8 @@ Anything touching auth, payments, secrets, PII or schema migrations is at least 
 
 **The Lite flow** (`Flow: lite`) is the default for M with `Risk: low`, because evals showed the full M flow costing several times the tokens and more approvals for the same hidden-test results ([ADR 0008](adr/0008-lite-flow-for-low-risk-m.md)). One `spec.md` holds the requirements, an `Inferred` list, the acceptance criteria and 3–6 tasks, and you approve it once. The session builds natively, test first. One fresh standard-tier verifier runs; one standard-tier reviewer checks the diff with durable writes, error paths and loaded data named in its brief. Review fixes are re-verified with an in-session full run (the freshness hook keeps tracking through Stage 6 for this). Then light security and one commit. It sizes up to the full M flow when a design decision comes up that the request doesn't settle, or when risk turns out high.
 
+**Backlog slices.** Work bigger than one session (about 8–10 tasks, or several distinct parts) gets a `backlog.md` of vertical slices instead of one plan, approved once with the spec on M, or at the Stage 3 gate on L. Each slice runs the Lite inner loop: a short `plan-B<n>.md`, a native build, one fresh verifier, one review of that slice's diff, one commit. Slices run back to back without asking; they stop on a failed gate, a backlog change that adds scope, or a hard stop. Per-slice stops are opt-in (`Slice gates: plan, review, commit`). When the session's context runs low, it stops at a slice boundary and names the next slice; `/clear` then `/sdlc:start` picks it up, and `/sdlc:start B<n>` runs a named one once its dependencies are done.
+
 **Risk and models.** Risk is recorded apart from size: `Risk: high` for auth, payments, secrets, PII, schema migrations or a public API. Track and risk pick each subagent's model tier: cheap `haiku`, standard `sonnet`, top `opus`. A high-risk change gets `opus` reviewers even on the S track. The S fix itself goes to one implementer subagent on that tier, not the session. The session's own model is yours: the start announcement suggests `/model opus` for L or high-risk work on a smaller model, and `/model sonnet` for S or low-risk M work on Opus or above. It says so once and never blocks. Fable is used only if you ask for it ("use fable"), which sets `Top model: fable` in `state.md`. See [sdlc_tracks_full_stage_tree.svg](diagrams/sdlc_tracks_full_stage_tree.svg).
 
 ## The 11 stages
@@ -157,7 +159,7 @@ Each round spawns a new `verifier`, which runs build, lint, typecheck and tests 
 | security-guidance | UserPromptSubmit, PostToolUse, Stop | Pattern warnings on edits, diff review at turn end, agentic review after `git commit` and `git push` |
 | verify-freshness | PostToolUse, PostToolUseFailure, Stop | Stage 5 only (Stages 5–6 on the Lite flow): stale/fresh test tracking (above) |
 | model-router | PreToolUse (Agent) | While a feature is active: denies a subagent dispatch that names no model, asks for Fable without `Top model: fable`, or runs a reviewer below Opus on `Risk: high`; logs every dispatch with the stage to `.sdlc/.work/dispatches.jsonl` |
-| trust-anchor | Stop, UserPromptSubmit | Tells you when what verification trusts changes: Track, Risk or Top model; new baseline failures; changed commands; the spec after Stage 5 began; leaving Stage 5 with untested code. Your next message accepts it |
+| trust-anchor | Stop, UserPromptSubmit | Tells you when what verification trusts changes: Track, Risk or Top model; new baseline failures; changed commands; the spec after Stage 5 began; leaving Stage 5 (Lite: or 6) with untested code. Your next message accepts it |
 | role-guard | PreToolUse (file tools) | Holds the plugin's own agents to their role: reviewers can't edit files, the verifier writes only its report, the baseline and its red-green worktree, the qa-tester can't read or search code. Bash stays open to them |
 | ralph-loop | Stop | Only while a `/sdlc:ralph-loop` is running |
 | SessionStart | SessionStart | Creates a Python environment for the security reviewer on first run |
@@ -206,6 +208,7 @@ Top model: opus   (fable only if the user chose it)
 Base: <commit the feature started from>
 Owner: <git email of whoever advances it>   Tool: <claude-code | codex | cursor | antigravity>
 Verified: <commit the Stage 5 gate passed on> tree <worktree tree at that gate>
+Slice: B<n>   Slice base: <commit>   Slice gates: none   (backlog features only)
 Commands: test: `<test command>`   (monorepo: one per package; no setup: the detected command)
 Current: Stage <n> – <name>
 ## Stages / ## Verify rounds / ## Gate log / ## Deviations / ## Open questions

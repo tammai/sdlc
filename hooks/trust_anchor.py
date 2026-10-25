@@ -7,7 +7,8 @@ check, so this can't prevent a change; it makes one visible. For each active fea
   - `.sdlc/baseline.md` lists a failing test it didn't at the feature's `Base:` commit (it may only shrink)
   - the commands in `.sdlc/config.json` differ from those at `Base:`
   - `spec.md` changed after the feature entered Stage 5
-  - the feature left Stage 5 while code differed from its last full test run, or moved past it without it
+  - the feature left Stage 5 (on `Flow: lite`, also Stage 6) while code differed from its last full test run,
+    or moved past Stage 5 without it
   - a feature seen active stopped being active, other than by finishing (`Status: done`)
 A new notice blocks the stop once, with a systemMessage so the user sees it; it doesn't block again. The user's
 next prompt accepts it: the current values become the new anchor. Only a prompt clears a notice, because only
@@ -94,12 +95,15 @@ def check(root, name, text, anchor):
         if digest != first:
             notices.append("spec.md changed after the feature entered Stage 5")
     prev = anchor.get("stage")
+    # The Lite flow re-verifies Stage 6 fixes in-session, so leaving Stage 6 (to Stage 7, 8, or the next slice's 3)
+    # needs a full run after the last fix, like leaving Stage 5
+    lite = re.search(r"^Flow:\s*lite\b", text, re.M | re.I)
     if prev is not None and prev < 5 < (st or 0):
         notices.append(f"went from Stage {prev} to Stage {st} without Stage 5")
-    elif prev == 5 and st is not None and st > 5:
+    elif st is not None and st != prev and (prev == 5 and st > 5 or prev == 6 and lite and st not in (4, 5)):
         changed = changed_since_full_run(root, name)
         if changed:
-            notices.append(f"left Stage 5 for Stage {st} with code changed since the last full test run: "
+            notices.append(f"left Stage {prev} for Stage {st} with code changed since the last full test run: "
                            + ", ".join(changed[:5]))
     anchor["stage"] = st
     return notices

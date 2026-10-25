@@ -35,9 +35,11 @@ sdlc/
 │   ├── doctor.py            read-only health check
 │   ├── diff_stats.py        Stage 6 review facts, Public Surface check
 │   ├── hosts.py             builds the other agents' manifests from .claude-plugin/ and agents/ (CI checks them)
+│   ├── backlog.py           the next ready slice of a feature's backlog.md
 │   └── setup-ralph-loop.sh  (vendored)
 ├── templates/
 │   ├── spec/design/checklist/constitution-template.md   used by the Stage 1–2 skills
+│   ├── backlog-template.md  a feature's backlog of slices (orchestrator)
 │   ├── design-system-template.md   setup's design-system step (UI projects)
 │   ├── knowledge/           OKF templates for tier 2/3 knowledge
 │   └── project/             what setup places in a repo: config defaults, rules/, hookify/, lint/, agents/ (the AGENTS.md workflow section), baseline.md
@@ -55,7 +57,7 @@ sdlc/
 ├── CHANGELOG.md  NOTICE.md  LICENSE  README.md
 ```
 
-Original to this plugin: the orchestrator and setting-up-projects skills, `managing-knowledge`, the `verifier`, `qa-tester` and `ui-reviewer` agents, `verify_freshness.py`, `model_router.py`, `role_guard.py`, `trust_anchor.py`, everything in `scripts/` except the ralph script, `templates/project/`, `templates/knowledge/`, `templates/design-system-template.md`, `migrations/`, `tests/`, `docs/`. Everything else is vendored; `NOTICE.md` says what came from where and what was changed.
+Original to this plugin: the orchestrator and setting-up-projects skills, `managing-knowledge`, the `verifier`, `qa-tester` and `ui-reviewer` agents, `verify_freshness.py`, `model_router.py`, `role_guard.py`, `trust_anchor.py`, everything in `scripts/` except the ralph script, `templates/project/`, `templates/knowledge/`, `templates/design-system-template.md`, `templates/backlog-template.md`, `migrations/`, `tests/`, `docs/`. Everything else is vendored; `NOTICE.md` says what came from where and what was changed.
 
 ## Dev loop
 
