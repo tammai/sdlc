@@ -266,7 +266,7 @@ The test suite runs hooks and scripts as subprocesses; this checks the installed
 1. `/sdlc:setup a tiny TypeScript library that adds two numbers`.
 2. It asks a few stack questions and **waits for your approval** before generating anything.
 3. It works on a `sdlc/setup` branch with one commit per step; `.sdlc/config.json` has the five commands; it runs them and they pass.
-4. The repo has `.claude/rules/sdlc*.md`, `.claude/hookify/sdlc-*.md`, `.github/workflows/sdlc-verify.yml`, `docs/sdlc/constitution.md`, `knowledge/index.md`, `.sdlc/scaffold.lock.json`; `CLAUDE.md` untouched.
+4. The repo has `.claude/rules/sdlc*.md`, `.claude/hookify/sdlc-*.md`, `.github/workflows/sdlc-verify.yml` and `sdlc-invariants.yml`, `.sdlc/ci/invariants.py`, `docs/sdlc/constitution.md`, `knowledge/index.md`, `.sdlc/scaffold.lock.json`; `CLAUDE.md` untouched.
 5. It asks PR or local merge; pick local merge. `/sdlc:doctor` now shows the repo checks ✅.
 6. Interrupt test (should): in a second throwaway repo, stop setup midway (Esc), run `/sdlc:setup` again; it resumes after the last finished step.
 
