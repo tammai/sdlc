@@ -12,7 +12,8 @@ Usage: python3 state.py [--root DIR] advance FEATURE STAGE [--gate pass|fail] [-
                                      round FEATURE N pass|fail REASON [--commit SHA]
                                      verified FEATURE COMMIT TREE
                                      log FEATURE TEXT [--type note|review_done]
-                                     slice FEATURE start|done B<n> [COMMIT]
+                                     deviation FEATURE TEXT
+                                     slice FEATURE start|done|block B<n> [COMMIT | REASON]
                                      blocker FEATURE raise|resolve TEXT
                                      set FEATURE FIELD VALUE
                                      sync FEATURE
@@ -258,6 +259,9 @@ def apply(a, text, backlog_raw):
             "type": "verified", "commit": a.commit, "tree": a.tree}
     if a.cmd == "log":
         return append_to_section(text, "Gate log", f"{today()} {a.text}"), None, {"type": a.type, "text": a.text}
+    if a.cmd == "deviation":  # its own section: the sdlc-invariants CI check reads Deviations
+        return append_to_section(text, "Deviations", f"{today()} {a.text}"), None, {"type": "deviation_logged",
+                                                                                    "text": a.text}
     if a.cmd == "slice":
         slice_id = a.id.upper()
         if not re.fullmatch(r"B\d+", slice_id):
@@ -271,6 +275,12 @@ def apply(a, text, backlog_raw):
             text = set_line(text, "Slice", f"{slice_id}   Slice base: {head}   Slice gates: {gates}")
             return text, set_backlog_status(backlog_raw, slice_id, "in progress"), {
                 "type": "slice_started", "slice": slice_id, "base": head}
+        if a.action == "block":
+            if not a.commit:
+                raise Refused("slice block needs a reason")
+            text = append_to_section(text, "Open questions", f"{slice_id} blocked: {a.commit}")
+            return text, set_backlog_status(backlog_raw, slice_id, f"blocked: {a.commit}"), {
+                "type": "slice_blocked", "slice": slice_id, "reason": a.commit}
         if not a.commit:
             raise Refused("slice done needs the slice's commit")
         return text, set_backlog_status(backlog_raw, slice_id, f"done {a.commit}"), {
@@ -357,8 +367,10 @@ def main(argv=None):
     s = sub.add_parser("verified"); s.add_argument("feature"); s.add_argument("commit"); s.add_argument("tree")
     s = sub.add_parser("log"); s.add_argument("feature"); s.add_argument("text")
     s.add_argument("--type", choices=["note", "review_done"], default="note")
-    s = sub.add_parser("slice"); s.add_argument("feature"); s.add_argument("action", choices=["start", "done"])
-    s.add_argument("id"); s.add_argument("commit", nargs="?")
+    s = sub.add_parser("deviation"); s.add_argument("feature"); s.add_argument("text")
+    s = sub.add_parser("slice"); s.add_argument("feature")
+    s.add_argument("action", choices=["start", "done", "block"]); s.add_argument("id")
+    s.add_argument("commit", nargs="?", help="done: the slice's commit; block: the reason")
     s = sub.add_parser("blocker"); s.add_argument("feature"); s.add_argument("action", choices=["raise", "resolve"])
     s.add_argument("text")
     s = sub.add_parser("set"); s.add_argument("feature"); s.add_argument("field"); s.add_argument("value")

@@ -1,0 +1,18 @@
+# Lite flow (M track, risk low)
+
+The default for M with `Risk: low` (`Flow: lite`); strike out stages 2, 3, 9, 10 and 11. Everything the flow needs is here and in the core: don't load `sdlc:writing-specs`, `sdlc:writing-plans`, `sdlc:executing-plans` or `sdlc:subagent-driven-development`, and read another stage file only where a step names it. Print the stage header at each step.
+
+1. **Spec and tasks, one document** (Stage 1 and 3 together). If `knowledge/index.md` exists, read it and open only the docs relevant here. Then the core's blocking questions (often none), and write `<intents>/spec.md` (UI work: `ui-work.md`) with:
+   - Goal: one or two sentences.
+   - Requirements: `FR-nnn`, each testable, taken from the request. Anything you add that the request didn't say goes in an `Inferred` list with a one-line reason; it's dropped unless the user keeps it.
+   - Acceptance criteria: about 10 or fewer, each one a behaviour a test can prove.
+   - Non-Goals.
+   - Tasks: 3–6 lines, each naming its files, the FR it covers and its test.
+   No requirements checklist and no separate plan.md. Too big for one session (more than about 8 tasks, or several distinct parts): a backlog instead of the Tasks list (`backlog-slices.md`), approved with the spec. **Gate (the one approval in this flow):** the user approves spec and tasks. Don't ask for an execution method; `Build:` decides (native by default). Then `state.py advance <f> 4 --gate pass`.
+2. **Build** (Stage 4). `native`: work through the tasks in this session, test first: one failing test per behaviour, the code that passes it, then the full suite. `subagent`: the core's `Build:` rule. No commits or state updates between tasks.
+3. **Verify** (Stage 5). `state.py advance <f> 5 --gate pass`, then one fresh `sdlc:verifier` on the standard tier with the spec path, the round number and the commands. No `pr-test-analyzer` or `silent-failure-hunter`. Log it with `state.py round`. FAIL: fix the listed failures (failing test first) and run a second round with another fresh verifier. A second FAIL stops the flow: bring the user what still fails and offer the full M flow. PASS: `state.py verified`, then `state.py advance <f> 6 --gate pass`.
+4. **Review** (Stage 6). One `sdlc:code-reviewer` on the standard tier with the reviewer brief (`review-brief.md`). No simplifier and no top-tier review: this is the flow's only second pair of eyes. A UI diff also gets `sdlc:ui-reviewer` (`ui-work.md`). Fix high-severity findings with a failing test first; medium and low go to `<intents>/review.md` as tickets. After any fix, run the full test suite in this session instead of a new verifier round (the freshness hook tracks Stage 6 on `Flow: lite`), `state.py verified` with the resulting tree, and `state.py log <f> "lite: review fixes re-verified in-session (<suite result>)"`. The verified-tree check before the commit accepts that tree.
+5. **Security** (Stage 7, light): the hook findings plus the dependency audit; a code fix steps back to Stage 6 (`state.py advance <f> 6`) and is re-verified as in step 4.
+6. **Finish** (Stage 8). The core's verified-tree check, then one commit for the whole feature (code, tests, docs and state) on the feature branch; summarise and ask the user about merge, PR or keep. Committing once also means one commit-time security review. Once the user has answered: `state.py set <f> Status done`.
+
+Size up to the full M flow (`state.py set <f> Flow full`, and say why in one line) when the spec turns out to need a design decision the request doesn't settle, or when risk turns out to be high. Not for a backlog feature.

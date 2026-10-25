@@ -75,6 +75,14 @@ class StateTest(ProjectTestCase):
         self.assertIn("Slice: B1   Slice base: abc1234   Slice gates: plan, commit\n", text)
         self.assertEqual(text.count("Slice gates:"), 1)
 
+    def test_a_deviation_goes_under_deviations(self):
+        # The sdlc-invariants CI check looks for a baseline change named under ## Deviations, not the Gate log
+        self.write(".sdlc/state/login.md", STATE.replace("## Open questions", "## Deviations\n-\n\n## Open questions"))
+        self.assertEqual(self.state("deviation", "login", "baselined t › old: flaky upstream")[0], 0)
+        with open(self.md, encoding="utf-8") as f:
+            self.assertIn("## Deviations\n- 2", f.read())
+        self.assertEqual(self.events()[-1]["type"], "deviation_logged")
+
     def test_a_malformed_state_file_is_reported_not_mirrored(self):
         self.write(".sdlc/state/login.md", STATE.replace("Current: Stage 4 – Implement\n", ""))
         code, out = self.state("advance", "login", "5")

@@ -204,6 +204,7 @@ Status: active
 Track: S | M | L   (sized up because: <named signal, or "—">)
 Risk: low | high   (<signal>)
 Flow: lite | full   (lite: M with risk low, unless you asked for full)
+Build: native | subagent   (subagent: one implementer builds; the main session keeps only its summary)
 Top model: opus   (fable only if the user chose it)
 Base: <commit the feature started from>
 Owner: <git email of whoever advances it>   Tool: <claude-code | codex | cursor | antigravity>
@@ -213,6 +214,8 @@ Commands: test: `<test command>`   (monorepo: one per package; no setup: the det
 Current: Stage <n> – <name>
 ## Stages / ## Verify rounds / ## Gate log / ## Deviations / ## Open questions
 ```
+
+The orchestrator never edits this file by hand: `scripts/state.py` makes each change in one call and writes the control contract beside it (`<feature>.json`, `<feature>.events.jsonl`; git-ignored) for a runner or control app ([spec 12](specs/12-control-contract.md)).
 
 ### Three-tier knowledge
 

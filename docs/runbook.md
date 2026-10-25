@@ -312,7 +312,7 @@ When every must item passes, record the date and commit in the changelog entry's
 
 ### Add or change a stage rule
 
-Stage behavior lives in `skills/orchestrator/SKILL.md`. After editing it, keep these in step:
+Stage behavior lives in `skills/orchestrator/`: the core `SKILL.md` (tracks, tiers, state, what several stages share) and `references/` (one file per stage, plus `start.md`, `lite-flow.md`, `backlog-slices.md`). Anything two stages use goes in the core. After editing, keep these in step:
 
 | If you change… | Also check |
 |---|---|
