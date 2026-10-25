@@ -62,6 +62,7 @@ Plugin-owned files are named `sdlc-*` (or `sdlc.md`); everything else belongs to
 | `lint` | JS/TS: `$S render templates/project/lint/eslint.sdlc.mjs .sdlc/lint/eslint.sdlc.mjs --class seeded`, then propose the import in the user's `eslint.config.*` (diff, approved). Python: same with `ruff.sdlc.toml` and `extend = ".sdlc/lint/ruff.sdlc.toml"` in `pyproject.toml`. Run the lint command(s) afterwards: new warnings go to the baseline (brownfield) or get fixed (greenfield). |
 | `allowlist` | **Claude Code.** `$S allow --from-commands` (adds `Bash(<command>:*)` for every command in config) |
 | `enable-plugin` | **Claude Code.** **Ask first** (it makes Claude Code prompt every teammate who trusts the repo to install sdlc): `$S enable-plugin` adds the sdlc marketplace and `enabledPlugins` to `.claude/settings.json`, keeping keys the user already set. Declined → record the step and say so. |
+| `context-diet` | **Claude Code.** **Ask first**: offer to trim the plugins this project doesn't need, which Claude Code otherwise loads into every call. Accepted → run the `sdlc:trimming-context` skill. It writes only `.claude/settings.local.json`, which is never committed: skip this step's commit and don't stage that file. Declined → record the step and say so. |
 | `agents` | `$S agents`. With a host other than Claude Code recorded, it writes one managed block in `AGENTS.md` (Codex, Cursor and Antigravity all read it): the workflow rules, the plugin's policy rules, `CLAUDE.md` and the team's own `.claude/rules/`. With Claude Code recorded and team text in `AGENTS.md`, it also writes `.claude/rules/sdlc-agents-md.md` so Claude Code sees that text. Claude Code alone with no `AGENTS.md`: nothing to write. An error naming a file and line is a Claude-only construct (`${CLAUDE_PLUGIN_ROOT}`, `scaffold.py`): propose rewording it, then run it again. |
 | `gitignore` | `$S gitignore --add ".sdlc/.work/"`, plus `".claude/*.local.md"` when the host is Claude Code |
 | `constitution` | `sdlc:project-constitution`, inferring from the repo and the interview; keep the default **V. Simplicity**. User approves. |
@@ -74,7 +75,7 @@ Plugin-owned files are named `sdlc-*` (or `sdlc.md`); everything else belongs to
 The repo's shared setup (config and commands, baseline, constitution, design system, CI, knowledge) is already done and committed; never redo it. Clean tree, branch `sdlc/join-<host>`, then:
 
 1. `$S add-host <host>`.
-2. Host is `claude-code`: run the **Claude Code** steps (`rules`, `guardrails`, `allowlist`, `enable-plugin` with its question, the `.claude/*.local.md` ignore line). Any other host: nothing of its own to write.
+2. Host is `claude-code`: run the **Claude Code** steps (`rules`, `guardrails`, `allowlist`, `enable-plugin` and `context-diet` with their questions, the `.claude/*.local.md` ignore line). Any other host: nothing of its own to write.
 3. `$S agents`: rebuilds the `AGENTS.md` block for every recorded host and, with Claude Code recorded, the `.claude/rules/sdlc-agents-md.md` copy of the team's own `AGENTS.md` text. What the first agent's team wrote (`CLAUDE.md`, `.claude/rules/`, `AGENTS.md`) is carried over, never rewritten.
 4. Check: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/doctor.py"` reports no fails. One commit (`chore(sdlc): join – <host>`), then **ask**: PR or local merge.
 
@@ -84,7 +85,7 @@ Report: the host added, the hosts now recorded, files written.
 
 A hard stop ends your turn: put the question (with your proposal) in one message and wait for the answer before writing anything it covers. Never answer it yourself, even when the choice looks obvious.
 
-Stack choice (greenfield) · where sdlc documents go when the repo has a docs site · monorepo team size, team handles, `infras/` and the contract check (`references/monorepo.md`) · the commands (brownfield) · installing any tool · each audit batch before it is written · each AI-config migration · adding CI to a repo that already has CI · lint config import · which agent is running, only when `$S host` can't tell · constitution · design system · enabling the plugin for the team · PR vs local merge. Everything else proceeds without asking.
+Stack choice (greenfield) · where sdlc documents go when the repo has a docs site · monorepo team size, team handles, `infras/` and the contract check (`references/monorepo.md`) · the commands (brownfield) · installing any tool · each audit batch before it is written · each AI-config migration · adding CI to a repo that already has CI · lint config import · which agent is running, only when `$S host` can't tell · constitution · design system · enabling the plugin for the team · trimming plugins for this project · PR vs local merge. Everything else proceeds without asking.
 
 ## Report
 

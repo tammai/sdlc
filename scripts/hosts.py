@@ -24,9 +24,10 @@ import shutil
 import sys
 
 EDIT_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit"}
-# The Ralph loop's Stop hook runs only in Claude Code; hookify rules live in .claude/, which only Claude Code's setup writes
-HOOK_COMMANDS = {"cancel-ralph", "ralph-loop", "ralph-help", "hookify", "hookify-configure", "hookify-help",
-                 "hookify-list"}
+# Claude Code-only commands: the Ralph loop's Stop hook runs only there; hookify rules live in .claude/, which only
+# Claude Code's setup writes; context-diet trims Claude Code's own plugin config
+CLAUDE_ONLY_COMMANDS = {"cancel-ralph", "ralph-loop", "ralph-help", "hookify", "hookify-configure", "hookify-help",
+                        "hookify-list", "context-diet"}
 
 
 def read(root, rel):
@@ -184,7 +185,7 @@ def outputs(root):
     commands = os.path.join(root, "commands")
     for name in sorted(os.listdir(commands)) if os.path.isdir(commands) else []:
         cmd = name[:-3]
-        if name.endswith(".md") and cmd not in HOOK_COMMANDS:
+        if name.endswith(".md") and cmd not in CLAUDE_ONLY_COMMANDS:
             files[f"hosts/skills/{cmd}/SKILL.md"] = command_skill(read(root, f"commands/{name}"), cmd)
     return files
 
