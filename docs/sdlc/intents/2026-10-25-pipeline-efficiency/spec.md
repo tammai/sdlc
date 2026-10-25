@@ -1,0 +1,64 @@
+# Spec: a cheaper, faster pipeline that catches senior-level defects
+
+Status: approved 2026-10-25 (contract files git-ignored, per the user's veto) · Brief: the user's efficiency brief (2026-10-25) · Branch: `tammai/lite-and-slices`
+
+## Why
+
+Evals of the full M flow (round 2, planner task, 72 main turns, 996 s) show where the cost and time go:
+
+- **The main session is 71% of weighted tokens.** Its context grows with every loaded skill (58k at the first call, 169k at the end) and every one of its ~72 calls pays for all of it. A subagent call averages ~20k context, about 6x cheaper.
+- **60% of wall-clock is after the build, all sequential:** verifier and analysts, fixes, simplifier, a 190 s top-tier review, fixes, re-verify, security.
+- **~15 turns are bookkeeping:** hand edits to `state.md` and checklist ticks.
+- **One top-tier security-hook review per commit:** 7 commits, 7 reviews.
+- **Defects the pipeline missed or caused:** an unrequested `globals` devDependency and a `bin` field from `/sdlc:setup`; raw system errors and non-durable writes are found by review, if at all, not specified up front. The silent-failure-hunter found a real bug; the pr-test-analyzer found only test gaps.
+
+A separate control app ("flightdeck") and a headless runner will drive the pipeline later, so state changes also need a machine-readable contract.
+
+## Requirements
+
+Source tags: `[user]` from the brief. Guarantee tags as in `docs/specs/`: `[enforced]` code and a test prove it, `[instructed]` a skill or command says it. Metric: the eval metric (task `planner-team`) the requirement is expected to move.
+
+| ID | Requirement | Source | Guarantee | Metric |
+|---|---|---|---|---|
+| FR-01 | `Build: native \| subagent` in `state.md`, default `native`, recorded at the build. `subagent`: the orchestrator keeps spec, state and gates; one fresh implementer subagent (standard tier) gets the spec's tasks or the slice plan, builds test first, runs the full suite and returns a short summary (files, tests, suite result, open issues). The orchestrator never reads the implementation into its own context; the verifier and reviewer do. Findings from verify and review go back to the same implementer with the findings list (a message to the running agent keeps its context); the orchestrator only runs the suite. | [user] | [instructed] | weighted tokens, agent time |
+| FR-02 | The orchestrator skill is a short core (tracks, risk, model tiers, gates, hard stops, state format, the `state.py` calls; about 800–1,000 words) plus one reference file per stage, one for the Lite flow and one for the slice loop, each read when that stage starts. Nothing a later stage needs lives only in an earlier stage's file. | [user] | [instructed] | weighted tokens |
+| FR-03 | `scripts/state.py` makes every state change in one call: `advance <stage> [--gate pass\|fail] [--note]`, `verified <commit> <tree>`, `round <n> pass\|fail <reason>`, `log <line>`, `slice start\|done`, `blocker raise\|resolve`, `set <field> <value>`, `sync`. It updates `state.md` (keeping `Current: Stage <n> – <name>` exactly as the hooks read it), the stage checklist and the Gate log, and in the same call writes the control contract, as git-ignored runtime files: `state.json` (snapshot with `contract_version`) and exactly one event appended to `events.jsonl` per call (a stage move is one `stage_entered` event carrying `from` and the gate result). `commands/` (an inbox of one JSON file per command: `id`, `ts`, `type`, `payload`) is reserved for the runner, and the engine never executes a command itself: a file there is never the user's approval or answer. A malformed `state.md` (no `Status:` or `Current:` line) is reported with exit 1, never mirrored. The orchestrator uses `state.py` instead of hand edits. The contract is documented in `docs/specs/12-control-contract.md`, with its versioning rule: additive changes keep the version, breaking ones bump it. | [user] | [enforced] | agent time, weighted tokens |
+| FR-04 | Verify and review run in parallel: on a review-ready commit, the fresh verifier and the code reviewer are dispatched at the same time on the same commit (with the qa-tester and silent-failure-hunter where FR-07 says). Both sets of findings are fixed together, failing test first, then one re-verification: a fresh verifier on the full flow, an in-session full suite on Lite. No separate simplifier pass; the reviewer brief asks for simplifications as findings. | [user] | [instructed] | agent time |
+| FR-05 | While an sdlc feature is active, the commit security review (Claude Code) runs once per review-ready diff, not per commit: a commit made before the feature is review-ready (before Stage 5) is deferred, not reviewed and not marked reviewed; the next review-ready commit's review covers every unreviewed commit since the feature's `Base:`; a commit with nothing unreviewed is skipped. Outside a feature, and for the push review, nothing changes. | [user] | [enforced] | weighted tokens, agent time |
+| FR-06 | Setup doesn't change the product's public surface or dependencies without asking: on an existing package it adds no manifest fields (`bin`, `engines`, `packageManager`, …) and no devDependencies or tooling (eslint, `globals`, …) the project doesn't have, unless the user agrees at the setup prompt. Default: the project's existing commands (e.g. `npm test`), no new dev tooling. A greenfield skeleton adds only what its generator writes and the first feature needs. | [user] | [instructed] | blind defects |
+| FR-07 | Black-box QA by default on M: in the verify round of the full M flow and of a backlog feature's close, `sdlc:qa-tester` replaces `pr-test-analyzer`; `silent-failure-hunter` stays on the full flow. A single-session Lite feature adds the qa-tester to its one parallel round (FR-04), so it costs no extra round trip; slices don't run it, their feature close does. S stays verifier-only. A failed scenario is a finding, fixed in the same batch (failing test first); only a failure that needs a new requirement goes to the user. The qa-tester keeps every file its runs create under `.sdlc/.work/qa/`, so a parallel run can't mark tests stale or land in the `Verified:` tree. | [user] | [instructed] | hidden tests, blind defects |
+| FR-08 | Production edges in the spec: `writing-specs` and the Lite spec-and-tasks step list which failure modes apply to the change (concurrent use, scale or large inputs, persisted-data migration and compatibility, partial failure or a crash mid-write, untrusted input, I/O errors) and turn each that applies into a testable acceptance criterion, within the ~10 criteria cap. Reviewer briefs cite the same list. | [user] | [instructed] | hidden tests, blind defects |
+| FR-09 | A recurring-defects list, seeded with the eval findings (raw system errors such as ENOENT reaching the user, no fsync before rename, duplicate entries in stored data not rejected, verbose library error text, unrequested dev dependencies), goes into every reviewer brief. The plugin ships the seed; a project's own additions go in `<docs>/recurring-defects.md`, which Stage 11 (or the user) appends to. | [user] | [instructed] | blind defects |
+| FR-10 | Codex, Cursor and Antigravity keep working: new hook logic lives in the shared scripts `hosts/hook.py` calls, never only in Claude Code's wiring; `scripts/hosts.py check`, `scaffold.py agents --check` and the host hook tests pass; Claude Code-only behaviour is marked "(Claude Code)" in the docs. | [user] | [enforced] existing tests | — |
+
+## Acceptance criteria
+
+1. `state.py advance <feature> 5 --gate pass` moves a feature from Stage 4: `state.md` reads `Current: Stage 5 – Verify` (and the freshness hook then treats the feature as in Stage 5), Stage 4 is ticked, a Gate log line is added, `state.json` shows Stage 5, and exactly one `stage_entered` event (from Stage 4, gate pass) is appended (FR-03).
+2. `state.py` on a `state.md` with no `Current:` line exits 1 with a JSON error and writes neither `state.json` nor an event (FR-03).
+3. The orchestrator's core is about 1,000 words or fewer; each stage's instructions load only when that stage starts (FR-02).
+4. With `Build: subagent`, one implementer dispatch builds the feature or slice and the orchestrator reads only its summary; `native` stays the default (FR-01).
+5. A review-ready commit gets the verifier and reviewer (plus qa-tester / silent-failure-hunter per FR-07) in one parallel dispatch; findings are fixed together and re-verified once; no simplifier pass (FR-04, FR-07).
+6. With a feature active at Stage 4, a commit's security review is deferred; at Stage 6, the next commit's review covers both commits; with no feature active, a commit is reviewed as before (FR-05).
+7. `/sdlc:setup` on a package without eslint adds no eslint, `globals`, `bin`, `engines` or `packageManager` unless the user agrees (FR-06).
+8. A spec for a change that writes files lists "crash mid-write" and "I/O errors" as acceptance criteria; the reviewer brief cites them and the recurring-defects list (FR-08, FR-09).
+9. `hosts.py check`, `scaffold.py agents --check` and the host hook tests pass (FR-10).
+
+## Non-goals
+
+- Running the eval, or changing the eval harness or the user's environment.
+- Making `Build: subagent` the default before the eval decides.
+- A headless runner, or anything that executes `commands/`: only the format is defined now.
+- Spend tracking beyond a `spend` field (null when unknown).
+- New hook behaviour in Codex, Cursor or Antigravity.
+- Changing the push security review or the Stop-hook diff review.
+
+## Decided (agent's calls, not asked)
+
+- **Contract file locations (revised at approval):** runtime files, never committed: `.sdlc/.work/contract/<feature>/state.json`, `events.jsonl` and `commands/`. `.sdlc/.work/` is already git-ignored in every set-up repo, so no migration is needed, and parallel slices in separate worktrees each keep their own, with nothing to conflict on. `state.json` is derived from `state.md`, which stays the committed record. `commands/` is created by the runner, never by the engine.
+- **`state.py` doesn't create features.** The orchestrator still writes the first `state.md` from the template, then calls `state.py sync` to start the contract. A hand edit to `state.md` can leave `state.json` behind until the next `state.py` call or `sync`, which re-derives it without an event; the orchestrator makes no hand edits, so in practice it doesn't drift. (The brief says the files "can't drift"; a Stop hook re-deriving them was judged not worth a new hook.)
+- **Review-ready** (FR-05) means `Current:` at Stage 5 or later. Lite and slice commits happen at Stage 6, so each gets one review covering its whole diff; full-flow per-task commits in Stage 4 are deferred to the next review-ready commit or the push. The gate is a small sdlc module the vendored commit-review handler calls, listed among the patches in `NOTICE.md`.
+- **Parallel round stage:** the verifier, reviewer and analysts are all dispatched with `Current: Stage 5`, so the freshness hook tracks fixes; the gate moves to Stage 6 once the re-verification passes and the review findings are resolved, then to 7. The model router's dispatch log keeps showing a verifier dispatched in Stage 5.
+- **The qa-tester on single-session Lite** runs in the same parallel dispatch as the verifier and reviewer: no extra round trip, one ~20k-context subagent, and the evals' hidden-test misses are behaviour a black-box run catches. Slices skip it to keep each slice cheap; their feature close runs it once.
+- **Stage reference files** live in `skills/orchestrator/references/`: one per stage or group of small stages, plus `lite-flow.md` and `backlog-slices.md`, each read when its stage starts. A file read stays in context like a loaded skill; the saving is that stages that don't run, or haven't run yet, are never loaded. The core tells a resumed session to read the current stage's file (and `lite-flow.md` or `backlog-slices.md` when `Flow:` or `Slice:` says so). Anything two stages share (the `Verified:` tree command, the `diff_stats` call, the reviewer brief, the round cap) lives in the core.
+- **Expected size of the wins:** most of the full flow's main-context growth came from the bundled skills it loads (writing-specs, writing-plans, subagent-driven-development, TDD), not the orchestrator's ~5,700 words, so FR-02 alone moves tokens modestly; FR-01 (build out of the main context) and FR-04 (parallel round) are the larger expected wins.
+- **FR-06 needs no code:** the contract requires each command key to be present, and `null` already means "not applicable", so a project without a linter records `lint: null` instead of gaining eslint. The fix is in the setup skill's `lint` and `skeleton` steps.

@@ -17,6 +17,7 @@ Numbered in the order you meet them: setup first, then the lifecycle and its sta
 | 09 | [Autonomous loop](09-autonomous-loop.md) | `/sdlc:ralph-loop` | Optional, Stage 4 |
 | 10 | [UI and the design system](10-ui-design-system.md) | Design system recorded at setup; UI rule, guardrail and reviewer | Setup; Stages 1, 2, 6 for UI work |
 | 11 | [Claude Code, Codex, Cursor and Antigravity](11-multi-agent.md) | Install per agent, host detection, a second agent joining, one `AGENTS.md` block | Install, setup, upgrade, doctor |
+| 12 | [State changes and the control contract](12-control-contract.md) | `state.py`: one call per state change; `state.json`, `events.jsonl` and the reserved `commands/` inbox | Every stage transition |
 
 Requirement IDs (`SET-FR-001`, `ORC-FR-001`, …) are stable: they don't change if a spec is renumbered.
 
