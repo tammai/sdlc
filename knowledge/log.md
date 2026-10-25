@@ -14,3 +14,4 @@
 - 2026-10-23 add knowledge/gotchas/rendering-svg-diagrams.md — Playwright couldn't render the diagrams; stale counts in the layers SVG (from 1.5.0 release distill)
 - 2026-10-23 add knowledge/gotchas/hook-inputs.md — freshness hook missed failing runs; role guard keyed on agent_type (from 1.6.0 release distill)
 - 2026-10-23 add knowledge/gotchas/fake-plugin-root-in-tests.md — scaffold.py's sdlc_layout import failed under the fake plugin root (from 1.7.0 release distill)
+- 2026-10-25 add knowledge/gotchas/host-hook-answers.md, .claude/rules/hosts.md — agy denied every call on `{}`; a Cursor allow skipped approval (from 1.8.0 release distill)

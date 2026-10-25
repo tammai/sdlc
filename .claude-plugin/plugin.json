@@ -1,7 +1,7 @@
 {
   "name": "sdlc",
   "displayName": "SDLC",
-  "version": "1.7.1",
+  "version": "1.8.0",
   "description": "One Claude Code plugin for the whole software lifecycle: an orchestrator sizes each piece of work (S/M/L) and walks it through up to 11 gated stages, from spec and design through TDD, a fresh verifier and multi-agent review to deploy and retro, plus guardrail hooks, design-system-aware UI review and setup/upgrade for any stack or monorepo.",
   "author": {
     "name": "Tâm Mai",
