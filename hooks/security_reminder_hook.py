@@ -138,6 +138,7 @@ from reporesolve import (  # noqa: E402,F401
 import diffstate  # noqa: E402  module ref for last_baseline_fail
 import gitutil  # noqa: E402  module ref for per-run counters
 import llm  # noqa: E402  module ref for reassignable globals (_last_call_claude_http_error etc.)
+import sdlc_review_gate  # noqa: E402  sdlc patch: one commit review per review-ready diff (NOTICE.md)
 from llm import (  # noqa: E402,F401
     ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN, HAS_API_CREDENTIALS,
     SECURITY_REVIEW_MODEL, CLAUDE_CODE_SYSTEM_PROMPT,
@@ -1580,6 +1581,14 @@ def handle_commit_review_posttooluse(input_data):
         debug_log("Commit review: no SHA in commit output")
         emit_metrics({"skipped": True, "skip_reason": 33, **_base})
         sys.exit(0)
+    # sdlc patch: while a feature is active, a build commit (before Stage 5) is deferred, not reviewed and not
+    # recorded as reviewed; the next review-ready commit's review also covers it (hooks/sdlc_review_gate.py)
+    _sdlc = sdlc_review_gate.decide(repo_root, shas, _load_reviewed_shas(repo_root))
+    if _sdlc["defer"]:
+        debug_log("Commit review: sdlc feature not review-ready yet, deferred")
+        emit_metrics({"skipped": True, "skip_reason": 90, **_base})
+        sys.exit(0)
+    shas = _sdlc["shas"]
     if _reflog_shas:
         # Observability: track how often the fallback path is hit so
         # future analysis can split on it.
@@ -1628,7 +1637,7 @@ def handle_commit_review_posttooluse(input_data):
     commit_invocations = len(_GIT_COMMIT_RE.findall(command))
     pre_amend_sha = None
     if (is_amend and not _reflog_shas and len(all_shas) <= 1
-            and commit_invocations <= 1):
+            and commit_invocations <= 1 and not _sdlc["active"]):
         pre_amend_sha = _resolve_amend_pre_sha(repo_root, expected_post_sha=shas[0])
     if is_amend and pre_amend_sha:
         _base = {**_base, "amend_delta_review": True}
@@ -1643,7 +1652,19 @@ def handle_commit_review_posttooluse(input_data):
     # UnicodeDecodeError outside the except clause.
     diff_files = []
     resolved = 0
-    for sha in shas:
+    # sdlc patch: a widened review reads the net diff of the whole range, so a file changed in several of its
+    # commits keeps every hunk (the per-commit dedup below would keep only the newest commit's)
+    if _sdlc["range"]:
+        try:
+            result = subprocess.run(
+                [*GIT_CMD, "diff", "--no-color", "--no-ext-diff", "--no-textconv", *_sdlc["range"], "--"],
+                cwd=repo_root, capture_output=True, timeout=15)
+            if result.returncode == 0:
+                resolved = 1
+                diff_files.extend(parse_diff_into_files(result.stdout.decode("utf-8", errors="replace")))
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
+            debug_log(f"Commit review: sdlc range diff error: {e}")
+    for sha in ([] if _sdlc["range"] else shas):
         try:
             # core.quotePath=false: emit raw UTF-8 in `diff --git a/... b/...`
             # headers so non-ASCII paths aren't C-quoted past the downstream
@@ -1681,7 +1702,7 @@ def handle_commit_review_posttooluse(input_data):
     # both diffs would consume two MAX_DIFF_FILES slots and be re-analyzed.
     # `shas` is newest-first so the first occurrence is the most recent
     # version of the file — keep it.
-    if len(shas) > 1:
+    if len(shas) > 1 and not _sdlc["range"]:
         _seen = set()
         diff_files = [
             (fp, c) for fp, c in diff_files

@@ -26,7 +26,8 @@ sdlc/
 │   ├── pretooluse.py, stop.py, userpromptsubmit.py   hookify entry points (vendored)
 │   ├── posttooluse.py       hookify, kept for parity with upstream but not registered
 │   ├── stop-hook.sh         ralph-loop (vendored)
-│   └── security_reminder_hook.py + modules, sg-python.sh   security-guidance (vendored)
+│   ├── security_reminder_hook.py + modules, sg-python.sh   security-guidance (vendored; patched to ask sdlc_review_gate.py)
+│   └── sdlc_review_gate.py  one commit security review per review-ready diff while a feature is active (original)
 ├── core/                    hookify rule loader and engine (vendored, patched; see NOTICE.md)
 ├── matchers/, utils/        empty hookify packages (vendored)
 ├── knowledge/, .claude/rules/   this repo's own knowledge, same 3-tier spec as projects (sdlc:managing-knowledge)
@@ -59,7 +60,7 @@ sdlc/
 ├── CHANGELOG.md  NOTICE.md  LICENSE  README.md
 ```
 
-Original to this plugin: the orchestrator and setting-up-projects skills, `managing-knowledge`, the `verifier`, `qa-tester` and `ui-reviewer` agents, `verify_freshness.py`, `model_router.py`, `role_guard.py`, `trust_anchor.py`, everything in `scripts/` except the ralph script, `templates/project/`, `templates/knowledge/`, `templates/design-system-template.md`, `templates/backlog-template.md`, `migrations/`, `tests/`, `docs/`. Everything else is vendored; `NOTICE.md` says what came from where and what was changed.
+Original to this plugin: the orchestrator and setting-up-projects skills, `managing-knowledge`, the `verifier`, `qa-tester` and `ui-reviewer` agents, `verify_freshness.py`, `sdlc_review_gate.py`, `model_router.py`, `role_guard.py`, `trust_anchor.py`, everything in `scripts/` except the ralph script, `templates/project/`, `templates/knowledge/`, `templates/design-system-template.md`, `templates/backlog-template.md`, `migrations/`, `tests/`, `docs/`. Everything else is vendored; `NOTICE.md` says what came from where and what was changed.
 
 ## Dev loop
 

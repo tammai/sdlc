@@ -5,6 +5,7 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 ## Unreleased
 
 ### Changed
+- (Claude Code) While a feature is active, the commit security review runs once per review-ready diff instead of once per commit: build commits before Stage 5 are deferred, and the next commit from Stage 5 on is reviewed together with them, as one net diff. A full-flow feature with 7 task commits now gets one top-tier review, not seven. The push review is unchanged.
 - Verify and review run in parallel: on the review-ready commit the fresh verifier and the code reviewer start together (with the qa-tester on M, the silent-failure-hunter on the full flow, `pr-test-analyzer` only on L, the ui-reviewer on UI diffs); all findings are fixed together, then one re-verification (a fresh verifier on the full flow, an in-session full suite on Lite). The separate simplifier pass is gone; simplifications come in as review findings.
 - The qa-tester now runs by default in the M verify round (full flow, a single-session Lite feature, a backlog's Feature close), black-box against the spec; its failed scenarios are findings fixed in the same batch. It keeps its runtime files under `.sdlc/.work/qa/`.
 - Specs list the failure modes that apply (concurrent use, scale, data migration, a crash mid-write, untrusted input, I/O errors) as acceptance criteria, and every reviewer checks them along with a recurring-defects list: the plugin's, seeded from eval findings, plus the project's `<docs>/recurring-defects.md`, which Stage 11 extends.
