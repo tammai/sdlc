@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run the plugin's Claude Code hooks under another agent. Claude Code never runs this file.
 
-Usage, from hosts/<host>/hooks.json:  python3 hosts/hook.py <host> <event>     host: codex
+Usage, from hosts/<host>/hooks.json:  python3 hosts/hook.py <host> <event>     host: codex or cursor; event: Claude Code's
 
 Turns the host's payload into Claude Code's, runs the hook scripts Claude Code runs for that event, unchanged, as child
 processes, and turns their output back into the host's:
@@ -15,6 +15,8 @@ plugin's agents on tool calls) and the model router (subagent dispatches carry n
 Codex: payloads are Claude Code's, except that edits arrive as `apply_patch` with the patch text, which becomes one
 Write or Edit per file, and a failed command arrives as PostToolUse with no exit code, so a full test run records
 `unknown`, not `pass`.
+Cursor: camelCase events with their own output fields (`permission`, `followup_message`), `Shell` for Bash, edits as
+`Write` with the whole file, and an empty cwd: the workspace root stands in.
 
 Never fails the host's turn: any error prints `{}` and exits 0. Stdlib only, Python 3.9+.
 """
@@ -135,7 +137,50 @@ def codex_output(event, m):
     return out
 
 
-HOSTS = {"codex": (codex_events, codex_output, lambda data: None)}
+def cursor_root(data):
+    return (data.get("workspace_roots") or [None])[0] or os.environ.get("CURSOR_PROJECT_DIR")
+
+
+def cursor_events(event, data):
+    """Claude Code payload for one Cursor hook call. Hooks run in the plugin folder and tool calls carry an empty cwd,
+    so the workspace stands in."""
+    payload = dict(data, hook_event_name=event, cwd=data.get("cwd") or cursor_root(data) or os.getcwd())
+    tool, tin = data.get("tool_name"), dict(data.get("tool_input") or {})
+    if tool == "Shell":
+        payload.update(tool_name="Bash", tool_input=tin)
+        try:
+            failed = json.loads(data.get("tool_output") or "{}").get("exitCode") not in (None, 0)
+        except (ValueError, AttributeError):
+            failed = False
+        if event == "PostToolUse" and failed:
+            payload["hook_event_name"] = "PostToolUseFailure"
+    elif tool == "Delete":
+        payload.update(tool_name="Edit", tool_input={"file_path": tin.get("file_path") or tin.get("path") or "",
+                                                     "old_string": "", "new_string": ""})
+    if event == "Stop":  # Cursor counts the follow-ups it has sent; Claude Code flags the first one
+        payload["stop_hook_active"] = (data.get("loop_count") or 0) > 0
+    return [payload]
+
+
+def cursor_output(event, m):
+    """Cursor's own fields: permission on tool calls, a follow-up message to keep the agent going."""
+    out = {}
+    if event == "PreToolUse" and m["denied"]:
+        reason = m["deny"] or "sdlc: denied by a guardrail."
+        out.update(permission="deny", agent_message=reason, user_message=m["notes"] or reason)
+    elif event == "Stop" and m["blocked"]:
+        out["followup_message"] = m["block"] or "sdlc: a hook asked to continue."
+    elif event == "UserPromptSubmit" and m["blocked"]:
+        out.update({"continue": False, "user_message": m["block"] or "sdlc: a hook stopped this prompt."})
+    elif event in ("PostToolUse", "PostToolUseFailure") and (m["context"] or m["notes"]):
+        out["additional_context"] = m["context"] or m["notes"]
+    elif event == "PreToolUse" and (m["context"] or m["notes"]):
+        out.update(permission="allow", additional_context=m["context"] or m["notes"])
+    return out
+
+
+HOSTS = {"codex": (codex_events, codex_output, lambda data: None),
+         "cursor": (cursor_events, cursor_output, cursor_root)}
 
 
 def main(argv):

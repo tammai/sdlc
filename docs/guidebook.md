@@ -159,7 +159,7 @@ Each round spawns a new `verifier`, which runs build, lint, typecheck and tests 
 | ralph-loop | Stop | Only while a `/sdlc:ralph-loop` is running |
 | SessionStart | SessionStart | Creates a Python environment for the security reviewer on first run |
 
-In Codex, `hosts/hook.py` runs hookify, verify-freshness and trust-anchor on Codex's own hook events, once you trust them in `/hooks`. Cursor and Antigravity don't run hooks yet ([spec 11](specs/11-multi-agent.md)).
+In Codex and Cursor, `hosts/hook.py` runs hookify, verify-freshness and trust-anchor on the agent's own hook events (in Codex, once you trust them in `/hooks`). Antigravity doesn't run hooks yet ([spec 11](specs/11-multi-agent.md)).
 
 ## Where things live
 

@@ -1,4 +1,5 @@
-"""hosts/hook.py: the plugin's hooks under Codex, from payloads captured from Codex 0.162 (2026-10-25)."""
+"""hosts/hook.py: the plugin's hooks under Codex and Cursor, from payloads captured from Codex 0.162 and
+cursor-agent 2026.10.22 (2026-10-25)."""
 import os
 import shutil
 import unittest
@@ -44,6 +45,40 @@ class CodexHookTest(ProjectTestCase):
         self.assertEqual(out["decision"], "block")
         self.assertIn("a.py", out["reason"])
         self.assertNotIn("decision", self.codex("Stop", stop_hook_active=True))  # no loop: the second stop only warns
+
+
+
+class CursorHookTest(ProjectTestCase):
+    def cursor(self, event, cursor_event, **fields):
+        # Cursor runs plugin hooks in the plugin folder and sends an empty cwd; the workspace comes in workspace_roots
+        payload = dict({"hook_event_name": cursor_event, "cwd": "", "workspace_roots": [self.root],
+                        "conversation_id": "c"}, **fields)
+        code, out, raw, err = run_hook(ADAPTER + ["cursor", event], payload, PLUGIN_ROOT, {"CLAUDE_PROJECT_DIR": ""})
+        self.assertEqual(code, 0, err)
+        self.assertIsNotNone(out, f"adapter printed non-JSON: {raw!r}")
+        return out
+
+    def test_a_guardrail_denies_a_command_in_cursor_shape(self):
+        os.makedirs(self.path(".claude"), exist_ok=True)
+        shutil.copy(os.path.join(PLUGIN_ROOT, "examples", "hookify", "dangerous-rm.local.md"),
+                    self.path(".claude/hookify.dangerous-rm.local.md"))
+        out = self.cursor("PreToolUse", "preToolUse", tool_name="Shell",
+                          tool_input={"command": "rm -rf node_modules", "cwd": "", "timeout": 30000})
+        self.assertEqual(out["permission"], "deny")
+        self.assertIn("block-dangerous-rm", out["agent_message"])
+        self.assertEqual(self.cursor("PreToolUse", "preToolUse", tool_name="Shell", tool_input={"command": "ls"}), {})
+
+    def test_an_edit_after_the_tests_sends_a_follow_up_once(self):
+        self.write(".sdlc/login/state.md", "# Feature: login\nStatus: active\nCurrent: Stage 5\n\n"
+                                           "## Commands\n- test: `pytest`\n")
+        self.cursor("PostToolUseFailure", "postToolUseFailure", tool_name="Shell", tool_input={"command": "pytest"},
+                    error_message="Command failed with exit code 1", failure_type="error")
+        self.assertEqual(self.cursor("Stop", "stop", status="completed", loop_count=0), {})
+        self.cursor("PostToolUse", "postToolUse", tool_name="Write",
+                    tool_input={"file_path": self.path("a.py"), "content": "x = 2\n"},
+                    tool_output='{"success":true}')
+        self.assertIn("a.py", self.cursor("Stop", "stop", status="completed", loop_count=0)["followup_message"])
+        self.assertEqual(self.cursor("Stop", "stop", status="completed", loop_count=1), {})  # no loop
 
 
 if __name__ == "__main__":

@@ -12,7 +12,7 @@ sdlc/
 ├── .codex-plugin/, .agents/plugins/, .cursor-plugin/, plugin.json, hosts/
 │                            Codex, Cursor and Antigravity manifests, Cursor agents, hosts/skills (the commands as skills)
 │                            and hosts/<host>/hooks.json: built by scripts/hosts.py, never edited; `hosts.py dist antigravity`
-│                            builds Antigravity's install copy. hosts/hook.py (hand-written) runs the hooks under Codex
+│                            builds Antigravity's install copy. hosts/hook.py (hand-written) runs the hooks under Codex and Cursor
 ├── agents/                  subagents: verifier, reviewers, code-explorer/architect, simplifier, …
 ├── commands/                slash commands (/sdlc:start, setup, upgrade, eject, doctor, status, prune, review-pr, …)
 ├── skills/                  skills; orchestrator/ is the conductor, setting-up-projects/ runs setup/upgrade/eject

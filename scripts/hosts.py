@@ -8,8 +8,7 @@ The Claude Code plugin (.claude-plugin/, skills/, commands/, agents/, hooks/) is
   plugin.json                     Antigravity manifest (root, as `agy plugin install <github url>` expects), plus hosts/skills
   hosts/cursor/agents/*.md        agents with Cursor's frontmatter: model inherit, readonly for read-only roles
   hosts/skills/<command>/SKILL.md commands as skills: Codex and Antigravity drop commands that take $ARGUMENTS
-  hosts/codex/hooks.json          the plugin's hooks through hosts/hook.py, which adapts Codex payloads
-  hosts/cursor/hooks.json         no hooks yet
+  hosts/codex/hooks.json, hosts/cursor/hooks.json   the plugin's hooks through hosts/hook.py, which adapts the payloads
 
 Usage: python3 scripts/hosts.py [--root DIR] build | check   (check exits 1 when a file differs from a fresh build)
        python3 scripts/hosts.py dist antigravity OUT   a copy to `agy plugin install OUT`: Antigravity reads agents/
@@ -127,6 +126,17 @@ def codex_hooks():
                       "UserPromptSubmit": entry("UserPromptSubmit"), "Stop": entry("Stop")}}
 
 
+def cursor_hooks():
+    """hosts/hook.py on Cursor's events, named by the Claude Code event it stands for."""
+    def entry(event, matcher=None):
+        hook = {"command": 'python3 "${CURSOR_PLUGIN_ROOT}/hosts/hook.py" cursor ' + event, "timeout": 60}
+        return [dict(hook, matcher=matcher) if matcher else hook]
+    return {"version": 1, "hooks": {"preToolUse": entry("PreToolUse", "^(Shell|Write|Delete)$"),
+                                    "postToolUse": entry("PostToolUse", "^(Shell|Write|Delete)$"),
+                                    "postToolUseFailure": entry("PostToolUseFailure", "^Shell$"),
+                                    "beforeSubmitPrompt": entry("UserPromptSubmit"), "stop": entry("Stop")}}
+
+
 def outputs(root):
     plugin = json.loads(read(root, ".claude-plugin/plugin.json"))
     market = json.loads(read(root, ".claude-plugin/marketplace.json"))
@@ -151,7 +161,7 @@ def outputs(root):
         "plugin.json": dump(dict({k: common[k] for k in ("name", "version", "description") if k in common},
                                  skills="./hosts/skills/")),
         "hosts/codex/hooks.json": dump(codex_hooks()),
-        "hosts/cursor/hooks.json": dump({"version": 1, "hooks": {}}),
+        "hosts/cursor/hooks.json": dump(cursor_hooks()),
     }
     for name in sorted(os.listdir(os.path.join(root, "agents"))):
         if name.endswith(".md"):
