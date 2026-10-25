@@ -90,7 +90,7 @@ Each stage prints what it uses and its exit gate. Documents go to `docs/sdlc/int
 
 The orchestrator runs on its own between these stops, and always asks you here:
 
-- **Spec (M, L):** read the `[inferred]` list, requirements nobody asked for. Each is dropped unless you keep it. Approve the spec.
+- **Spec (M, L):** any questions that block the work come first, all in one message (often none). Then read the `[inferred]` list: the agent's guesses and requirements nobody asked for. Each is dropped unless you keep it. Approve the spec.
 - **Design (L, or M when unclear):** every new module, abstraction or dependency must cite a requirement in the Complexity Tracking table. Approve the design.
 - **Plan:** check the Public Surface list (everything new others can see), then pick subagent-driven or native execution. The Lite flow has no separate plan: you approve the spec and its task list together, and it builds in the session.
 - **Verify** needs no decision: a fresh `verifier` agent runs your commands each round, at most 3. Only *new* failures count, not baseline ones. If code changes after the last full test run, a hook won't let the turn finish until tests are rerun.
@@ -145,7 +145,7 @@ Skills such as `sdlc:writing-specs` or `sdlc:test-driven-development` are used b
 | # | Stage | Bundled pieces |
 |---|---|---|
 | 0 | Setup (once per repo) | `setting-up-projects`, `/sdlc:setup`, `/sdlc:upgrade`, `/sdlc:eject`, `/sdlc:doctor` |
-| 1 | Discover | `brainstorming`, `writing-specs`, `clarifying-specs` |
+| 1 | Discover | blocking questions in one message (or none), `brainstorming`, `writing-specs`, `clarifying-specs` (on request) |
 | 2 | Design | `designing-solutions` + `code-explorer`, `code-architect` agents |
 | 3 | Plan | `writing-plans`, `analyzing-consistency` |
 | 4 | Implement | `using-git-worktrees`, `subagent-driven-development` / `executing-plans`, `dispatching-parallel-agents`, `test-driven-development`, `systematic-debugging`, `/sdlc:ralph-loop` |

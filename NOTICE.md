@@ -7,7 +7,7 @@ https://github.com/obra/superpowers — `licenses/superpowers-MIT.txt`
 
 Copied: skills `brainstorming`, `writing-plans`, `executing-plans`, `subagent-driven-development`, `dispatching-parallel-agents`, `test-driven-development`, `systematic-debugging`, `verification-before-completion`, `requesting-code-review`, `receiving-code-review`, `using-git-worktrees`, `finishing-a-development-branch`, and `using-superpowers/references/claude-code-tools.md` (now `skills/executing-plans/references/`).
 
-Modified: skill cross-references renamed from `superpowers:` to `sdlc:`; output paths moved to `.sdlc/<feature>/` and working files to `.sdlc/.work/`; brainstorming hands back to the orchestrator; `executing-plans` and `subagent-driven-development` skip their final whole-branch review when the orchestrator moves it to Stage 6 (the review stays on the top tier); the brainstorm companion's remote logo fetch is disabled by default.
+Modified: skill cross-references renamed from `superpowers:` to `sdlc:`; output paths moved to `.sdlc/<feature>/` and working files to `.sdlc/.work/`; brainstorming hands back to the orchestrator and doesn't re-ask Stage 1's blocking questions; `executing-plans` and `subagent-driven-development` skip their final whole-branch review when the orchestrator moves it to Stage 6 (the review stays on the top tier); the brainstorm companion's remote logo fetch is disabled by default.
 
 ## GitHub Spec Kit — MIT License, Copyright GitHub, Inc.
 https://github.com/github/spec-kit — `licenses/spec-kit-MIT.txt`

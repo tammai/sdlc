@@ -102,9 +102,9 @@
 - **FR-003** [clarified]: Users MUST be able to [key interaction, e.g., "reset their password"]
 - **FR-004** [inferred]: System MUST [behavior you think is needed but the user never asked for, e.g., "log all security events"]
 
-*Example of marking unclear requirements:*
+*Example of a guess the user didn't settle (kept or dropped at the gate):*
 
-- **FR-005** [user]: System MUST authenticate users via [NEEDS CLARIFICATION: auth method not specified - email/password, SSO, OAuth?]
+- **FR-005** [inferred]: System MUST authenticate users via email and password (the request names no method; the app has no SSO today)
 
 ### Non-Goals *(mandatory)*
 

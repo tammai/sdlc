@@ -15,7 +15,7 @@ A spec says **what** users need and **why**. It never says how: no languages, fr
 
 ## Inputs
 
-- The feature request, and `<intents>/brainstorm.md` if Stage 1 started with brainstorming.
+- The feature request, the user's answers to Stage 1's blocking questions, and `<intents>/brainstorm.md` if Stage 1 started with brainstorming.
 - `<docs>/constitution.md` if it exists (project principles; treat MUST rules as hard constraints).
 - Template: `${CLAUDE_PLUGIN_ROOT}/templates/spec-template.md`
 
@@ -24,7 +24,7 @@ A spec says **what** users need and **why**. It never says how: no languages, fr
 1. **Name the feature.** If the orchestrator already chose the name, use it. Otherwise: `<yyyy-mm-dd>-<slug>`, or `<yyyy-mm-dd>-<ticket>-<slug>` when the request names a ticket (`2026-10-22-PROJ-123-month-filter`; a GitHub issue is `gh-42`). The date is today's, the same as `Started:`; the slug is 2–4 kebab-case words, action-noun where possible (`user-auth`, `fix-payment-timeout`), keeping technical terms (OAuth2, JWT). If `<intents>/` already exists and isn't the feature being resumed, add `-2` (then `-3`, …). The feature's branch and `knowledge/features/<name>.md` use the same name. The feature directory is `<intents>/`.
 2. **Copy the template** to `<intents>/spec.md` and fill it, keeping section order and headings.
 3. **Extract** actors, actions, data, constraints from the request.
-4. **Unclear points:** make an informed guess from context and industry norms, and record it under Assumptions. Mark `[NEEDS CLARIFICATION: <specific question>]` only when the choice changes scope or UX, several reasonable readings exist, and no sensible default does. **Maximum 3 markers.** Priority: scope > security/privacy > UX > technical detail.
+4. **Unclear points:** the orchestrator already asked the blocking questions, in one message, before this skill; never ask more here and never leave `[NEEDS CLARIFICATION]` markers. Their answers are `[clarified]`. Anything still open gets an informed guess from context and industry norms: under Assumptions if it adds no work, as an `[inferred]` FR or SC if it does. The user keeps or drops those at the gate. Run on its own (no orchestrator), ask the blocking questions yourself first, the same way: one message, only what changes what gets built.
 5. **User scenarios** with acceptance scenarios (Given/When/Then). If no clear user flow exists, stop and say so.
 6. **Functional requirements** `FR-001…`: each one testable, each tagged with its source: `[user]` (the user asked), `[clarified]` (a user answer settled it) or `[inferred]` (you added it). Be strict: "the user would probably want it" is `[inferred]`. Common inferred creep: admin/settings UI, audit logging, i18n, pagination, caching, rate limiting, bulk operations, export, notifications, configurability, "support for future X".
 7. **Success criteria** `SC-001…`: measurable and technology-agnostic (time, volume, completion rate, satisfaction), each verifiable without knowing the implementation, with the same source tags. A load or scale number the user didn't give is `[inferred]`.
@@ -46,7 +46,6 @@ Write `<intents>/checklists/requirements.md`:
 - [ ] All mandatory sections completed
 
 ## Requirement Completeness
-- [ ] No [NEEDS CLARIFICATION] markers remain
 - [ ] Requirements are testable and unambiguous
 - [ ] Success criteria are measurable and technology-agnostic
 - [ ] Acceptance scenarios defined for every user story
@@ -64,10 +63,7 @@ Write `<intents>/checklists/requirements.md`:
 ```
 
 Check the spec against each item:
-- Failing items (other than clarifications): fix the spec and re-check, up to 3 rounds. Anything still failing goes in the checklist notes, and you tell the user.
-- Remaining `[NEEDS CLARIFICATION]` markers: present all of them (max 3) together, each as:
-
-  **Question N: <topic>** — context (quote the spec line), what we need to know, then a table of options A/B/C/Custom with the implication of each. Wait for answers ("Q1: A, Q2: Custom – …"), write them into the spec, re-check.
+- Failing items: fix the spec and re-check, up to 3 rounds. Anything still failing goes in the checklist notes, and you tell the user.
 
 ## Inferred requirements at the gate
 
@@ -84,4 +80,4 @@ Kept → retag `[clarified]`. Dropped → delete it and add a line to Non-Goals 
 
 ## Done
 
-Report: spec path, checklist result (x/y passing), the `[inferred]` list for the gate, and the next step — `sdlc:clarifying-specs` if ambiguity remains in high-impact areas, otherwise design (`sdlc:designing-solutions`).
+Report: spec path, checklist result (x/y passing), the `[inferred]` list for the gate, and the next step: design (`sdlc:designing-solutions`) or the plan.

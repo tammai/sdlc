@@ -66,7 +66,7 @@ At the start of every stage print exactly:
 
 The default for M with `Risk: low`. Set `Flow: lite` in state.md and strike out stages 2, 3, 9, 10 and 11. Everything the flow needs is written here: don't load `sdlc:writing-specs`, `sdlc:writing-plans`, `sdlc:executing-plans` or `sdlc:subagent-driven-development` for it. Every loaded skill stays in context for the rest of the session. Print the stage header at each step, as usual.
 
-1. **Spec and tasks, one document** (Stage 1 and 3 together). Write `<intents>/spec.md` with:
+1. **Spec and tasks, one document** (Stage 1 and 3 together). First the blocking questions, once, as in Stage 1 (often none). Then write `<intents>/spec.md` with:
    - Goal: one or two sentences.
    - Requirements: `FR-nnn`, each testable, taken from the request. Anything you add that the request didn't say goes in an `Inferred` list with a one-line reason; it's dropped unless the user keeps it.
    - Acceptance criteria: about 10 or fewer, each one a behaviour a test can prove.
@@ -88,12 +88,13 @@ Size up to the full M flow, and say why in one line, when the spec turns out to 
 
 ### 1 · Discover & specify
 - If `knowledge/index.md` exists, read it and open only the docs relevant to this feature (prior decisions, gotchas, related features). Don't read the whole folder.
-- L track: run `sdlc:brainstorming` first (writes `brainstorm.md`). M track: skip to the spec.
+- **Blocking questions, once** (every track, before the spec; on L before brainstorming; on S before the brief). Ask only the questions whose answer would change what gets built and that the request, ticket, code and knowledge don't settle, all in one message: numbered, plain text, each with options A/B/C and your recommendation first, so it works with or without a question tool. Nothing blocks → ask nothing. Every other open point gets your best guess, recorded as an assumption: `[inferred]` (Lite: the `Inferred` list) with a one-line reason, which the user keeps or drops at the spec gate together with the spec. S: assumptions go in the brief and the final summary. Answers are `[clarified]`. Don't ask again later in the stage.
+- L track: run `sdlc:brainstorming` next (writes `brainstorm.md`); it builds on the answers and spends its questions on approaches. M track: go to the spec.
 - `sdlc:writing-specs` → `spec.md` + `checklists/requirements.md`
-- `sdlc:clarifying-specs` if high-impact ambiguity remains
+- `sdlc:clarifying-specs` only when the user asks for it
 - UI work: the spec names each screen's states (loading, empty, error, success) and its real copy. Look and layout come from `<docs>/design-system.md`, not from the spec.
 - **Inferred triage (part of the gate):** show every `[inferred]` FR/SC as its own list, with a one-line reason each; dropped unless the user keeps it (see `sdlc:writing-specs`). Dropped items go to Non-Goals.
-- **Gate (user approves):** checklist passes, no `[NEEDS CLARIFICATION]`, no `[inferred]` tags left, Non-Goals filled, acceptance criteria testable.
+- **Gate (user approves):** checklist passes, no `[inferred]` tags left, Non-Goals filled, acceptance criteria testable.
 
 ### 2 · Design (L track, or M when the approach isn't obvious)
 - `sdlc:designing-solutions` → `design.md`, `research.md`, `data-model.md`, `contracts/`, `quickstart.md` (dispatches `sdlc:code-explorer` and `sdlc:code-architect` agents)
@@ -113,7 +114,7 @@ Size up to the full M flow, and say why in one line, when the spec turns out to 
 - Always on: `sdlc:test-driven-development`; `sdlc:systematic-debugging` the moment something fails unexpectedly
 - Optional loop for a single well-specified task with a machine-checkable finish: `/sdlc:ralph-loop "<task>" --completion-promise "DONE" --max-iterations 15`
 - Background: the security-guidance hooks warn on risky edits; hookify rules (if any) enforce team rules
-- S track: no plan file. Dispatch one implementer on the implementer tier from the table above (`sdlc:subagent-driven-development`'s `implementer-prompt.md`, with a brief file you write in place of a plan task): the bug and the expected behaviour; a failing test reproducing the bug first (a new test file is allowed), then the fix, then the full suite; on UI work, the UI mapping line from the Gate log; and "stop with BLOCKED if the fix needs more than 3 files, touches auth, payments, secrets, PII or migrations, or the cause stays unclear". Don't write the fix in this session; with no subagent tool, do it here and say so. A BLOCKED for one of those reasons moves the feature to M.
+- S track: no plan file. If the expected behaviour isn't clear from the request, ticket or a repro, ask the blocking questions once first (Stage 1's rule); write the answers and your assumptions into the brief. Dispatch one implementer on the implementer tier from the table above (`sdlc:subagent-driven-development`'s `implementer-prompt.md`, with a brief file you write in place of a plan task): the bug and the expected behaviour; a failing test reproducing the bug first (a new test file is allowed), then the fix, then the full suite; on UI work, the UI mapping line from the Gate log; and "stop with BLOCKED if the fix needs more than 3 files, touches auth, payments, secrets, PII or migrations, or the cause stays unclear". Don't write the fix in this session; with no subagent tool, do it here and say so. A BLOCKED for one of those reasons moves the feature to M.
 - **Gate:** every plan task checked; build + full test suite pass; no TODO without a ticket.
 
 ### 5 · Verify (rounds, max 3)

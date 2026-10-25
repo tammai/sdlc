@@ -1,6 +1,6 @@
 ---
 name: clarifying-specs
-description: Use after a spec exists and before design, to find the ambiguities that would change what gets built and resolve them with at most 5 targeted questions, writing each answer back into spec.md.
+description: Use only when the user asks to clarify an existing spec before design (the orchestrator asks its blocking questions before the spec instead), to find the ambiguities that would change what gets built and resolve them with at most 5 targeted questions, writing each answer back into spec.md.
 ---
 
 `${CLAUDE_PLUGIN_ROOT}` is the sdlc plugin's folder. Claude Code fills it in; on other agents it stays as written, so use the installed plugin's folder instead: the one above this file that holds `scripts/` and `skills/`.

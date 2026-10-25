@@ -52,7 +52,7 @@ Low-risk M work runs the **Lite flow**: you approve one `spec.md` with its task 
 4. **Stage 3:** check the Public Surface section: it's everything new that others can see. **You pick** subagent-driven (default for larger plans) or native execution.
 5. Stages 4–8 run on their own unless a gate fails.
 
-**Good habits:** state non-goals up front; answer clarification questions concisely; challenge any addition you didn't ask for before approving the spec, not after the code exists.
+**Good habits:** state non-goals up front; answer the one batch of blocking questions (if any) concisely; challenge any addition you didn't ask for before approving the spec, not after the code exists.
 
 ## 3. Build a new service or module (L track)
 

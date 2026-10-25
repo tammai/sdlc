@@ -55,7 +55,7 @@ Anything touching auth, payments, secrets, PII or schema migrations is at least 
 
 | # | Stage | Produces | Gate |
 |---|---|---|---|
-| 1 | Discover & specify | `spec.md`, `checklists/requirements.md` (L: `brainstorm.md`) | **You approve.** Checklist passes, no open clarifications, no `[inferred]` items left, Non-Goals filled, acceptance criteria testable |
+| 1 | Discover & specify | `spec.md`, `checklists/requirements.md` (L: `brainstorm.md`) | **You approve.** Checklist passes, no `[inferred]` items left, Non-Goals filled, acceptance criteria testable |
 | 2 | Design | `design.md`, `research.md`, `data-model.md`, `contracts/`, `quickstart.md` | **You approve.** Every requirement maps to the design, every added module or dependency cites a requirement, constitution check passes |
 | 3 | Plan | `plan.md` | No CRITICAL or HIGH scope findings, every task cites a requirement, Public Surface declared. **You pick the execution method** |
 | 4 | Implement | code, tests | Every plan task checked, build and full test suite pass, no TODO without a ticket |
@@ -85,6 +85,7 @@ The orchestrator always asks you before: end of Stage 1, end of Stage 2, choosin
 
 Over-engineering usually starts before any code exists, so every stage ties additions back to a request:
 
+- **Questions come once.** Before the spec (L: before brainstorming; S: before the brief), the orchestrator asks only what would change what gets built, in one message, or nothing. Everything else is a guess the spec lists as `[inferred]`, so you confirm or veto the guesses together with the spec instead of answering one question per turn. `clarifying-specs` runs only when you ask.
 - **Specs** tag each requirement `[user]`, `[clarified]` or `[inferred]`, and have a required Non-Goals section. At the Stage 1 gate, `[inferred]` items are listed on their own and **dropped unless you keep them**; dropped ones move to Non-Goals.
 - **Designs** keep a Complexity Tracking table: every new module, layer, abstraction, dependency, service, config key or store cites a requirement or comes out.
 - **Plans** give each task a `Requirements:` line and declare a **Public Surface** (every new export, endpoint, command, config key, env var, dependency).

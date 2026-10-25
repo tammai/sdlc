@@ -5,6 +5,7 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 ## Unreleased
 
 ### Changed
+- Stage 1 asks its questions once: only the ones that would change what gets built, all in one message, or none. Every other open point becomes an `[inferred]` guess that you keep or drop with the spec. Specs no longer carry `[NEEDS CLARIFICATION]` markers, `clarifying-specs` runs only when you ask, and an L brainstorm doesn't re-ask the answers. S asks the same way before the fix when the expected behaviour is unclear.
 - M features with `Risk: low` now run the **Lite flow** by default (`Flow: lite` in `state.md`): one `spec.md` with an `Inferred` list, about 10 acceptance criteria and 3–6 tasks, approved once; a native, test-first build in the session; one fresh standard-tier verifier; one standard-tier review whose brief names durable writes, error paths and loaded data; review fixes re-verified with an in-session full run; light security; one commit. High-risk M work, or a request for the full flow, keeps the previous M stages. In evals it used a third to a half of the full M flow's tokens and 2 approvals instead of 5, with the same hidden-test results. ADR 0008.
 - The verify-freshness hook keeps tracking through Stage 6 on `Flow: lite`, so a review fix must be followed by a full test run before the turn ends, and the trust anchor accepts that rerun instead of flagging the post-verify edit.
 
