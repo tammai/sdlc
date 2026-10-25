@@ -175,7 +175,7 @@ def cursor_output(event, m):
     elif event in ("PostToolUse", "PostToolUseFailure") and (m["context"] or m["notes"]):
         out["additional_context"] = m["context"] or m["notes"]
     elif event == "PreToolUse" and (m["context"] or m["notes"]):
-        out.update(permission="allow", additional_context=m["context"] or m["notes"])
+        out["additional_context"] = m["context"] or m["notes"]  # no `permission`: an allow would skip the approval
     return out
 
 
