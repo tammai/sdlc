@@ -1,6 +1,6 @@
 <svg width="100%" viewBox="0 0 1000 1402" role="img" xmlns="http://www.w3.org/2000/svg">
 <title>SDLC with hooks, gates, skills and subagents</title>
-<desc>The orchestrator runs stages 1 to 11. Each stage row shows the bundled skills, subagents and hooks involved and its exit gate; gates marked red need the user's approval. Five hook families run throughout: hookify, security-guidance, verify-freshness (Stage 5 only), model-router (checks each subagent's model and logs it while a feature is active; with role-guard, which keeps the plugin's agents to their role, and trust-anchor, which tells the user when what verification trusts changes) and ralph-loop (optional).</desc>
+<desc>The orchestrator runs stages 1 to 11. Each stage row shows the bundled skills, subagents and hooks involved and its exit gate; gates marked red need the user's approval. Five hook families run throughout: hookify, security-guidance, verify-freshness (Stage 5 only; Stages 5–6 on the Lite flow), model-router (checks each subagent's model and logs it while a feature is active; with role-guard, which keeps the plugin's agents to their role, and trust-anchor, which tells the user when what verification trusts changes) and ralph-loop (optional).</desc>
 <style>
 text{font-family:anthropic-sans,-apple-system,"system-ui","Segoe UI",sans-serif;dominant-baseline:central;text-anchor:middle}
 .a{fill:none;stroke:#898781;stroke-width:1.5}

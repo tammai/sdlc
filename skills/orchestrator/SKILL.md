@@ -33,7 +33,7 @@ You are the conductor. You decide the stage, call the right bundled skill/agent/
 | Track | Signals | Stages |
 |---|---|---|
 | **S – fix** | bug or tweak, 1–3 files, clear expected behavior | 4 → 5 → 6 (light) → 8 |
-| **M – feature** | a few files to a few days, approach mostly obvious | 1 (spec, no brainstorm) → 3 → 4 → 5 → 6 → 7 (light) → 8 |
+| **M – feature** | a few files to a few days, approach mostly obvious | Risk low: the **Lite flow** below (default). Risk high, or the user asks for the full flow: 1 (spec, no brainstorm) → 3 → 4 → 5 → 6 → 7 (light) → 8 |
 | **L – project** | new service/module, unclear approach, or touches auth, payments, data migration, public API | 1 → 2 → … → 8 → 11 (9 only on request; 10 parked) |
 
 Anything touching auth, payments, secrets, PII or schema migrations is at least M and always gets full Stage 7.
@@ -43,7 +43,8 @@ Anything touching auth, payments, secrets, PII or schema migrations is at least 
 | | Implementers | Verifier, reviewers | Security pass |
 |---|---|---|---|
 | S, risk low | cheap | standard | hooks only |
-| M, risk low | cheap or standard, per task | standard; Stage 6 whole-branch review top | light |
+| M, risk low, lite flow | native (this session) | standard, including the Stage 6 review | light |
+| M, risk low, full flow | cheap or standard, per task | standard; Stage 6 whole-branch review top | light |
 | L, or risk high | standard | top | top, full Stage 7 |
 
 The top tier is `opus`. Use `fable` only when the user asks for it; record it as `Top model: fable`.
@@ -60,6 +61,28 @@ At the start of every stage print exactly:
   Using: <skills/agents/commands>
   Gate:  <exit criterion>
 ```
+
+## Lite flow (M track, risk low)
+
+The default for M with `Risk: low`. Set `Flow: lite` in state.md and strike out stages 2, 3, 9, 10 and 11. Everything the flow needs is written here: don't load `sdlc:writing-specs`, `sdlc:writing-plans`, `sdlc:executing-plans` or `sdlc:subagent-driven-development` for it. Every loaded skill stays in context for the rest of the session. Print the stage header at each step, as usual.
+
+1. **Spec and tasks, one document** (Stage 1 and 3 together). Write `<intents>/spec.md` with:
+   - Goal: one or two sentences.
+   - Requirements: `FR-nnn`, each testable, taken from the request. Anything you add that the request didn't say goes in an `Inferred` list with a one-line reason; it's dropped unless the user keeps it.
+   - Acceptance criteria: about 10 or fewer, each one a behaviour a test can prove.
+   - Non-Goals.
+   - Tasks: 3–6 lines, each naming its files, the FR it covers and its test.
+   No requirements checklist and no separate plan.md. **Gate (the one approval in this flow):** the user approves spec and tasks. Execution is native; don't ask for a method.
+2. **Build** (Stage 4). Work through the tasks in this session, test first: one failing test per behaviour, the code that passes it, then the full suite. Don't commit or update state.md between tasks; the next state update is at the verify gate.
+3. **Verify** (Stage 5). Set `Current: Stage 5 – Verify`, then spawn one fresh `sdlc:verifier` on the standard tier with the spec path, the round number and the commands. No `pr-test-analyzer` or `silent-failure-hunter`. FAIL: fix the listed failures (failing test first) and run a second round with another fresh verifier. A second FAIL stops the flow: bring the user what still fails and offer the full M flow.
+4. **Review** (Stage 6). Spawn one `sdlc:code-reviewer` on the standard tier with the diff stats (`scripts/diff_stats.py --format md`), the spec and the Rulings. No simplifier and no top-tier review. This is the flow's only second pair of eyes, so the brief also asks for these edges by name, each finding rated high when the spec states the behaviour:
+   - Writes: data that is persisted survives a crash or a failed write (temp file flushed and synced before the rename, the temp file removed on failure, the original never overwritten by bad input).
+   - Error paths: every failure the code can hit, I/O included (missing directory, permissions, a full disk), reaches the user in the spec's error format and exit code, never as a raw system error or stack trace.
+   - Loaded data: anything read back from disk or the network is checked against the same rules as user input. Fix high-severity findings with a failing test first; medium and low go to `<intents>/review.md` as tickets. After any fix, run the full test suite in this session instead of a new verifier round, set `Verified:` to the resulting tree, and add the Gate log line `lite: review fixes re-verified in-session (<suite result>)`. Stage 8's verified-tree check accepts that tree.
+5. **Security** (Stage 7, light): the hook findings plus the dependency audit.
+6. **Finish** (Stage 8). One commit for the whole feature (code, tests, docs and state) on the feature branch, then summarise and ask the user about merge, PR or keep. Committing once also means one commit-time security review instead of one per task.
+
+Size up to the full M flow, and say why in one line, when the spec turns out to need a design decision the request doesn't settle, or when risk turns out to be high.
 
 ## Stages
 
@@ -117,8 +140,8 @@ You (the orchestrator) may run commands to investigate, but the verdict always c
 - On the GitHub PR (after Stage 8 opens it): `/sdlc:code-review`
 - Handling feedback: `sdlc:receiving-code-review` (verify before agreeing; push back with evidence)
 - Polish first: run the `sdlc:code-simplifier` agent on the changed files before the reviewers, so they review the code that will merge
-- This is the feature's only whole-branch review (Stage 4 skipped its own), so on M and L the whole-branch `code-reviewer` runs on the top tier (S keeps the standard tier). Every reviewer's brief includes the plan's Review Focus section verbatim, if it has one, and the Rulings recorded in state.md.
-- Any code change in this stage (the simplifier's, or a fix for a finding) sends the feature back to Stage 5 for another round before this gate passes. Changes to tests or docs alone don't.
+- This is the feature's only whole-branch review (Stage 4 skipped its own), so on M and L the whole-branch `code-reviewer` runs on the top tier (S and the Lite flow keep the standard tier). Every reviewer's brief includes the plan's Review Focus section verbatim, if it has one, and the Rulings recorded in state.md.
+- Any code change in this stage (the simplifier's, or a fix for a finding) sends the feature back to Stage 5 for another round before this gate passes (the Lite flow re-verifies in-session instead; see its step 4). Changes to tests or docs alone don't.
 - Facts first: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/diff_stats.py" --format md --plan <intents>/plan.md` (omit `--plan` on S track) goes into every reviewer's prompt; exports and dependencies missing from the plan's Public Surface are flagged as undeclared (comment share, single-use exports, single-implementation abstractions, new dependencies).
 - S track ("light"): `sdlc:code-simplifier` then `sdlc:code-reviewer`, both with the diff stats.
 - Severity: unrequested public surface (export, file, endpoint, option, config, dependency not in the spec/plan, with no stated reason) is high. Comment noise flagged by the stats or hookify warnings is medium and fixed in this stage, not ticketed.
@@ -168,7 +191,7 @@ You (the orchestrator) may run commands to investigate, but the verdict always c
 - Every subagent dispatch names its `model` from the tiers in Model Selection, chosen by `Track:` and `Risk:`. An omitted model inherits the session's, and the `model:` in agent frontmatter is only a fallback. The model-router hook denies a dispatch with no model, `fable` without `Top model: fable`, and a code-reviewer, feature-reviewer, ui-reviewer, verifier or qa-tester below `opus` on `Risk: high`.
 - One stage at a time. Update state.md at every transition (stage, gate result, artifact paths).
 - **Ownership:** before advancing a stage, compare `Owner:` with `git config user.email`. If someone else owns the feature, say who and which tool (`Tool:`), and ask before going on: two people advancing one feature conflict on its state file. On yes, set `Owner:` and `Tool:` to yours and add a Deviations line: `<date> handover from <old owner>`. No `Owner:` line means unowned: write yours at the next transition.
-- **Hard stops — always ask the user:** end of Stage 1, end of Stage 2, choice of execution method, merges, production deploys, DB migrations, anything irreversible.
+- **Hard stops — always ask the user:** end of Stage 1, end of Stage 2, choice of execution method (not on the Lite flow), merges, production deploys, DB migrations, anything irreversible.
 - A failed gate means stay in the stage or step back one; write why in state.md.
 - If the user says "skip" / "just ship it": name the gates being skipped, record them under Deviations, then comply.
 - When a bundled skill says "your human partner", that's the user. When a bundled skill would hand off to the next skill on its own, return here instead so the gate runs.
@@ -184,6 +207,7 @@ Status: active
 Docs: <intents>   (this feature's documents folder)
 Track: S | M | L   (sized up because: <named signal, or "—" for the smallest fitting track>)
 Risk: low | high   (<signal: auth, payments, secrets, PII, migration, public API>)
+Flow: lite | full   (lite: M track with risk low, unless the user asked for full)
 Top model: opus   (fable only if the user chose it)
 Commands: test: `<commands.test>`   (monorepo: one per package, e.g. api: `cd services/api && go test ./...`; no setup: the detected commands)
 Started: <date>

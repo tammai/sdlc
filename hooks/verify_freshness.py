@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """sdlc verify-freshness hook.
 
-Active only while an .sdlc feature is in Stage 5 (Verify). Freshness is tracked per scope: each package of a
-monorepo (`packages` in .sdlc/config.json), or the whole project.
+Active only while an .sdlc feature is in Stage 5 (Verify), or in Stage 5 or 6 on the Lite flow (`Flow: lite`, whose
+review fixes are re-verified in-session). Freshness is tracked per scope: each package of a monorepo (`packages` in
+.sdlc/config.json), or the whole project.
   - PostToolUse Edit/Write/MultiEdit/NotebookEdit on a code file -> the owning package goes stale (a file outside
                                                                      every package: all of them)
   - PostToolUse / PostToolUseFailure Bash running a scope's full   -> that scope goes fresh (records time, HEAD,
@@ -117,8 +118,10 @@ def active_verify_feature(root):
             text = open(os.path.join(root, f["state"]), encoding="utf-8").read()
         except OSError:
             continue
+        # The Lite flow re-verifies Stage 6 review fixes with an in-session full run, so it stays tracked there
+        stage = r"(5|6)" if re.search(r"^Flow:\s*lite\b", text, re.M | re.I) else r"5"
         if re.search(r"^Status:\s*active\b", text, re.M | re.I) and re.search(
-            r"^Current:\s*Stage\s*5\b", text, re.M | re.I
+            rf"^Current:\s*Stage\s*{stage}\b", text, re.M | re.I
         ):
             m = re.search(r"test:\s*`([^`]+)`", text)
             return name, (m.group(1).strip() if m else None)

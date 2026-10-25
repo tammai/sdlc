@@ -44,6 +44,8 @@ Situation-by-situation plays. Each says what to say or run, what the orchestrato
 
 **Say:** `/sdlc:start add CSV export to the reports page`
 
+Low-risk M work runs the **Lite flow**: you approve one `spec.md` with its task list, keep or drop its `Inferred` items, and the rest (native build, one verifier, one review, light security, one commit) runs on its own. You decide merge, PR or keep at the end. Say "use the full flow" for the steps below; high-risk M work always gets them.
+
 1. Stages 1 → 3 → 4 → 5 → 6 → 7 (light) → 8. Stage 2 joins if the approach isn't obvious.
 2. **Stage 1:** `writing-specs` produces `spec.md`. Read the `[inferred]` list the orchestrator shows. Each item is dropped unless you keep it, so keep only what you actually want. **You approve** the spec.
 3. **Stage 2 (when it runs):** read the Complexity Tracking table. Anything that doesn't cite a requirement should come out. **You approve** the design.

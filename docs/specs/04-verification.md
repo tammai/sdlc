@@ -20,11 +20,11 @@ Stage 5 decides whether the work does what the spec says, using evidence that is
 
 | ID | Requirement | Guarantee |
 |---|---|---|
-| VER-FR-001 | Each round spawns a new `verifier` agent; never resume an earlier one, never verify inline. | `[instructed]` orchestrator §5 |
+| VER-FR-001 | Each round spawns a new `verifier` agent; never resume an earlier one, never verify inline. Exception: on the Lite flow, Stage 6 review fixes are re-verified with an in-session full run instead of a new round (ORC-FR-022). | `[instructed]` orchestrator §5 |
 | VER-FR-002 | The verifier records commit, dirty state and time; runs build, lint, typecheck and the full suite fresh; proves every acceptance criterion with a named test (opened to confirm it asserts the behavior) or an observed command output, or reports none. | `[instructed]` verifier.md |
 | VER-FR-003 | The verifier writes only `test-report.md` and may only remove passing items from the baseline. | `[instructed]` verifier.md |
 | VER-FR-004 | Failures are classified new or baseline; only new failures fail the round; a lint/type count that rises counts as new; adding to the baseline needs the user and a Deviation. | `[instructed]` verifier.md, orchestrator §5 |
-| VER-FR-005 | M and L: fresh `pr-test-analyzer` and `silent-failure-hunter` in parallel each round. S: verifier only, with the repro test among the evidence and failing on Base. | `[instructed]` orchestrator §5 |
+| VER-FR-005 | M and L: fresh `pr-test-analyzer` and `silent-failure-hunter` in parallel each round. S and the Lite flow: verifier only; on S the repro test is among the evidence and fails on Base. | `[instructed]` orchestrator §5 |
 | VER-FR-006 | Gate: latest round's verifier PASS on the current commit, every criterion evidenced, no test gap rated ≥ 8, no high-severity silent failure, no skipped or retried-until-green test touching the feature. On a pass, `Verified:` in `state.md` records the commit and the worktree tree (uncommitted and untracked work included); Stage 8 goes back to Stage 5 if non-test code differs from that tree. | `[instructed]` orchestrator §5, §8 |
 | VER-FR-007 | At most 3 rounds, then stop and report to the user. Each round is logged in `state.md`. | `[instructed]` orchestrator §5 |
 
@@ -46,7 +46,7 @@ Stage 5 decides whether the work does what the spec says, using evidence that is
 
 | ID | Requirement | Guarantee |
 |---|---|---|
-| VER-FR-010 | Active only while a feature's `state.md` has `Status: active` and `Current: Stage 5`; otherwise a no-op. | `[enforced]` test_verify_freshness › test_no_sdlc_dir_is_noop, test_other_stage_is_noop, test_stage_5_but_not_active_is_noop, test_stage_50_is_not_stage_5 |
+| VER-FR-010 | Active only while a feature's `state.md` has `Status: active` and `Current: Stage 5`, or Stage 5 or 6 with `Flow: lite` (whose review fixes are re-verified in-session); otherwise a no-op. | `[enforced]` test_verify_freshness › test_no_sdlc_dir_is_noop, test_other_stage_is_noop, test_lite_flow_keeps_tracking_through_stage_6, test_full_flow_stage_6_is_noop, test_stage_5_but_not_active_is_noop, test_stage_50_is_not_stage_5 |
 | VER-FR-011 | Entering Stage 5 without a full test run blocks the turn's end. | `[enforced]` › test_entering_stage_5_without_a_test_run_blocks |
 | VER-FR-012 | Edit, Write, MultiEdit and NotebookEdit on a code file mark results stale; Markdown/text files and `.sdlc/`, `knowledge/`, `.claude/`, `docs/` don't; files outside the project are ignored. | `[enforced]` › test_code_edit_after_test_run_makes_stale, test_rerun_after_edit_makes_fresh_again, test_all_edit_tools_mark_stale, test_non_code_edits_keep_results_fresh, test_edit_outside_project_is_ignored |
 | VER-FR-013 | In a git repo, changes made any other way (shell, formatter, subagent, new or deleted files) are detected at the turn's end by diffing the worktree against the tree recorded at the last full run; reverting makes results fresh again; committing tested code keeps them fresh; ignored files don't count; the real git index is never touched. | `[enforced]` › test_bash_edit_after_test_run_makes_stale, test_new_and_deleted_files_make_stale, test_reverting_an_edit_makes_fresh_again, test_committing_tested_code_keeps_fresh, test_non_code_and_ignored_changes_keep_fresh, test_real_git_index_is_untouched |

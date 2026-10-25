@@ -12,17 +12,18 @@ STATE = """# Feature: {feature}
 Status: {status}
 Current: Stage {stage}
 Track: M
-
+{flow_line}
 ## Commands
 {test_line}
 """
 
 
 class VerifyFreshnessTest(ProjectTestCase):
-    def set_state(self, feature="login", status="active", stage=5, test_cmd=None):
+    def set_state(self, feature="login", status="active", stage=5, test_cmd=None, flow=None):
         test_line = f"- test: `{test_cmd}`" if test_cmd else ""
+        flow_line = f"Flow: {flow}\n" if flow else ""
         self.write(f".sdlc/{feature}/state.md",
-                   STATE.format(feature=feature, status=status, stage=stage, test_line=test_line))
+                   STATE.format(feature=feature, status=status, stage=stage, test_line=test_line, flow_line=flow_line))
 
     def post(self, tool, **tool_input):
         payload = {"hook_event_name": "PostToolUse", "cwd": self.root, "tool_name": tool,
@@ -129,6 +130,21 @@ class VerifyFreshnessTest(ProjectTestCase):
         self.bash("npm test")
         self.edit("src/login.ts")
         self.bash("npm test")
+        self.assertAllows()
+
+    def test_lite_flow_keeps_tracking_through_stage_6(self):
+        # The Lite flow re-verifies review fixes with an in-session full run instead of a new verifier round
+        self.set_state(flow="lite")
+        self.bash("npm test")
+        self.set_state(stage=6, flow="lite")
+        self.edit("src/login.ts")
+        self.assertIn("src/login.ts", self.assertBlocks()["reason"])
+        self.bash("npm test")
+        self.assertAllows()
+
+    def test_full_flow_stage_6_is_noop(self):
+        self.set_state(stage=6, flow="full")
+        self.edit("src/login.ts")
         self.assertAllows()
 
     def test_all_edit_tools_mark_stale(self):

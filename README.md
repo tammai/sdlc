@@ -81,7 +81,7 @@ The orchestrator sizes it and proposes the smallest track that fits; you can ove
 | Track | When | Stages |
 |---|---|---|
 | **S** fix | bug or tweak, 1–3 files | implement → verify → light review → PR |
-| **M** feature | a few files to a few days | spec → plan → implement → verify → review → light security → PR (+ design if the approach isn't obvious) |
+| **M** feature | a few files to a few days | low risk: the Lite flow, spec-and-tasks (one approval) → implement → verify → review → light security → one commit. High risk or on request: spec → plan → implement → verify → review → light security → PR (+ design if the approach isn't obvious) |
 | **L** project | new service, unclear approach, or auth/payments/migrations/public API | stages 1–8 and 11, including design and learn; deploy on request |
 
 Each stage prints what it uses and its exit gate. Documents go to `docs/sdlc/intents/<feature>/` and state to `.sdlc/state/<feature>.md` (commit both; `docs_dir` in config moves the documents elsewhere, e.g. when `docs/` is a published site).
@@ -92,7 +92,7 @@ The orchestrator runs on its own between these stops, and always asks you here:
 
 - **Spec (M, L):** read the `[inferred]` list, requirements nobody asked for. Each is dropped unless you keep it. Approve the spec.
 - **Design (L, or M when unclear):** every new module, abstraction or dependency must cite a requirement in the Complexity Tracking table. Approve the design.
-- **Plan:** check the Public Surface list (everything new others can see), then pick subagent-driven or native execution.
+- **Plan:** check the Public Surface list (everything new others can see), then pick subagent-driven or native execution. The Lite flow has no separate plan: you approve the spec and its task list together, and it builds in the session.
 - **Verify** needs no decision: a fresh `verifier` agent runs your commands each round, at most 3. Only *new* failures count, not baseline ones. If code changes after the last full test run, a hook won't let the turn finish until tests are rerun.
 - **Merge, production deploy, DB migrations:** always yours.
 
@@ -157,7 +157,7 @@ Skills such as `sdlc:writing-specs` or `sdlc:test-driven-development` are used b
 | 10 | Operate | parked, no track runs it: watch window with agreed signals |
 | 11 | Learn | `managing-knowledge` (3-tier), `/sdlc:revise-claude-md`, `/sdlc:knowledge-audit`, `/sdlc:hookify`, `project-constitution` |
 
-Always on: security-guidance hooks, the verify-freshness hook (Stage 5 only; per package in a monorepo), the model-router hook (while a feature is active: every subagent dispatch names its model, Fable only on your request, and each dispatch is logged), the trust-anchor hook (tells you when the risk, baseline, commands or spec change under a feature, or it leaves Stage 5 with untested code), the role-guard hook (reviewers can't edit files, the verifier writes only its report and the baseline, the qa-tester can't read the code), hookify rules (personal `.claude/hookify.*.local.md`, team `.claude/hookify/*.md`), TypeScript LSP.
+Always on: security-guidance hooks, the verify-freshness hook (Stage 5 only, or Stages 5–6 on the Lite flow; per package in a monorepo), the model-router hook (while a feature is active: every subagent dispatch names its model, Fable only on your request, and each dispatch is logged), the trust-anchor hook (tells you when the risk, baseline, commands or spec change under a feature, or it leaves Stage 5 with untested code), the role-guard hook (reviewers can't edit files, the verifier writes only its report and the baseline, the qa-tester can't read the code), hookify rules (personal `.claude/hookify.*.local.md`, team `.claude/hookify/*.md`), TypeScript LSP.
 
 ## Knowledge: 3-tier loading
 

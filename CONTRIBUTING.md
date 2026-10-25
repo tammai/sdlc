@@ -19,7 +19,7 @@ sdlc/
 ├── skills/                  skills; orchestrator/ is the conductor, setting-up-projects/ runs setup/upgrade/eject
 ├── hooks/
 │   ├── hooks.json           which script runs on which event
-│   ├── verify_freshness.py  Stage 5 stale/fresh test tracking (original)
+│   ├── verify_freshness.py  Stage 5 (Lite: 5–6) stale/fresh test tracking (original)
 │   ├── model_router.py      checks each subagent dispatch's model, logs dispatches (original)
 │   ├── role_guard.py        keeps the plugin's agents to their role's file access (original)
 │   ├── trust_anchor.py      shows the user changes to what verification trusts (original)

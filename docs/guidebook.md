@@ -42,10 +42,12 @@ Files named `sdlc-*` belong to the plugin; everything else is yours.
 | Track | Use when | Stages |
 |---|---|---|
 | **S · fix** | bug or tweak, 1–3 files, clear expected behavior | 4 → 5 → 6 (light) → 8 |
-| **M · feature** | a few files to a few days, approach mostly obvious | 1 → 3 → 4 → 5 → 6 → 7 (light) → 8, plus 2 if the approach is unclear |
+| **M · feature** | a few files to a few days, approach mostly obvious | risk low: the Lite flow (below); risk high or on request: 1 → 3 → 4 → 5 → 6 → 7 (light) → 8, plus 2 if the approach is unclear |
 | **L · project** | new service or module, unclear approach, or touches auth, payments, data migration, public API | 1–8 → 11 (9 on request) |
 
 Anything touching auth, payments, secrets, PII or schema migrations is at least M and always gets the full Stage 7. You can override the size at any time.
+
+**The Lite flow** (`Flow: lite`) is the default for M with `Risk: low`, because evals showed the full M flow costing several times the tokens and more approvals for the same hidden-test results ([ADR 0008](adr/0008-lite-flow-for-low-risk-m.md)). One `spec.md` holds the requirements, an `Inferred` list, the acceptance criteria and 3–6 tasks, and you approve it once. The session builds natively, test first. One fresh standard-tier verifier runs; one standard-tier reviewer checks the diff with durable writes, error paths and loaded data named in its brief. Review fixes are re-verified with an in-session full run (the freshness hook keeps tracking through Stage 6 for this). Then light security and one commit. It sizes up to the full M flow when a design decision comes up that the request doesn't settle, or when risk turns out high.
 
 **Risk and models.** Risk is recorded apart from size: `Risk: high` for auth, payments, secrets, PII, schema migrations or a public API. Track and risk pick each subagent's model tier: cheap `haiku`, standard `sonnet`, top `opus`. A high-risk change gets `opus` reviewers even on the S track. The S fix itself goes to one implementer subagent on that tier, not the session. The session's own model is yours: the start announcement suggests `/model opus` for L or high-risk work on a smaller model, and `/model sonnet` for S or low-risk M work on Opus or above. It says so once and never blocks. Fable is used only if you ask for it ("use fable"), which sets `Top model: fable` in `state.md`. See [sdlc_tracks_full_stage_tree.svg](diagrams/sdlc_tracks_full_stage_tree.svg).
 
@@ -86,7 +88,7 @@ Over-engineering usually starts before any code exists, so every stage ties addi
 - **Specs** tag each requirement `[user]`, `[clarified]` or `[inferred]`, and have a required Non-Goals section. At the Stage 1 gate, `[inferred]` items are listed on their own and **dropped unless you keep them**; dropped ones move to Non-Goals.
 - **Designs** keep a Complexity Tracking table: every new module, layer, abstraction, dependency, service, config key or store cites a requirement or comes out.
 - **Plans** give each task a `Requirements:` line and declare a **Public Surface** (every new export, endpoint, command, config key, env var, dependency).
-- **Review** runs `scripts/diff_stats.py --plan` to flag exports and dependencies missing from the Public Surface. Unrequested public surface is high severity. It's the feature's only whole-branch review: the execution skills skip their own final review under the orchestrator, and per-task reviews still run in Stage 4. On M and L it runs on the top tier. The simplifier runs before the reviewers, and any code change in Stage 6 or 7 goes back to Stage 5 for another round; Stage 8 checks the code still matches the `Verified:` commit before committing.
+- **Review** runs `scripts/diff_stats.py --plan` to flag exports and dependencies missing from the Public Surface. Unrequested public surface is high severity. It's the feature's only whole-branch review: the execution skills skip their own final review under the orchestrator, and per-task reviews still run in Stage 4. On M and L it runs on the top tier (the Lite flow keeps the standard tier). The simplifier runs before the reviewers, and any code change in Stage 6 or 7 goes back to Stage 5 for another round (the Lite flow re-verifies in the session instead); Stage 8 checks the code still matches the `Verified:` commit before committing.
 
 ## Verification
 
@@ -100,7 +102,7 @@ In a set-up repo the full run is the `test` command from `.sdlc/config.json`, wi
 
 Failures listed in `.sdlc/baseline.md` (recorded at brownfield setup) don't fail a round: the verifier fails only on **new** failures, removes baseline items that now pass, and never adds any. Accepting a new failure into the baseline is your decision, recorded as a Deviation.
 
-Each round spawns a new `verifier`, which runs build, lint, typecheck and tests fresh, proves each acceptance criterion, and appends a section to `test-report.md`. It also checks red-green: in a throwaway worktree with the feature's code put back to `Base:`, the feature's tests must fail; a test that still passes doesn't count as evidence. In M and L, `pr-test-analyzer` and `silent-failure-hunter` run alongside. When you ask for a QA round, a new `qa-tester` runs the feature against the spec's scenarios and edge cases the way a user would (CLI, HTTP, browser or a script), without being told about the code, and writes `qa-report.md`; you decide what its failures mean, and it isn't part of the gate. If a round fails, the work goes back to Stage 4 for the listed failures only. After round 3 fails, the orchestrator stops and brings you what still fails, what each round changed, and a root-cause hypothesis.
+Each round spawns a new `verifier`, which runs build, lint, typecheck and tests fresh, proves each acceptance criterion, and appends a section to `test-report.md`. It also checks red-green: in a throwaway worktree with the feature's code put back to `Base:`, the feature's tests must fail; a test that still passes doesn't count as evidence. In M and L, `pr-test-analyzer` and `silent-failure-hunter` run alongside, except on the Lite flow. When you ask for a QA round, a new `qa-tester` runs the feature against the spec's scenarios and edge cases the way a user would (CLI, HTTP, browser or a script), without being told about the code, and writes `qa-report.md`; you decide what its failures mean, and it isn't part of the gate. If a round fails, the work goes back to Stage 4 for the listed failures only. After round 3 fails, the orchestrator stops and brings you what still fails, what each round changed, and a root-cause hypothesis.
 
 ## Building blocks
 
@@ -152,7 +154,7 @@ Each round spawns a new `verifier`, which runs build, lint, typecheck and tests 
 |---|---|---|
 | hookify | PreToolUse, UserPromptSubmit, Stop | Evaluates rules from `.claude/hookify.*.local.md` (personal, git-ignored) and committed `.claude/hookify/*.md` (team). Rules warn or block |
 | security-guidance | UserPromptSubmit, PostToolUse, Stop | Pattern warnings on edits, diff review at turn end, agentic review after `git commit` and `git push` |
-| verify-freshness | PostToolUse, PostToolUseFailure, Stop | Stage 5 only: stale/fresh test tracking (above) |
+| verify-freshness | PostToolUse, PostToolUseFailure, Stop | Stage 5 only (Stages 5–6 on the Lite flow): stale/fresh test tracking (above) |
 | model-router | PreToolUse (Agent) | While a feature is active: denies a subagent dispatch that names no model, asks for Fable without `Top model: fable`, or runs a reviewer below Opus on `Risk: high`; logs every dispatch with the stage to `.sdlc/.work/dispatches.jsonl` |
 | trust-anchor | Stop, UserPromptSubmit | Tells you when what verification trusts changes: Track, Risk or Top model; new baseline failures; changed commands; the spec after Stage 5 began; leaving Stage 5 with untested code. Your next message accepts it |
 | role-guard | PreToolUse (file tools) | Holds the plugin's own agents to their role: reviewers can't edit files, the verifier writes only its report, the baseline and its red-green worktree, the qa-tester can't read or search code. Bash stays open to them |
@@ -198,6 +200,7 @@ Resume depends on this file. The orchestrator looks for `.sdlc/state/*.md` with 
 Status: active
 Track: S | M | L   (sized up because: <named signal, or "—">)
 Risk: low | high   (<signal>)
+Flow: lite | full   (lite: M with risk low, unless you asked for full)
 Top model: opus   (fable only if the user chose it)
 Base: <commit the feature started from>
 Owner: <git email of whoever advances it>   Tool: <claude-code | codex | cursor | antigravity>

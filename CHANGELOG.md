@@ -4,6 +4,10 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
+### Changed
+- M features with `Risk: low` now run the **Lite flow** by default (`Flow: lite` in `state.md`): one `spec.md` with an `Inferred` list, about 10 acceptance criteria and 3–6 tasks, approved once; a native, test-first build in the session; one fresh standard-tier verifier; one standard-tier review whose brief names durable writes, error paths and loaded data; review fixes re-verified with an in-session full run; light security; one commit. High-risk M work, or a request for the full flow, keeps the previous M stages. In evals it used a third to a half of the full M flow's tokens and 2 approvals instead of 5, with the same hidden-test results. ADR 0008.
+- The verify-freshness hook keeps tracking through Stage 6 on `Flow: lite`, so a review fix must be followed by a full test run before the turn ends, and the trust anchor accepts that rerun instead of flagging the post-verify edit.
+
 ## 1.8.1 — 2026-10-25
 
 No migration. Only the hook adapter for Codex and Antigravity changed, which Claude Code doesn't load: the suite covers it, and the plugin installs as 1.8.1 in Codex, Antigravity (Windows and WSL) and Cursor with its hooks registered.

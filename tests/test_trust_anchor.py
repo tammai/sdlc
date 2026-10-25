@@ -24,8 +24,13 @@ class TrustAnchorTest(ProjectTestCase):
         self.base = subprocess.run(self.git + ["rev-parse", "--short", "HEAD"], capture_output=True,
                                    encoding="utf-8").stdout.strip()
 
-    def state(self, stage=4, risk="high"):
-        self.write(".sdlc/login/state.md", STATE.format(risk=risk, base=self.base, stage=stage))
+    def state(self, stage=4, risk="high", flow=None):
+        self.write(".sdlc/login/state.md",
+                   STATE.format(risk=risk, base=self.base, stage=stage) + (f"Flow: {flow}\n" if flow else ""))
+
+    def full_run(self):
+        run_hook(FRESHNESS, {"hook_event_name": "PostToolUse", "cwd": self.root, "tool_name": "Bash",
+                             "tool_input": {"command": "npm test"}, "tool_response": {}}, self.root)
 
     def stop(self, hook=HOOK, active=False):
         code, out, raw, err = run_hook(hook, {"hook_event_name": "Stop", "cwd": self.root, "stop_hook_active": active},
@@ -69,6 +74,16 @@ class TrustAnchorTest(ProjectTestCase):
         out = self.stop()
         self.assertIn("left Stage 5", out["systemMessage"])
         self.assertIn("src/login.ts", out["systemMessage"])
+
+
+    def test_lite_flow_review_fix_rerun_in_stage_6_is_not_a_notice(self):
+        self.state(stage=5, risk="low", flow="lite")
+        self.full_run()
+        self.stop()
+        self.state(stage=6, risk="low", flow="lite")
+        self.write("src/login.ts", "export const a = 2\n")  # a review fix, re-verified in-session
+        self.full_run()
+        self.assertIsNone(self.stop())
 
 
 if __name__ == "__main__":
