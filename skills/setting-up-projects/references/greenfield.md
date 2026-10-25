@@ -14,7 +14,9 @@ Propose: the stack per package, the directory layout, the generator command for 
 
 ## `skeleton` – generate with the official tools
 
-Use the ecosystem's own generator (`pnpm create vite`, `npx create-next-app`, `uv init`, `cargo new`, `go mod init`, `dart create`, `flutter create`, `dotnet new`, `gradle init`, …) rather than hand-writing project files. Then apply only: strict type checking, the test runner, a lint/format tool, and one passing smoke test per package. Pin the package manager and toolchain (`packageManager` field for corepack, `.python-version`, `rust-toolchain.toml`, …) so CI matches local.
+Use the ecosystem's own generator (`pnpm create vite`, `npx create-next-app`, `uv init`, `cargo new`, `go mod init`, `dart create`, `flutter create`, `dotnet new`, `gradle init`, …) rather than hand-writing project files. Then apply only what the first feature needs: the test runner and one passing smoke test per package, plus strict type checking where the stack has it. Everything else the product would carry is a choice the user makes in the proposal, listed there as separate items, off unless they say yes: a lint/format tool and its plugins (eslint, `globals`, prettier, …), toolchain pinning (`packageManager`, `engines`, `.python-version`, …), and manifest fields such as `bin` or `exports` that the request doesn't need. A command for a tool the user declined is `null`.
+
+**An existing package is not greenfield.** If the folder already has a manifest (`package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, …), don't run a generator over it and don't add fields, dependencies or tooling to it: record the commands it already has (as in `brownfield.md`), and ask before adding anything, naming each addition.
 
 ## `commands`
 
