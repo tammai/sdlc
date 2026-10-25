@@ -33,6 +33,11 @@ class BacklogTest(ProjectTestCase):
         self.assertEqual(code, 1)
         self.assertIn("B2", out["reason"])
 
+    def test_an_escaped_pipe_in_a_title_stays_in_its_cell(self):
+        # Markdown tables write a literal | as \|; splitting on it shifted Deps and Status, and B3 ran before B2
+        path = self.write("backlog.md", BACKLOG.replace("| B2 | Session |", "| B2 | Session: native \\| subagent |"))
+        self.assertEqual(self.run_script("next", path), (0, {"next": "B2", "done": False}))
+
     def test_a_file_without_a_backlog_table_is_an_error_not_an_empty_backlog(self):
         path = self.write("backlog.md", "# Backlog\n\nnothing here\n")
         code, out = self.run_script("next", path)

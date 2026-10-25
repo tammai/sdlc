@@ -13,6 +13,11 @@ import re
 import sys
 
 
+def cells(line):
+    """A table row's cells; a backslash-escaped pipe is a literal pipe inside a cell, as Markdown writes it."""
+    return [c.strip() for c in re.split(r"(?<!\\)\|", line.strip().strip("|"))]
+
+
 def slices(text):
     """[{id, deps, status}] from the first table whose header has ID, Deps and Status columns."""
     rows, cols = [], None
@@ -22,16 +27,16 @@ def slices(text):
             if cols and rows:
                 break
             continue
-        cells = [c.strip() for c in line.strip("|").split("|")]
+        row = cells(line)
         if cols is None:
-            names = [c.lower() for c in cells]
+            names = [c.lower() for c in row]
             if {"id", "deps", "status"} <= set(names):
                 cols = {n: names.index(n) for n in ("id", "deps", "status")}
             continue
-        if set(line.replace("|", "").strip()) <= set("-: ") or len(cells) <= max(cols.values()):
+        if set(line.replace("|", "").strip()) <= set("-: ") or len(row) <= max(cols.values()):
             continue  # the separator row, or a row too short to read
-        rows.append({"id": cells[cols["id"]].upper(), "deps": [d.upper() for d in re.findall(r"B\d+", cells[cols["deps"]], re.I)],
-                     "status": cells[cols["status"]].lower()})
+        rows.append({"id": row[cols["id"]].upper(), "deps": [d.upper() for d in re.findall(r"B\d+", row[cols["deps"]], re.I)],
+                     "status": row[cols["status"]].lower()})
     return rows
 
 

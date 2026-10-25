@@ -146,7 +146,7 @@ def set_backlog_status(raw, slice_id, status):
         stripped = line.strip().rstrip("\r")
         if not stripped.startswith("|"):
             continue
-        cells = [c.strip() for c in stripped.strip("|").split("|")]
+        cells = backlog.cells(stripped)
         if cols is None:
             names = [c.lower() for c in cells]
             if {"id", "status"} <= set(names):
