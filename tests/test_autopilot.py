@@ -1,4 +1,4 @@
-"""scripts/yolo.py: one fresh claude session per ready slice, then feature close; stops instead of looping or
+"""scripts/autopilot.py: one fresh claude session per ready slice, then feature close; stops instead of looping or
 accepting a notice the user hasn't seen."""
 import json
 import os
@@ -8,7 +8,7 @@ import unittest
 
 from helpers import PLUGIN_ROOT, ProjectTestCase
 
-SCRIPT = os.path.join(PLUGIN_ROOT, "scripts", "yolo.py")
+SCRIPT = os.path.join(PLUGIN_ROOT, "scripts", "autopilot.py")
 BACKLOG = """| ID | Slice | FRs | ACs | Deps | Size | Status |
 |---|---|---|---|---|---|---|
 | B1 | Form | FR-01 | 1 | — | S | todo |
@@ -31,7 +31,7 @@ if not m and os.environ.get("STUB_MODE") == "done":  # feature close reaches its
 '''
 
 
-class YoloTest(ProjectTestCase):
+class AutopilotTest(ProjectTestCase):
     def setUp(self):
         super().setUp()
         self.state = self.write(".sdlc/state/login.md", "# login\nStatus: active\nCurrent: Stage 5 – Verify\n")
@@ -44,7 +44,7 @@ class YoloTest(ProjectTestCase):
             self.write("bin/claude", f'#!/bin/sh\nexec "{sys.executable}" "{stub}" "$@"\n')
             os.chmod(self.path("bin/claude"), 0o755)
 
-    def yolo(self, mode):
+    def autopilot(self, mode):
         env = dict(os.environ, PATH=self.path("bin") + os.pathsep + os.environ["PATH"], STUB_LOG=self.log,
                    STUB_MODE=mode, STUB_BACKLOG=self.backlog, STUB_STATE=self.state)
         p = subprocess.run([sys.executable, SCRIPT, "--root", self.root, "login"], capture_output=True,
@@ -53,30 +53,30 @@ class YoloTest(ProjectTestCase):
         return json.loads(p.stdout), calls
 
     def test_runs_each_ready_slice_then_feature_close_once(self):
-        out, calls = self.yolo("done")
-        self.assertEqual(calls, ["/sdlc:start B1 --yolo", "/sdlc:start B2 --yolo", "/sdlc:start --yolo"])
+        out, calls = self.autopilot("done")
+        self.assertEqual(calls, ["/sdlc:start B1 --autopilot", "/sdlc:start B2 --autopilot", "/sdlc:start --autopilot"])
         self.assertIn("feature close ran", out["stopped"])
 
     def test_a_failed_feature_close_is_not_reported_as_done(self):
-        out, calls = self.yolo("done-then-fail")
-        self.assertEqual(calls[-1], "/sdlc:start --yolo")
+        out, calls = self.autopilot("done-then-fail")
+        self.assertEqual(calls[-1], "/sdlc:start --autopilot")
         self.assertIn("feature close stopped at Stage 5", out["stopped"])
 
     def test_a_run_that_leaves_its_slice_unchanged_stops(self):
-        out, calls = self.yolo("idle")
-        self.assertEqual(calls, ["/sdlc:start B1 --yolo"])
+        out, calls = self.autopilot("idle")
+        self.assertEqual(calls, ["/sdlc:start B1 --autopilot"])
         self.assertIn("B1 is still todo", out["stopped"])
 
     def test_a_slice_id_that_isnt_b_and_a_number_never_reaches_claude(self):
         # The ID becomes part of a command line (a .cmd shim on Windows), and backlog.md is hand-edited text
         self.write("docs/sdlc/intents/login/backlog.md", BACKLOG.replace("| B1 |", "| B1 & calc |", 1))
-        out, calls = self.yolo("done")
+        out, calls = self.autopilot("done")
         self.assertEqual(calls, [])
         self.assertIn("B1 & CALC", out["stopped"])
 
     def test_an_open_trust_anchor_notice_stops_before_any_run(self):
         self.write(".sdlc/.work/trust-anchor.json", json.dumps({"login": {"notices": ["Risk: high → low"]}}))
-        out, calls = self.yolo("done")
+        out, calls = self.autopilot("done")
         self.assertEqual(calls, [])
         self.assertIn("Risk: high", out["stopped"])
 

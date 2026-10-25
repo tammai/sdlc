@@ -2,7 +2,7 @@
 """sdlc backlog: which slice of a feature's backlog.md runs next.
 
 A slice in progress is resumed; otherwise the next one is the first `todo` row whose dependencies are all
-`done <commit>`. Used by the orchestrator and yolo.py.
+`done <commit>`. Used by the orchestrator and autopilot.py.
 Usage: python3 backlog.py next BACKLOG.md          -> {"next": "B2" | null, "done": bool}
        python3 backlog.py check BACKLOG.md B<n>    -> {"ok": true} or exit 1 with {"ok": false, "reason": ...}
 An unreadable file, or one without a table with ID, Deps and Status columns: exit 2 with {"error": ...}.

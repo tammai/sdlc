@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""sdlc yolo: run a feature's backlog one fresh headless Claude Code session per slice.
+"""sdlc autopilot: run a feature's backlog one fresh headless Claude Code session per slice.
 
-For a backlog too long for one session. Each slice runs as `claude -p "/sdlc:start B<n> --yolo"`; after the last
+For a backlog too long for one session. Each slice runs as `claude -p "/sdlc:start B<n> --autopilot"`; after the last
 slice, one more session runs feature close, which ends at Stage 8's merge, PR or keep question. State is read
 from backlog.md, the feature's state file and the trust anchor between runs, never from the sessions' output.
 Stops when:
@@ -12,7 +12,7 @@ Stops when:
   - feature close ends anywhere but Stage 8 (it stopped on a failed gate)
 Passes no permission-bypass flag; `--permission-mode` is handed to claude as given (without it or an allowlist,
 a headless session can't edit files or run commands). Claude Code only.
-Usage: python3 yolo.py [--root DIR] [--permission-mode MODE] FEATURE
+Usage: python3 autopilot.py [--root DIR] [--permission-mode MODE] FEATURE
 Prints one JSON object: {"stopped": <reason>, "ran": [...]}; exit 0 only once feature close has run.
 Stdlib only, Python 3.9+.
 """
@@ -59,7 +59,7 @@ def open_notices(root):
 
 def run(root, claude, prompt, mode):
     cmd = [claude, "-p", prompt] + (["--permission-mode", mode] if mode else [])
-    print(f"yolo: {prompt}", file=sys.stderr, flush=True)
+    print(f"autopilot: {prompt}", file=sys.stderr, flush=True)
     try:
         code = subprocess.run(cmd, cwd=root).returncode
     except OSError as e:
@@ -68,7 +68,7 @@ def run(root, claude, prompt, mode):
         raise Stop(f"claude exited {code} running {prompt}")
 
 
-def yolo(root, feature, mode, ran):
+def autopilot(root, feature, mode, ran):
     claude = shutil.which("claude")
     if not claude:
         raise Stop("claude isn't on PATH")
@@ -98,7 +98,7 @@ def yolo(root, feature, mode, ran):
         if blocked:
             raise Stop("blocked: " + "; ".join(blocked))
         if all(backlog.is_done(r) for r in rows):
-            run(root, claude, "/sdlc:start --yolo", mode)
+            run(root, claude, "/sdlc:start --autopilot", mode)
             ran.append("feature close")
             # claude exits 0 when a session ends normally, also one that stopped on a failed gate: read the state
             stages = re.findall(r"^Current:\s*(Stage\s*\d+)", read(state), re.M | re.I)
@@ -109,7 +109,7 @@ def yolo(root, feature, mode, ran):
         if not slice_id:
             raise Stop("no slice is ready")
         before = next(r["status"] for r in rows if r["id"] == slice_id)
-        run(root, claude, f"/sdlc:start {slice_id} --yolo", mode)
+        run(root, claude, f"/sdlc:start {slice_id} --autopilot", mode)
         ran.append(slice_id)
         after = next((r["status"] for r in backlog.slices(read(path)) if r["id"] == slice_id), None)
         if after == before:
@@ -130,7 +130,7 @@ def main(argv=None):
     a = ap.parse_args(argv)
     ran = []
     try:
-        print(json.dumps({"stopped": yolo(os.path.abspath(a.root), a.feature, a.permission_mode, ran), "ran": ran}))
+        print(json.dumps({"stopped": autopilot(os.path.abspath(a.root), a.feature, a.permission_mode, ran), "ran": ran}))
         return 0
     except Stop as e:
         print(json.dumps({"stopped": str(e), "ran": ran}))

@@ -52,7 +52,7 @@ Low-risk M work runs the **Lite flow**: you approve one `spec.md` with its task 
 4. **Stage 3:** check the Public Surface section: it's everything new that others can see. **You pick** subagent-driven (default for larger plans) or native execution.
 5. Stages 4–8 run on their own unless a gate fails.
 
-**Bigger than one session?** The spec comes with a `backlog.md` of slices; approve both at once. Slices then run back to back and commit one by one. If the session runs low it stops at a slice boundary and names the next one: `/clear`, then `/sdlc:start`. Want to look at each slice first? Say so, and it records `Slice gates: plan, review, commit`. Long backlog, and you'd rather not `/clear` by hand? Run `python3 <plugin>/scripts/yolo.py <feature>` in a terminal: a fresh headless session per slice, then feature close, stopping at your merge decision or at the first blocked slice.
+**Bigger than one session?** The spec comes with a `backlog.md` of slices; approve both at once. Slices then run back to back and commit one by one. If the session runs low it stops at a slice boundary and names the next one: `/clear`, then `/sdlc:start`. Want to look at each slice first? Say so, and it records `Slice gates: plan, review, commit`. Long backlog, and you'd rather not `/clear` by hand? Run `python3 <plugin>/scripts/autopilot.py <feature>` in a terminal: a fresh headless session per slice, then feature close, stopping at your merge decision or at the first blocked slice.
 
 **Good habits:** state non-goals up front; answer the one batch of blocking questions (if any) concisely; challenge any addition you didn't ask for before approving the spec, not after the code exists.
 
