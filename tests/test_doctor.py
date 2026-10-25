@@ -25,7 +25,7 @@ class DoctorTest(ProjectTestCase):
         return self.doctor()[0].get((group, name))
 
     def setup_repo(self, kind="greenfield"):
-        subprocess.run([sys.executable, SCAFFOLD, "--root", self.root, "init", "--kind", kind],
+        subprocess.run([sys.executable, SCAFFOLD, "--root", self.root, "init", "--kind", kind, "--host", "claude-code"],
                        check=True, capture_output=True)
         subprocess.run([sys.executable, SCAFFOLD, "--root", self.root, "step-done", "finalize", "--complete"],
                        check=True, capture_output=True)
@@ -93,7 +93,7 @@ class DoctorTest(ProjectTestCase):
         self.assertIn("/sdlc:upgrade", found["fix"])
 
     def test_setup_in_progress(self):
-        subprocess.run([sys.executable, SCAFFOLD, "--root", self.root, "init", "--kind", "greenfield"],
+        subprocess.run([sys.executable, SCAFFOLD, "--root", self.root, "init", "--kind", "greenfield", "--host", "claude-code"],
                        check=True, capture_output=True)
         self.assertIn("in progress", self.check("setup")["detail"])
 
@@ -193,6 +193,21 @@ class DoctorTest(ProjectTestCase):
         self.assertEqual(self.check("CLAUDE.md size")["fix"], "/sdlc:knowledge-audit")
         self.write("CLAUDE.md", "line\n" * 60)
         self.assertEqual(self.check("CLAUDE.md size")["status"], "ok")
+
+    def test_claude_hook_tools_are_skipped_in_a_repo_without_claude_code(self):
+        self.setup_repo()
+        self.lock(hosts=["cursor"])
+        checks, _ = self.doctor()
+        for name in ("jq", "security reviewer env"):
+            self.assertEqual(checks[("environment", name)]["status"], "skip", name)
+
+    def test_agents_md_out_of_date_warns(self):
+        self.setup_repo()
+        for args in (["add-host", "codex"], ["agents"]):
+            subprocess.run([sys.executable, SCAFFOLD, "--root", self.root, *args], check=True, capture_output=True)
+        self.assertEqual(self.check("AGENTS.md")["status"], "ok")
+        self.write("CLAUDE.md", "Use pnpm.\n")
+        self.assertEqual(self.check("AGENTS.md")["status"], "warn")
 
     def test_knowledge_index_links(self):
         self.write("knowledge/conventions/naming.md", "x")

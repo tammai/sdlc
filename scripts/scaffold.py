@@ -35,6 +35,8 @@ GITIGNORE = ".gitignore"
 PLUGIN_MERGE = SETTINGS + "#plugin"  # lock key for the plugin-enablement keys we add to settings.json
 MARKETPLACE = ("sdlc", {"source": {"source": "github", "repo": "tammai/sdlc"}})
 PLUGIN_KEY = "sdlc@sdlc"
+AGENTS = "AGENTS.md"
+AGENTS_MERGE = AGENTS + "#sdlc"  # lock key for the managed block in AGENTS.md
 FILE_CLASSES = ("generated", "seeded")
 DEFAULTS = "templates/project/config.defaults.json"
 PLACEHOLDER = re.compile(r"\{\{\s*([A-Za-z0-9_.]+)\s*(?:\|\s*([a-z_]+)\s*)?\}\}")
@@ -143,6 +145,10 @@ def cmd_init(p, a):
     if p.lock is not None and not a.force:
         raise ValueError(f"{LOCK} already exists (setup started or done); use status, or --force to restart")
     version = plugin_version()
+    host = valid_host(a.host) if a.host else detect_host()["host"]
+    if host is None:
+        raise ValueError("can't tell which coding agent is running setup; pass --host "
+                         f"({', '.join(HOSTS)})")
     # A restart (--force) keeps the location already recorded unless one is given: documents may already be there
     docs = sdlc_layout.validate_docs_dir(a.docs_dir or sdlc_layout.docs_dir(p.root) or sdlc_layout.DOCS_DEFAULT)
     if p.config is None:  # overrides only; everything else comes from the plugin defaults
@@ -151,11 +157,12 @@ def cmd_init(p, a):
     legacy = [os.path.basename(os.path.dirname(x)) for x in sorted(glob.glob(p.path(".sdlc/*/state.md")))]
     if not legacy:
         p.config["docs_dir"] = docs
-    p.lock = {"scaffold_version": version, "files": {}, "merged": {},
+    p.lock = {"scaffold_version": version, "hosts": [host], "files": {}, "merged": {},
               "migrations": {"applied": [], "skipped": {}},
               "setup": {"kind": a.kind, "completed_steps": [], "complete": False}}
     p.save()
-    return {"initialized": True, "scaffold_version": version, "kind": a.kind, "docs_dir": p.config.get("docs_dir"),
+    return {"initialized": True, "scaffold_version": version, "host": host, "kind": a.kind,
+            "docs_dir": p.config.get("docs_dir"),
             "legacy_features": legacy}
 
 
@@ -606,6 +613,8 @@ def render_source(template, p):
         return generate_contract_check(p)
     if template == "builtin:codeowners":
         return generate_codeowners(p)
+    if template == "builtin:agents-mirror":
+        return agents_mirror(p) or ""
     with open(os.path.join(PLUGIN_ROOT, template), encoding="utf-8") as f:
         return render_text(f.read(), p)
 
@@ -715,6 +724,252 @@ def cmd_gitignore(p, a):
     return {"added": added, "removed": removed, "owned": ours}
 
 
+# --- hosts: which coding agents run this repo's sdlc ---------------------------------------
+# Neither signal is an official contract: the plugin's install folder names its host reliably, the environment
+# markers vary between releases, so the folder wins and the environment only decides when it is unambiguous.
+
+HOSTS = ("claude-code", "codex", "cursor", "antigravity")
+HOST_PATHS = [("claude-code", "/.claude/plugins/"), ("codex", "/.codex/plugins/"), ("cursor", "/.cursor/"),
+              ("antigravity", "/.gemini/"), ("antigravity", "/.agents/plugins/")]
+HOST_ENV = [("claude-code", ("CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT")),
+            ("codex", ("CODEX_THREAD_ID", "CODEX_SANDBOX", "CODEX_CI")),
+            ("cursor", ("CURSOR_AGENT", "CURSOR_TRACE_ID")), ("antigravity", ("ANTIGRAVITY_AGENT",))]
+
+
+def detect_host(env=None):
+    env = os.environ if env is None else env
+    norm = lambda x: os.path.abspath(x).replace("\\", "/").lower().rstrip("/") + "/"
+    where = norm(PLUGIN_ROOT)
+    by_path = next((h for h, marker in HOST_PATHS if marker in where), None)
+    for h, var in (("claude-code", "CLAUDE_CONFIG_DIR"), ("codex", "CODEX_HOME")):  # a relocated config folder
+        if not by_path and env.get(var) and where.startswith(norm(env[var])):
+            by_path = h
+    by_env = [h for h, keys in HOST_ENV if any(env.get(k) for k in keys)]
+    if by_path:
+        return {"host": by_path, "via": "install path", "environment": by_env}
+    if len(by_env) == 1:
+        return {"host": by_env[0], "via": "environment", "environment": by_env}
+    return {"host": None, "via": None, "environment": by_env}  # nested agents or none: only the user can say
+
+
+def hosts(p):
+    """Hosts that have run setup here. Locks from before hosts were recorded were all written by Claude Code."""
+    return list((p.lock or {}).get("hosts") or ["claude-code"])
+
+
+def valid_host(h):
+    if h not in HOSTS:
+        raise ValueError(f"unknown host {h!r} (known: {', '.join(HOSTS)})")
+    return h
+
+
+def cmd_host(p, a):
+    found = detect_host()
+    out = dict(found, set_up=p.lock is not None)
+    if p.lock is not None:
+        out["hosts"] = hosts(p)
+        out["joining"] = found["host"] is not None and found["host"] not in out["hosts"]
+    return out
+
+
+def cmd_add_host(p, a):
+    lock = p.require_lock()
+    current = hosts(p)
+    added = valid_host(a.host) not in current
+    if added:
+        lock["hosts"] = current + [a.host]
+        p.save()
+    return {"hosts": hosts(p), "added": added}
+
+
+# --- AGENTS.md: the project's instructions for Codex, Cursor and Antigravity ----------------
+# All three read the root AGENTS.md (Codex caps the combined size at 32 KiB), so one managed block serves them and
+# nothing loads twice. Content is copied in, not pointed to, so every line passes CLAUDE_ONLY. Claude Code doesn't
+# read AGENTS.md: what the team wrote there outside the block is mirrored into a generated rule for it.
+
+AGENTS_BLOCK = re.compile(r"<!-- sdlc:begin\b[^\n]*?-->.*?<!-- sdlc:end -->(?:\r?\n)?", re.S)
+AGENTS_WORKFLOW = "templates/project/agents/workflow.md"
+AGENTS_MIRROR = ".claude/rules/sdlc-agents-md.md"
+# (pattern, replacement); None means no equivalent outside Claude Code, so the build stops at that line
+CLAUDE_ONLY = [
+    (re.compile(r"^@(\S+)\s*$"), r"Also read `\1`."),  # CLAUDE.md import line
+    (re.compile(r"`?/sdlc:([a-z][a-z-]*)`?"), r"`/sdlc:\1` (Claude Code)"),
+    (re.compile(r"\$\{?CLAUDE_PLUGIN_ROOT\}?"), None),
+    (re.compile(r"\bscaffold\.py\b"), None),
+]
+
+
+def for_other_tools(text, source):
+    """Strip frontmatter and managed-file comments, demote headings two levels, map Claude-only constructs."""
+    lines = re.sub(r"^---\n.*?\n---\n", "", text.replace("\r\n", "\n"), count=1, flags=re.S).split("\n")
+    out, fenced = [], False
+    for n, line in enumerate(lines, 1):
+        if line.lstrip().startswith("```"):
+            fenced = not fenced
+        if not fenced and re.fullmatch(r"\s*<!--.*-->\s*", line):
+            continue
+        if not fenced and line.startswith("#"):
+            line = "##" + line
+        for rx, repl in CLAUDE_ONLY:
+            if fenced and repl is not None:
+                continue  # `@pytest.fixture` in a code sample is not an import
+            if rx.search(line):
+                if repl is None:
+                    raise ValueError(f"{source}:{n}: `{rx.search(line).group(0)}` only works in Claude Code; "
+                                     f"reword that line, then run `scaffold.py agents` again")
+                line = rx.sub(repl, line)
+        out.append(line)
+    return "\n".join(out).strip("\n")
+
+
+def rule_scope(text):
+    m = re.match(r"^---\n(.*?)\n---", text.replace("\r\n", "\n"), re.S)
+    if not m or "paths:" not in m.group(1):
+        return []
+    return [x.strip().strip("\"'") for x in re.findall(r"^\s*-\s*(.+)$", m.group(1).split("paths:", 1)[1], re.M)]
+
+
+def area_rules(p):
+    """[(source, text)]: the plugin's policy rules rendered from its templates, then the team's own .claude/rules.
+    sdlc.md is the Claude Code workflow; the block's workflow section replaces it."""
+    rules = []
+    d = os.path.join(PLUGIN_ROOT, "templates", "project", "rules")
+    for name in sorted(os.listdir(d)) if os.path.isdir(d) else []:
+        if name.endswith(".md") and name != "sdlc.md":
+            with open(os.path.join(d, name), encoding="utf-8") as f:
+                rules.append((f"templates/project/rules/{name}", render_text(f.read(), p)))
+    for path in sorted(glob.glob(p.path(".claude/rules/*.md"))):
+        if not os.path.basename(path).startswith("sdlc"):
+            with open(path, encoding="utf-8") as f:
+                rules.append((f".claude/rules/{os.path.basename(path)}", f.read()))
+    return rules
+
+
+def agents_block(p):
+    """The managed block (LF), or None when no recorded host reads AGENTS.md."""
+    if not set(hosts(p)) - {"claude-code"}:
+        return None
+    with open(os.path.join(PLUGIN_ROOT, AGENTS_WORKFLOW), encoding="utf-8") as f:
+        parts = [f"<!-- sdlc:begin · generated by sdlc {plugin_version()} from CLAUDE.md, .claude/rules/ and the "
+                 "plugin's policy rules; edit those, then rebuild it with the sdlc setup or upgrade -->",
+                 "## Working in this repo (sdlc)", render_text(f.read(), p).strip()]
+    claude_md = p.path("CLAUDE.md")
+    if os.path.exists(claude_md):
+        with open(claude_md, encoding="utf-8") as f:
+            parts += ["## Project instructions (from CLAUDE.md)", for_other_tools(f.read(), "CLAUDE.md")]
+    rules = area_rules(p)
+    if rules:
+        parts.append("## Area rules")
+    for source, text in rules:
+        body = for_other_tools(text, source)
+        heading = re.match(r"^### (.+)\n*", body)
+        title = heading.group(1) if heading else os.path.basename(source)[:-3]
+        body = body[heading.end():] if heading else body
+        scope = rule_scope(text)
+        # Codex has no per-file scoping and the globs are file types, not folders, so the scope is stated
+        applies = ("Applies when working on files matching " + ", ".join(f"`{g}`" for g in scope) + "."
+                   if scope else "Applies to all files.")
+        parts += [f"### {title}", applies, body]
+    return "\n\n".join(x for x in parts if x) + "\n\n<!-- sdlc:end -->\n"
+
+
+def agents_md_text(p):
+    try:
+        with open(p.path(AGENTS), encoding="utf-8", newline="") as f:  # newline="": keep the file's CRLF or LF
+            return f.read()
+    except FileNotFoundError:
+        return None
+
+
+def agents_mirror(p):
+    """The rule that shows Claude Code the team's own AGENTS.md text, or None when there's nothing to show."""
+    text = agents_md_text(p)
+    # Only once another agent shares the repo: a Claude-only setup already migrated AGENTS.md into its own files
+    if "claude-code" not in hosts(p) or not set(hosts(p)) - {"claude-code"} or not text:
+        return None
+    own = AGENTS_BLOCK.sub("", text).replace("\r\n", "\n").strip()
+    if not own:
+        return None
+    return ("<!-- Managed by the sdlc plugin: AGENTS.md without its sdlc block, so Claude Code follows what the team "
+            "wrote for other agents. Edit AGENTS.md; setup and upgrade refresh this file. -->\n" + own + "\n")
+
+
+def agents_state(p):
+    """off | in_sync | stale: AGENTS.md's block and the Claude Code mirror against a fresh build (line endings ignored)."""
+    want, mirror = agents_block(p), agents_mirror(p)
+    have = AGENTS_BLOCK.search(agents_md_text(p) or "")
+    tracked = (p.lock or {}).get("files", {}).get(AGENTS_MIRROR)
+    if want is None and have is None and mirror is None and not tracked:
+        return "off"
+    block_ok = (want is None and have is None) or (
+        want is not None and have is not None
+        and have.group(0).replace("\r\n", "\n").rstrip("\n") == want.rstrip("\n"))
+    mirror_ok = (mirror is None and not tracked) or (
+        mirror is not None and tracked is not None
+        and sha256(p.path(AGENTS_MIRROR)) == hashlib.sha256(mirror.encode("utf-8")).hexdigest())
+    return "in_sync" if block_ok and mirror_ok else "stale"
+
+
+def write_agents(p, want):
+    """Put `want` in AGENTS.md's managed block, or remove the block when it's None. Text outside it is kept as is."""
+    path = p.path(AGENTS)
+    text = agents_md_text(p)
+    existed = text is not None
+    text = text or ""
+    ours = merged_list(p, AGENTS_MERGE)
+    eol = "\r\n" if "\r\n" in text else "\n"
+    have = AGENTS_BLOCK.search(text)
+    if want is None:
+        if not have:
+            return "off"
+        before, after = text[:have.start()], text[have.end():]
+        if not after and before.endswith(eol * 2):
+            before = before[:-len(eol)]  # the blank line the build put before the block
+        text = before + after
+        if "file" in ours and not text.strip():
+            os.remove(path)
+        else:
+            with open(path, "w", encoding="utf-8", newline="") as f:
+                f.write(text)
+        ours.clear()
+        p.save()
+        return "removed"
+    block = want.replace("\n", eol)
+    if have:
+        text = text[:have.start()] + block + text[have.end():]
+    else:
+        text += ((eol if not text.endswith(eol) else "") + eol if text else "") + block
+    with open(path, "w", encoding="utf-8", newline="") as f:
+        f.write(text)
+    for tag in ["block"] + ([] if existed else ["file"]):
+        if tag not in ours:
+            ours.append(tag)
+    p.save()
+    return "written"
+
+
+def write_mirror(p):
+    files = p.require_lock().setdefault("files", {})
+    if agents_mirror(p) is not None:
+        return cmd_render(p, argparse.Namespace(template="builtin:agents-mirror", dest=AGENTS_MIRROR,
+                                                cls="generated", if_unchanged=False))["rendered"]
+    if files.pop(AGENTS_MIRROR, None) is not None:
+        if os.path.exists(p.path(AGENTS_MIRROR)):
+            os.remove(p.path(AGENTS_MIRROR))
+        p.save()
+    return None
+
+
+def cmd_agents(p, a):
+    p.require_lock()
+    if a.check:
+        if agents_state(p) == "stale":
+            raise ValueError(f"{AGENTS} or its Claude Code mirror is out of date with CLAUDE.md, .claude/rules/, "
+                             "AGENTS.md or the recorded hosts; run `scaffold.py agents`")
+        return {"state": agents_state(p), "hosts": hosts(p)}
+    return {"result": write_agents(p, agents_block(p)), "mirror": write_mirror(p), "hosts": hosts(p)}
+
+
 # --- migrations ---------------------------------------------------------------------------
 
 def frontmatter(text):
@@ -801,7 +1056,8 @@ def cmd_upgrade_plan(p, a):
     plan = {"from": lock.get("scaffold_version"), "to": plugin_version(),
             "add": [], "regenerate": [], "replace": [], "review": [], "restore": [], "template_gone": []}
     tracked, declined = lock.get("files", {}), set(lock.get("declined", []))
-    for tpl, dest, cls in shipped_files():  # new in this plugin version
+    # new in this plugin version; the rules and guardrails are Claude Code's, the other hosts get them in AGENTS.md
+    for tpl, dest, cls in shipped_files() if "claude-code" in hosts(p) else []:
         if dest not in tracked and dest not in declined:
             item = {"path": dest, "template": tpl, "class": cls}
             if os.path.exists(p.path(dest)):
@@ -826,6 +1082,10 @@ def cmd_upgrade_plan(p, a):
             plan["review"].append(item)
         else:
             plan["restore"].append(item)  # user deleted a seeded file: offer, never force
+    try:  # stale: run `agents` to rebuild AGENTS.md's block
+        plan["agents"] = agents_state(p)
+    except ValueError as e:  # a Claude-only line in CLAUDE.md shouldn't block the rest of the upgrade
+        plan["agents"] = f"error: {e}"
     plan["pending_migrations"] = pending_migrations(p)
     return plan
 
@@ -874,6 +1134,7 @@ def cmd_eject(p, a):
     ignore = plan["unmerge"].get(GITIGNORE, [])
     if ignore:
         cmd_gitignore(p, argparse.Namespace(add=[], remove=list(ignore)))
+    agents = plan["unmerge"].get(AGENTS_MERGE) and write_agents(p, None) == "removed"
     os.remove(p.path(LOCK))
     p.lock = None
     work = p.path(".sdlc/.work")  # scratch; its .gitignore line is gone, so don't leave it to be committed
@@ -881,7 +1142,8 @@ def cmd_eject(p, a):
     if scratch_removed:
         shutil.rmtree(work)
     return {"deleted": deleted, "kept_edited": [x for x in plan["ask"] if x not in extra], "scratch_removed": scratch_removed,
-            "unmerged": {SETTINGS: allow + plugin_keys, GITIGNORE: ignore}, "lock_removed": True}
+            "unmerged": {SETTINGS: allow + plugin_keys, GITIGNORE: ignore, AGENTS: ["sdlc block"] if agents else []},
+            "lock_removed": True}
 
 
 # --- relocate: legacy layout -> state in .sdlc/state, documents in docs_dir -------------------------
@@ -960,7 +1222,14 @@ def build_parser():
     s.add_argument("--force", action="store_true")
     s.add_argument("--docs-dir",
                    help=f"where sdlc documents live (default: the recorded docs_dir, else {sdlc_layout.DOCS_DEFAULT})")
+    s.add_argument("--host", help="the coding agent running setup (default: detected; see `host`)")
     s.set_defaults(fn=cmd_init)
+
+    sub.add_parser("host", help="which coding agent is running, which have set up this repo, and whether it's joining") \
+        .set_defaults(fn=cmd_host)
+    s = sub.add_parser("add-host", help="record another coding agent joining a set-up repo")
+    s.add_argument("host")
+    s.set_defaults(fn=cmd_add_host)
 
     s = sub.add_parser("paths", help="where a feature's state and documents live in this repo's layout")
     s.add_argument("name", nargs="?")
@@ -1015,6 +1284,10 @@ def build_parser():
     s = sub.add_parser("enable-plugin", help="keyed merge of the sdlc marketplace and enabled flag into .claude/settings.json")
     s.add_argument("--remove", action="store_true", help="remove only the keys this command added")
     s.set_defaults(fn=cmd_enable_plugin)
+
+    s = sub.add_parser("agents", help="rebuild AGENTS.md's sdlc block for the recorded hosts, and its Claude Code mirror")
+    s.add_argument("--check", action="store_true", help="exit 1 if the block is out of date; write nothing")
+    s.set_defaults(fn=cmd_agents)
 
     s = sub.add_parser("migrations", help="pending migrations in apply order")
     s.add_argument("--revisit", action="store_true", help="also list skipped ones")

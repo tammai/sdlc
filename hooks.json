@@ -1,0 +1,42 @@
+{
+  "sdlc": {
+    "PreToolUse": [
+      {
+        "matcher": "^(run_command|edit_file|write_file|write_to_file|replace_file_content|create_file|delete_file|apply_patch)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 hosts/hook.py antigravity PreToolUse || python hosts/hook.py antigravity PreToolUse",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "^(run_command|edit_file|write_file|write_to_file|replace_file_content|create_file|delete_file|apply_patch)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 hosts/hook.py antigravity PostToolUse || python hosts/hook.py antigravity PostToolUse",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "python3 hosts/hook.py antigravity UserPromptSubmit || python hosts/hook.py antigravity UserPromptSubmit",
+        "timeout": 60
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "python3 hosts/hook.py antigravity Stop || python hosts/hook.py antigravity Stop",
+        "timeout": 60
+      }
+    ]
+  }
+}

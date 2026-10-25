@@ -18,7 +18,7 @@ Before the first feature, `/sdlc:setup` prepares the repo once. `/sdlc:start` of
 
 - **Greenfield** (no source yet): a short stack interview; you approve; the ecosystem's own generators build the skeleton; the project's commands and CI pass on day one.
 - **Brownfield** (existing code): the commands you already have, recorded as they are; a **baseline** of what already fails; a deep audit (conventions, git-history gotchas, decisions, area rules) drafted by explorer agents and written only as you approve each batch; existing AI configs (long CLAUDE.md, AGENTS.md, Cursor rules, ADRs) migrated into the three knowledge tiers, one diff per source.
-- **Both:** policy rules, hookify guardrails, lint snippets, a permission allowlist for the project's commands, the sdlc marketplace and `enabledPlugins` in `.claude/settings.json` (only if you approve, so teammates are offered the plugin), `.gitignore` entries, a constitution (with the default Simplicity principle), the design system (projects with UI) and the knowledge folder.
+- **Both:** policy rules, hookify guardrails, lint snippets, a permission allowlist for the project's commands, the sdlc marketplace and `enabledPlugins` in `.claude/settings.json` (only if you approve, so teammates are offered the plugin), `.gitignore` entries, an sdlc block in `AGENTS.md` once a second agent (Codex, Cursor, Antigravity) has set up the repo, a constitution (with the default Simplicity principle), the design system (projects with UI) and the knowledge folder.
 
 Setup runs on a `sdlc/setup` branch with one commit per step, resumes where it stopped, and ends by asking whether to open a PR or merge locally.
 
@@ -30,7 +30,7 @@ Setup runs on a `sdlc/setup` branch with one commit per step, resumes where it s
 |---|---|---|
 | Generated | `.claude/rules/sdlc*.md` | regenerated |
 | Seeded | `.claude/hookify/sdlc-*.md`, `.github/workflows/sdlc-verify.yml`, `.sdlc/lint/*` | replaced only if you haven't edited it; otherwise you choose: merge, skip, or keep yours for good |
-| Keyed merge | allowlist and plugin-enablement keys in `.claude/settings.json`, `.gitignore` lines | only the entries the plugin added |
+| Keyed merge | allowlist and plugin-enablement keys in `.claude/settings.json`, `.gitignore` lines, the `<!-- sdlc:begin -->` block in `AGENTS.md` | only the entries the plugin added; the block is rebuilt, your text around it is never touched |
 | Yours | the commands in `.sdlc/config.json`, `CLAUDE.md`, constitution, design system, `knowledge/`, baseline, your own rules | changed only by migrations you approve |
 
 Files named `sdlc-*` belong to the plugin; everything else is yours.
@@ -159,6 +159,8 @@ Each round spawns a new `verifier`, which runs build, lint, typecheck and tests 
 | ralph-loop | Stop | Only while a `/sdlc:ralph-loop` is running |
 | SessionStart | SessionStart | Creates a Python environment for the security reviewer on first run |
 
+In Codex, Cursor and the Antigravity CLI, `hosts/hook.py` runs hookify, verify-freshness and trust-anchor on the agent's own hook events (in Codex, once you trust them in `/hooks`; see [spec 11](specs/11-multi-agent.md)).
+
 ## Where things live
 
 ```
@@ -229,7 +231,7 @@ Setup writes `.sdlc/config.json`; it's yours to edit and holds only what differs
 | `baseline` | Where the known-failures baseline lives (default `.sdlc/baseline.md`) |
 | `min_plugin_version` | Teammates on an older plugin get a warning to update |
 
-After changing commands or `ci`, run `/sdlc:upgrade` so the generated CI workflow follows. Don't edit `.sdlc/scaffold.lock.json` by hand. Why it's designed this way: [ADR 0001](adr/0001-project-setup-upgrade-eject.md), [ADR 0002](adr/0002-record-the-repos-own-commands.md), [ADR 0005](adr/0005-greenfield-monorepo-layout.md), [ADR 0006](adr/0006-split-sdlc-docs-from-machinery.md); the `scaffold.py` reference is in the [runbook](runbook.md#setup-upgrade-eject-internals).
+After changing commands or `ci`, run `/sdlc:upgrade` so the generated CI workflow follows. Don't edit `.sdlc/scaffold.lock.json` by hand. Why it's designed this way: [ADR 0001](adr/0001-project-setup-upgrade-eject.md), [ADR 0002](adr/0002-record-the-repos-own-commands.md), [ADR 0005](adr/0005-greenfield-monorepo-layout.md), [ADR 0006](adr/0006-split-sdlc-docs-from-machinery.md), [ADR 0007](adr/0007-multi-tool-adapters.md); the `scaffold.py` reference is in the [runbook](runbook.md#setup-upgrade-eject-internals).
 
 ## Glossary
 

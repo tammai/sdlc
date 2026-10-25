@@ -3,6 +3,8 @@ name: orchestrator
 description: Use when the user wants to take a feature, fix or project through the software lifecycle end to end (spec, design, plan, build, test, review, security, ship, learn), or asks where they are in that flow. Also use when the message is, or opens with, a link to a GitHub issue, Linear, Jira or other tracker ticket to work on. Sizes the work, runs each stage with the bundled skills, agents and commands, and enforces stage gates via .sdlc/state.md.
 ---
 
+`${CLAUDE_PLUGIN_ROOT}` is the sdlc plugin's folder. Claude Code fills it in; on other agents it stays as written, so use the installed plugin's folder instead: the one above this file that holds `scripts/` and `skills/`.
+
 # SDLC Orchestrator
 
 Paths: `<intents>` is the feature's documents folder, `<state>` its state file and `<docs>` the sdlc docs folder (`docs_dir`); `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" paths <feature>` prints them for this repo's layout.

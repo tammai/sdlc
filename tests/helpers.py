@@ -10,12 +10,14 @@ PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOOKS = os.path.join(PLUGIN_ROOT, "hooks")
 # Bare "bash" on Windows resolves to System32\bash.exe (WSL) before PATH; shutil.which follows PATH, so it finds Git Bash.
 BASH = shutil.which("bash") or "bash"
+AGENT_MARKERS = ("CLAUDE", "CODEX_", "CURSOR_", "ANTIGRAVITY_", "AI_AGENT")
 
 
 def run_hook(argv, payload, cwd, env_extra=None):
     """Run a hook command with `payload` on stdin. Returns (exit_code, parsed_stdout_or_None, raw_stdout, stderr)."""
-    env = {k: v for k, v in os.environ.items() if not k.startswith("CLAUDE_")}
-    env.update(CLAUDE_PLUGIN_ROOT=PLUGIN_ROOT, CLAUDE_PROJECT_DIR=cwd)
+    env = {k: v for k, v in os.environ.items() if not k.startswith(AGENT_MARKERS)}
+    # Claude Code marks the commands it runs; other agents' markers would make host detection depend on the shell
+    env.update(CLAUDE_PLUGIN_ROOT=PLUGIN_ROOT, CLAUDE_PROJECT_DIR=cwd, CLAUDECODE="1")
     env.update(env_extra or {})
     stdin = payload if isinstance(payload, str) else json.dumps(payload)
     p = subprocess.run(argv, input=stdin, capture_output=True, text=True, encoding="utf-8", cwd=cwd, env=env,

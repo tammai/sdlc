@@ -198,7 +198,7 @@ Interrupted? Run `/sdlc:setup` again; it resumes from the last finished step.
 
 ## 17. Remove sdlc from a repo
 
-`/sdlc:eject` shows a dry run first. It removes the plugin's own files (generated rules, unedited guardrails, CI workflow and lint snippets, the allowlist, plugin-enablement and `.gitignore` entries it added, the lock) and keeps your specs, knowledge, constitution, commands, baseline and area rules. Edited plugin files are asked about one by one. It also fixes imports that would point at deleted files, runs the verify commands, and asks PR or local merge. Uninstall the plugin afterwards if you're done with it.
+`/sdlc:eject` shows a dry run first. It removes the plugin's own files (generated rules, unedited guardrails, CI workflow and lint snippets, the allowlist, plugin-enablement and `.gitignore` entries it added, the sdlc block in `AGENTS.md`, the lock) and keeps your specs, knowledge, constitution, commands, baseline and area rules. Edited plugin files are asked about one by one. It also fixes imports that would point at deleted files, runs the verify commands, and asks PR or local merge. Uninstall the plugin afterwards if you're done with it.
 
 ## 18. Clean up finished features
 

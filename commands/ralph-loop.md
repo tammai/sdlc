@@ -5,6 +5,8 @@ allowed-tools: ["Bash(${CLAUDE_PLUGIN_ROOT}/scripts/setup-ralph-loop.sh:*)"]
 hide-from-slash-command-tool: "true"
 ---
 
+`${CLAUDE_PLUGIN_ROOT}` is the sdlc plugin's folder. Claude Code fills it in; on other agents it stays as written, so use the installed plugin's folder instead: the one above this file that holds `scripts/` and `skills/`.
+
 # Ralph Loop Command
 
 Execute the setup script to initialize the Ralph loop:

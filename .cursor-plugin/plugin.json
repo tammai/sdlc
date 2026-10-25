@@ -1,0 +1,27 @@
+{
+  "name": "sdlc",
+  "version": "1.7.1",
+  "description": "One Claude Code plugin for the whole software lifecycle: an orchestrator sizes each piece of work (S/M/L) and walks it through up to 11 gated stages, from spec and design through TDD, a fresh verifier and multi-agent review to deploy and retro, plus guardrail hooks, design-system-aware UI review and setup/upgrade for any stack or monorepo.",
+  "author": {
+    "name": "Tâm Mai",
+    "email": "tammai.it@gmail.com"
+  },
+  "license": "MIT",
+  "keywords": [
+    "sdlc",
+    "workflow",
+    "orchestrator",
+    "spec-driven",
+    "tdd",
+    "code-review",
+    "security",
+    "monorepo",
+    "claude-code-plugin"
+  ],
+  "homepage": "https://github.com/tammai/sdlc",
+  "repository": "https://github.com/tammai/sdlc",
+  "skills": "./skills/",
+  "commands": "./commands/",
+  "agents": "./hosts/cursor/agents/",
+  "hooks": "./hosts/cursor/hooks.json"
+}
