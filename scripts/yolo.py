@@ -89,6 +89,10 @@ def yolo(root, feature, mode, ran):
         rows = backlog.slices(read(path))
         if not rows:
             raise Stop(f"no table with ID, Deps and Status columns in {path}")
+        # IDs go into a command line (through a .cmd shim on Windows): only B<n> ever reaches it
+        bad = [r["id"] for r in rows if not re.fullmatch(r"B\d+", r["id"])]
+        if bad:
+            raise Stop("slice IDs must be B<n>: " + ", ".join(bad))
         blocked = [f"{r['id']} {r['status']}" for r in rows if r["status"].startswith("blocked")]
         if blocked:
             raise Stop("blocked: " + "; ".join(blocked))

@@ -66,6 +66,13 @@ class YoloTest(ProjectTestCase):
         self.assertEqual(calls, ["/sdlc:start B1 --yolo"])
         self.assertIn("B1 is still todo", out["stopped"])
 
+    def test_a_slice_id_that_isnt_b_and_a_number_never_reaches_claude(self):
+        # The ID becomes part of a command line (a .cmd shim on Windows), and backlog.md is hand-edited text
+        self.write("docs/sdlc/intents/login/backlog.md", BACKLOG.replace("| B1 |", "| B1 & calc |", 1))
+        out, calls = self.yolo("done")
+        self.assertEqual(calls, [])
+        self.assertIn("B1 & CALC", out["stopped"])
+
     def test_an_open_trust_anchor_notice_stops_before_any_run(self):
         self.write(".sdlc/.work/trust-anchor.json", json.dumps({"login": {"notices": ["Risk: high → low"]}}))
         out, calls = self.yolo("done")
