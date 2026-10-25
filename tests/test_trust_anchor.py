@@ -52,6 +52,13 @@ class TrustAnchorTest(ProjectTestCase):
         self.prompt()
         self.assertIsNone(self.stop())
 
+    def test_switching_to_the_lite_flow_is_a_notice(self):
+        # Lite drops the top-tier review, so moving a full-flow feature onto it must reach the user
+        self.state(risk="low", flow="full")
+        self.stop()
+        self.state(risk="low", flow="lite")
+        self.assertIn("Flow: full → lite", self.stop()["systemMessage"])
+
     def test_removing_an_active_features_state_is_a_notice(self):
         self.state()
         self.stop()

@@ -35,4 +35,4 @@ Every arm passed every hidden acceptance and regression test. The full flow's ex
 ## Consequences
 
 - **Good:** low-risk M work costs a third to a half of the tokens and needs 2 touches instead of 5, with the same tested quality on the eval tasks.
-- **Costs:** no top-tier review on low-risk M work; review fixes are verified by the implementing session, with the freshness hook as the check. `Flow:` is not anchored by the trust anchor, so switching a feature from full to lite mid-way is not flagged (spec 02, Known gaps). The evals are a handful of runs on two small tasks.
+- **Costs:** no top-tier review on low-risk M work; review fixes are verified by the implementing session, with the freshness hook as the check. The trust anchor anchors `Flow:`, so switching a feature from full to lite mid-way reaches the user. The evals are a handful of runs on two small tasks.

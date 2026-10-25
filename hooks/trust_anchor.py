@@ -3,12 +3,12 @@
 
 The files the other hooks trust (state.md, spec.md, baseline.md, config.json) are writable by the agent they
 check, so this can't prevent a change; it makes one visible. For each active feature, on Stop:
-  - `Track:`, `Risk:`, `Top model:` or `Base:` differs from the value first seen
+  - `Track:`, `Risk:`, `Flow:`, `Top model:` or `Base:` differs from the value first seen
   - `.sdlc/baseline.md` lists a failing test it didn't at the feature's `Base:` commit (it may only shrink)
   - the commands in `.sdlc/config.json` differ from those at `Base:`
   - `spec.md` changed after the feature entered Stage 5
-  - the feature left Stage 5 (on `Flow: lite`, also Stage 6) while code differed from its last full test run,
-    or moved past Stage 5 without it
+  - the feature left Stage 5 (on `Flow: lite`, Stages 4-6 for any other stage) while code differed from its last
+    full test run, or moved past Stage 5 without it
   - a feature seen active stopped being active, other than by finishing (`Status: done`)
 A new notice blocks the stop once, with a systemMessage so the user sees it; it doesn't block again. The user's
 next prompt accepts it: the current values become the new anchor. Only a prompt clears a notice, because only
@@ -25,7 +25,8 @@ import sdlc_layout  # sibling module: where feature state and sdlc documents liv
 import verify_freshness as vf  # sibling hook: project root, git, worktree trees, freshness state
 
 STATE = os.path.join(".sdlc", ".work", "trust-anchor.json")
-FIELDS = ("Track", "Risk", "Top model", "Base")  # Base: the baseline and commands are compared at it
+# Base: the baseline and commands are compared at it. Flow: the Lite flow drops the top-tier review
+FIELDS = ("Track", "Risk", "Flow", "Top model", "Base")
 
 
 def field(text, name):
@@ -95,12 +96,13 @@ def check(root, name, text, anchor):
         if digest != first:
             notices.append("spec.md changed after the feature entered Stage 5")
     prev = anchor.get("stage")
-    # The Lite flow re-verifies Stage 6 fixes in-session, so leaving Stage 6 (to Stage 7, 8, or the next slice's 3)
-    # needs a full run after the last fix, like leaving Stage 5
+    # The Lite flow re-verifies fixes in-session, so leaving the build-verify-review loop (Stages 4-6) for anything
+    # else (Stage 7, 8, or the next slice's 3) needs a full run after the last change, like leaving Stage 5
     lite = re.search(r"^Flow:\s*lite\b", text, re.M | re.I)
+    loop = (4, 5, 6)
     if prev is not None and prev < 5 < (st or 0):
         notices.append(f"went from Stage {prev} to Stage {st} without Stage 5")
-    elif st is not None and st != prev and (prev == 5 and st > 5 or prev == 6 and lite and st not in (4, 5)):
+    elif st is not None and st != prev and (prev == 5 and st > 5 or lite and prev in loop and st not in loop):
         changed = changed_since_full_run(root, name)
         if changed:
             notices.append(f"left Stage {prev} for Stage {st} with code changed since the last full test run: "
