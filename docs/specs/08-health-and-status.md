@@ -1,8 +1,8 @@
 # Spec 08: Health and status
 
-Tell the user what state their machine, the plugin and the repo are in, and what to do about anything wrong, without changing anything; and, on request, clean up the working files of finished features.
+Tell the user what state their machine, the plugin and the repo are in, and what to do about anything wrong, without changing anything. On request, also clean up the working files of finished features, and trim what Claude Code loads into every call for a project.
 
-**Entry points:** `/sdlc:doctor`, `/sdlc:status`, `/sdlc:prune` · **Source:** `scripts/doctor.py`, `commands/doctor.md`, `commands/status.md`, `scripts/scaffold.py status`, `scripts/prune.py`, `commands/prune.md`
+**Entry points:** `/sdlc:doctor`, `/sdlc:status`, `/sdlc:prune`, `/sdlc:context-diet` · **Source:** `scripts/doctor.py`, `commands/doctor.md`, `commands/status.md`, `scripts/scaffold.py status`, `scripts/prune.py`, `commands/prune.md`, `scripts/context_diet.py`, `skills/trimming-context/SKILL.md`, `commands/context-diet.md`
 
 ## User scenarios
 
@@ -10,6 +10,7 @@ Tell the user what state their machine, the plugin and the repo are in, and what
 2. **Something broke.** Given a hookify rule with a broken regex, when `/sdlc:doctor` runs, then that check fails, naming the file and the runbook procedure, and the exit code is 1.
 3. **Where am I.** When the user runs `/sdlc:status`, then they see setup state and drift, then one line per feature.
 4. **Clean up.** Given a feature marked done on main 60 days ago, when the user runs `/sdlc:prune` and approves, then its plan, reports, review and checklists are deleted in one commit and its spec and state stay.
+5. **Context diet.** Given a project with no Figma files and the Figma plugin enabled for the user, when the user runs `/sdlc:context-diet` and approves, then `.claude/settings.local.json` turns Figma off for this project only, the user's other keys stay, and nothing is committed.
 
 ## Requirements
 
@@ -46,6 +47,18 @@ Tell the user what state their machine, the plugin and the repo are in, and what
 | HLT-FR-031 | It deletes `plan.md`, `test-report.md`, `qa-report.md`, `review.md`, `checklists/`, and `security.md` unless `Risk: high`; everything else in the folder stays. | `[enforced]` test_prune › test_done_merged_feature_keeps_only_its_record |
 | HLT-FR-032 | The command lists first, asks which features to prune, and commits the deletions in one commit without pushing. | `[instructed]` commands/prune.md |
 
+### Context diet
+
+| ID | Requirement | Guarantee |
+|---|---|---|
+| HLT-FR-040 | `context_diet.py` reports each source (enabled plugin, personal skill, command or agent, claude.ai-synced plugin or skills) with its estimated tokens per call (listed name and description, chars/4), item count and MCP servers. Enabled is the user's `enabledPlugins` overridden by the project's `.claude/settings.json`, then `.claude/settings.local.json`. A disabled plugin costs 0, and `~/.claude/skills/synced/` counts as synced, not personal. | `[enforced]` test_context_diet › test_fixture_home_gives_sources_costs_and_duplicate_verdicts |
+| HLT-FR-041 | When sdlc is enabled for the project, the standalone `security-guidance`, `code-review` and `code-simplifier` get verdict `duplicate`. A known LSP plugin gets `keep` or `off` by whether its language is in the project. Every other verdict is `null`, left to the skill. | `[enforced]` test_context_diet › test_fixture_home_gives_sources_costs_and_duplicate_verdicts |
+| HLT-FR-042 | A missing or malformed settings file or `installed_plugins.json`, or an enabled plugin with no install folder, is listed in `problems`. The script still prints JSON and exits 0. It writes nothing; `--home` and `--root` point it at another home and project. | `[enforced]` test_context_diet › test_malformed_installed_plugins_is_reported_not_a_crash |
+| HLT-FR-043 | The skill shows one row per source (est. tokens/call, verdict, one-line reason). It proposes only `enabledPlugins` keys set to `false` in `.claude/settings.local.json`, merged with what's there, and shows the saving per call. It writes only after approval. If the file isn't ignored by git, it offers `.git/info/exclude`, never `.gitignore`. It never stages the file. | `[instructed]` skills/trimming-context/SKILL.md |
+| HLT-FR-044 | Personal skills that look unrelated are listed with "move them into the projects that use them", and synced plugins are reported only. The skill never edits `~/.claude/settings.json` or moves skills unless asked. It ends with "new sessions only; check `/context`". | `[instructed]` skills/trimming-context/SKILL.md |
+| HLT-FR-045 | `/sdlc:context-diet` works without `.sdlc/`. It's Claude Code only: it isn't built into the Codex or Antigravity skills, and on another agent the skill stops. Setup offers it as the `context-diet` step ([spec 01](01-setup-upgrade-eject.md)). | `[instructed]` commands/context-diet.md, skills/setting-up-projects/SKILL.md |
+
 ## Non-goals
 
+- Measuring real token counts or MCP tool-definition size: the context diet's numbers are estimates, and `/context` is the ground truth. Doctor doesn't check the floor, which would mean scanning `~/.claude` from doctor. MCP servers declared only in a marketplace entry (not in the plugin's `.mcp.json` or `plugin.json`) aren't flagged.
 - Fixing problems automatically; checking whether the plugin is enabled in `/plugin` (not visible to a script).

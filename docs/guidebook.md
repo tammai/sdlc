@@ -145,6 +145,7 @@ Each round spawns a new `verifier`, which runs build, lint, typecheck and tests 
 | `/sdlc:doctor` | Health check of the machine, the plugin and the repo, with a fix for each problem. Changes nothing |
 | `/sdlc:status` | Setup state and version drift, then one line per feature in `.sdlc/`: track, stage, last gate; open questions. Changes nothing |
 | `/sdlc:prune [--older-than 45d]` | Delete the plan, reports, review and checklists of merged features marked done; keeps spec, design, retro and state. Asks first, one commit |
+| `/sdlc:context-diet` | Estimate each enabled plugin's and skill's per-call cost and propose turning the unrelated ones off for this project (`.claude/settings.local.json`, written after you approve). Any repo, Claude Code only |
 | `/sdlc:review-pr` | Local pre-PR review with the right agents for the diff |
 | `/sdlc:code-review` | Review a GitHub PR (needs `gh`) |
 | `/sdlc:commit`, `/sdlc:commit-push-pr`, `/sdlc:clean_gone` | Git helpers |

@@ -15,7 +15,7 @@ sdlc/
 │                            `hosts.py dist antigravity` builds Antigravity's install copy. hosts/hook.py (hand-written) runs
 │                            the hooks under Codex, Cursor and Antigravity
 ├── agents/                  subagents: verifier, reviewers, code-explorer/architect, simplifier, …
-├── commands/                slash commands (/sdlc:start, setup, upgrade, eject, doctor, status, prune, review-pr, …)
+├── commands/                slash commands (/sdlc:start, setup, upgrade, eject, doctor, status, prune, context-diet, review-pr, …)
 ├── skills/                  skills; orchestrator/ is the conductor (a short core plus references/ read per stage), setting-up-projects/ runs setup/upgrade/eject
 ├── hooks/
 │   ├── hooks.json           which script runs on which event
@@ -38,7 +38,8 @@ sdlc/
 │   ├── hosts.py             builds the other agents' manifests from .claude-plugin/ and agents/ (CI checks them)
 │   ├── backlog.py           the next ready slice of a feature's backlog.md
 │   ├── state.py             every state change in one call: state.md plus the control contract (beside it, git-ignored)
-│   ├── autopilot.py              runs a backlog one fresh headless claude session per slice (opt-in)
+│   ├── autopilot.py         runs a backlog one fresh headless claude session per slice (opt-in)
+│   ├── context_diet.py      per-source estimate of what Claude Code lists every call (/sdlc:context-diet)
 │   └── setup-ralph-loop.sh  (vendored)
 ├── templates/
 │   ├── spec/design/checklist/constitution-template.md   used by the Stage 1–2 skills
@@ -60,7 +61,7 @@ sdlc/
 ├── CHANGELOG.md  NOTICE.md  LICENSE  README.md
 ```
 
-Original to this plugin: the orchestrator and setting-up-projects skills, `managing-knowledge`, the `verifier`, `qa-tester` and `ui-reviewer` agents, `verify_freshness.py`, `sdlc_review_gate.py`, `model_router.py`, `role_guard.py`, `trust_anchor.py`, everything in `scripts/` except the ralph script, `templates/project/`, `templates/knowledge/`, `templates/design-system-template.md`, `templates/backlog-template.md`, `migrations/`, `tests/`, `docs/`. Everything else is vendored; `NOTICE.md` says what came from where and what was changed.
+Original to this plugin: the orchestrator and setting-up-projects skills, `managing-knowledge`, `trimming-context`, the `verifier`, `qa-tester` and `ui-reviewer` agents, `verify_freshness.py`, `sdlc_review_gate.py`, `model_router.py`, `role_guard.py`, `trust_anchor.py`, everything in `scripts/` except the ralph script, `templates/project/`, `templates/knowledge/`, `templates/design-system-template.md`, `templates/backlog-template.md`, `migrations/`, `tests/`, `docs/`. Everything else is vendored; `NOTICE.md` says what came from where and what was changed.
 
 ## Dev loop
 

@@ -267,8 +267,9 @@ The test suite runs hooks and scripts as subprocesses; this checks the installed
 2. It asks a few stack questions and **waits for your approval** before generating anything.
 3. It works on a `sdlc/setup` branch with one commit per step; `.sdlc/config.json` has the five commands; it runs them and they pass.
 4. The repo has `.claude/rules/sdlc*.md`, `.claude/hookify/sdlc-*.md`, `.github/workflows/sdlc-verify.yml` and `sdlc-invariants.yml`, `.sdlc/ci/invariants.py`, `docs/sdlc/constitution.md`, `knowledge/index.md`, `.sdlc/scaffold.lock.json`; `CLAUDE.md` untouched.
-5. It asks PR or local merge; pick local merge. `/sdlc:doctor` now shows the repo checks ✅.
-6. Interrupt test (should): in a second throwaway repo, stop setup midway (Esc), run `/sdlc:setup` again; it resumes after the last finished step.
+5. Context diet (should): right after `enable-plugin` it asks whether to trim plugins. Accept it. It shows a table of plugins with estimated tokens per call, verdicts and reasons, and writes `.claude/settings.local.json` only after you approve. `git status` and the setup commits never include that file.
+6. It asks PR or local merge; pick local merge. `/sdlc:doctor` now shows the repo checks ✅.
+7. Interrupt test (should): in a second throwaway repo, stop setup midway (Esc), run `/sdlc:setup` again; it resumes after the last finished step.
 
 **D. Guardrails reach Claude (must)**
 1. Ask: "add a comment `// Step 1: add the numbers` above the add function". A hookify warning shows, **and Claude's reply acknowledges it** (proof the warning reaches Claude, not only you).

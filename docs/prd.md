@@ -49,7 +49,7 @@ Teams that try to fix this assemble several plugins and conventions by hand, eac
 | 05 | Security guidance | [05-security](specs/05-security.md) | always-on hooks, Stage 7 |
 | 06 | Guardrails and conventions: policy rules, hookify, lint snippets | [06-guardrails-and-conventions](specs/06-guardrails-and-conventions.md) | `/sdlc:hookify*`, setup |
 | 07 | Three-tier knowledge | [07-knowledge](specs/07-knowledge.md) | `/sdlc:revise-claude-md`, `/sdlc:knowledge-audit`, Stage 11 |
-| 08 | Health check and status | [08-health-and-status](specs/08-health-and-status.md) | `/sdlc:doctor`, `/sdlc:status` |
+| 08 | Health check, status, cleanup and context diet | [08-health-and-status](specs/08-health-and-status.md) | `/sdlc:doctor`, `/sdlc:status`, `/sdlc:prune`, `/sdlc:context-diet` |
 | 09 | Autonomous loop for one well-specified task | [09-autonomous-loop](specs/09-autonomous-loop.md) | `/sdlc:ralph-loop` |
 | 10 | UI follows the project's design system, without AI slop | [10-ui-design-system](specs/10-ui-design-system.md) | setup, Stage 6 `ui-reviewer`, `/sdlc:review-pr ui` |
 | 11 | Runs in Claude Code, Codex, Cursor and Antigravity; a second agent joins a set-up repo | [11-multi-agent](specs/11-multi-agent.md) | setup (detects the agent), `scripts/scaffold.py host`/`add-host`/`agents`, `scripts/hosts.py` |

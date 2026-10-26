@@ -165,6 +165,7 @@ Start with `warn`. Move to `block` once the pattern has no false positives.
 
 - `CLAUDE.md` over about 60 lines: run `/sdlc:knowledge-audit`. It proposes moves (file → tier, with a reason) and shows the line count before and after. Nothing is applied without your OK.
 - After a stage, `/sdlc:revise-claude-md` collects candidate lessons from the session and routes each to the right tier.
+- Every call also lists every enabled plugin's skills, agents and commands. Run `/sdlc:context-diet` in a project to see the estimate per source and turn off what the project doesn't use (for this project only, after your OK). It also turns off the standalone copies of plugins sdlc bundles. Personal skills can only be moved into the projects that use them, and synced claude.ai plugins are managed in claude.ai. Check `/context` in a new session for the real numbers.
 - Rule of thumb: tier 1 is only what nearly every task needs; area-specific guidance goes to tier 2 with `paths:`; everything else is tier 3, linked from `knowledge/index.md`.
 
 ## 14. Adopt sdlc in an existing repo
