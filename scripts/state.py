@@ -38,9 +38,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(HERE), "hooks"))
 import backlog  # noqa: E402  (sibling script: the backlog table)
 import sdlc_layout  # noqa: E402  (where the feature's state and documents live)
 
-CONTRACT_VERSION = 1
-STAGES = {1: "Discover", 2: "Design", 3: "Plan", 4: "Implement", 5: "Verify", 6: "Review", 7: "Security",
-          8: "PR / CI", 9: "Deploy", 10: "Operate", 11: "Learn"}
+CONTRACT_VERSION = 2
+# Four phases, each run at one stage number (1 Define, 4 Build, 5 Prove, 8 Ship) so the hooks keep reading numbers.
+# The other numbers keep their old names for features started under the 11-stage flow.
+STAGES = {1: "Define", 2: "Design", 3: "Plan", 4: "Build", 5: "Prove", 6: "Review", 7: "Security",
+          8: "Ship", 9: "Deploy", 10: "Operate", 11: "Learn"}
+PHASES = {1: "define", 2: "define", 3: "define", 4: "build", 5: "prove", 6: "prove", 7: "prove",
+          8: "ship", 9: "ship", 10: "ship", 11: "ship"}
 FIELDS = ("Status", "Track", "Risk", "Flow", "Build", "Top model", "Base", "Owner", "Tool", "Slice gates")
 
 
@@ -194,7 +198,7 @@ def snapshot(feature, text, backlog_text):
         "contract_version": CONTRACT_VERSION, "feature": feature,
         "updated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         **{name.lower().replace(" ", "_"): field(text, name) for name in FIELDS if name != "Slice gates"},
-        "current": {"stage": stage, "name": STAGES.get(stage)},
+        "current": {"stage": stage, "name": STAGES.get(stage)}, "phase": PHASES.get(stage),
         "slice": slice_info, "backlog": slices,
         "verified": {"commit": verified.group(1), "tree": verified.group(2)} if verified else None,
         "gates": gates, "verify_rounds": rounds, "open_questions": section_items(text, "Open questions"),

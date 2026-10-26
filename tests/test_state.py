@@ -15,12 +15,13 @@ Track: M
 Risk: low
 Flow: lite
 Base: abc1234
-Current: Stage 4 – Implement
+Current: Stage 4 – Build
 
 ## Stages
-- [x] 1 Discover   — spec.md
-- [ ] 4 Implement
-- [ ] 5 Verify     — test-report.md
+- [x] 1 Define   — spec.md
+- [ ] 4 Build
+- [ ] 5 Prove    — test-report.md, review.md, security.md
+- [ ] 8 Ship     — PR:
 
 ## Gate log
 - 2026-10-25 Stage 1: pass — spec approved
@@ -54,18 +55,44 @@ class StateTest(ProjectTestCase):
         self.assertEqual(code, 0)
         with open(self.md, encoding="utf-8") as f:
             text = f.read()
-        self.assertIn("Current: Stage 5 – Verify\n", text)
-        self.assertIn("- [x] 4 Implement", text)
+        self.assertIn("Current: Stage 5 – Prove\n", text)
+        self.assertIn("- [x] 4 Build", text)
         self.assertIn("Stage 4: pass — suite green\n\n## Open questions", text)
         with open(self.snapshot_path, encoding="utf-8") as f:
             snapshot = json.load(f)
-        self.assertEqual(snapshot["current"], {"stage": 5, "name": "Verify"})
-        self.assertIn("contract_version", snapshot)
+        self.assertEqual((snapshot["current"], snapshot["phase"], snapshot["contract_version"]),
+                         ({"stage": 5, "name": "Prove"}, "prove", 2))
         [event] = self.events()
         self.assertEqual((event["type"], event["from"], event["stage"], event["gate"]), ("stage_entered", 4, 5, "pass"))
         # The hooks read what it wrote: Stage 5 without a full test run blocks the turn's end
         _, out, _, _ = run_hook(FRESHNESS, {"hook_event_name": "Stop", "cwd": self.root}, self.root)
         self.assertEqual(out["decision"], "block")
+
+    def test_a_feature_started_under_the_eleven_stages_moves_on_to_ship(self):
+        old = STATE.split("Current:")[0] + """Current: Stage 6 – Review
+
+## Stages
+- [x] 1 Discover   — spec.md
+- [x] 4 Implement
+- [x] 5 Verify     — test-report.md
+- [ ] 6 Review     — review.md
+- [ ] 7 Security   — security.md
+- [ ] 8 PR / CI    — PR:
+- [ ] 9 Deploy     — release.md
+- [ ] 10 Operate
+- [ ] 11 Learn     — retro.md
+
+## Gate log
+-
+"""
+        self.write(".sdlc/state/login.md", old)
+        self.assertEqual(self.state("advance", "login", "8", "--gate", "pass")[0], 0)
+        with open(self.md, encoding="utf-8") as f:
+            text = f.read()
+        self.assertIn("Current: Stage 8 – Ship\n", text)
+        self.assertIn("- [x] 6 Review", text)
+        with open(self.snapshot_path, encoding="utf-8") as f:
+            self.assertEqual(json.load(f)["phase"], "ship")
 
     def test_slice_gates_are_set_on_the_slice_line(self):
         self.write(".sdlc/state/login.md", STATE.replace("Current:", "Slice: B1   Slice base: abc1234   Slice gates: none\nCurrent:"))
@@ -89,7 +116,7 @@ class StateTest(ProjectTestCase):
         code, out = self.state("advance", "login", "5", "--gate", "pass")
         self.assertEqual(code, 1)
         with open(self.md, encoding="utf-8") as f:
-            self.assertIn("- [ ] 5 Verify", f.read())
+            self.assertIn("- [ ] 5 Prove", f.read())
 
     def test_an_old_layout_feature_keeps_its_contract_where_the_ignore_patterns_cover_it(self):
         os.remove(self.md)
@@ -99,7 +126,7 @@ class StateTest(ProjectTestCase):
         self.assertFalse(os.path.exists(self.path(".sdlc/legacy/state.json")))
 
     def test_a_malformed_state_file_is_reported_not_mirrored(self):
-        self.write(".sdlc/state/login.md", STATE.replace("Current: Stage 4 – Implement\n", ""))
+        self.write(".sdlc/state/login.md", STATE.replace("Current: Stage 4 – Build\n", ""))
         code, out = self.state("advance", "login", "5")
         self.assertEqual(code, 1)
         self.assertIn("Current:", out["error"])

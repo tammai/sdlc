@@ -3,7 +3,8 @@
 
 The files the other hooks trust (state.md, spec.md, baseline.md, config.json) are writable by the agent they
 check, so this can't prevent a change; it makes one visible. For each active feature, on Stop:
-  - `Track:`, `Risk:`, `Flow:`, `Top model:` or `Base:` differs from the value first seen
+  - `Track:`, `Risk:`, `Flow:`, `Top model:` or `Base:` differs from the value first seen, unless the change only
+    makes the process stricter (Track up, Risk low → high, Flow lite → full), which becomes the new anchor silently
   - `.sdlc/baseline.md` lists a failing test it didn't at the feature's `Base:` commit (it may only shrink)
   - the commands in `.sdlc/config.json` differ from those at `Base:`
   - `spec.md` changed after the feature entered Stage 5
@@ -30,6 +31,8 @@ import verify_freshness as vf  # sibling hook: project root, git, worktree trees
 STATE = os.path.join(".sdlc", ".work", "trust-anchor.json")
 # Base: the baseline and commands are compared at it. Flow: the Lite flow drops the top-tier review
 FIELDS = ("Track", "Risk", "Flow", "Top model", "Base")
+# Ordered weakest first: a move up one of these only adds checks, so it needs no second word from the user
+STRICTER = {"Track": ("s", "m", "l"), "Risk": ("low", "high"), "Flow": ("lite", "full")}
 
 
 def field(text, name):
@@ -41,6 +44,12 @@ def field(text, name):
 def stage(text):
     m = re.search(r"^Current:\s*Stage\s*(\d+)", text, re.M | re.I)
     return int(m.group(1)) if m else None
+
+
+def stricter(name, before, after):
+    order = STRICTER.get(name, ())
+    before, after = (before or "").lower(), (after or "").lower()
+    return before in order and after in order and order.index(after) > order.index(before)
 
 
 def baseline_failures(text):
@@ -75,7 +84,9 @@ def check(root, name, text, anchor):
     for f in FIELDS:
         now = field(text, f)
         first = anchor.setdefault("fields", {}).setdefault(f, now)
-        if now != first:
+        if now != first and stricter(f, first, now):
+            anchor["fields"][f] = now  # the new anchor, so moving back down is still a notice
+        elif now != first:
             notices.append(f"{f}: {first} → {now}")
     base = vf.feature_base(root, name)
     if base:

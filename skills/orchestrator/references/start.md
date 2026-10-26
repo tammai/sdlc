@@ -34,23 +34,15 @@ Started: <date>
 Base: <commit the feature started from>
 Owner: <git config user.email of whoever advances it>
 Tool: <the agent: claude-code | codex | cursor | antigravity>
-Verified: <commit the Stage 5 gate passed on> tree <worktree tree at that gate>
+Verified: <commit the Prove gate passed on> tree <worktree tree at that gate>
 Slice: B<n>   Slice base: <commit the slice started from>   Slice gates: none   (backlog features only)
-Current: Stage <n> – <name>
+Current: Stage 1 – Define
 
 ## Stages
-- [ ] 1 Discover   — spec.md
-- [ ] 2 Design     — design.md
-- [ ] 3 Plan       — plan.md
-- [ ] 4 Implement
-- [ ] 5 Verify     — test-report.md
-- [ ] 6 Review     — review.md
-- [ ] 7 Security   — security.md
-- [ ] 8 PR / CI    — PR:
-- [ ] 9 Deploy     — release.md
-- [ ] 10 Operate
-- [ ] 11 Learn     — retro.md
-(strike out stages the track skips)
+- [ ] 1 Define   — spec.md (design.md when the approach isn't obvious; S: the brief)
+- [ ] 4 Build
+- [ ] 5 Prove    — test-report.md, review.md, security.md
+- [ ] 8 Ship     — PR: (Learn: recurring-defects.md)
 
 ## Verify rounds
 - Round 1 — <commit> — PASS/FAIL — <reason>

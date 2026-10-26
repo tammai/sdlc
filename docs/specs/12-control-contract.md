@@ -6,7 +6,7 @@ Every change to a feature's state goes through one call, which updates `state.md
 
 ## User scenarios
 
-1. **A stage moves.** Given a feature at Stage 4, when the orchestrator runs `state.py advance <feature> 5 --gate pass`, then `state.md` reads `Current: Stage 5 – Verify` with Stage 4 ticked and a Gate log line, the hooks treat the feature as in Stage 5, `state.json` shows Stage 5, and one `stage_entered` event is appended.
+1. **A stage moves.** Given a feature at Stage 4, when the orchestrator runs `state.py advance <feature> 5 --gate pass`, then `state.md` reads `Current: Stage 5 – Prove` with Stage 4 ticked and a Gate log line, the hooks treat the feature as in Stage 5, `state.json` shows Stage 5, and one `stage_entered` event is appended.
 2. **A damaged state file.** Given a `state.md` without a `Current:` line, any `state.py` call exits 1 with a JSON error and writes nothing.
 3. **A control app watches.** It reads `state.json` for the current picture and tails `events.jsonl` for what happened, and later drops command files in `commands/` for the runner.
 
@@ -15,7 +15,7 @@ Every change to a feature's state goes through one call, which updates `state.md
 | ID | Requirement | Guarantee |
 |---|---|---|
 | CTL-FR-001 | `state.py` subcommands, each one call: `advance FEATURE STAGE [--gate pass\|fail] [--note]` (Gate log line for the stage being left, its checklist line ticked on pass, `Current:` set; advancing to the current stage is refused), `round FEATURE N pass\|fail REASON [--commit]` (Verify rounds line), `verified FEATURE COMMIT TREE`, `log FEATURE TEXT [--type note\|review_done]` (Gate log line), `deviation FEATURE TEXT` (a `## Deviations` line, which the sdlc-invariants CI check reads), `slice FEATURE start\|done\|block B<n> [COMMIT \| REASON]` (`Slice:` line and the backlog row; `block` also adds an open question), `blocker FEATURE raise\|resolve TEXT` (Open questions), `set FEATURE FIELD VALUE` (Status, Track, Risk, Flow, Build, Top model, Base, Owner, Tool, Slice gates; the value is replaced and a trailing `(comment)` kept; Slice gates is edited inside the `Slice:` line), `sync FEATURE` (re-derive `state.json`, no event). | `[enforced]` test_state › test_advancing_a_stage_updates_state_md_the_snapshot_and_one_event (advance), test_slice_gates_are_set_on_the_slice_line, test_a_deviation_goes_under_deviations; the rest `[instructed]` by the script's usage |
-| CTL-FR-002 | `Current:` is always written as `Current: Stage <n> – <name>`, the form the freshness hook, trust anchor and model router match. | `[enforced]` test_state › test_advancing_a_stage_updates_state_md_the_snapshot_and_one_event |
+| CTL-FR-002 | `Current:` is always written as `Current: Stage <n> – <name>`, the form the freshness hook, trust anchor and model router match. The pipeline's four phases run at one number each (1 Define, 4 Build, 5 Prove, 8 Ship); the other numbers keep their old names (2 Design, 3 Plan, 6 Review, 7 Security, 9 Deploy, 10 Operate, 11 Learn) for features started under the 11-stage flow, which advance on into the phases unchanged. | `[enforced]` test_state › test_advancing_a_stage_updates_state_md_the_snapshot_and_one_event, test_a_feature_started_under_the_eleven_stages_moves_on_to_ship |
 | CTL-FR-003 | A `state.md` without `Status:` or a well-formed `Current:` line is refused: exit 1, `{"ok": false, "error": …}`, and neither `state.md` nor the contract files change. An unknown feature, a value with a line break, or a failed write is refused the same way (a failed write names the files already written; `sync` repairs the contract); usage errors, a non-numeric stage included, exit 2, also as JSON. | `[enforced]` test_state › test_a_malformed_state_file_is_reported_not_mirrored, test_advancing_to_the_current_stage_is_refused |
 | CTL-FR-006 | Everything is computed before anything is written, then `backlog.md`, `state.md`, `state.json` and the event are written in that order: each file through a temp file, fsync and rename, so a crash or a reader never sees half a file; the event appended and synced. Line endings (CRLF) and a backlog's BOM are kept; the backlog's Status cell is found by its column name. | `[instructed]` the script |
 | CTL-FR-004 | The contract files are git-ignored runtime files beside the state file: `.sdlc/state/<feature>.json`, `<feature>.events.jsonl` and `<feature>.commands/`, in either layout (an old-layout feature folder holds only documents, so `relocate` moves nothing of the contract). Setup's `gitignore` step adds the patterns, and `/sdlc:upgrade` re-runs it for repos set up before. One set per worktree, so parallel slices in separate worktrees don't conflict. `state.md` stays the committed record; `state.json` is derived from it. | `[enforced]` location: test_state › test_advancing_a_stage_updates_state_md_the_snapshot_and_one_event, test_an_old_layout_feature_keeps_its_contract_where_the_ignore_patterns_cover_it; ignore patterns `[instructed]` setting-up-projects |
@@ -27,11 +27,12 @@ Written whole (temp file, fsync, rename) on every call.
 
 | Field | Type | Meaning |
 |---|---|---|
-| `contract_version` | int | `1` |
+| `contract_version` | int | `2` (1 before the phases: stage names Discover, Implement, Verify, PR / CI; no `phase`) |
 | `feature` | string | the feature's name |
 | `updated` | string | UTC time of this write, `YYYY-MM-DDThh:mm:ssZ` |
 | `status`, `track`, `risk`, `flow`, `build`, `top_model`, `base`, `owner`, `tool` | string or null | the first word of the matching `state.md` line |
 | `current` | `{stage: int, name: string}` | from `Current:` |
+| `phase` | string | `define` (stages 1–3), `build` (4), `prove` (5–7), `ship` (8–11) |
 | `slice` | `{id, base, gates}` or null | from the `Slice:` line |
 | `backlog` | `[{id, status}]` or null | the backlog table, when the feature has one |
 | `verified` | `{commit, tree}` or null | from `Verified:` |

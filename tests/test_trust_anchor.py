@@ -61,6 +61,15 @@ class TrustAnchorTest(ProjectTestCase):
         self.state(risk="low", flow="lite")
         self.assertIn("Flow: full → lite", self.stop()["systemMessage"])
 
+    def test_a_stricter_flow_or_risk_needs_no_second_word_but_moving_back_does(self):
+        # The user approved the switch to the full flow already; a notice would ask them again
+        self.state(risk="low", flow="lite")
+        self.stop()
+        self.state(risk="high", flow="full")
+        self.assertIsNone(self.stop())
+        self.state(risk="high", flow="lite")
+        self.assertIn("Flow: full → lite", self.stop()["systemMessage"])
+
     def test_removing_an_active_features_state_is_a_notice(self):
         self.state()
         self.stop()
