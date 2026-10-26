@@ -19,7 +19,7 @@ Two of the touches were avoidable: a trust-anchor confirmation right after the u
 
 - **Four phases, each at one stage number:** Define (1), Build (4), Prove (5), Ship (8). Learn is a small step inside Ship. A new feature never enters 2, 3, 7 or 9–11; a backlog slice rests at 6 once committed, as before, because autopilot and the trust anchor read 8 as feature close having reached Ship.
 - **Stage numbers kept (option a).** The hooks read only the number, so none of them changes, except that the trust anchor no longer blocks a stricter change (Track up, Risk low → high, Flow lite → full); it shows it instead. Features started under the old stages resume in the phase their number maps to. No upgrade migration is needed.
-- **Define:** one approval covers spec, tasks (or backlog), design and `Build:`. Every track writes `intent.md` (intent and why, approaches, the chosen one and why, its detail), which the spec links, and the spec carries a Public Surface list.
+- **Define:** one approval covers intent, spec, plan (or backlog), design and `Build:`. Every track writes `intent.md` (why), `spec.md` (what) and `plan.md` (how: tasks, Public Surface), so that nothing the build needs lives only in the conversation (amended the same day: the plan first moved into the spec, then came back as its own file on every track, for role agents that hand work over through files).
 - **Prove:** verifier, reviewers and security checks run in one parallel round. A failed re-verification gets a fresh verifier round; only the round cap stops.
 - **Ship:** Learn adds Prove's fixed defects to `recurring-defects.md`, which Define and every reviewer read.
 - **Deploy** becomes `/sdlc:deploy`. **Operate** is removed and kept as a reference.
@@ -32,7 +32,7 @@ Two of the touches were avoidable: a trust-anchor confirmation right after the u
 |---|---|
 | New phase identifiers in `Current:` (option b) | rewrites five hooks, the CI template and the dispatch log format and needs a state migration, all to gain nicer numbers |
 | Drop S's code reviewer ("S: verifier only") | weakens a check S has today; it runs in the same round, so it costs tokens but no wall-clock |
-| Keep plan.md on the full flow | a gate and a document with no measured quality gain; its Public Surface list moves into the spec, where `diff_stats.py --plan` reads it unchanged |
+| Plan as its own phase with its own gate | a gate with no measured quality gain; the plan is now written in Define and approved with the spec, at no extra stop |
 
 ## Consequences
 

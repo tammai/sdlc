@@ -71,6 +71,9 @@ independently testable deliverable.
 **Spec:** [path to the spec/design doc this plan implements — the plan
 argues from the spec, so the spec travels with it; executors read both]
 
+**Intent:** [path to intent.md, when there is one: why, and the chosen
+approach the plan carries out]
+
 ## Global Constraints
 
 [The spec's project-wide requirements — version floors, dependency limits,
@@ -201,9 +204,20 @@ After writing the complete plan, look at the spec with fresh eyes and check the 
 
 If you find issues, fix them inline. No need to re-review — just fix and move on. If you find a spec requirement with no task, add the task.
 
+## Deviations
+
+End the plan with an empty `## Deviations` section. During the build,
+any change from the tasks (a split, another file, a different step) is
+written there with its reason, so the plan stays the record of how it
+was built.
+
 ## Execution Handoff
 
-After saving and self-reviewing the plan, link it for your human partner
+**Under the sdlc orchestrator:** don't ask anything. Return the plan's
+path; the orchestrator shows it in its one approval, and `Build:` in the
+feature's state names the execution method.
+
+Otherwise, after saving and self-reviewing the plan, link it for your human partner
 to read. If they have already explicitly supplied an execution method, ask
 them to review the plan and confirm it captures what they want; wait for that
 review before implementation, then use the preserved method. Otherwise, ask

@@ -16,7 +16,7 @@ On the review-ready commit (build done, full suite green), dispatch at the same 
 | Feature close | the same, whole branch | top, `Base..HEAD` | qa-tester; ui-reviewer on UI | light; full on L or risk high | in-session suite |
 
 - **`sdlc:verifier`:** the feature dir, the round number, the build/lint/typecheck/test commands. It runs everything fresh, proves each acceptance criterion and appends `## Round N — <time> — commit <hash>` to `test-report.md`. Never resume or message a verifier from an earlier round, and never verify inline.
-- **`sdlc:code-reviewer`:** never the context that wrote the code. Its brief is `review-brief.md` plus the diff facts: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/diff_stats.py" --format md [--base <ref>] --plan <intents>/spec.md` (a slice: its `plan-B<n>.md`). `sdlc:ui-reviewer` (`ui-work.md`) on a UI diff.
+- **`sdlc:code-reviewer`:** never the context that wrote the code. Its brief is `review-brief.md` plus the diff facts: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/diff_stats.py" --format md [--base <ref>] --plan <intents>/plan.md` (a slice: its `plan-B<n>.md`). `sdlc:ui-reviewer` (`ui-work.md`) on a UI diff.
 - **`sdlc:qa-tester`:** the feature dir, the round, the commands and whether a browser tool is available. Never the diff, plan or tests. It runs the feature against the spec as a user would and writes `qa-report.md`, keeping everything its runs create under `.sdlc/.work/qa/`. Outside these rounds it runs only when the user asks.
 - **`sdlc:silent-failure-hunter`** on the diff; **`sdlc:pr-test-analyzer`** on L (gaps rated 1–10).
 - **Full security:** `sdlc:feature-reviewer` and `sdlc:code-reviewer`, top tier, with a security-only brief: injection, authz, secrets, SSRF, XSS, unsafe deserialization, dependency risk.

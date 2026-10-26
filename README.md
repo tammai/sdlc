@@ -82,7 +82,7 @@ The orchestrator sizes it and proposes the smallest track that fits; you can ove
 | Track | When | Phases |
 |---|---|---|
 | **S** fix | bug or tweak, 1–3 files | brief (no approval) → build → prove (verifier and a reviewer) → ship |
-| **M** feature | a few files to a few days | define (spec and tasks, one approval; design only if the approach isn't obvious) → build → prove → ship. Low risk: `Flow: lite`, fixes re-verified in the session. High risk or on request: `Flow: full`, a top-tier reviewer and a fresh verifier for fixes |
+| **M** feature | a few files to a few days | define (intent, spec and plan, one approval; design only if the approach isn't obvious) → build → prove → ship. Low risk: `Flow: lite`, fixes re-verified in the session. High risk or on request: `Flow: full`, a top-tier reviewer and a fresh verifier for fixes |
 | **L** project | new service, unclear approach, or auth/payments/migrations/public API | the same four, with brainstorming and design in define, top-tier checks and a full security pass in prove |
 
 Every feature ends with a small **learn** step inside ship. Deploying is a separate request: `/sdlc:deploy`.
@@ -95,7 +95,7 @@ Each phase prints what it uses and its exit gate. Documents go to `docs/sdlc/int
 
 The orchestrator runs on its own between these stops, and always asks you here:
 
-- **Define (M, L), one approval:** any questions that block the work come first, all in one message (often none). Then one message to approve: the spec with its tasks (or backlog) and Public Surface list (everything new others can see), the `[inferred]` list (the agent's guesses and requirements nobody asked for, each dropped unless you keep it), the design when there is one (every new module, abstraction or dependency cites a requirement), and how it will be built (`Build:`, which you can change in your reply).
+- **Define (M, L), one approval:** any questions that block the work come first, all in one message (often none). Then one message to approve the three files Define writes, which say everything the build needs: `intent.md` (why, and the approach chosen), `spec.md` (what) and `plan.md` (how: the tasks, or a backlog, and the Public Surface list of everything new others can see). It also shows the `[inferred]` list (the agent's guesses and requirements nobody asked for, each dropped unless you keep it), the design when there is one (every new module, abstraction or dependency cites a requirement), and how it will be built (`Build:`, which you can change in your reply).
 - **Prove** needs no decision: the verifier, reviewers and security checks run in parallel on one commit, the agent fixes what they find, and a fresh `verifier` checks again, at most 3 rounds. Only *new* failures count, not baseline ones. If code changes after the last full test run, a hook won't let the turn finish until tests are rerun.
 - **Merge, production deploy, DB migrations:** always yours.
 

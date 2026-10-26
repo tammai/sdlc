@@ -30,7 +30,7 @@ Situation-by-situation plays. Each says what to say or run, what the orchestrato
 
 **Say:** `/sdlc:start fix: export button 500s when the report is empty`
 
-1. The orchestrator proposes S: bug, few files, clear behavior. Define is a short `intent.md` (the bug and expected behavior, the fix options and the chosen one, its assumptions); it is also the implementer's brief. No spec and no approval.
+1. The orchestrator proposes S: bug, few files, clear behavior. Define writes three short files: `intent.md` (the bug, the fix options and the chosen one, its assumptions), `spec.md` (expected behavior, the repro as an acceptance criterion) and `plan.md` (1–3 tasks). The implementer works from them. No approval.
 2. Build: one implementer subagent on the cheap tier writes a failing test that reproduces the bug, then the fix. The session doesn't write the fix itself, so it costs the same on any session model. If something fails unexpectedly, `systematic-debugging` takes over.
 3. Prove: a fresh `verifier` and a `code-reviewer` (with `diff_stats.py` facts) run in parallel on the same commit. The repro test must be among the verifier's evidence. Findings are fixed together and re-verified once by a fresh verifier.
 4. Ship: Learn notes any defect Prove fixed, one commit, then merge, PR or keep.
@@ -45,7 +45,7 @@ Situation-by-situation plays. Each says what to say or run, what the orchestrato
 
 You decide twice: Define's one approval, and merge, PR or keep at the end.
 
-1. **Define:** any blocking questions come once, then `spec.md` with its tasks and a Public Surface section (everything new that others can see). Read the `[inferred]` list the orchestrator shows. Each item is dropped unless you keep it, so keep only what you actually want. If the approach isn't obvious, a design comes with it: anything in its Complexity Tracking table that doesn't cite a requirement should come out. **You approve once**: spec, tasks, design and `Build: native` (say `subagent` to hand the build to one implementer).
+1. **Define:** any blocking questions come once, then `intent.md` (why, the approaches and the recommended one), `spec.md` (what) and `plan.md` (how: tasks and a Public Surface section listing everything new that others can see). Read the `[inferred]` list the orchestrator shows. Each item is dropped unless you keep it, so keep only what you actually want. If the approach isn't obvious, a design comes with it: anything in its Complexity Tracking table that doesn't cite a requirement should come out. **You approve once**: the approach, spec, plan, design and `Build: native` (say `subagent` to hand the build to one implementer).
 2. **Build:** native, test first.
 3. **Prove:** verifier, reviewer and qa-tester (ui-reviewer on UI work) run in parallel on one commit, with light security. Findings are fixed together and re-verified once.
 4. **Ship:** Learn, one commit, then your merge, PR or keep.
@@ -224,7 +224,7 @@ Interrupted? Run `/sdlc:setup` again; it resumes from the last finished step.
 | Adding a failure to the baseline | You, recorded as a Deviation |
 | PR or local merge after setup, upgrade, eject | You |
 | Track size | Orchestrator proposes, you can override |
-| Spec, tasks or backlog, design, `Build:` | You approve once, in Define |
+| Approach, spec, plan or backlog, design, `Build:` | You approve once, in Define |
 | Verify verdict | The fresh verifier, never the orchestrator |
 | After three failed Verify rounds | You |
 | Merge, production deploy, DB migration | You |

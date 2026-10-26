@@ -67,7 +67,7 @@ rect{stroke-width:.5}
 <text class="l" x="468.0" y="288">Subagents</text>
 <text class="l" x="654.0" y="288">Hooks that matter here</text>
 <text class="l" x="861.0" y="288">Gate</text>
-<g class="stage"><rect x="30" y="304" width="110" height="148" rx="8"/><text class="t c" x="85.0" y="354">Define</text><text class="s c" x="85.0" y="372">S: intent, no</text><text class="s c" x="85.0" y="388">approval</text><text class="s c" x="85.0" y="404">M, L: + spec</text></g>
+<g class="stage"><rect x="30" y="304" width="110" height="148" rx="8"/><text class="t c" x="85.0" y="354">Define</text><text class="s c" x="85.0" y="372">S: intent, no</text><text class="s c" x="85.0" y="388">approval</text><text class="s c" x="85.0" y="404">all: + spec, plan</text></g>
 <g class="skill"><rect x="148" y="304" width="214" height="148" rx="6"/>
 <text class="s" x="158" y="322">reads knowledge/index.md and</text>
 <text class="s" x="158" y="338">recurring-defects.md</text>
@@ -86,7 +86,7 @@ rect{stroke-width:.5}
 <text class="l" x="654.0" y="378">no extra hooks</text>
 <g class="approval"><rect x="742" y="304" width="238" height="148" rx="6"/>
 <text class="s" x="752" y="322">You approve once (not on S): the</text>
-<text class="s" x="752" y="338">spec with tasks, or a backlog;</text>
+<text class="s" x="752" y="338">intent, spec, plan, or a backlog;</text>
 <text class="s" x="752" y="354">no [inferred] left, Non-Goals</text>
 <text class="s" x="752" y="370">filled, criteria testable, every</text>
 <text class="s" x="752" y="386">FR has a task, Public Surface</text>

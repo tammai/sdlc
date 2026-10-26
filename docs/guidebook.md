@@ -41,7 +41,7 @@ Files named `sdlc-*` belong to the plugin; everything else is yours.
 
 | Track | Use when | Phases |
 |---|---|---|
-| **S · fix** | bug or tweak, 1–3 files, clear expected behavior | Define is a short `intent.md` with no approval; then Build, Prove, Ship |
+| **S · fix** | bug or tweak, 1–3 files, clear expected behavior | Define writes short `intent.md`, `spec.md` and `plan.md` with no approval; then Build, Prove, Ship |
 | **M · feature** | a few files to a few days, approach mostly obvious | all four; risk low: `Flow: lite` (default); risk high or on request: `Flow: full` |
 | **L · project** | new service or module, unclear approach, or touches auth, payments, data migration, public API | all four, with brainstorming and design in Define; `Flow: full` |
 
@@ -57,7 +57,7 @@ Anything touching auth, payments, secrets, PII or schema migrations is at least 
 
 | Phase | Produces | Gate |
 |---|---|---|
-| Define | `intent.md` on every track (the intent and why, the approaches weighed, the chosen one and why, and how it works: the first thing a reviewer reads; S: 10–20 lines, M: about a page, L: written by `brainstorming`), then `spec.md` with tasks and `## Public Surface`, or a `backlog.md` (full flow: `checklists/requirements.md`; a design when the approach isn't obvious; S: only `intent.md`) | **You approve once** (not on S): the chosen approach, spec, tasks or backlog, design and `Build:`. No `[inferred]` items left, Non-Goals filled, acceptance criteria testable, every requirement has a task, Public Surface declared, design criteria hold |
+| Define | `intent.md` on every track (the intent and why, the approaches weighed, the chosen one and why, and how it works: the first thing a reviewer reads; S: 10–20 lines, M: about a page, L: written by `brainstorming`), `spec.md` (the what: requirements and acceptance criteria, no files or tasks) and `plan.md` (the how: tasks with their files, first test and command, Public Surface, UI mapping, Review Focus), on every track; a backlog feature adds `backlog.md`, and its `plan.md` outlines each slice (full flow: `checklists/requirements.md`; a design when the approach isn't obvious). A fresh agent must be able to build from the three files alone | **You approve once** (not on S): the chosen approach, spec, plan or backlog, design and `Build:`. No `[inferred]` items left, Non-Goals filled, acceptance criteria testable, every requirement has a task, Public Surface declared, design criteria hold |
 | Build | code, tests | Every task done, build and full test suite pass, no TODO without a ticket |
 | Prove (max 3 failed rounds) | `test-report.md`, `review.md`, `security.md` (full security) | Fresh verifier PASS on the current commit, every acceptance criterion has evidence, no unresolved high finding, no test gap rated 8+ (L), no critical or high security finding, no secrets in the diff |
 | Ship, with Learn | `recurring-defects.md` lines (L: `retro.md`, a knowledge page), one commit, PR | Verified-tree check clean, Learn done, CI green. **Never merged without you saying so** |
@@ -87,7 +87,7 @@ Over-engineering usually starts before any code exists, so every phase ties addi
 - **Questions come once.** Before the spec (L: before brainstorming; S: before the brief), the orchestrator asks only what would change what gets built, in one message, or nothing. Everything else is a guess the spec lists as `[inferred]`, so you confirm or veto the guesses together with the spec instead of answering one question per turn. `clarifying-specs` runs only when you ask.
 - **Specs** tag each requirement `[user]`, `[clarified]` or `[inferred]`, and have a required Non-Goals section. At Define's approval, `[inferred]` items are listed on their own and **dropped unless you keep them**; dropped ones move to Non-Goals.
 - **Designs** keep a Complexity Tracking table: every new module, layer, abstraction, dependency, service, config key or store cites a requirement or comes out.
-- **Tasks** in the spec each name their requirement, and the spec declares a **Public Surface** (every new export, endpoint, command, config key, env var, dependency).
+- **Tasks** in `plan.md` each name their requirement, and the plan declares a **Public Surface** (every new export, endpoint, command, config key, env var, dependency).
 - **Review** runs `scripts/diff_stats.py --plan` to flag exports and dependencies missing from the Public Surface. Unrequested public surface is high severity. It's the feature's only whole-branch review: the execution skills skip their own final review under the orchestrator, and per-task reviews still run in Build (`Build: tasks`). On `Flow: full` and L it runs on the top tier (`Flow: lite` keeps the standard tier, except a backlog feature's close). The reviewer runs in parallel with the verifier on the same commit (with the qa-tester on M and the silent-failure-hunter on the full flow); all findings, simplifications included, are fixed together and re-verified once (`Flow: lite` re-verifies in the session). There is no separate simplifier pass. Every reviewer checks the spec's Failure modes and a recurring-defects list (the plugin's seed plus the project's own, which Learn extends); Ship checks the code still matches the `Verified:` commit before committing.
 
 ## Verification
@@ -183,7 +183,7 @@ docs/sdlc/                 docs_dir: the documents people read (default; setup a
   design-system.md         the design system UI work follows (UI projects; yours)
   recurring-defects.md     defects Prove fixed, one line each: Learn adds, Define and reviewers read
   intents/<feature>/
-    intent.md  spec.md  design.md  backlog.md  plan-B<n>.md  test-report.md  qa-report.md  review.md  security.md  release.md  retro.md
+    intent.md  spec.md  plan.md  design.md  backlog.md  plan-B<n>.md  test-report.md  qa-report.md  review.md  security.md  release.md  retro.md
 knowledge/                 tier 3, on-demand docs (index.md links everything)
 .claude/rules/<area>.md    tier 2, loads when matching paths are touched (yours)
 .claude/rules/sdlc*.md     plugin policy rules: workflow, code style, tests, migrations, sensitive areas, CI (generated)

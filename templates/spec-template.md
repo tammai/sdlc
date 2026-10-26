@@ -8,7 +8,7 @@
 
 **References**: [links to the docs/ artifacts this feature builds on: BA specs, QA test cases, designs. Link, never copy. Delete the line if there are none.]
 
-**Intent**: [intent.md](intent.md) (the request, answers, approaches and the chosen one; not repeated here)
+**Intent**: [intent.md](intent.md) (why: the request, answers, approaches and the chosen one) · **Plan**: [plan.md](plan.md) (how: tasks, files, Public Surface). Neither is repeated here.
 
 ## User Scenarios & Testing *(mandatory)*
 

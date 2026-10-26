@@ -39,7 +39,7 @@ Slice: B<n>   Slice base: <commit the slice started from>   Slice gates: none   
 Current: Stage 1 – Define
 
 ## Stages
-- [ ] 1 Define   — intent.md, spec.md (design.md when the approach isn't obvious; S: intent.md only)
+- [ ] 1 Define   — intent.md, spec.md, plan.md (design.md when the approach isn't obvious; backlog.md when sliced)
 - [ ] 4 Build
 - [ ] 5 Prove    — test-report.md, review.md, security.md
 - [ ] 8 Ship     — PR: (Learn: recurring-defects.md)

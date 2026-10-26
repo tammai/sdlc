@@ -53,7 +53,8 @@
 ├── data-model.md        # Phase 1 output (sdlc:designing-solutions)
 ├── quickstart.md        # Phase 1 output (sdlc:designing-solutions)
 ├── contracts/           # Phase 1 output (sdlc:designing-solutions)
-└── spec.md             # Define: requirements, Tasks and Public Surface (no separate plan.md)
+├── spec.md             # Define: the what (requirements, criteria)
+└── plan.md             # Define: the how (tasks, Public Surface), from writing-plans
 ```
 
 ### Source Code (repository root)
