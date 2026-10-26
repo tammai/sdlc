@@ -20,7 +20,7 @@ Each phase runs at one stage number, which the hooks read. Read a phase's file w
 | Prove | `Stage 5 – Prove` | `R/prove.md` | 5, 6, 7 |
 | Ship, with Learn | `Stage 8 – Ship` | `R/ship.md` | 8, 9, 10, 11 |
 
-A new feature: `R/start.md` first. A backlog (`<intents>/backlog.md` exists): `R/backlog-slices.md` leads. Moves: Define → `advance 4`, Build → `5`, Prove → `8`; a new feature never enters 2, 3, 6, 7 or 9–11. An old-stage feature resumes in its phase's file and advances to the next phase's number. Deploy runs only when asked: `/sdlc:deploy`.
+A new feature: `R/start.md` first. A backlog (`<intents>/backlog.md` exists): `R/backlog-slices.md` leads, and Stage 6 there means a slice is committed (the next slice, or Feature close), not old Stage 6. Moves: Define → `advance 4`, Build → `5`, Prove → `8`; a new feature never enters 2, 3, 7 or 9–11, nor 6 outside a backlog. An old-stage feature resumes in its phase's file and advances to the next phase's number. Deploy runs only when asked: `/sdlc:deploy`.
 
 **Start or resume.** Look for a state file with `Status: active` (`.sdlc/state/*.md`; old layout `.sdlc/*/state.md`). One → say the feature, phase and open items in 2–3 lines, read the files for its phase (and backlog), and continue (a backlog: `backlog.py next` names the slice). The request `B<n>` → that slice. Several → ask which (a request ending `--autopilot` never asks: `R/backlog-slices.md`). None → `R/start.md`.
 

@@ -41,6 +41,7 @@ import sdlc_layout  # noqa: E402  (where the feature's state and documents live)
 CONTRACT_VERSION = 2
 # Four phases, each run at one stage number (1 Define, 4 Build, 5 Prove, 8 Ship) so the hooks keep reading numbers.
 # The other numbers keep their old names for features started under the 11-stage flow.
+# 6 is also where a backlog slice rests once committed (Stage 8 means feature close reached Ship).
 STAGES = {1: "Define", 2: "Design", 3: "Plan", 4: "Build", 5: "Prove", 6: "Review", 7: "Security",
           8: "Ship", 9: "Deploy", 10: "Operate", 11: "Learn"}
 PHASES = {1: "define", 2: "define", 3: "define", 4: "build", 5: "prove", 6: "prove", 7: "prove",

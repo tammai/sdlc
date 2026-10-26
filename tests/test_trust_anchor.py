@@ -72,6 +72,14 @@ class TrustAnchorTest(ProjectTestCase):
         self.state(risk="high", flow="lite")
         self.assertIn("Flow: full → lite", self.stop()["systemMessage"])
 
+    def test_a_backlog_feature_leaving_the_lite_flow_still_blocks(self):
+        # Slices must stay on Lite, and an autopilot session has no one to read a non-blocking message
+        self.write(".sdlc/login/backlog.md", "| ID | Status |\n|---|---|\n| B1 | todo |\n")
+        self.state(risk="low", flow="lite")
+        self.stop()
+        self.state(risk="low", flow="full")
+        self.assertEqual(self.stop()["decision"], "block")
+
     def test_removing_an_active_features_state_is_a_notice(self):
         self.state()
         self.stop()

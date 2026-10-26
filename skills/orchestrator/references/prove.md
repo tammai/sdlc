@@ -1,6 +1,6 @@
 # Prove (Stage 5): verify, review and security in one parallel round
 
-Entered from Build's gate (`state.py advance <f> 5 --gate pass`; Feature close: `advance <f> 5` from Stage 8). Old Stages 5–7 live here: a feature resumed at 6 or 7 picks up from what its Gate log shows. Stage 5 switches on the freshness hook for every fix: a code change marks test results stale, a full suite run (no filters, no single file or package) marks them fresh, and a turn can't end stale.
+Entered from Build's gate (`state.py advance <f> 5 --gate pass`; Feature close: `advance <f> 5` from Stage 6). Old Stages 5–7 live here: a feature resumed at 6 or 7 picks up from what its Gate log shows. Stage 5 switches on the freshness hook for every fix: a code change marks test results stale, a full suite run (no filters, no single file or package) marks them fresh, and a turn can't end stale.
 
 ## The round
 

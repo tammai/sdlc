@@ -5,7 +5,8 @@ The files the other hooks trust (state.md, spec.md, baseline.md, config.json) ar
 check, so this can't prevent a change; it makes one visible. For each active feature, on Stop:
   - `Track:`, `Risk:`, `Flow:`, `Top model:` or `Base:` differs from the value first seen, unless the change only
     makes the process stricter (Track up, Risk low → high, Flow lite → full): that becomes the new anchor and is
-    shown to the user without blocking, since they approved it already (it can switch off the Lite-only check)
+    shown to the user without blocking, since they approved it already (it can switch off the Lite-only check);
+    a backlog feature leaving Lite still blocks
   - `.sdlc/baseline.md` lists a failing test it didn't at the feature's `Base:` commit (it may only shrink)
   - the commands in `.sdlc/config.json` differ from those at `Base:`
   - `spec.md` changed after the feature entered Stage 5
@@ -82,10 +83,13 @@ def read(path):
 def check(root, name, text, anchor, shown):
     """Notices for one feature; stricter field changes go to `shown`; updates `anchor` with what was seen."""
     notices = []
+    intents = os.path.join(root, sdlc_layout.features(root).get(name, {}).get("intents", ""))
+    # A backlog stays on Lite, and an autopilot slice session has no one to read a non-blocking message
+    backlog = os.path.isfile(os.path.join(intents, "backlog.md"))
     for f in FIELDS:
         now = field(text, f)
         first = anchor.setdefault("fields", {}).setdefault(f, now)
-        if now != first and stricter(f, first, now):
+        if now != first and stricter(f, first, now) and not (backlog and f == "Flow"):
             anchor["fields"][f] = now  # the new anchor, so moving back down is still a notice
             shown.append(f"{f}: {first} → {now}")
         elif now != first:
