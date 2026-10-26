@@ -21,7 +21,7 @@ You will be given: the feature directory (`<intents>/`), the round number (count
 - **Observed, not assumed.** A scenario passes only when you ran it and saw the spec's *Then*. "Should work" is not a result.
 - **Keep runtime files out of the tree.** The verifier may be running at the same time on the same commit. Point the software's data, config and output paths into `.sdlc/.work/qa/` (a working directory, flags or environment variables) whenever it allows, so nothing lands in the worktree; whatever still does, remove in step 8.
 - **Clean up.** Stop every server or process you started.
-- **Budget.** The project's own commands (install, build, start) take as long as they take. Every other command runs with a 2-minute limit (in Claude Code a hook lowers a longer Bash `timeout` to 120 s and refuses `run_in_background`; elsewhere, `timeout 120 <cmd>`), and together they get at most 10 minutes this round. Don't start a run in the background and poll it. A scenario you can't settle within that is "could not verify within budget", with what you tried; go on to the next one.
+- **Budget.** The project's own commands (install, build, start) take as long as they take. Every other command runs with a 2-minute limit (in Claude Code a hook runs it under `timeout 120` and refuses background runs and Monitor; elsewhere, use `timeout 120 <cmd>` yourself), and together they get at most 10 minutes this round. Exit code 124 means the command was killed at the limit: the criterion is "could not verify within budget", a gap, never a pass. Don't start a run in the background and poll it. A scenario you can't settle within that is "could not verify within budget", with what you tried; go on to the next one.
 
 ## Steps
 

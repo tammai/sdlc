@@ -56,7 +56,7 @@ Every `[enforced]` requirement in specs 02–06 rests on one of these mechanisms
 | Mechanism | Examples | Claude Code | Codex | Cursor | Antigravity |
 |---|---|---|---|---|---|
 | Plugin hook: freshness, trust anchor, hookify guardrails | Stale results in Prove (Stage 5), changed anchors, team guardrails | enforced | enforced once the hooks are trusted (`/hooks`); guardrails only where Claude Code set them up | enforced; guardrails only where Claude Code set them up | enforced in the CLI (`dist` install); guardrails only where Claude Code set them up |
-| Plugin hook: role guard, model router, prove budget, security hooks | reviewers can't edit, dispatches name a model, Prove's 120 s command cap, security review | enforced | instructed | instructed | instructed |
+| Plugin hook: role guard, model router, prove budget, security hooks | reviewers can't edit, dispatches name a model, Prove's 120 s command kill, security review | enforced | instructed | instructed | instructed |
 | Plugin script run by a skill | scaffold, doctor, `diff_stats.py` | enforced | enforced, if the agent finds the plugin folder | same | same |
 | Subagent roles | fresh verifier, read-only reviewers | enforced (tools per agent) | instructed: Codex agents can't be made read-only, and plugin agents aren't loaded | reviewers `readonly`; the verifier instructed | instructed: all 13 load from the `dist` copy; no read-only flag |
 | Generated CI (`sdlc-verify`) | the full test suite on the merged code | enforced | enforced | enforced | enforced |

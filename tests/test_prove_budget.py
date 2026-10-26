@@ -1,4 +1,4 @@
-"""hooks/prove_budget.py: in Prove (Stage 5), non-project Bash commands are capped at 120 s and can't run in the background."""
+"""hooks/prove_budget.py: in Prove (Stage 5), non-project shell commands are killed at 120 s and never run in the background."""
 import json
 import os
 import unittest
@@ -14,25 +14,33 @@ class ProveBudgetTest(ProjectTestCase):
         super().setUp()
         self.write(".sdlc/config.json", json.dumps({"commands": {"test": "npm test"}}))
 
-    def bash(self, stage, **tool_input):
+    def call(self, stage, tool="Bash", **tool_input):
         self.write(".sdlc/login/state.md", STATE.format(stage=stage))
-        payload = {"hook_event_name": "PreToolUse", "cwd": self.root, "tool_name": "Bash", "tool_input": tool_input}
+        payload = {"hook_event_name": "PreToolUse", "cwd": self.root, "tool_name": tool, "tool_input": tool_input}
         code, out, raw, err = run_hook(HOOK, payload, self.root)
         self.assertEqual(code, 0, err)
         return (out or {}).get("hookSpecificOutput", {})
 
-    def test_non_project_commands_run_with_at_most_120_seconds(self):
-        out = self.bash(5, command="node probe.js", description="probe", timeout=600000)
-        self.assertEqual(out.get("updatedInput"), {"command": "node probe.js", "description": "probe", "timeout": 120000})
+    def test_non_project_commands_are_killed_at_120_seconds(self):
+        out = self.call(5, command="node probe.js", description="probe", timeout=600000)
         self.assertIsNone(out.get("permissionDecision"))  # the user's permission rules still decide
-        self.assertEqual(self.bash(5, command="node probe.js")["updatedInput"]["timeout"], 120000)
-        self.assertEqual(self.bash(5, command="cd app && npm test 2>&1 | tail -5", timeout=600000), {})
+        self.assertRegex(out["updatedInput"]["command"], r"^g?timeout -k 5 120 node probe\.js$")
+        self.assertEqual(out["updatedInput"]["description"], "probe")
+        self.assertEqual(out["updatedInput"]["timeout"], 130000)  # past the kill, so Claude Code never backgrounds it
+        loop = self.call(5, command="until grep -q done log; do sleep 3; done")["updatedInput"]["command"]
+        self.assertRegex(loop, r"^g?timeout -k 5 120 bash -c ")  # one deadline for the whole loop
+
+    def test_project_commands_are_left_alone(self):
+        self.assertEqual(self.call(5, command="cd app && npm test 2>&1 | tail -5", timeout=600000), {})
 
     def test_background_runs_are_refused_only_in_prove(self):
-        out = self.bash(5, command="node probe.js", run_in_background=True)
+        out = self.call(5, command="node probe.js", run_in_background=True)
         self.assertEqual(out.get("permissionDecision"), "deny")
         self.assertTrue(out.get("permissionDecisionReason"))
-        self.assertEqual(self.bash(4, command="node probe.js", run_in_background=True), {})
+        self.assertEqual(self.call(5, "Monitor", command="until grep -q done log; do sleep 2; done")
+                         .get("permissionDecision"), "deny")
+        self.assertEqual(self.call(5, "PowerShell", command="node probe.js").get("permissionDecision"), "deny")
+        self.assertEqual(self.call(4, command="node probe.js", run_in_background=True), {})
 
 
 if __name__ == "__main__":

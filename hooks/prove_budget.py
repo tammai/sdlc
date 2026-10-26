@@ -1,23 +1,40 @@
 #!/usr/bin/env python3
 """sdlc prove budget: Prove's command budget, enforced (ADR 0012).
 
-PreToolUse on Bash, active only while an .sdlc feature is in Stage 5 (Prove), for every caller (session, verifier,
-reviewers). A command that isn't one of the project's own (`commands` and `packages[].commands` in .sdlc/config.json:
-install, build, lint, typecheck, test; extra arguments and leading `cd <dir> &&` allowed):
-  - runs with a timeout of at most 120 s: a larger or missing `timeout` comes back lowered as `updatedInput`, with no
-    permission decision, so the user's permission rules still apply to it
-  - can't use `run_in_background`: denied with the reason, so there is no run to poll
-The project's own commands keep their timeout and may run in the background. Any error: no output.
+PreToolUse on Bash, PowerShell and Monitor, active only while an .sdlc feature is in Stage 5 (Prove), for every
+caller (session, verifier, reviewers). A command that isn't one of the project's own (`commands` and
+`packages[].commands` in .sdlc/config.json: install, build, lint, typecheck, test; extra arguments and leading
+`cd <dir> &&` allowed):
+  - Bash: is killed at 120 s. At its own `timeout` Claude Code moves a command to the background instead of killing
+    it, which an agent can then poll, so the hook rewrites the command: `timeout -k 5 120 <command>` for one step
+    (each stage of a pipe; leading `cd`, `export` and the like stay as they are), which the user's permission rules
+    still match through the wrapper; anything else (two steps, loops, subshells) runs as one
+    `timeout -k 5 120 bash -c '<command>'`, which permission rules see as `bash`. The tool `timeout` becomes 130 s,
+    past the kill. Returned as `updatedInput` with no permission decision. Without a `timeout` binary (macOS without
+    coreutils) only the tool `timeout` is lowered, to 120 s.
+  - Bash with `run_in_background`, PowerShell and Monitor: denied with the reason, so there is no run to poll.
+The project's own commands are left alone. Any error: no output.
 """
 import json
 import os
 import re
+import shlex
+import shutil
 import sys
 
 import sdlc_layout  # sibling module: where feature state and sdlc documents live
 import verify_freshness as vf  # sibling hook: project root
 
-CAP_MS = 120000
+CAP_S = 120
+TOOL_TIMEOUT_MS = 130000  # past the kill (CAP_S + 5 s grace), so Claude Code never backgrounds the command
+# Git Bash ships coreutils' timeout; Python on Windows would find System32's timeout.exe (a pause command) instead
+TIMEOUT_BIN = "timeout" if os.name == "nt" else next((t for t in ("timeout", "gtimeout") if shutil.which(t)), None)
+# Builtins (which timeout can't run) and commands that need no limit: left as they are
+UNTIMED = {"cd", "pushd", "popd", "export", "unset", "set", "shopt", "alias", "source", ".", ":", "true", "false",
+           "echo", "printf", "exit"}
+COMPOUND = {"if", "then", "else", "elif", "fi", "for", "while", "until", "do", "done", "case", "esac", "select",
+            "function", "time", "{", "}", "(", ")", "[[", "!"}
+ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 LEADING_CD = re.compile(r"""^\s*cd\s+("[^"]+"|'[^']+'|[^\s;&|]+)\s*&&\s*""")
 
 
@@ -50,22 +67,92 @@ def is_project_command(command, commands):
     return any(command == c or command.startswith(c) and command[len(c)].isspace() for c in commands)
 
 
+def split_top_level(command):
+    """[(step, separator)] split at unquoted |, ||, &&, ; and &; None when the syntax is more than a flat list."""
+    if any(c in command for c in ("\n", "$(", "`", "<<", "<(", ">(")):
+        return None
+    parts, cur, quote, i = [], "", None, 0
+    while i < len(command):
+        ch, two = command[i], command[i:i + 2]
+        if quote or ch in "'\"":
+            quote = None if ch == quote else quote or ch
+        elif ch == "\\":
+            cur, i = cur + two, i + 2
+            continue
+        elif two in ("&&", "||"):
+            parts.append((cur, two))
+            cur, i = "", i + 2
+            continue
+        # & inside a redirect (2>&1, &>, >&) separates nothing
+        elif ch in "|;" or ch == "&" and command[i - 1:i] not in "<>" and command[i + 1:i + 2] != ">":
+            parts.append((cur, ch))
+            cur, i = "", i + 1
+            continue
+        cur, i = cur + ch, i + 1
+    return None if quote else parts + [(cur, "")]
+
+
+def wrap_step(step):
+    """The step with the timeout in front, the step itself when it needs none, or None when it can't take one."""
+    try:
+        words = shlex.split(step)
+    except ValueError:
+        return None
+    if not words or words[0] in UNTIMED:
+        return step
+    if words[0] in COMPOUND or ASSIGNMENT.match(words[0]) or step.lstrip().startswith(("(", "{")):
+        return None
+    lead = step[:len(step) - len(step.lstrip())]
+    return f"{lead}{TIMEOUT_BIN} -k 5 {CAP_S} {step.lstrip()}"
+
+
+def bounded(command):
+    """The command, killed at CAP_S. One timed step (a pipeline counts as one): each of its commands gets the timeout
+    in front, which permission rules see through. Otherwise the whole command runs under one timeout in `bash -c`."""
+    parts = split_top_level(command)
+    if parts and "&" not in (sep for _, sep in parts):
+        wrapped = [(wrap_step(step), step, sep) for step, sep in parts]
+        timed_steps, in_pipe = 0, False
+        for w, step, sep in wrapped:
+            if w is None:
+                break
+            timed_steps += w != step and not in_pipe
+            in_pipe = sep == "|" and (in_pipe or w != step)
+        else:
+            if timed_steps <= 1:
+                return "".join(w + sep for w, _, sep in wrapped)
+    return f"{TIMEOUT_BIN} -k 5 {CAP_S} bash -c {shlex.quote(command)}"
+
+
+def deny(reason):
+    return {"permissionDecision": "deny", "permissionDecisionReason": reason}
+
+
 def main():
     data = json.load(sys.stdin)
-    if data.get("tool_name") != "Bash":
+    tool = data.get("tool_name")
+    if tool not in ("Bash", "PowerShell", "Monitor"):
         return
     root = vf.project_root(data.get("cwd"))
     if not root or not in_prove(root):
         return
     tin = data.get("tool_input") or {}
-    if is_project_command(str(tin.get("command") or ""), project_commands(root)):
+    command = str(tin.get("command") or "")
+    if is_project_command(command, project_commands(root)):
         return
-    if tin.get("run_in_background"):
-        out = {"permissionDecision": "deny", "permissionDecisionReason": (
-            "sdlc: in Prove, only the project's own commands run in the background. Run this in the foreground "
-            "(at most 120 s) instead of starting it and polling.")}
-    elif not isinstance(tin.get("timeout"), (int, float)) or tin["timeout"] > CAP_MS:
-        out = {"updatedInput": dict(tin, timeout=CAP_MS)}  # the whole input: updatedInput replaces it
+    if tool == "Monitor":
+        out = deny("sdlc: in Prove there is no waiting on a run: only the project's own commands run in the "
+                   "background. Run the check once, in the foreground, with Bash (killed at 120 s).")
+    elif tool == "PowerShell":
+        out = deny("sdlc: in Prove, run commands other than the project's own with the Bash tool, where they are "
+                   "killed at 120 s.")
+    elif tin.get("run_in_background"):
+        out = deny("sdlc: in Prove, only the project's own commands run in the background. Run this in the "
+                   "foreground (killed at 120 s) instead of starting it and polling.")
+    elif TIMEOUT_BIN:
+        out = {"updatedInput": dict(tin, command=bounded(command), timeout=TOOL_TIMEOUT_MS)}  # replaces the input
+    elif not isinstance(tin.get("timeout"), (int, float)) or tin["timeout"] > CAP_S * 1000:
+        out = {"updatedInput": dict(tin, timeout=CAP_S * 1000)}
     else:
         return
     print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", **out}}))
