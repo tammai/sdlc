@@ -81,7 +81,7 @@ include this section.]
 ## Public Surface
 
 [Every new export, endpoint, CLI command, config key, env var and dependency
-this plan adds, one per line with the requirement that needs it. Stage 6
+this plan adds, one per line with the requirement that needs it. Prove
 checks the diff against this list mechanically (`diff_stats.py --plan`):
 anything built but not listed is flagged as unrequested surface. Format,
 exactly — kind, backticked name, requirement:

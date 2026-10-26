@@ -1,6 +1,6 @@
 # Recurring defects
 
-Defects that shipped past review before, from the plugin's evals. Every code reviewer checks each one. A project adds its own in `<docs>/recurring-defects.md`, in the same shape: Stage 11 appends a defect that review found (or missed) more than once, and the user can add one at any time. Keep each entry to one line: what it looks like, then the severity.
+Defects that shipped past review before, from the plugin's evals. Every code reviewer checks each one. A project adds its own in `<docs>/recurring-defects.md`, in the same shape: Learn (in Ship) appends each defect Prove fixed that a reviewer could check next time, and the user can add one at any time. Keep each entry to one line: what it looks like, then the severity.
 
 - **Raw system errors reach the user:** an `ENOENT`, `EACCES` or stack trace printed instead of the spec's message and exit code. High.
 - **No fsync before rename:** a "safe write" that renames a temp file without flushing and syncing it, or leaves the temp file behind on failure. High when the data is persisted.

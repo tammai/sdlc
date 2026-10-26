@@ -6,9 +6,15 @@
 
 **Status**: Draft
 
-**Input**: User description: "[original request]"
-
 **References**: [links to the docs/ artifacts this feature builds on: BA specs, QA test cases, designs. Link, never copy. Delete the line if there are none.]
+
+## Intent
+
+**Request (verbatim)**: [the request or ticket text, unedited]
+
+**Questions and answers**: [each blocking question and the user's answer; "none asked" if none]
+
+**Approaches considered**: [when brainstorming or a design weighed options: each one, the choice and why, linking brainstorm.md; delete otherwise]
 
 ## User Scenarios & Testing *(mandatory)*
 

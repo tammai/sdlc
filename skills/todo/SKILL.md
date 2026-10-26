@@ -7,7 +7,7 @@ description: Use when the user says to add a todo, park something for later or n
 
 Paths: `<docs>` is the sdlc docs folder (`docs_dir`); `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" paths <feature>` prints it for this repo's layout.
 
-One file, `<docs>/todo.md`, holds what was put off. The Stage 4 gate allows no `TODO` in code without a ticket, so a deferred item goes here, not into a `TODO` comment. If it has a ticket, put the id on the line.
+One file, `<docs>/todo.md`, holds what was put off. Build's gate allows no `TODO` in code without a ticket, so a deferred item goes here, not into a `TODO` comment. If it has a ticket, put the id on the line.
 
 ## Add
 

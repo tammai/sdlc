@@ -3,7 +3,7 @@
 Part of sdlc:subagent-driven-development. Every task in the plan is
 complete.
 
-If the orchestrator told you Stage 6 reviews the branch, skip the review and its fix wave: go to Finish below.
+If the orchestrator told you Prove reviews the branch, skip the review and its fix wave: go to Finish below.
 
 The final whole-branch review gets a package too: run
 `bash scripts/review-package PLAN_FILE MERGE_BASE HEAD` (MERGE_BASE = the commit the

@@ -1,6 +1,6 @@
 # Greenfield setup
 
-The repo has no source code yet. Goal: a minimal skeleton whose commands all pass on day one, so Stage 5 and CI have real commands from the first feature.
+The repo has no source code yet. Goal: a minimal skeleton whose commands all pass on day one, so Prove and CI have real commands from the first feature.
 
 ## `stack` – interview, then propose (hard stop)
 

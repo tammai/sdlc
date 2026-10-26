@@ -15,7 +15,7 @@ A spec says **what** users need and **why**. It never says how: no languages, fr
 
 ## Inputs
 
-- The feature request, the user's answers to Stage 1's blocking questions, and `<intents>/brainstorm.md` if Stage 1 started with brainstorming.
+- The feature request, the user's answers to Define's blocking questions, and `<intents>/brainstorm.md` if Define started with brainstorming.
 - `<docs>/constitution.md` if it exists (project principles; treat MUST rules as hard constraints).
 - Template: `${CLAUDE_PLUGIN_ROOT}/templates/spec-template.md`
 
@@ -23,12 +23,13 @@ A spec says **what** users need and **why**. It never says how: no languages, fr
 
 1. **Name the feature.** If the orchestrator already chose the name, use it. Otherwise: `<yyyy-mm-dd>-<slug>`, or `<yyyy-mm-dd>-<ticket>-<slug>` when the request names a ticket (`2026-10-22-PROJ-123-month-filter`; a GitHub issue is `gh-42`). The date is today's, the same as `Started:`; the slug is 2–4 kebab-case words, action-noun where possible (`user-auth`, `fix-payment-timeout`), keeping technical terms (OAuth2, JWT). If `<intents>/` already exists and isn't the feature being resumed, add `-2` (then `-3`, …). The feature's branch and `knowledge/features/<name>.md` use the same name. The feature directory is `<intents>/`.
 2. **Copy the template** to `<intents>/spec.md` and fill it, keeping section order and headings.
+2a. **Intent** (first section): the request verbatim (or the ticket's text), each blocking question with its answer, and, when brainstorming or a design weighed approaches, the ones considered with the choice and why (summarize `brainstorm.md` and link it). Plain markdown under fixed headings, so a person and a script can both read it; no paraphrase in place of the request.
 3. **Extract** actors, actions, data, constraints from the request.
 4. **Unclear points:** the orchestrator already asked the blocking questions, in one message, before this skill; never ask more here and never leave `[NEEDS CLARIFICATION]` markers. Their answers are `[clarified]`. Anything still open gets an informed guess from context and industry norms: under Assumptions if it adds no work, as an `[inferred]` FR or SC if it does. The user keeps or drops those at the gate. Run on its own (no orchestrator), ask the blocking questions yourself first, the same way: one message, only what changes what gets built.
 5. **User scenarios** with acceptance scenarios (Given/When/Then). If no clear user flow exists, stop and say so.
 6. **Functional requirements** `FR-001…`: each one testable, each tagged with its source: `[user]` (the user asked), `[clarified]` (a user answer settled it) or `[inferred]` (you added it). Be strict: "the user would probably want it" is `[inferred]`. Common inferred creep: admin/settings UI, audit logging, i18n, pagination, caching, rate limiting, bulk operations, export, notifications, configurability, "support for future X".
 7. **Success criteria** `SC-001…`: measurable and technology-agnostic (time, volume, completion rate, satisfaction), each verifiable without knowing the implementation, with the same source tags. A load or scale number the user didn't give is `[inferred]`.
-7a. **Non-goals:** list what this feature deliberately leaves out, including the obvious extensions a designer might add "while we're at it". This is what stops Stage 2 and 3 from adding them back.
+7a. **Non-goals:** list what this feature deliberately leaves out, including the obvious extensions a designer might add "while we're at it". This is what stops the design and tasks from adding them back.
 8. **Key entities** if data is involved.
 9. **Edge cases**: negative paths, empty/error states, limits.
 10. **Failure modes:** list which of these apply to this change, and only those: concurrent use, scale or large inputs, persisted-data migration and compatibility, partial failure or a crash mid-write, untrusted input, I/O errors. Turn each that applies into a testable acceptance criterion (or success criterion), within the spec's ~10-criteria budget, and name them in a short `Failure modes` list so reviewers check them. None apply → say so in one line.
@@ -69,7 +70,7 @@ Check the spec against each item:
 
 ## Inferred requirements at the gate
 
-The orchestrator's Stage 1 gate lists every `[inferred]` FR/SC on its own, separate from the rest of the spec:
+The orchestrator's Define approval lists every `[inferred]` FR/SC on its own, separate from the rest of the spec:
 
 ```
 I added these; none were in your request. Dropped unless you keep them:
@@ -78,8 +79,8 @@ I added these; none were in your request. Dropped unless you keep them:
 Keep any? (e.g. "keep FR-004", or "none")
 ```
 
-Kept → retag `[clarified]`. Dropped → delete it and add a line to Non-Goals (`No security-event logging (was FR-004 [inferred])`), and don't renumber (gaps in ids are fine). The spec leaves Stage 1 with no `[inferred]` tags.
+Kept → retag `[clarified]`. Dropped → delete it and add a line to Non-Goals (`No security-event logging (was FR-004 [inferred])`), and don't renumber (gaps in ids are fine). The spec leaves Define with no `[inferred]` tags.
 
 ## Done
 
-Report: spec path, checklist result (x/y passing), the `[inferred]` list for the gate, and the next step: design (`sdlc:designing-solutions`) or the plan.
+Report: spec path, checklist result (x/y passing), the `[inferred]` list for the gate, and the next step: design (`sdlc:designing-solutions`) or, under the orchestrator, the spec's Tasks and Public Surface.

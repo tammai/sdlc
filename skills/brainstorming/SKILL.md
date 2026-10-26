@@ -49,7 +49,7 @@ connects to, and keep reading until you can explain how the relevant
 parts work today and what this change would touch. Never ask what the
 project or their context already answers.
 
-Under the sdlc orchestrator, Stage 1 has already asked the user its blocking
+Under the sdlc orchestrator, Define has already asked the user its blocking
 questions in one message. Treat those answers as known and don't ask them
 again; spend your questions on what they leave open and on the approaches.
 
