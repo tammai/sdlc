@@ -193,7 +193,7 @@ knowledge/                 tier 3, on-demand docs (index.md links everything)
 CLAUDE.md                  tier 1, at most 60 lines (never touched by the plugin)
 ```
 
-Each feature (its state file and its documents folder) is named `<yyyy-mm-dd>-<slug>` (with a ticket key after the date when there is one, e.g. `2026-10-22-PROJ-123-month-filter`), so folders sort by start date and a new feature never reuses an old one's folder; the branch uses the same name. Commit its state and everything under `docs/sdlc/intents/<feature>/`. Only `.sdlc/.work/` is ignored. A repo set up before 1.7.0 keeps everything in `.sdlc/<feature>/` until `/sdlc:upgrade` moves it; the hooks read both layouts meanwhile ([ADR 0006](adr/0006-split-sdlc-docs-from-machinery.md)).
+Each feature (its state file and its documents folder) is named `<yyyy-mm-dd>-<track>-<slug>` (`s`, `m` or `l`, the track it started on, then a ticket key when there is one, e.g. `2026-10-22-m-PROJ-123-month-filter`; a later size-up doesn't rename it), so folders sort by start date and show their size and a new feature never reuses an old one's folder; the branch uses the same name. Commit its state and everything under `docs/sdlc/intents/<feature>/`. Only `.sdlc/.work/` is ignored. A repo set up before 1.7.0 keeps everything in `.sdlc/<feature>/` until `/sdlc:upgrade` moves it; the hooks read both layouts meanwhile ([ADR 0006](adr/0006-split-sdlc-docs-from-machinery.md)).
 
 ### `state.md`
 
