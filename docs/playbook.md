@@ -36,11 +36,11 @@ A feature's documents go in `<docs>/intents/<feature>/` (`<docs>` is `docs/sdlc`
 **Type:** `/sdlc:start fix: export button 500s when the report is empty` (or paste a GitHub issue, Linear or Jira link).
 
 1. **Define:** the agent sizes it S (bug, 1–3 files, clear expected behaviour) and writes three short files: `intent.md` (the bug, one or two fix options, the chosen one, assumptions), `spec.md` (1–3 requirements, the repro as an acceptance criterion) and `plan.md` (1–3 tasks). No approval.
-2. **Build:** one implementer subagent on the cheap tier writes a failing test that reproduces the bug, then the fix, then runs the full suite. The session doesn't write the fix itself.
-3. **Prove:** a fresh `verifier` and a `code-reviewer` run in parallel on one commit. The repro test must fail on `Base:` and be among the verifier's evidence. Findings are fixed together, then a fresh verifier re-checks once.
+2. **Build:** one implementer subagent (`sonnet`, high effort) writes a failing test that reproduces the bug, then the fix, then runs the full suite, and reports the repro test failing before the fix and passing after it. The session doesn't write the fix itself.
+3. **Prove:** nothing is dispatched: the fix was built and verified in one place. The session runs the full suite once and checks that the implementer's report shows the repro test failing before the fix. A red suite goes back to the implementer.
 4. **Ship:** Learn adds any defect Prove fixed to `recurring-defects.md`, one commit, then your merge, PR or keep.
 
-**You decide:** merge, PR or keep. The round cap ([6](#6-verify-keeps-failing)) and anything that adds scope also stop it.
+**You decide:** merge, PR or keep. The round cap and a requirement failing twice ([6](#6-verify-keeps-failing)), and anything that adds scope, also stop it.
 
 **If the bug is bigger:** the implementer stops with BLOCKED when the fix needs more than 3 files, touches auth, payments, secrets, PII or migrations, or the cause stays unclear. The feature moves to M and goes back to Define, which now needs your approval.
 
@@ -51,10 +51,10 @@ A feature's documents go in `<docs>/intents/<feature>/` (`<docs>` is `docs/sdlc`
 1. **Define:** blocking questions come once, in one numbered message (or none). Then `intent.md` (why, 2–3 approaches, the recommended one), `spec.md` (requirements, about 10 or fewer acceptance criteria, non-goals, failure modes) and `plan.md` (3–6 tasks, each with its files, first test, command and requirement, plus a Public Surface section listing everything new others can see). If the approach isn't obvious, `design.md` and its set come too.
 2. **You approve once.** The message lists the three paths, the recommended approach and the alternatives, every `[inferred]` item (each dropped unless you keep it), the tasks, the Public Surface and `Build: native`. Reply to change any of them: another approach, keep an inferred item, `Build: subagent`.
 3. **Build:** native, test first, from `plan.md`. Changes from the plan are written under its `## Deviations`.
-4. **Prove:** verifier, code-reviewer and qa-tester (ui-reviewer on UI work) in parallel on one commit, plus light security (dependency audit, hook findings). Findings are fixed together, failing test first, then the full suite once more in the session.
+4. **Prove:** on `Flow: lite`, one fresh `verifier` on the commit, plus light security (dependency audit, hook findings); no reviewers. Findings are fixed together, failing test first, then the full suite once more in the session.
 5. **Ship:** Learn, one commit, then your merge, PR or keep.
 
-Low-risk M work runs `Flow: lite`, as above. Say "use the full flow" to get `writing-specs` with its checklist, `writing-plans`, a top-tier code-reviewer, the silent-failure-hunter and a fresh verifier for the re-check. High-risk M work always gets it, and so does a spec that needs a design decision the request doesn't settle.
+Low-risk M work runs `Flow: lite`, as above. Say "use the full flow" to get `writing-specs` with its checklist, `writing-plans`, one light code-reviewer on `sonnet` (correctness, silent failures and security in one pass), a qa-tester (and a ui-reviewer on UI work) in Prove, and a fresh verifier for the re-check. High-risk M work always gets it, and so does a spec that needs a design decision the request doesn't settle.
 
 **Good habits:** state non-goals up front; answer the questions briefly; challenge any addition you didn't ask for at the approval, not after the code exists. Too big for one session? See [19](#19-a-big-feature-becomes-a-backlog).
 
@@ -65,14 +65,14 @@ Low-risk M work runs `Flow: lite`, as above. Say "use the full flow" to get `wri
 1. **Define**, `Flow: full`: blocking questions first, then `brainstorming` writes `intent.md`, asking you to pick between approaches. It may offer a browser visual companion (needs Node).
 2. The design (`designing-solutions`) dispatches `code-explorer` and `code-architect` and writes `design.md`, `research.md`, `data-model.md`, `contracts/` and `quickstart.md`. Expect options: minimal, minimal plus one named extension, pragmatic. Minimal is recommended unless it fails a named requirement. `writing-plans` writes `plan.md`; `analyzing-consistency` checks every requirement has a task. One approval covers it all, with `Build: tasks`.
 3. **Build:** a git worktree, a fresh implementer per task and a review after each.
-4. **Prove:** top-tier verifier and reviewers, silent-failure-hunter, pr-test-analyzer and full security in one round, then a fresh verifier re-checks.
+4. **Prove:** top-tier verifier and code-reviewer, silent-failure-hunter, pr-test-analyzer and full security in one round, then a fresh verifier re-checks.
 5. **Ship:** Learn also writes `retro.md` and a `knowledge/features/` page. Deploy only when you ask ([10](#10-merge-and-deploy)).
 
 **You decide:** Define's approval, merge, deploy, migrations.
 
 ## 4. Change something risky
 
-Auth, payments, secrets, PII, schema migrations: the work is **at least M**, `Risk: high`, and Prove runs **full security**. The verifier and reviewers run on the top tier; the model-router hook denies a cheaper one.
+Auth, payments, secrets, PII, schema migrations: the work is **at least M**, `Risk: high`, and Prove runs **full security**. On L the verifier and reviewers run on the top tier, and the model-router hook denies a cheaper one; on M they run on `sonnet`, and full security is a standard-tier pass.
 
 1. While you build, the security hooks warn on risky edits and review the diff at turn end. The commit review runs after `git commit`: on a feature branch, build commits wait and are reviewed together once Prove starts. Address each finding, or acknowledge it with a reason.
 2. Prove adds `feature-reviewer` and `code-reviewer` with a security-only brief (injection, authz, secrets, SSRF, XSS, unsafe deserialization, dependency risk), in the same round, plus the dependency audit. On a backlog this runs once, at feature close.
@@ -94,20 +94,23 @@ A new session needs no re-explaining: the state file and the three documents car
 
 ## 6. Verify keeps failing
 
-Each round, a **new** verifier runs everything fresh, so flaky results show up as flaky, not as pass-after-retry.
+Each round, a **new** verifier runs everything fresh, so flaky results show up as flaky, not as pass-after-retry. (S has no verifier: its re-check is the full suite in the session.)
 
 | Round | What happens |
 |---|---|
-| 1–2 fail | The agent fixes the listed failures, failing test first, `systematic-debugging` for anything unexplained, then runs a fresh verifier round without asking (on Lite too, once the in-session suite is red after a fix) |
-| 3 fails | It stops and brings you what still fails, what each round changed and a root-cause hypothesis |
+| Fails | The agent fixes the listed failures, failing test first, `systematic-debugging` for anything unexplained, then re-verifies without asking: a fresh verifier on the full flow and L, the full suite in the session on S and Lite |
+| The same requirement fails in two rounds | It stops and brings you what still fails, what each round changed and a root-cause hypothesis |
+| Round 3 fails | The same stop |
 
 **A failure that existed before your change:** if `.sdlc/baseline.md` lists it, it doesn't fail the round. If not, the verifier reports it as new and may ask to baseline it; that's your call, recorded as a deviation. Baseline items that now pass are removed automatically.
+
+**"Could not verify within budget":** the verifier and the qa-tester run every command that isn't the project's own with a 2-minute limit, and get 10 minutes per round. A criterion or scenario they couldn't settle in that time comes to you; it is never counted as passed. Run it yourself, or say how to make it quicker.
 
 **A qa-tester scenario failed but the tests pass:** the tests prove something other than the spec. It's a finding like any other, fixed with a failing test that reproduces the steps. Only one that needs a new requirement comes to you. **"Not run":** the qa-tester lacked something it needed (a tool, a browser) and never installs anything. The reason is in `qa-report.md`: provide it, or check the scenario yourself. A scenario it couldn't work out how to run is a finding instead: the quickstart is missing a step.
 
 **"Doesn't prove the change":** that test also passes on `Base:`, so it can't be a criterion's evidence. Make it assert the new behaviour, or point the criterion at a test that does.
 
-**At the cap:** allow more rounds, narrow the scope, or revisit the design. Don't ask it to rerun until green: retried-until-green tests fail the gate.
+**When it stops:** allow more rounds, narrow the scope, or revisit the design. Don't ask it to rerun until green: retried-until-green tests fail the gate.
 
 ## 7. The stop hook says "re-run tests"
 
@@ -230,7 +233,7 @@ Work bigger than one session (more than about 8 tasks, or several distinct parts
 
 1. **Define** writes `backlog.md` next to the three files: one row per vertical slice (`B1`, `B2`, …) with its requirements, acceptance criteria, dependencies and size. `plan.md` gives each slice an outline. You approve them all at once. The feature runs `Flow: lite` from here, whatever the track. On L or high-risk M, the approval message comes with a `Flow: full → lite` trust-anchor notice; your approval accepts it.
 2. **Each slice:** the agent writes `plan-B<n>.md` (3–6 tasks), builds natively, runs a Prove round on that slice's diff, then commits it. Slices run back to back without asking.
-3. **It stops** at the round cap, for a backlog change that adds scope, or at a hard stop. To look at each slice, say so: it records `Slice gates: plan, review, commit` (any of them).
+3. **It stops** at the round cap, when a requirement fails in two rounds, for a backlog change that adds scope, or at a hard stop. To look at each slice, say so: it records `Slice gates: plan, review, commit` (any of them).
 4. **Low context:** it stops at a slice boundary with `B<n> done (<commit>). Next: B<m> <title>. Run /clear, then /sdlc:start.` `/sdlc:start B<n>` runs a named slice once its dependencies are done.
 5. **Feature close**, after the last slice: one Prove round over the whole branch (every acceptance criterion, one top-tier code-reviewer, qa-tester, security), then Ship with Learn and your merge, PR or keep.
 
@@ -248,7 +251,7 @@ python3 <plugin>/scripts/autopilot.py [--permission-mode <mode>] <feature>
 
 The headless sessions need permission to edit files and run git, the project's commands and the plugin's scripts (`state.py`, `backlog.py`). Setup's allowlist covers only the project's own commands, so pass a `--permission-mode` or widen the allowlist. A session that is denied leaves its slice unchanged, and autopilot stops with `B<n> is still todo after its run`. The mode is handed to `claude` as given; autopilot never adds a permission-bypass flag.
 
-Each session runs `/sdlc:start B<n> --autopilot`: it does one slice and ends, never asking. Anything that would ask (the round cap, a scope change, a hard stop) marks the slice `blocked: <reason>` in `backlog.md` and adds an open question.
+Each session runs `/sdlc:start B<n> --autopilot`: it does one slice and ends, never asking. Anything that would ask (the round cap, a requirement failing twice, a scope change, a hard stop) marks the slice `blocked: <reason>` in `backlog.md` and adds an open question.
 
 **It stops** on an open trust-anchor notice, a feature that isn't active, a blocked slice, nothing ready, a session that fails, a run that leaves its slice unchanged, or a feature close that doesn't reach Ship. It prints one JSON object naming the reason and the slices it ran. Fix the cause in a normal session (for a blocked slice, `/sdlc:start B<n>` and answer its question), then run the same command again.
 
@@ -263,7 +266,7 @@ It reports, per active feature:
 - `Track:` down, `Risk:` high → low, `Flow:` full → lite, `Top model:` or `Base:` changed;
 - a failing test added to `.sdlc/baseline.md`, or commands in `.sdlc/config.json` changed since `Base:`;
 - `spec.md` edited after Prove started;
-- skipping Prove, or leaving it with code changed since the last full test run;
+- skipping Prove, or leaving it with code changed since the last full test run (on S, a passing full run of the current code counts as Prove);
 - on `Flow: lite`, stopping outside Build and Prove with untested code;
 - a feature stopping being active other than by finishing (a pause, a deleted state file);
 - a damaged trust-anchor record.
@@ -282,7 +285,7 @@ Autopilot won't start a session while a notice is open; its JSON `stopped` reaso
 |---|---|
 | Define's approval: approach, spec, plan (and backlog, design), `Build:` (not on S) | You |
 | Anything that adds scope | You |
-| What next after three failed verify rounds | You |
+| What next after three failed verify rounds, or a requirement failing in two | You |
 | Merge (Ship's merge, PR or keep) | You |
 | Production deploy | You |
 | DB migration | You |
@@ -307,5 +310,5 @@ Autopilot won't start a session while a notice is open; its JSON `stopped` reaso
 | Decision | Owner |
 |---|---|
 | Track and risk | The agent proposes; you can override |
-| Verify verdict | The latest fresh verifier (on Lite, the in-session suite after fixes) |
+| Verify verdict | The latest fresh verifier (on Lite, the in-session suite after fixes; on S, the session's full-suite run) |
 | Fixing findings and re-running verify below the round cap | The agent, without asking |

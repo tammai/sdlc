@@ -28,25 +28,25 @@ A new feature: `R/start.md` first. A backlog (`<intents>/backlog.md` exists): `R
 
 | Track | Signals | Shape |
 |---|---|---|
-| **S – fix** | bug or tweak, 1–3 files, clear expected behavior | Define writes short `intent.md`, `spec.md` and `plan.md`, no approval; Build, Prove, Ship |
-| **M – feature** | a few files to a few days, approach mostly obvious | all four phases; risk low: `Flow: lite` (default); risk high or the user asks: `Flow: full` |
+| **S – fix** | bug or tweak, 1–3 files, clear expected behavior | Define writes short `intent.md`, `spec.md` and `plan.md`, no approval; built and verified in one place, no reviewers; Ship |
+| **M – feature** | a few files to a few days, approach mostly obvious | all four phases; risk low: `Flow: lite` (default), Prove is one fresh verifier; risk high or the user asks: `Flow: full`, with light review and QA |
 | **L – project** | new service/module, unclear approach, or touches auth, payments, data migration, public API | all four, with brainstorming and design in Define; `Flow: full` |
 
-Propose the *smallest* fitting track; size up only for a named signal, written in state. Bigger than one session (more than about 8 tasks, or several distinct parts) → a backlog. Auth, payments, secrets, PII or schema migrations: at least M, full security in Prove. **Risk** is `high` for those or a public API, else `low`; with the track it sets each dispatch's model tier:
+Propose the *smallest* fitting track; size up only for a named signal, written in state. Bigger than one session (more than about 8 tasks, or several distinct parts) → a backlog. Auth, payments, secrets, PII or schema migrations: at least M, full security in Prove. **Risk** is `high` for those, a public API, or untrusted input reaching a shell, terminal, file path or database (S and M lite run no reviewer, so that work needs the full flow's review), else `low`; with the track it sets each dispatch's model tier:
 
-| | Build default | Verifier, reviewers | Security in Prove |
+| | Build default | Prove dispatches | Security in Prove |
 |---|---|---|---|
-| S, risk low | `subagent`, cheap | standard | hooks only |
-| M, `Flow: lite` | `native` | standard | light |
-| M, `Flow: full` | `native` | standard; the code-reviewer top | light (full on auth, payments, secrets, PII, migrations) |
-| L, or risk high | `tasks`, standard implementers | top | full, top |
+| S | `subagent`, standard | nothing: the repro test and full suite, checked in this session | hooks only |
+| M, `Flow: lite` | `native` (or `subagent`, standard) | one fresh verifier, standard | light |
+| M, `Flow: full`, either risk | `native` | verifier, qa-tester and one light code-reviewer, all standard | light; full, standard, on auth, payments, secrets, PII, migrations |
+| L | `tasks`, standard implementers | top | full, top |
 | Backlog slice | `native` | standard, top on risk high; Feature close reviewer top | at Feature close |
 
-Tiers (Model Selection in `sdlc:subagent-driven-development`): cheap `haiku`, standard `sonnet`, top `opus` (`fable` only when the user asks: `Top model: fable`). Every dispatch names its `model`; the model router denies a missing model, `fable` without the opt-in, and reviewers, the verifier or qa-tester below `opus` on `Risk: high`.
+Tiers (Model Selection in `sdlc:subagent-driven-development`): cheap and standard are `sonnet`, passed with `effort: high`; top is `opus` (`fable` only when the user asks: `Top model: fable`). Never `haiku`. Every dispatch names its `model`; the model router denies a missing model, `haiku`, `fable` without the opt-in, and reviewers, the verifier or qa-tester below `opus` on `Track: L`.
 
 **`Build: native | subagent | tasks`**, from the table, shown in Define's approval and never asked separately (`state.py set` if the user changes it); `R/build.md` says what each does.
 
-**`Flow: lite | full`** picks how Prove re-verifies its fixes (lite: the full suite in this session; full: a fresh verifier) and the code-reviewer's tier.
+**`Flow: lite | full`** picks Prove's checkers and how it re-verifies fixes: lite, one fresh verifier, fixes re-verified with the full suite in this session; full, the verifier with light review and QA, fixes re-verified by a fresh verifier.
 
 ## State: always through `state.py`
 
@@ -62,6 +62,7 @@ Tiers (Model Selection in `sdlc:subagent-driven-development`): cheap `haiku`, st
 
 - One phase at a time; `state.py` at every move. A failed gate: stay, or step back one phase, with the reason. A code change after Prove's gate goes back to Prove.
 - **Ownership:** before advancing, compare `Owner:` with `git config user.email`; someone else's → say who (`Tool:`) and ask; on yes, `set` Owner and Tool and record the handover as a deviation. No `Owner:` → set yours.
-- **Hard stops, always ask:** Define's approval (not on S), anything that adds scope, the round cap (`R/prove.md`), merges, production deploys, DB migrations, anything irreversible. Everything else runs without asking: passing checks, and failed verify rounds below the round cap.
+- **Advisor**, where available: at most twice per feature, before sending Define's approval and before Ship's commit. Not at the other phase gates.
+- **Hard stops, always ask:** Define's approval (not on S), anything that adds scope, the round cap and a requirement failing in two rounds (`R/prove.md`), merges, production deploys, DB migrations, anything irreversible. Everything else runs without asking: passing checks, and failed verify rounds below the round cap.
 - "Skip" / "just ship it": name the skipped gates, record them as a deviation, comply. Never send the user to install another plugin for a core phase.
 - "Your human partner" in a bundled skill is the user; a bundled skill that would hand off on its own returns here, so the gate runs. Keep artifacts short; link instead of repeating.

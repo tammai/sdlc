@@ -13,6 +13,7 @@ Decisions about how the plugin itself is built: what was decided, why, and what 
 | [0007](0007-multi-tool-adapters.md) | One plugin for Claude Code, Codex, Cursor and Antigravity | Accepted |
 | [0008](0008-lite-flow-for-low-risk-m.md) | Low-risk M features run the Lite flow by default | Accepted, amended by 0009 and 0010 |
 | [0009](0009-cheaper-pipeline-and-control-contract.md) | A cheaper pipeline, a control contract, and fewer commit reviews | Accepted, amended by 0010 |
-| [0010](0010-four-phases.md) | Four phases instead of eleven stages | Accepted |
+| [0010](0010-four-phases.md) | Four phases instead of eleven stages | Accepted, amended by 0011 |
+| [0011](0011-track-cost.md) | Fewer agents per track and a bounded Prove | Accepted |
 
 New ADR: copy the shape of an existing one (Status, Context, Decision, Consequences), take the next number, and add a row here.

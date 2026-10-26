@@ -144,12 +144,14 @@ Use the least powerful model that can handle each role to conserve cost and incr
 
 | Tier | Model |
 |---|---|
-| cheap | `haiku` |
+| cheap | `sonnet` |
 | standard | `sonnet` |
 | top | `opus`, or `fable` only when state.md says `Top model: fable` |
 
-Never pick `fable` because it is the most capable model on offer; the user
-opts into it. Escalation stops at the top tier.
+Never dispatch `haiku`: it took more turns than it saved, so the cheap tier
+is `sonnet` too. Pass `effort: high` on every `sonnet` dispatch. Never pick
+`fable` because it is the most capable model on offer; the user opts into
+it. Escalation stops at the top tier.
 
 **Mechanical implementation tasks** (isolated functions, clear specs, 1-2 files): use a fast, cheap model. Most implementation tasks are mechanical when the plan is well-specified.
 
@@ -165,7 +167,7 @@ diff's size, complexity, and risk. A small mechanical diff does not need the
 top tier; a subtle concurrency change does. Scoped re-reviews of
 small fix diffs take a cheap-to-mid tier.
 
-**Fix-loop escalation (rounds 4-5)**: use a model at least one tier above
+**Fix-loop escalation (rounds 4-5)**: use a model at least one tier above (cheap and standard count as one)
 the implementer that got stuck, capped at the top tier. An implementer already
 on the top tier is re-dispatched on the same model with a smaller task.
 

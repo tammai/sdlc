@@ -9,7 +9,7 @@ from helpers import HOOKS, ProjectTestCase, run_hook
 
 HOOK = ["python3", os.path.join(HOOKS, "trust_anchor.py")]
 FRESHNESS = ["python3", os.path.join(HOOKS, "verify_freshness.py")]
-STATE = "# login\nStatus: active\nTrack: M\nRisk: {risk}\nTop model: opus\nBase: {base}\nCurrent: Stage {stage}\n"
+STATE = "# login\nStatus: active\nTrack: {track}\nRisk: {risk}\nTop model: opus\nBase: {base}\nCurrent: Stage {stage}\n"
 BASELINE = "# Known failures baseline\n\n## Failing tests\n\n| Package | Test | Failure | Since |\n|---|---|---|---|\n{rows}\n## Lint\n"
 
 
@@ -26,9 +26,9 @@ class TrustAnchorTest(ProjectTestCase):
         self.base = subprocess.run(self.git + ["rev-parse", "--short", "HEAD"], capture_output=True,
                                    encoding="utf-8").stdout.strip()
 
-    def state(self, stage=4, risk="high", flow=None):
+    def state(self, stage=4, risk="high", flow=None, track="M"):
         self.write(".sdlc/login/state.md",
-                   STATE.format(risk=risk, base=self.base, stage=stage) + (f"Flow: {flow}\n" if flow else ""))
+                   STATE.format(track=track, risk=risk, base=self.base, stage=stage) + (f"Flow: {flow}\n" if flow else ""))
 
     def full_run(self):
         run_hook(FRESHNESS, {"hook_event_name": "PostToolUse", "cwd": self.root, "tool_name": "Bash",
@@ -103,6 +103,22 @@ class TrustAnchorTest(ProjectTestCase):
         self.assertIn("left Stage 5", out["systemMessage"])
         self.assertIn("src/login.ts", out["systemMessage"])
 
+
+    def test_an_s_fix_proven_by_a_fresh_full_run_passes_stage_5_without_a_verifier(self):
+        self.state(stage=4, risk="low", track="S")
+        self.stop()
+        self.write("src/login.ts", "export const a = 2\n")  # the fix, then the full suite in the session
+        self.state(stage=5, risk="low", track="S")
+        self.full_run()
+        self.state(stage=8, risk="low", track="S")
+        self.assertIsNone(self.stop())
+        self.state(stage=4, risk="low", track="S")  # a second fix, edited after its last full run
+        self.stop()
+        self.state(stage=5, risk="low", track="S")
+        self.full_run()
+        self.write("src/login.ts", "export const a = 3\n")
+        self.state(stage=8, risk="low", track="S")
+        self.assertIn("without Stage 5", self.stop()["systemMessage"])
 
     def test_lite_flow_review_fix_rerun_in_stage_6_is_not_a_notice(self):
         self.state(stage=5, risk="low", flow="lite")

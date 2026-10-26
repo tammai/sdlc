@@ -11,7 +11,8 @@ check, so this can't prevent a change; it makes one visible. For each active fea
   - the commands in `.sdlc/config.json` differ from those at `Base:`
   - `spec.md` changed after the feature entered Stage 5
   - the feature left Stage 5 while code differed from its last full test run, or moved past Stage 5 without it
-    (a verifier dispatched in Stage 5 since the last Stop counts, since a turn can run several stages)
+    (a verifier dispatched in Stage 5 since the last Stop counts, since a turn can run several stages; on Track S,
+    which dispatches no verifier, a passing full test run of the current code counts)
   - on `Flow: lite`, a Stop outside Stages 4-6 finds code that differs from the last full test run (one notice
     per untested state of the code)
   - a feature seen active stopped being active, other than by finishing (`Status: done`)
@@ -119,7 +120,9 @@ def check(root, name, text, anchor, shown):
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")  # the model router's dispatch-log format
     # Stops are samples: a Lite turn can run Stages 3 to 8 between two of them, so Stage 5 counts as passed when a
     # verifier was dispatched in it since the last Stop (the evidence the Stage 5 gate trusts)
-    if prev is not None and prev < 5 < (st or 0) and not verifier_since(root, anchor.get("stop_time")):
+    s_track = re.search(r"^Track:\s*s\b", text, re.M | re.I)
+    if (prev is not None and prev < 5 < (st or 0) and not verifier_since(root, anchor.get("stop_time"))
+            and not (s_track and suite_passed(root, name))):
         notices.append(f"went from Stage {prev} to Stage {st} without Stage 5")
     # The Lite flow re-verifies fixes in-session, so outside the build-verify-review loop (Stages 4-6) the code must
     # match the last full run: checked at every such Stop, since the move out of the loop may not be seen
@@ -153,6 +156,14 @@ def verifier_since(root, since):
                 and any(re.match(r"Stage\s*5\b", str(s)) for s in d.get("stages") or [])):
             return True
     return False
+
+
+def suite_passed(root, name):
+    """A full test run of this feature passed and the code hasn't changed since."""
+    fresh = vf.load(root)
+    scopes = (fresh.get("scopes") or {}).values() if fresh.get("feature") == name else []
+    return (bool(scopes) and all(not s.get("stale") and s.get("last_result") != "fail" for s in scopes)
+            and not changed_since_full_run(root, name))
 
 
 def changed_since_full_run(root, name):

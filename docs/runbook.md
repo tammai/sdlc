@@ -118,7 +118,7 @@ The verify-freshness hook is active only while an active feature's state says `C
 ### R5. A verify round gives different answers each time
 
 1. Don't retry until green. A test that passes after failing is flaky, and Prove's gate fails on a retried-until-green test.
-2. Ask the next fresh verifier to run the failing test several times in isolation and record the results in `test-report.md`.
+2. Ask the next fresh verifier to run the failing test a few times in isolation (at most 5 repeats, within its time budget) and record the results in `test-report.md`.
 3. Fix or quarantine the flaky test with your approval, and record it with `state.py deviation`.
 
 ### R6. Ralph loop won't stop
@@ -161,7 +161,7 @@ The state file is `.sdlc/state/<feature>.md`; beside it, git-ignored, `state.py`
 
 A gate is a phase's exit check; it is a decision, not a fault. Say `skip` or `just ship it`: the orchestrator names the skipped gates, records them with `state.py deviation`, and continues. See [playbook 9](playbook.md#9-skip-a-gate-deliberately).
 
-Hard stops are different: they always wait for your answer and aren't skipped. They are Define's approval (not on S), anything that adds scope, the round cap (verify round 3 failed), merge, production deploy, DB migrations, and anything irreversible.
+Hard stops are different: they always wait for your answer and aren't skipped. They are Define's approval (not on S), anything that adds scope, the round cap (verify round 3 failed), the same requirement failing in two rounds, merge, production deploy, DB migrations, and anything irreversible.
 
 ### R12. Setup stopped halfway
 
@@ -203,14 +203,15 @@ Hard stops are different: they always wait for your answer and aren't skipped. T
 
 The hook checks Agent/Task dispatches only while a feature has `Status: active`; the deny reason says which check failed. Every dispatch, denied or not, is logged to `.sdlc/.work/dispatches.jsonl`, which Prove's gate reads to confirm a verifier ran in Stage 5.
 
-1. **No model:** the dispatch must name `haiku`, `sonnet` or `opus` (Model Selection in `sdlc:subagent-driven-development`). Commands that launch agents, such as `/sdlc:review-pr`, name one too.
+1. **No model:** the dispatch must name `sonnet` or `opus` (Model Selection in `sdlc:subagent-driven-development`). Commands that launch agents, such as `/sdlc:review-pr`, name one too.
 2. **Fable:** used only on your request. `state.py set <feature> "Top model" fable` on every active feature (one active feature without it keeps Fable denied). This raises a trust-anchor notice ([R19](#r19-a-trust-anchor-notice-stops-the-turn)).
-3. **Reviewer below Opus:** code-reviewer, feature-reviewer, ui-reviewer, verifier and qa-tester need `opus` (or `fable`) while any active feature says `Risk: high`. If the risk was misjudged, `state.py set <feature> Risk low` (a notice too) and say why with `state.py log`.
-4. Forks are never checked: they always run on the session model. To keep Fable out of forks, don't run the session on Fable.
+3. **Haiku:** denied everywhere; the cheap tier is `sonnet`. Pass `effort: high` with it.
+4. **Reviewer below Opus:** code-reviewer, feature-reviewer, ui-reviewer, verifier and qa-tester need `opus` (or `fable`) while any active feature says `Track: L`; on S and M they run on `sonnet` at either risk. If the track was misjudged, `state.py set <feature> Track M` (a notice too) and say why with `state.py log`.
+5. Forks are never checked: they always run on the session model. To keep Fable out of forks, don't run the session on Fable.
 
 ### R19. A trust-anchor notice stops the turn
 
-The state, spec, baseline and config the hooks trust are writable by the agent they check, so `hooks/trust_anchor.py` can't prevent a change; at Stop it shows you one. A notice reads "Verification anchors changed: …" and names what moved: `Track:`, `Risk:`, `Flow:`, `Top model:` or `Base:`; a failing test added to `.sdlc/baseline.md` or changed commands in `.sdlc/config.json` since `Base:`; `spec.md` edited during Prove; leaving or skipping Prove with untested code (on `Flow: lite`, any Stop outside Stages 4–6 with untested code); an active feature no longer active other than by `Status: done`; or its own record (`.sdlc/.work/trust-anchor.json`) damaged.
+The state, spec, baseline and config the hooks trust are writable by the agent they check, so `hooks/trust_anchor.py` can't prevent a change; at Stop it shows you one. A notice reads "Verification anchors changed: …" and names what moved: `Track:`, `Risk:`, `Flow:`, `Top model:` or `Base:`; a failing test added to `.sdlc/baseline.md` or changed commands in `.sdlc/config.json` since `Base:`; `spec.md` edited during Prove; leaving or skipping Prove with untested code (on S, a passing full run of the current code counts; on `Flow: lite`, any Stop outside Stages 4–6 with untested code); an active feature no longer active other than by `Status: done`; or its own record (`.sdlc/.work/trust-anchor.json`) damaged.
 
 1. **Stricter changes** (Track up, Risk low → high, Flow lite → full) only add checks: "Stricter process: …", no block. Exception: a backlog feature leaving `Flow: lite` blocks.
 2. **Every other change** blocks the stop once. Claude must tell you what changed and why, without undoing it on its own. Your next message accepts it: the current values become the anchor, and the notice doesn't block again. Autopilot stops at a notice you haven't seen.
@@ -287,8 +288,8 @@ The test suite runs hooks and scripts as subprocesses; this checks the installed
 **E. An S fix through all four phases (must)**
 1. `/sdlc:start fix: add returns a string when given numeric strings`. It proposes track S and creates `.sdlc/state/<yyyy-mm-dd>-s-<slug>.md`; the announcement shows `Build: subagent`.
 2. Define writes `intent.md`, `spec.md` (the repro among its acceptance criteria) and `plan.md` in `docs/sdlc/intents/<feature>/`, and goes on to Build **without asking for approval**.
-3. Build dispatches one implementer subagent with `model: haiku`, which writes a failing test first, then the fix, and doesn't commit.
-4. Prove dispatches a **fresh** `sdlc:verifier` and `sdlc:code-reviewer` (both `sonnet`) in parallel; the verifier appends `## Round 1` to `test-report.md`.
+3. Build dispatches one implementer subagent with `model: sonnet`, which writes a failing test first, then the fix, runs the full suite and doesn't commit.
+4. Prove dispatches **nothing** (`.sdlc/.work/dispatches.jsonl` shows no verifier or reviewer): the session runs the full suite once, and the trust anchor accepts that run in place of a verifier.
 5. While in Prove, ask Claude to change a source file **with a shell command** (e.g. `sed -i`), then end the turn: it's **blocked**, and the message names the test command. Run it; the turn then ends normally.
 6. Ship runs the verified-tree check and Learn, makes one commit, then **stops to ask** merge, PR or keep. `git status` never shows `.sdlc/state/*.json`.
 7. Trust anchor (should): in a new S feature, ask Claude to run `state.py set <feature> Risk high`: a "Stricter process" message, no block. Then `Risk low`: the stop is blocked once, and your next message clears it.
@@ -328,10 +329,10 @@ Phase behavior lives in `skills/orchestrator/`: the core `SKILL.md` (the phase �
 |---|---|
 | Phase gates or tracks | `docs/diagrams/*.svg`, `docs/guidebook.md`, README phase table, the gate table in `docs/sdlc/intents/2026-10-26-four-phases/spec.md` |
 | A hard stop | the Rules section of the orchestrator, `docs/playbook.md`, R11 above |
-| Verify behavior | `agents/verifier.md`, `agents/qa-tester.md`, `hooks/verify_freshness.py`, `tests/test_verify_freshness.py`, `hooks/trust_anchor.py` (what it watches) |
+| Verify behavior | `agents/verifier.md`, `agents/qa-tester.md`, `hooks/verify_freshness.py`, `tests/test_verify_freshness.py`, `hooks/trust_anchor.py` (what it watches), `hooks/role_guard.py` (what the verifier may write) |
 | State fields or stage numbers | `scripts/state.py`, `tests/test_state.py`, `docs/specs/12-control-contract.md`, the template in `references/start.md`, every hook that reads the field (`verify_freshness`, `trust_anchor`, `model_router`, `sdlc_review_gate`) |
 | An agent's role or file access | the agent's `tools:` frontmatter, `hooks/role_guard.py`, `tests/test_role_guard.py`, `docs/specs/03-scope-and-review.md` and `04-verification.md` |
-| Model tiers or risk | Model Selection in `skills/subagent-driven-development/SKILL.md`, `hooks/model_router.py`, `tests/test_model_router.py`, `hooks/trust_anchor.py` (it anchors `Risk:`), `docs/specs/02-orchestration.md` |
+| Model tiers, track or risk | Model Selection in `skills/subagent-driven-development/SKILL.md`, `hooks/model_router.py`, `tests/test_model_router.py`, `hooks/trust_anchor.py` (it anchors `Risk:`), `docs/specs/02-orchestration.md` |
 | Scope-tracing rules | `skills/writing-specs`, `designing-solutions`, `writing-plans`, `analyzing-consistency`, `scripts/diff_stats.py` |
 | Setup, upgrade or eject | `skills/setting-up-projects/`, `scripts/scaffold.py`, `templates/project/`, `tests/test_scaffold.py`, `tests/test_project_templates.py`, `docs/diagrams/sdlc_setup_phase.svg`; a changed decision gets a new ADR in `docs/adr/` |
 

@@ -5,7 +5,8 @@ PreToolUse on file tools. Claude Code names the subagent making a call in `agent
 from the main session or other plugins' agents get no output. Denies, with the reason the agent sees:
   - a reviewer editing any file: reviewers report, they don't fix
   - the verifier editing anything but test-report.md (in .sdlc/ or the docs folder), .sdlc/baseline.md (it removes
-    items that pass) and .sdlc/.work/redgreen/ (its worktree): not source, the spec, config, state or the hooks' state
+    items that pass), .sdlc/.work/redgreen/ (its worktree) and .sdlc/.work/probes/ (repro scripts): not source,
+    the spec, config, state or the hooks' state
   - the qa-tester reading or searching project files other than .sdlc/, the docs folder (docs_dir) and READMEs, or
     writing anything but qa-report.md and .sdlc/.work/qa/
 Paths outside the project (scratch dirs) are left alone. Bash stays open to all of them: they need it for git,
@@ -45,8 +46,8 @@ def problem(agent, tool, rel, root):
     if agent in REVIEWERS and tool in WRITES:
         return f"sdlc: {agent} reports findings; it doesn't edit files. Put the fix in your report instead."
     if agent == "verifier" and tool in WRITES and not (
-            rel.endswith("/test-report.md") and in_reports or rel == ".sdlc/baseline.md" or rel.startswith(".sdlc/.work/redgreen/")):
-        return ("sdlc: the verifier writes only test-report.md, the baseline and its .sdlc/.work/redgreen/ worktree: it never edits "
+            rel.endswith("/test-report.md") and in_reports or rel == ".sdlc/baseline.md" or rel.startswith((".sdlc/.work/redgreen/", ".sdlc/.work/probes/"))):
+        return ("sdlc: the verifier writes only test-report.md, the baseline, its .sdlc/.work/redgreen/ worktree and .sdlc/.work/probes/: it never edits "
                 "source, the spec, config or state.md. Report the problem; the fix goes back to Build.")
     if agent == "qa-tester":
         if tool in WRITES and not (rel.endswith("/qa-report.md") and in_reports or rel.startswith(".sdlc/.work/qa/")):

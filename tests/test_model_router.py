@@ -1,4 +1,4 @@
-"""hooks/model_router.py: subagent dispatches name a model, and fable needs the user's opt-in."""
+"""hooks/model_router.py: subagent dispatches name a model, never haiku, and fable needs the user's opt-in."""
 import json
 import os
 import unittest
@@ -29,11 +29,14 @@ class ModelRouterTest(ProjectTestCase):
         self.assertEqual(decision["permissionDecision"], "deny")
         self.assertIn("Top model: fable", decision["permissionDecisionReason"])
 
-    def test_qa_tester_below_opus_is_denied_on_high_risk(self):
-        self.write(".sdlc/login/state.md", "# login\nStatus: active\nTrack: M\nRisk: high\nTop model: opus\n")
-        out = self.dispatch(subagent_type="sdlc:qa-tester", model="sonnet")
+    def test_haiku_is_denied(self):
+        out = self.dispatch(subagent_type="general-purpose", model="haiku")
         self.assertEqual(out["hookSpecificOutput"]["permissionDecision"], "deny")
-        self.assertIsNone(self.dispatch(subagent_type="sdlc:qa-tester", model="opus"))
+        self.assertIn("sonnet", out["hookSpecificOutput"]["permissionDecisionReason"])
+
+    def test_m_reviewers_run_on_sonnet_even_on_high_risk(self):
+        self.write(".sdlc/login/state.md", "# login\nStatus: active\nTrack: M\nRisk: high\nTop model: opus\n")
+        self.assertIsNone(self.dispatch(subagent_type="sdlc:qa-tester", model="sonnet"))
 
     def test_dispatch_without_a_model_is_denied(self):
         out = self.dispatch(subagent_type="sdlc:verifier")
@@ -51,8 +54,8 @@ class ModelRouterTest(ProjectTestCase):
         self.write(".sdlc/login/state.md", "# login\nStatus: active\nTrack: M\nRisk: low\nTop model: fable\n")
         self.assertIsNone(self.dispatch(subagent_type="sdlc:code-reviewer", model="fable"))
 
-    def test_high_risk_floor_applies_to_reviewers_only(self):
-        self.write(".sdlc/login/state.md", "# login\nStatus: active\nTrack: L\nRisk: high\nTop model: opus\n")
+    def test_track_l_floor_applies_to_reviewers_only(self):
+        self.write(".sdlc/login/state.md", "# login\nStatus: active\nTrack: L\nRisk: low\nTop model: opus\n")
         self.assertEqual(self.dispatch(subagent_type="sdlc:verifier", model="sonnet")
                          ["hookSpecificOutput"]["permissionDecision"], "deny")
         self.assertIsNone(self.dispatch(subagent_type="general-purpose", model="sonnet"))

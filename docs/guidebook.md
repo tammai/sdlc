@@ -10,7 +10,7 @@ Four ideas carry the design:
 
 1. **Smallest process that fits.** Work is sized S, M or L. The orchestrator picks the smallest track that fits and sizes up only for a named signal, because a bigger track brings brainstorming and design, which invite a bigger solution.
 2. **Gates, not vibes.** Every phase has an exit criterion. A failed gate means stay in the phase or step back one. Most gates the orchestrator checks itself; a few are **hard stops** where you decide.
-3. **Independent checking.** The context that wrote the code never verifies or reviews it. Each verification round uses a fresh `verifier` subagent; review uses separate reviewer agents.
+3. **Independent checking.** The context that wrote the code never verifies or reviews it on M and L: each verification round uses a fresh `verifier` subagent, and review uses separate reviewer agents. S, the smallest track, is the exception: it is built and verified in one place, repro test first, and the session runs the full suite once.
 4. **Nothing stays in the conversation.** Define writes everything the build needs into three files (`intent.md`, `spec.md`, `plan.md`), so a fresh agent can build from them alone.
 
 ## Project setup
@@ -44,17 +44,19 @@ Files named `sdlc-*` belong to the plugin; everything else is yours.
 
 | Track | Use when | Phases |
 |---|---|---|
-| **S · fix** | bug or tweak, 1–3 files, clear expected behavior | Define writes short `intent.md`, `spec.md` and `plan.md` with no approval; then Build, Prove, Ship |
-| **M · feature** | a few files to a few days, approach mostly obvious | all four; risk low: `Flow: lite` (default); risk high or on request: `Flow: full` |
+| **S · fix** | bug or tweak, 1–3 files, clear expected behavior | Define writes short `intent.md`, `spec.md` and `plan.md` with no approval; Build builds and verifies in one place; Prove dispatches nothing; then Ship |
+| **M · feature** | a few files to a few days, approach mostly obvious | all four; risk low: `Flow: lite` (default), Prove is one fresh verifier; risk high or on request: `Flow: full`, with light review and QA |
 | **L · project** | new service or module, unclear approach, or touches auth, payments, data migration, public API | all four, with brainstorming and design in Define; `Flow: full` |
 
 Anything touching auth, payments, secrets, PII or schema migrations is at least M and gets full security in Prove. You can override the size at any time.
 
-**Lite and full.** Every track has the same shape: one approval (none on S), one build, one parallel Prove round, one commit. `Flow: lite` is the default for M with `Risk: low` and for any backlog feature, because evals showed the old full M flow costing several times the tokens and more approvals for the same hidden-test results ([ADR 0008](adr/0008-lite-flow-for-low-risk-m.md)). On Lite the orchestrator writes the spec and plan itself and re-verifies Prove's fixes with the full suite in the session. On full, `writing-specs` (with a checklist) and `writing-plans` write them, the code-reviewer runs on the top tier, and a fresh verifier re-verifies. A Lite feature sizes up to full when the spec needs a design decision the request doesn't settle, or risk turns out high.
+**Lite and full.** Every track has the same shape: one approval (none on S), one build, one Prove round (S: the session's own full-suite run), one commit. `Flow: lite` is the default for M with `Risk: low` and for any backlog feature, because evals showed the old full M flow costing several times the tokens and more approvals for the same hidden-test results ([ADR 0008](adr/0008-lite-flow-for-low-risk-m.md)). On Lite the orchestrator writes the spec and plan itself, Prove is one fresh verifier with no reviewers, and fixes are re-verified with the full suite in the session. On full, `writing-specs` (with a checklist) and `writing-plans` write them, one light code-reviewer on `sonnet` covers correctness, silent failures and security, a qa-tester runs, and a fresh verifier re-verifies. A Lite feature sizes up to full when the spec needs a design decision the request doesn't settle, or risk turns out high.
 
 **Backlog slices.** M or L work bigger than one session (more than about 8 tasks, or several distinct parts) gets a `backlog.md` of vertical slices, approved with the other Define files; S never gets one. `plan.md` then outlines each slice. Each slice writes its `plan-B<n>.md`, builds natively, gets one Prove round on its own diff, and is committed. Slices run back to back without asking until the round cap, a backlog change that adds scope, or a hard stop; per-slice stops are opt-in (`Slice gates: plan, review, commit`). After the last slice, **feature close** runs one Prove round over the whole branch, then Ship. When context runs low it stops at a slice boundary and names the next one; `/clear` then `/sdlc:start` picks it up (`/sdlc:start B<n>` for a named slice). **Autopilot** (`python3 <plugin>/scripts/autopilot.py <feature>` in a terminal, only when you ask) runs each slice and then feature close in a fresh headless Claude Code session, up to your merge decision; it stops on a blocked slice, a run that changed nothing, or a trust-anchor notice you haven't seen.
 
-**Risk and models.** Risk is recorded apart from size: `Risk: high` for auth, payments, secrets, PII, schema migrations or a public API. Track and risk pick each subagent's model tier: cheap `haiku`, standard `sonnet`, top `opus`. A high-risk change gets `opus` reviewers and verifier even on S. Fable is used only if you ask ("use fable"), which sets `Top model: fable`. The session's model is yours; the start announcement may suggest `/model opus` or `/model sonnet` once, never blocking. See [sdlc_tracks_full_stage_tree.svg](diagrams/sdlc_tracks_full_stage_tree.svg).
+**Risk and models.** Risk is recorded apart from size: `Risk: high` for auth, payments, secrets, PII, schema migrations, a public API, or untrusted input reaching a shell, terminal, file path or database (S and M lite run no reviewer). Track and risk pick each subagent's model tier and Prove's checkers: the cheap and standard tiers are both `sonnet`, dispatched with `effort: high`; the top tier is `opus`. `haiku` is never used. Reviewers, the verifier and the qa-tester run on `opus` only on L; an M feature at risk high reviews on `sonnet`. Fable is used only if you ask ("use fable"), which sets `Top model: fable`. The session's model is yours; the start announcement may suggest `/model opus` or `/model sonnet` once, never blocking. See [sdlc_tracks_full_stage_tree.svg](diagrams/sdlc_tracks_full_stage_tree.svg).
+
+**Why Prove is bounded.** On planner-team eval rounds 8–10 the plugin took 4–7x the baseline's wall-clock time and about 6x its tokens, mostly from unbounded verifier and QA probing and from repeated fresh-verifier rounds, with no measured quality gain from that work. The target is at most 2x the time and 2.5x the tokens, with hidden-test results and blind-review defects held level. That is not yet evaluated ([ADR 0011](adr/0011-track-cost.md)). So S dispatches no checkers, M lite one verifier, M full one light review; every checker has a time budget and a probe cap; and a requirement that fails twice stops the loop and goes to you ([Verification](#verification)).
 
 ## The four phases
 
@@ -62,14 +64,14 @@ Anything touching auth, payments, secrets, PII or schema migrations is at least 
 |---|---|---|
 | Define | `intent.md`, `spec.md`, `plan.md` on every track; `backlog.md` when sliced; on the full flow `checklists/requirements.md`; `design.md` and its set when a design runs | **You approve once** (not on S). No `[inferred]` tags left, acceptance criteria testable, every requirement has a task, the three files stand alone |
 | Build | code, tests; deviations written into `plan.md` | Every task done, build and full test suite pass, no TODO without a ticket |
-| Prove (max 3 failed rounds) | `test-report.md`, `review.md`, `qa-report.md` (when the qa-tester runs), `security.md` (full security) | Fresh verifier PASS on the current commit, every acceptance criterion has evidence, no unresolved high finding, no test gap rated 8+ (L), no critical or high security finding, no secrets in the diff |
+| Prove (max 3 failed rounds) | `test-report.md`, `review.md`, `qa-report.md` (when the qa-tester runs), `security.md` (full security) | Fresh verifier PASS on the current commit (S: the repro test failed before the fix and the full suite passes in the session), every acceptance criterion has evidence, no unresolved high finding, no test gap rated 8+ (L), no critical or high security finding, no secrets in the diff |
 | Ship, with Learn | `recurring-defects.md` lines (L: `retro.md`, a knowledge page), one commit, then a PR or merge on your word | Verified-tree check clean, Learn done, CI green. **Never merged without you saying so** |
 
 **Define's three files.** `intent.md` is the why: the request verbatim, questions and answers, the approaches weighed, the chosen one and why, and how it works at design level (S: 10–20 lines; M: about a page; L: written by `brainstorming`). `spec.md` is the what: requirements and acceptance criteria, no files or tasks. `plan.md` is the how: tasks with their files, first test, command and requirement, plus Public Surface, UI mapping, Review Focus and Deviations. Reviewers read `intent.md` first.
 
 **Build** works from `plan.md` (a slice: `plan-B<n>.md`), never from memory. `Build:` is `native` (in the session), `subagent` (one fresh implementer) or `tasks` (subagent-driven development with a review per task), taken from the track (S `subagent`, M `native`, L `tasks`) and shown in Define's approval; change it in your reply.
 
-**Prove** is one parallel round on one commit ([Verification](#verification)). **Learn**, in Ship, is small: the defects Prove fixed go to `recurring-defects.md`, and a lesson is filed only when there is one.
+**Prove** is one parallel round on one commit, with a time budget on every checker ([Verification](#verification)). **Learn**, in Ship, is small: the defects Prove fixed go to `recurring-defects.md`, and a lesson is filed only when there is one.
 
 Internally each phase keeps a stage number, because the hooks read it: `Stage 1 – Define`, `Stage 4 – Build`, `Stage 5 – Prove`, `Stage 8 – Ship`. A backlog slice rests at Stage 6 after its commit. A feature started under the old 11 stages resumes in the phase its number maps to ([ADR 0010](adr/0010-four-phases.md)). **Deploy** is not a phase: `/sdlc:deploy`, on request, uses the project's existing deploy path, asks your go-ahead before a production deploy or DB migration, runs a smoke test and writes `release.md`.
 
@@ -85,7 +87,7 @@ The whole loop, with hard stops, is in [sdlc_orchestrator_decision_tree.svg](dia
 
 ### Hard stops
 
-The orchestrator always asks you before: Define's approval (not on S), anything that adds scope, the round cap (3 failed rounds), any merge, production deploys, DB migrations, and anything irreversible. Everything else runs without asking, including failed verify rounds below the cap. If you say "skip" or "just ship it", it names the gates being skipped, records them under Deviations in `state.md`, then complies.
+The orchestrator always asks you before: Define's approval (not on S), anything that adds scope, the round cap (3 failed rounds), a requirement that fails in two rounds, any merge, production deploys, DB migrations, and anything irreversible. Everything else runs without asking, including failed verify rounds below the cap. Where an advisor is available, the orchestrator consults it at most twice per feature: before Define's approval and before Ship's commit. If you say "skip" or "just ship it", it names the gates being skipped, records them under Deviations in `state.md`, then complies.
 
 ## Scope tracing
 
@@ -113,16 +115,18 @@ The full run is the `test` command from `.sdlc/config.json`, with no extra argum
 
 | Track | Verifier | Code reviewer | Also | Security |
 |---|---|---|---|---|
-| S | standard | standard | — | hooks only |
-| M, `Flow: lite` | standard | standard | qa-tester | light |
-| M, `Flow: full` | standard | top | qa-tester, silent-failure-hunter | light; full on auth, payments, secrets, PII, migrations |
-| L, or risk high | top | top | silent-failure-hunter; pr-test-analyzer (L); qa-tester (M) | full, top |
-| Backlog slice | standard (top on risk high) | the same, this slice only | — | at feature close |
-| Feature close | the same, whole branch | top, `Base..HEAD` | qa-tester | light; full on L or risk high |
+| S | — | — | the session runs the full suite once | hooks only |
+| M, `Flow: lite` | standard | — | — | light |
+| M, `Flow: full`, either risk | standard | one light review, standard | qa-tester; ui-reviewer on UI | light; full, standard, on auth, payments, secrets, PII, migrations |
+| L | top | top | silent-failure-hunter, pr-test-analyzer; ui-reviewer on UI | full, top |
+| Backlog slice | standard (top on risk high) | the same, this slice only | ui-reviewer on UI | at feature close |
+| Feature close | the same, whole branch | top, `Base..HEAD` | qa-tester; ui-reviewer on UI | light; full on L or risk high |
 
-The `ui-reviewer` joins on any UI diff. The `verifier` runs everything fresh, proves each acceptance criterion in `test-report.md`, and checks red-green: with the feature's code put back to `Base:`, its tests must fail. Light security is the dependency audit and the security hooks' findings, in the session; full security adds a security-only `feature-reviewer` and `code-reviewer` on the top tier.
+The light review is the only code reviewer on M full: its brief covers correctness, silent failures and security in one pass. The `ui-reviewer` joins on a UI diff, except on S and M lite. The `verifier` runs everything fresh, proves each acceptance criterion in `test-report.md`, and checks red-green: with the feature's code put back to `Base:`, its tests must fail. Light security is the dependency audit and the security hooks' findings, in the session; full security adds a security-only `feature-reviewer` and `code-reviewer` (top tier on L, `sonnet` on M).
 
-**Fix, then re-verify once.** All high findings are fixed together, each with a failing test first; medium and low go to `review.md` as tickets, and fixed high findings are listed under `## Fixed` in `review.md` for Learn. Then one re-verification: on `Flow: lite`, slices and feature close, the full suite in the session; on the full flow and S, a fresh verifier. A re-verification that fails gets a fresh verifier round without asking you. After round 3 fails, the orchestrator stops and brings you what still fails, what each round changed, and a root-cause hypothesis. You can ask for a QA round any time; outside Prove's rounds you decide what its failures mean.
+**Bounded checks.** The verifier and the qa-tester run every command that isn't the project's own with a 2-minute limit, and get 10 minutes each per round. Whatever they can't prove is "could not verify within budget": it goes to you and is never counted as passed. With a qa-tester in the round the verifier writes no probes; without one it writes at most 5, and the qa-tester at most 5 of its own. Probes prefer planted states and fixed kill points to repetition, repeat at most 5 times, and stop once a gap reproduces in an area. Probe scripts live in `.sdlc/.work/probes/` (verifier) or `.sdlc/.work/qa/` (qa-tester); a defect a probe found becomes a failing test in the project's suite before the fix.
+
+**Fix, then re-verify once.** All high findings are fixed together, each with a failing test first; medium and low go to `review.md` as tickets, and fixed high findings are listed under `## Fixed` in `review.md` for Learn. Then one re-verification: on S, `Flow: lite`, slices and feature close, the full suite in the session; on the full flow and L, a fresh verifier. A re-verification that fails is fixed and checked again without asking you, with two stops: the same requirement failing in two rounds, and round 3 failing. Then the orchestrator brings you what still fails, what each round changed, and a root-cause hypothesis. You can ask for a QA round any time; outside Prove's rounds you decide what its failures mean.
 
 ## Building blocks
 
@@ -142,11 +146,11 @@ The `ui-reviewer` joins on any UI diff. The `verifier` runs everything fresh, pr
 | Agent | Used for |
 |---|---|
 | `code-explorer`, `code-architect` | Define's design: trace existing code, propose architectures |
-| `verifier` | Prove: fresh, independent verification each round, including red-green |
-| `code-reviewer` | Prove: the round's code review, with the shared reviewer brief |
-| `qa-tester` | Prove on M and at feature close, or on request: runs the feature as a user would, without reading the code |
-| `silent-failure-hunter`, `pr-test-analyzer` | Prove on the full flow: swallowed errors; test gaps rated 1–10 (L) |
-| `ui-reviewer` | Prove, when UI files change: design-system conformance, AI-slop styling, states, accessibility; screenshots on request |
+| `verifier` | Prove on M and L: fresh, independent verification each round, including red-green, within a time budget |
+| `code-reviewer` | Prove on M full, L, slices and feature close: the round's code review, with the shared reviewer brief (M full: one light review covering correctness, silent failures and security) |
+| `qa-tester` | Prove on M full and at feature close, or on request: runs the feature as a user would, without reading the code |
+| `silent-failure-hunter`, `pr-test-analyzer` | Prove on L: swallowed errors; test gaps rated 1–10 |
+| `ui-reviewer` | Prove on M full, L and backlog features, when UI files change: design-system conformance, AI-slop styling, states, accessibility; screenshots on request |
 | `feature-reviewer` (with `code-reviewer`) | Prove, on full security: security-only review |
 | `comment-analyzer`, `type-design-analyzer`, `code-simplifier` | `/sdlc:review-pr`, chosen by the diff |
 | `conversation-analyzer` | `/sdlc:hookify`: find behaviors worth preventing with hooks |
@@ -178,9 +182,9 @@ The `ui-reviewer` joins on any UI diff. The `verifier` runs everything fresh, pr
 | hookify | PreToolUse, UserPromptSubmit, Stop | Evaluates rules from `.claude/hookify.*.local.md` (personal, git-ignored) and committed `.claude/hookify/*.md` (team). Rules warn or block |
 | security-guidance | UserPromptSubmit, PostToolUse, Stop | Pattern warnings on edits, a diff review at turn end, an agentic review after `git commit` and `git push`. During a feature, build commits before Prove are reviewed together with the next review-ready commit ([spec 05](specs/05-security.md)) |
 | verify-freshness | PostToolUse, PostToolUseFailure, Stop | Stage 5 (on `Flow: lite`, also Stage 6): stale/fresh test tracking ([above](#verification)) |
-| model-router | PreToolUse (Agent) | While a feature is active: denies a dispatch that names no model, asks for Fable without `Top model: fable`, or runs a reviewer, the verifier or the qa-tester below Opus on `Risk: high`; logs every dispatch to `.sdlc/.work/dispatches.jsonl` |
-| trust-anchor | Stop, UserPromptSubmit | Tells you when what verification trusts changes: Track, Risk, Flow, Top model or Base; new baseline failures; changed commands; the spec after Prove began; untested code leaving Prove. It blocks once; your next message accepts it. A change that only adds checks (Track up, Risk low → high, Flow lite → full) is shown without blocking, except Flow lite → full on a backlog feature |
-| role-guard | PreToolUse (file tools) | Holds the plugin's agents to their role: reviewers can't edit files, the verifier writes only its report, the baseline and its red-green worktree, the qa-tester can't read or search code. Bash stays open to them |
+| model-router | PreToolUse (Agent) | While a feature is active: denies a dispatch that names no model or names `haiku`, asks for Fable without `Top model: fable`, or runs a reviewer, the verifier or the qa-tester below Opus on `Track: L`; logs every dispatch to `.sdlc/.work/dispatches.jsonl` |
+| trust-anchor | Stop, UserPromptSubmit | Tells you when what verification trusts changes: Track, Risk, Flow, Top model or Base; new baseline failures; changed commands; the spec after Prove began; untested code leaving Prove (on S, a passing full run of the current code is the evidence, as no verifier is dispatched). It blocks once; your next message accepts it. A change that only adds checks (Track up, Risk low → high, Flow lite → full) is shown without blocking, except Flow lite → full on a backlog feature |
+| role-guard | PreToolUse (file tools) | Holds the plugin's agents to their role: reviewers can't edit files, the verifier writes only its report, the baseline, its red-green worktree and its probe scripts, the qa-tester can't read or search code. Bash stays open to them |
 | ralph-loop | Stop | Only while a `/sdlc:ralph-loop` is running |
 | SessionStart | SessionStart | Creates a Python environment for the security reviewer on first run |
 
@@ -229,7 +233,7 @@ Resume depends on this file. The orchestrator looks for `.sdlc/state/*.md` with 
 Status: active
 Docs: <intents>   (this feature's documents folder)
 Track: S | M | L   (sized up because: <named signal, or "—">)
-Risk: low | high   (<signal: auth, payments, secrets, PII, migration, public API>)
+Risk: low | high   (<signal: auth, payments, secrets, PII, migration, public API, untrusted input>)
 Flow: lite | full   (lite: M with risk low unless you asked for full, or any backlog feature)
 Build: native | subagent | tasks   (the track's default, shown at Define's approval)
 Top model: opus   (fable only if you chose it)

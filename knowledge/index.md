@@ -9,7 +9,7 @@ description: Entry point. Read this, then open only the docs relevant to the tas
 One line per doc: path — what it answers (≤12 words). Keep this file under ~80 lines; split into `<folder>/index.md` files when it grows.
 
 ## Conventions
-- [conventions/model-tiers-by-name.md](conventions/model-tiers-by-name.md) — why skills name haiku/sonnet/opus, never "most capable"
+- [conventions/model-tiers-by-name.md](conventions/model-tiers-by-name.md) — why skills name tiers (sonnet/opus), never "most capable"
 
 ## Decisions
 - [../docs/adr/README.md](../docs/adr/README.md) — the plugin's ADRs live in docs/adr, not here

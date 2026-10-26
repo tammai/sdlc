@@ -25,6 +25,7 @@ class RoleGuardTest(ProjectTestCase):
 
     def test_verifier_writes_only_its_report_baseline_and_scratch(self):
         self.assertIsNone(self.call("Write", ".sdlc/login/test-report.md", "sdlc:verifier"))
+        self.assertIsNone(self.call("Write", ".sdlc/.work/probes/kill-mid-write.sh", "sdlc:verifier"))  # a repro to hand back
         self.assertEqual(self.call("Edit", "src/a.ts", "sdlc:verifier"), "deny")
         self.assertEqual(self.call("Edit", ".sdlc/login/spec.md", "sdlc:verifier"), "deny")  # no moving the goalposts
         self.assertEqual(self.call("Write", ".sdlc/.work/trust-anchor.json", "sdlc:verifier"), "deny")

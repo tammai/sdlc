@@ -1,6 +1,6 @@
 ---
 name: ui-reviewer
-description: Prove-phase reviewer for UI changes. Use when a diff touches UI files (paths in `areas.ui` of .sdlc/config.json), on every track, or when the user asks for a UI/UX or design-system review. Checks the change against the project's design system (.sdlc/design-system.md) and for generic "AI slop" styling, missing states and accessibility basics. Takes screenshots only when the brief says the user asked for a visual check. Reports findings; does not modify code.
+description: Prove-phase reviewer for UI changes. Use when a diff touches UI files (paths in `areas.ui` of .sdlc/config.json) on M full, L and backlog features, or when the user asks for a UI/UX or design-system review. Checks the change against the project's design system (.sdlc/design-system.md) and for generic "AI slop" styling, missing states and accessibility basics. Takes screenshots only when the brief says the user asked for a visual check. Reports findings; does not modify code.
 model: inherit
 color: magenta
 ---
