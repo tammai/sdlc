@@ -38,7 +38,7 @@
 
 - Mark items `[x]` only after review confirms the requirement-quality criterion is satisfied
 - Leave items unchecked when they still require clarification, correction, or reviewer evaluation
-- Stage 4 (implementation) reads checklist checkbox state as a gate and must not modify markers
+- Build reads checklist checkbox state as a gate and must not modify markers
 - `checklists/requirements.md` has a separate built-in lifecycle maintained by `sdlc:writing-specs` and `sdlc:clarifying-specs`
 - Add comments or findings inline
 - Link to relevant resources or documentation

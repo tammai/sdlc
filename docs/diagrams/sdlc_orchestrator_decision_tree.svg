@@ -1,6 +1,6 @@
 <svg width="100%" viewBox="0 0 680 1060" role="img" xmlns="http://www.w3.org/2000/svg">
 <title>SDLC orchestrator decision tree</title>
-<desc>/sdlc:start resumes an active feature or sets up a new one, sizes the work into the smallest fitting S, M or L track, then loops: run stage, check gate, stop for user approval at hard stops, repeat until no stages remain. Three failed verify rounds go to the user.</desc>
+<desc>/sdlc:start resumes an active feature in its phase or sets up a new one, sizes the work into the smallest fitting S, M or L track, then loops through the four phases Define, Build, Prove and Ship (with Learn): run the phase, check its gate, stop for the user at hard stops (Define's one approval, not on S; merge; production deploy; DB migration), repeat until no phases remain. Three failed verify rounds in Prove go to the user. Deploy runs only when asked, with /sdlc:deploy.</desc>
 <style>
 text{font-family:anthropic-sans,-apple-system,"system-ui","Segoe UI",sans-serif;text-anchor:middle;dominant-baseline:central}
 .a{fill:none;stroke:#898781;stroke-width:1.5}
@@ -37,7 +37,7 @@ text{font-family:anthropic-sans,-apple-system,"system-ui","Segoe UI",sans-serif;
 <text class="l" x="211" y="124" text-anchor="middle">yes</text>
 <g class="action"><rect x="30" y="106" width="160" height="56" rx="8"/>
 <text class="t" x="110.0" y="125">Resume</text>
-<text class="s" x="110.0" y="145">Continue at Current stage</text>
+<text class="s" x="110.0" y="145">Continue in its phase</text>
 </g>
 <path class="a" marker-end="url(#arrow)" d="M30 134 L12 134 L12 596 L218 596"/>
 <line class="a" marker-end="url(#arrow)" x1="340" y1="162" x2="340" y2="190"/>
@@ -59,30 +59,30 @@ text{font-family:anthropic-sans,-apple-system,"system-ui","Segoe UI",sans-serif;
 <path class="a" marker-end="url(#arrow)" d="M390 370 L390 385 L555 385 L555 400"/>
 <g class="action"><rect x="30" y="400" width="190" height="74" rx="8"/>
 <text class="t" x="125.0" y="419">S · fix</text>
-<text class="s" x="125.0" y="439">Stages 4, 5, 6, 8</text>
-<text class="s" x="125.0" y="457">6 light · repro test, no plan</text>
+<text class="s" x="125.0" y="439">Brief → Build, Prove, Ship</text>
+<text class="s" x="125.0" y="457">No approval · repro test</text>
 </g>
 <g class="action"><rect x="245" y="400" width="190" height="74" rx="8"/>
 <text class="t" x="340.0" y="419">M · feature</text>
-<text class="s" x="340.0" y="439">Stages 1, 3–8</text>
-<text class="s" x="340.0" y="457">+2 if unclear · 7 light</text>
+<text class="s" x="340.0" y="439">All four phases</text>
+<text class="s" x="340.0" y="457">Flow lite (default) or full</text>
 </g>
 <g class="action"><rect x="460" y="400" width="190" height="74" rx="8"/>
 <text class="t" x="555.0" y="419">L · project</text>
-<text class="s" x="555.0" y="439">Stages 1–8, 11</text>
-<text class="s" x="555.0" y="457">Brainstorm first · full 7</text>
+<text class="s" x="555.0" y="439">All four phases</text>
+<text class="s" x="555.0" y="457">Brainstorm, design · full security</text>
 </g>
 <path class="a" marker-end="url(#arrow)" d="M125 474 L125 490 L300 490 L300 504"/>
 <line class="a" marker-end="url(#arrow)" x1="340" y1="474" x2="340" y2="504"/>
 <path class="a" marker-end="url(#arrow)" d="M555 474 L555 490 L380 490 L380 504"/>
 <g class="action"><rect x="220" y="504" width="240" height="44" rx="8"/>
-<text class="t" x="340.0" y="517">Write state.md</text>
-<text class="s" x="340.0" y="537">Track, risk, models, first stage</text>
+<text class="t" x="340.0" y="517">Write the state file</text>
+<text class="s" x="340.0" y="537">Track, risk, Build method, phase</text>
 </g>
 <line class="a" marker-end="url(#arrow)" x1="340" y1="548" x2="340" y2="578"/>
 <g class="action"><rect x="220" y="578" width="240" height="62" rx="8"/>
-<text class="t" x="340.0" y="600">Run stage</text>
-<text class="s" x="340.0" y="620">Print header, run bundled skills</text>
+<text class="t" x="340.0" y="600">Run phase</text>
+<text class="s" x="340.0" y="620">Define, Build, Prove, Ship + Learn</text>
 </g>
 <line class="a" marker-end="url(#arrow)" x1="340" y1="640" x2="340" y2="680"/>
 <g class="decision"><rect x="240" y="680" width="200" height="44" rx="8"/>
@@ -92,8 +92,8 @@ text{font-family:anthropic-sans,-apple-system,"system-ui","Segoe UI",sans-serif;
 <text class="l" x="221" y="692" text-anchor="middle">no</text>
 <g class="action"><rect x="30" y="667" width="170" height="70" rx="8"/>
 <text class="t" x="115.0" y="684">Fix or step back</text>
-<text class="s" x="115.0" y="704">Log why in state.md</text>
-<text class="s" x="115.0" y="722">Verify fail: back to Stage 4</text>
+<text class="s" x="115.0" y="704">Log why via state.py</text>
+<text class="s" x="115.0" y="722">Prove: fix all, re-verify</text>
 </g>
 <path class="a" marker-end="url(#arrow)" d="M115 667 L115 626 L218 626"/>
 <line class="a" marker-end="url(#arrow)" x1="115" y1="737" x2="115" y2="770"/>
@@ -106,7 +106,7 @@ text{font-family:anthropic-sans,-apple-system,"system-ui","Segoe UI",sans-serif;
 <text class="l" x="352" y="751" text-anchor="start">yes</text>
 <g class="decision"><rect x="205" y="770" width="270" height="70" rx="8"/>
 <text class="t" x="340.0" y="787">Hard stop?</text>
-<text class="s" x="340.0" y="807">End of Stage 1 or 2, execution method</text>
+<text class="s" x="340.0" y="807">Define approval (not on S)</text>
 <text class="s" x="340.0" y="825">Merge, production deploy, DB migration</text>
 </g>
 <line class="a" marker-end="url(#arrow)" x1="475" y1="805" x2="498" y2="805"/>
@@ -119,15 +119,15 @@ text{font-family:anthropic-sans,-apple-system,"system-ui","Segoe UI",sans-serif;
 <line class="a" marker-end="url(#arrow)" x1="340" y1="840" x2="340" y2="870"/>
 <text class="l" x="352" y="860" text-anchor="start">no</text>
 <g class="decision"><rect x="240" y="870" width="200" height="44" rx="8"/>
-<text class="t" x="340.0" y="892">More stages?</text>
+<text class="t" x="340.0" y="892">More phases?</text>
 </g>
 <path class="a" marker-end="url(#arrow)" d="M440 892 L665 892 L665 609 L462 609"/>
-<text class="l" x="552" y="882" text-anchor="middle">yes · next stage</text>
+<text class="l" x="552" y="882" text-anchor="middle">yes · next phase</text>
 <line class="a" marker-end="url(#arrow)" x1="340" y1="914" x2="340" y2="944"/>
 <text class="l" x="352" y="934" text-anchor="start">no</text>
 <g class="neutral"><rect x="220" y="944" width="240" height="56" rx="8"/>
 <text class="t" x="340.0" y="963">Done</text>
-<text class="s" x="340.0" y="983">Retro, knowledge, Status: done</text>
+<text class="s" x="340.0" y="983">Status: done · /sdlc:deploy on ask</text>
 </g>
 <g class="decision"><rect x="150" y="1030" width="14" height="14" rx="3"/></g><text class="l" text-anchor="start" x="170" y="1037">Decision</text>
 <g class="action"><rect x="270" y="1030" width="14" height="14" rx="3"/></g><text class="l" text-anchor="start" x="290" y="1037">Action</text>

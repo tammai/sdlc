@@ -17,13 +17,13 @@ Teams that try to fix this assemble several plugins and conventions by hand, eac
 | **Developer using Claude Code** (primary; solo or in a team) | Take a request from idea to merged code with the right amount of process, decide at the moments that matter, and trust that "tests pass" is true |
 | **Tech lead / AI-driven-development lead** | Roll out one consistent workflow to a team: shared guardrails and conventions, versioned upgrades, no per-person setup |
 | **Teammates joining a set-up repo** | Install one plugin and get the repo's commands, rules and knowledge without re-explaining |
-| **Claude, as the executing agent** | Clear stage instructions, the right skill or agent at each step, and machine feedback (hooks) when it drifts |
+| **Claude, as the executing agent** | Clear phase instructions, the right skill or agent at each step, and machine feedback (hooks) when it drifts |
 
 ## 3. Goals
 
 1. **One install, whole lifecycle:** spec, design, plan, implement, verify, review, security, ship, deploy, learn (operate is parked), with no dependency on other plugins.
 2. **Process sized to the work:** S, M or L tracks; the smallest track that fits by default. Low-risk M runs the Lite flow (one approval); work bigger than one session runs as a backlog of slices.
-3. **Gates with human decisions at the right points:** spec, design, execution method, merge, production deploy, migrations.
+3. **Gates with human decisions at the right points:** one approval of spec, tasks and design; anything that adds scope; merge, production deploy, migrations. Checks that pass don't stop for the user.
 4. **Truthful verification:** an independent verifier per round, tests that must fail without the change, test results that can't go stale unnoticed, and old failures that don't block new work.
 5. **Scope discipline:** every addition traced to a request from spec to diff; comment noise and over-engineering caught while writing and at review.
 6. **Small, findable knowledge:** three loading tiers; lessons promoted, repeated corrections turned into rules.
@@ -32,7 +32,7 @@ Teams that try to fix this assemble several plugins and conventions by hand, eac
 ## 4. Non-goals
 
 - Replacing the project's build, test or deploy tooling: sdlc runs the commands the repo already has.
-- Bundling outside services (GitHub MCP, Linear, Sentry, Vercel, Playwright, …); stages point to them.
+- Bundling outside services (GitHub MCP, Linear, Sentry, Vercel, Playwright, …); phases point to them.
 - Deep vulnerability scanning (Anthropic's `claude-security` is not bundled for licensing reasons).
 - Generating CI for systems other than GitHub Actions.
 - Telemetry or usage metrics.
@@ -43,15 +43,15 @@ Teams that try to fix this assemble several plugins and conventions by hand, eac
 | # | Capability | Spec | Commands / entry points |
 |---|---|---|---|
 | 01 | Project setup, upgrade, eject; commands per package; generated CI | [01-setup-upgrade-eject](specs/01-setup-upgrade-eject.md) | `/sdlc:setup`, `/sdlc:upgrade`, `/sdlc:eject` |
-| 02 | Orchestrated lifecycle: tracks, the Lite flow, backlog slices, 11 stages, gates, state, resume | [02-orchestration](specs/02-orchestration.md) | `/sdlc:start`, `/sdlc:status`, `hooks/model_router.py`, `scripts/backlog.py`, `scripts/autopilot.py` |
+| 02 | Orchestrated lifecycle: tracks, the Lite flow, backlog slices, four phases (Define, Build, Prove, Ship, with Learn), gates, state, resume | [02-orchestration](specs/02-orchestration.md) | `/sdlc:start`, `/sdlc:status`, `hooks/model_router.py`, `scripts/backlog.py`, `scripts/autopilot.py` |
 | 03 | Scope tracing and review facts | [03-scope-and-review](specs/03-scope-and-review.md) | Stages 1–3, 6; `/sdlc:review-pr`, `scripts/diff_stats.py` |
-| 04 | Verification: fresh verifier rounds with red-green, a black-box QA tester on M, freshness hook, baseline | [04-verification](specs/04-verification.md) | Stage 5, `hooks/verify_freshness.py` |
-| 05 | Security guidance | [05-security](specs/05-security.md) | always-on hooks, Stage 7 |
+| 04 | Verification: fresh verifier rounds with red-green, a black-box QA tester on M, freshness hook, baseline | [04-verification](specs/04-verification.md) | Prove, `hooks/verify_freshness.py` |
+| 05 | Security guidance | [05-security](specs/05-security.md) | always-on hooks, Prove's security checks |
 | 06 | Guardrails and conventions: policy rules, hookify, lint snippets | [06-guardrails-and-conventions](specs/06-guardrails-and-conventions.md) | `/sdlc:hookify*`, setup |
-| 07 | Three-tier knowledge | [07-knowledge](specs/07-knowledge.md) | `/sdlc:revise-claude-md`, `/sdlc:knowledge-audit`, Stage 11 |
+| 07 | Three-tier knowledge | [07-knowledge](specs/07-knowledge.md) | `/sdlc:revise-claude-md`, `/sdlc:knowledge-audit`, Learn (in Ship) |
 | 08 | Health check, status, cleanup and context diet | [08-health-and-status](specs/08-health-and-status.md) | `/sdlc:doctor`, `/sdlc:status`, `/sdlc:prune`, `/sdlc:context-diet` |
 | 09 | Autonomous loop for one well-specified task | [09-autonomous-loop](specs/09-autonomous-loop.md) | `/sdlc:ralph-loop` |
-| 10 | UI follows the project's design system, without AI slop | [10-ui-design-system](specs/10-ui-design-system.md) | setup, Stage 6 `ui-reviewer`, `/sdlc:review-pr ui` |
+| 10 | UI follows the project's design system, without AI slop | [10-ui-design-system](specs/10-ui-design-system.md) | setup, Prove's `ui-reviewer`, `/sdlc:review-pr ui` |
 | 11 | Runs in Claude Code, Codex, Cursor and Antigravity; a second agent joins a set-up repo | [11-multi-agent](specs/11-multi-agent.md) | setup (detects the agent), `scripts/scaffold.py host`/`add-host`/`agents`, `scripts/hosts.py` |
 | 12 | State changes in one call, and a machine-readable control contract for a runner or control app | [12-control-contract](specs/12-control-contract.md) | `scripts/state.py` |
 
@@ -68,7 +68,7 @@ Teams that try to fix this assemble several plugins and conventions by hand, eac
 
 | ID | Requirement |
 |---|---|
-| PRD-1 | Everything ships in one plugin under the `sdlc:` namespace; no other plugin is needed for a core stage. |
+| PRD-1 | Everything ships in one plugin under the `sdlc:` namespace; no other plugin is needed for a core phase. |
 | PRD-2 | Hooks and scripts are Python 3.9+ standard library only, and never fail the user's session on their own error. |
 | PRD-3 | The plugin never merges, deploys to production, runs migrations, pushes or installs tools without the user's explicit go-ahead. |
 | PRD-4 | Files the plugin writes into a project are tracked by ownership class; a user's edits are never overwritten without asking. |
@@ -104,6 +104,6 @@ Adds UI design-system enforcement (rule, guardrail, `ui-reviewer`, setup step), 
 - **Live checks after 1.5.0 (2026-10-23, headless on Windows, about $3):** an M feature in the brownfield monorepo through Stage 8 (subagent-driven, red-green with `install`, dispatches logged per stage, simplifier before the opus review, `Verified:` tree checked); then probes of a failing full run (`last_result: fail`), a reviewer Edit denied by the role guard, a Risk change reaching the user, and the model router holding a reviewer to opus on high risk.
 - **Release smoke test (1.5.0, 2026-10-23, headless on Windows):** every must item passed again; the S fix ran the simplifier before the reviewer and recorded `Verified:`. Known issues are under 1.5.0 in the changelog.
 - **Release smoke test (1.4.0, 2026-10-22, headless sessions on Windows):** install, doctor, greenfield and brownfield setup (including resume after an interrupt), guardrails, an S fix through Verify, upgrade and eject all passed; hook warnings and block reasons reach Claude, and the model router named a tier for every dispatch. It found and fixed CRLF hashing and a freshness filter bug. Known issues are listed under 1.4.0 in the changelog.
-- **Prompt-only guarantees:** most stage gates (spec checklist, design mapping, review severity) rely on skill instructions plus user approval; mechanical are freshness, guardrails, the surface check, file ownership, the model router and its dispatch log, the role guard's file-tool limits, and the trust anchor's notices (which make a change visible rather than prevent it). Each spec marks which is which.
+- **Prompt-only guarantees:** most phase gates (spec checklist, design mapping, review severity) rely on skill instructions plus user approval; mechanical are freshness, guardrails, the surface check, file ownership, the model router and its dispatch log, the role guard's file-tool limits, and the trust anchor's notices (which make a change visible rather than prevent it). Each spec marks which is which.
 - **Security-guidance hooks** are vendored and not covered by this repo's tests.
 - **Generated CI** has not run on GitHub yet (validated as YAML and against local toolchains only); `actionlint` not run.

@@ -1,20 +1,20 @@
 # sdlc
 
-One Claude Code plugin for the whole software lifecycle. An orchestrator walks each piece of work through up to 11 gated stages, from spec to shipped and learned-from, and calls the bundled skills, agents, commands and hooks at each one. No other plugin is required.
+One Claude Code plugin for the whole software lifecycle. An orchestrator walks each piece of work through four phases (Define, Build, Prove, Ship), from spec to shipped and learned-from, and calls the bundled skills, agents, commands and hooks at each one. No other plugin is required.
 
 Docs: [guidebook](docs/guidebook.md) (how it works) · [playbook](docs/playbook.md) (what to do when…) · [runbook](docs/runbook.md) (install, health, fixes) · [changelog](CHANGELOG.md)
 
-**Contents:** [What you get](#what-you-get) · [Install](#install) · [Use](#use) · [Commands](#commands) · [Stages](#stages--what-runs) · [Knowledge](#knowledge-3-tier-loading) · [Limitations](#limitations) · [Contributing](#contributing) · [Credits and license](#credits-and-license)
+**Contents:** [What you get](#what-you-get) · [Install](#install) · [Use](#use) · [Commands](#commands) · [Phases](#phases--what-runs) · [Knowledge](#knowledge-3-tier-loading) · [Limitations](#limitations) · [Contributing](#contributing) · [Credits and license](#credits-and-license)
 
 ## What you get
 
-- **Sized process, not ceremony.** Work is sized S (fix), M (feature) or L (project), and only the stages that size needs run. The smallest track that fits is the default.
-- **Gates you can trust.** Each stage has an exit criterion. You decide at the hard stops (spec, design, execution method, merge, deploy, migrations); everything else runs on its own.
+- **Sized process, not ceremony.** Work is sized S (fix), M (feature) or L (project), and only what that size needs runs. The smallest track that fits is the default.
+- **Gates you can trust.** Each phase has an exit criterion. You decide at the hard stops (one approval of the spec, anything that adds scope, merge, deploy, migrations); everything else, passing checks and fixable failures included, runs on its own.
 - **Independent verification.** A fresh verifier agent each round, a hook that won't let a turn finish on stale test results, and a baseline so old failures don't block new work.
 - **Scope kept in check.** Requirements are traced from spec to diff: inferred requirements are dropped unless you keep them, every new abstraction or dependency cites a requirement, and undeclared public surface is flagged in review.
 - **Conventions enforced where they happen.** Policy rules load while code is written, guardrails warn or block in real time (narrating comments, focused tests, secrets, force-push to main), and review gets measured facts from `diff_stats.py`.
 - **UI that follows your design system.** UI work reads the project's design system, a guardrail warns on hard-coded colors and inline styles, and a UI reviewer flags off-system components and generic "AI look" styling before merge.
-- **Knowledge that stays small.** Three loading tiers keep `CLAUDE.md` short; lessons are promoted from retros, and corrections that repeat become rules.
+- **Knowledge that stays small.** Three loading tiers keep `CLAUDE.md` short; every feature ends by adding the defects it fixed to a list every later reviewer checks, and corrections that repeat become rules.
 - **Any stack, any repo shape.** Setup records the commands your repo already uses, per package in a monorepo (TS, Go, Rust, Dart, Python, shell, …), and generates CI from them. A new multi-app repo becomes an `apps/` + `packages/` monorepo with a versioned API contract. Upgrades are versioned and never overwrite your edits.
 
 ## Install
@@ -79,30 +79,30 @@ What lands in the repo: `.sdlc/config.json` (your commands; to change one later,
 
 The orchestrator sizes it and proposes the smallest track that fits; you can override.
 
-| Track | When | Stages |
+| Track | When | Phases |
 |---|---|---|
-| **S** fix | bug or tweak, 1–3 files | implement → verify → light review → PR |
-| **M** feature | a few files to a few days | low risk: the Lite flow, spec-and-tasks (one approval) → implement → verify → review → light security → one commit. High risk or on request: spec → plan → implement → verify → review → light security → PR (+ design if the approach isn't obvious) |
-| **L** project | new service, unclear approach, or auth/payments/migrations/public API | stages 1–8 and 11, including design and learn; deploy on request |
+| **S** fix | bug or tweak, 1–3 files | brief (no approval) → build → prove (verifier and a reviewer) → ship |
+| **M** feature | a few files to a few days | define (spec and tasks, one approval; design only if the approach isn't obvious) → build → prove → ship. Low risk: `Flow: lite`, fixes re-verified in the session. High risk or on request: `Flow: full`, a top-tier reviewer and a fresh verifier for fixes |
+| **L** project | new service, unclear approach, or auth/payments/migrations/public API | the same four, with brainstorming and design in define, top-tier checks and a full security pass in prove |
 
-Work bigger than one session gets a backlog of vertical slices instead of one plan: you approve it once with the spec, then each slice is planned, built, verified, reviewed and committed in turn, without stopping unless a gate fails, scope would grow, or a hard stop comes up. `/sdlc:start B<n>` runs a named slice; `scripts/autopilot.py <feature>` runs the rest unattended, one fresh session per slice (pass `--permission-mode`, or allowlist the tools, since a headless session can't ask).
+Every feature ends with a small **learn** step inside ship. Deploying is a separate request: `/sdlc:deploy`.
 
-Each stage prints what it uses and its exit gate. Documents go to `docs/sdlc/intents/<feature>/` and state to `.sdlc/state/<feature>.md` (commit both; `docs_dir` in config moves the documents elsewhere, e.g. when `docs/` is a published site).
+Work bigger than one session gets a backlog of vertical slices instead of one plan: you approve it once with the spec, then each slice is built, proven and committed in turn, without stopping unless a gate fails, scope would grow, or a hard stop comes up. `/sdlc:start B<n>` runs a named slice; `scripts/autopilot.py <feature>` runs the rest unattended, one fresh session per slice (pass `--permission-mode`, or allowlist the tools, since a headless session can't ask).
+
+Each phase prints what it uses and its exit gate. Documents go to `docs/sdlc/intents/<feature>/` and state to `.sdlc/state/<feature>.md` (commit both; `docs_dir` in config moves the documents elsewhere, e.g. when `docs/` is a published site).
 
 ### 4. Decide at the gates
 
 The orchestrator runs on its own between these stops, and always asks you here:
 
-- **Spec (M, L):** any questions that block the work come first, all in one message (often none). Then read the `[inferred]` list: the agent's guesses and requirements nobody asked for. Each is dropped unless you keep it. Approve the spec.
-- **Design (L, or M when unclear):** every new module, abstraction or dependency must cite a requirement in the Complexity Tracking table. Approve the design.
-- **Plan:** check the Public Surface list (everything new others can see), then pick subagent-driven or native execution. The Lite flow has no separate plan: you approve the spec and its task list together, and it builds in the session.
-- **Verify** needs no decision: a fresh `verifier` agent runs your commands each round, at most 3. Only *new* failures count, not baseline ones. If code changes after the last full test run, a hook won't let the turn finish until tests are rerun.
+- **Define (M, L), one approval:** any questions that block the work come first, all in one message (often none). Then one message to approve: the spec with its tasks (or backlog) and Public Surface list (everything new others can see), the `[inferred]` list (the agent's guesses and requirements nobody asked for, each dropped unless you keep it), the design when there is one (every new module, abstraction or dependency cites a requirement), and how it will be built (`Build:`, which you can change in your reply).
+- **Prove** needs no decision: the verifier, reviewers and security checks run in parallel on one commit, the agent fixes what they find, and a fresh `verifier` checks again, at most 3 rounds. Only *new* failures count, not baseline ones. If code changes after the last full test run, a hook won't let the turn finish until tests are rerun.
 - **Merge, production deploy, DB migrations:** always yours.
 
 ### 5. Check progress, resume, pause
 
 ```
-/sdlc:status          # setup state, then one line per feature: track · stage · last gate
+/sdlc:status          # setup state, then one line per feature: track · phase · last gate
 /sdlc:start           # no argument: resume the active feature
 /sdlc:prune           # clean up merged features done 45+ days ago; keeps spec, design, retro, state
 ```
@@ -121,7 +121,7 @@ A new session needs no re-explaining; `state.md` carries it. To pause a feature,
 ### 7. When something's off, or to remove it
 
 - `/sdlc:doctor` names the problem and the [runbook](docs/runbook.md) procedure that fixes it.
-- Blocked at the end of a turn with "re-run tests": you're in Verify and code changed. Run the test command the message names.
+- Blocked at the end of a turn with "re-run tests": you're in Prove and code changed. Run the test command the message names.
 - `/sdlc:eject` removes the plugin's files and keeps your specs, knowledge, constitution, commands and baseline. It shows a dry run first.
 
 ## Commands
@@ -140,28 +140,25 @@ A new session needs no re-explaining; `state.md` carries it. To pause a feature,
 | `/sdlc:hookify`, `/sdlc:hookify-list`, `/sdlc:hookify-configure`, `/sdlc:hookify-help` | Turn a repeated correction into a rule; list, toggle, explain rules |
 | `/sdlc:revise-claude-md`, `/sdlc:knowledge-audit` | File lessons into the right knowledge tier; keep always-loaded context small |
 | `/sdlc:context-diet` | Estimate what each plugin and skill adds to every call, and turn off the ones this project doesn't need, in `.claude/settings.local.json` after you approve. Works in any repo; Claude Code only |
+| `/sdlc:deploy [feature] [environment]` | Deploy through the project's own deploy path, with your go-ahead before production or a migration, a smoke test and `release.md`. On request only |
 | `/sdlc:ralph-loop`, `/sdlc:cancel-ralph`, `/sdlc:ralph-help` | Optional self-iterating loop for one well-specified task |
 
-Skills such as `sdlc:writing-specs` or `sdlc:test-driven-development` are used by the orchestrator at the right stage; you can also ask for one by name.
+Skills such as `sdlc:writing-specs` or `sdlc:test-driven-development` are used by the orchestrator in the right phase; you can also ask for one by name.
 
-## Stages → what runs
+## Phases → what runs
 
-| # | Stage | Bundled pieces |
+| Phase | Replaces | Bundled pieces |
 |---|---|---|
-| 0 | Setup (once per repo) | `setting-up-projects`, `/sdlc:setup`, `/sdlc:upgrade`, `/sdlc:eject`, `/sdlc:doctor` |
-| 1 | Discover | blocking questions in one message (or none), `brainstorming`, `writing-specs`, `clarifying-specs` (on request) |
-| 2 | Design | `designing-solutions` + `code-explorer`, `code-architect` agents |
-| 3 | Plan | `writing-plans`, `analyzing-consistency` |
-| 4 | Implement | `using-git-worktrees`, `subagent-driven-development` / `executing-plans`, `dispatching-parallel-agents`, `test-driven-development`, `systematic-debugging`, `/sdlc:ralph-loop` |
-| 5 | Verify | fresh `verifier` agent each round (max 3) with a red-green check, in parallel with the code reviewer; `qa-tester` on M, `silent-failure-hunter` on the full flow, `pr-test-analyzer` on L; freshness hook |
-| 6 | Review (closing; the reviewers run in Stage 5's round) | `/sdlc:review-pr`, `/sdlc:code-review`, `requesting-code-review`, `receiving-code-review`, `code-reviewer`, `feature-reviewer`, `comment-analyzer`, `type-design-analyzer`, `code-simplifier`, `ui-reviewer` (UI diffs), `diff_stats.py` |
-| 7 | Security | security-guidance hooks (always on), reviewer agents with a security brief, dependency audit |
-| 8 | PR / CI | `finishing-a-development-branch`, `/sdlc:commit`, `/sdlc:commit-push-pr`, `/sdlc:clean_gone` |
-| 9 | Deploy | on request: project's own deploy path + `release.md` |
-| 10 | Operate | parked, no track runs it: watch window with agreed signals |
-| 11 | Learn | `managing-knowledge` (3-tier), `/sdlc:revise-claude-md`, `/sdlc:knowledge-audit`, `/sdlc:hookify`, `project-constitution` |
+| Setup (once per repo) | | `setting-up-projects`, `/sdlc:setup`, `/sdlc:upgrade`, `/sdlc:eject`, `/sdlc:doctor` |
+| Define | discover, design, plan | blocking questions in one message (or none), `brainstorming` (L), `writing-specs`, `clarifying-specs` (on request), `designing-solutions` + `code-explorer`, `code-architect` agents (L, or an unclear approach), `analyzing-consistency` (L, backlogs) |
+| Build | implement | `using-git-worktrees`, `executing-plans` / one implementer subagent / `subagent-driven-development` (`Build:`), `dispatching-parallel-agents`, `test-driven-development`, `systematic-debugging`, `/sdlc:ralph-loop` |
+| Prove | verify, review, security | one parallel round: fresh `verifier` (red-green check on S), `code-reviewer` with `diff_stats.py` facts, `qa-tester` on M, `silent-failure-hunter` on the full flow, `pr-test-analyzer` on L, `ui-reviewer` on UI diffs, `feature-reviewer` + `code-reviewer` with a security brief on a full security pass, dependency audit; then one re-verification, max 3 rounds; freshness hook. On request: `/sdlc:review-pr`, `/sdlc:code-review`, `receiving-code-review` |
+| Ship, with learn | PR / CI, learn | `finishing-a-development-branch`, `/sdlc:commit`, `/sdlc:commit-push-pr`, `/sdlc:clean_gone`; learn: fixed defects into `recurring-defects.md`, `managing-knowledge` (3-tier) and `/sdlc:hookify` when there's a durable lesson, retro on L |
+| `/sdlc:deploy` | deploy | on request: project's own deploy path, go-ahead, smoke test, `release.md` |
 
-Always on: security-guidance hooks, the verify-freshness hook (Stage 5 only, or Stages 5–6 on the Lite flow; per package in a monorepo), the model-router hook (while a feature is active: every subagent dispatch names its model, Fable only on your request, and each dispatch is logged), the trust-anchor hook (tells you when the risk, flow, baseline, commands or spec change under a feature, or it leaves Stage 5, or on the Lite flow stops outside Stages 4–6, with untested code), the role-guard hook (reviewers can't edit files, the verifier writes only its report and the baseline, the qa-tester can't read the code), hookify rules (personal `.claude/hookify.*.local.md`, team `.claude/hookify/*.md`), TypeScript LSP.
+Operate (a watch window with agreed signals) is no longer part of the pipeline; its notes stay in `skills/orchestrator/references/operate.md`. Internally each phase keeps one stage number (`Current: Stage 1 – Define`, `4 – Build`, `5 – Prove`, `8 – Ship`), which the hooks read; features started under the old 11 stages carry on in the matching phase.
+
+Always on: security-guidance hooks, the verify-freshness hook (in Prove, Stage 5; also Stage 6 for features started under the old Lite flow; per package in a monorepo), the model-router hook (while a feature is active: every subagent dispatch names its model, Fable only on your request, and each dispatch is logged), the trust-anchor hook (tells you when the risk, flow, baseline, commands or spec change under a feature, or it leaves Prove, or on the Lite flow stops outside Build and Prove, with untested code; a change that only adds checks, such as Lite to full, is shown without stopping you), the role-guard hook (reviewers can't edit files, the verifier writes only its report and the baseline, the qa-tester can't read the code), hookify rules (personal `.claude/hookify.*.local.md`, team `.claude/hookify/*.md`), TypeScript LSP.
 
 ## Knowledge: 3-tier loading
 
@@ -173,14 +170,14 @@ Keeps always-loaded context small while agents still find what they need:
 | 2 | `.claude/rules/<area>.md` with `paths:` | automatically when matching files are touched |
 | 3 | `knowledge/**.md` (Open Knowledge Format) | on demand, via `knowledge/index.md` and links from tier 2 |
 
-Retros in `docs/sdlc/intents/<feature>/retro.md` are history only. Durable lessons are promoted in Stage 11; things corrected twice become hookify rules. Run `/sdlc:knowledge-audit` when CLAUDE.md grows.
+Retros in `docs/sdlc/intents/<feature>/retro.md` are history only. Every feature's learn step adds the defects it fixed to `recurring-defects.md` and promotes durable lessons when there are any; things corrected twice become hookify rules. Run `/sdlc:knowledge-audit` when CLAUDE.md grows.
 
 The other part of the per-call floor is the listings of every enabled plugin, skill and command. `/sdlc:context-diet` estimates them per source and proposes turning the unrelated ones off for this project only. It also turns off the standalone `security-guidance`, `code-review` and `code-simplifier`, which sdlc already bundles.
 
 ## Limitations
 
 - **Outside services aren't bundled** (GitHub MCP, Linear, Sentry, Vercel, Playwright, …). Stages that would use them say which to add; see `skills/orchestrator/references/integrations.md`. Anthropic's `claude-security` plugin isn't bundled either (its license reserves all rights); install it separately for deep vulnerability scans.
-- **Codex, Cursor and Antigravity are only partly tested.** They get the skills, the commands as skills (`start`, `setup`, `upgrade`, …; not the Ralph loop or hookify), the setup that detects them, and the policy rules through `AGENTS.md`. Setup has run in each, and a Claude Code join after Codex, but no one has run the stages in them yet. In Codex, Cursor and the Antigravity CLI, the freshness hook, the trust anchor and hookify run too (in Codex, once you trust them in `/hooks`). The other hooks (role, model, security) run only in Claude Code. The subagent roles there are instructions, so those guarantees don't hold on the other agents ([spec 11](docs/specs/11-multi-agent.md)).
+- **Codex, Cursor and Antigravity are only partly tested.** They get the skills, the commands as skills (`start`, `setup`, `upgrade`, …; not the Ralph loop or hookify), the setup that detects them, and the policy rules through `AGENTS.md`. Setup has run in each, and a Claude Code join after Codex, but no one has run the phases in them yet. In Codex, Cursor and the Antigravity CLI, the freshness hook, the trust anchor and hookify run too (in Codex, once you trust them in `/hooks`). The other hooks (role, model, security) run only in Claude Code. The subagent roles there are instructions, so those guarantees don't hold on the other agents ([spec 11](docs/specs/11-multi-agent.md)).
 - **Generated CI is GitHub Actions only.** On other CI systems, run the same commands from `.sdlc/config.json` yourself.
 - **Most gates are instructions plus your approval.** Machine-checked: test freshness (hook), undeclared public surface (`diff_stats.py --plan`), the subagent model floor (model router) and hookify guardrails. Plan consistency on L and larger M plans is checked by a skill (`analyzing-consistency`), not mechanically. The S track has no plan, so unrequested surface there is the reviewer's call.
 - **Freshness detection is heuristic.** It catches edits by any tool and filtered runs (file, name or package arguments), but not every possible filter, and not `.only` inside a test file (a guardrail warns on that instead).

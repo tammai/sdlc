@@ -2,11 +2,11 @@
 
 What the team learns is kept where the agent finds it at the right moment, without growing the context every session pays for.
 
-**Entry points:** `/sdlc:revise-claude-md`, `/sdlc:knowledge-audit`, Stage 1 (reads) and Stage 11 (writes), setup (seeds) · **Source:** `skills/managing-knowledge/SKILL.md`, `commands/knowledge-audit.md`, `commands/revise-claude-md.md`, `templates/knowledge/`, `skills/claude-md-improver`
+**Entry points:** `/sdlc:revise-claude-md`, `/sdlc:knowledge-audit`, Define (reads) and Learn, in Ship (writes), setup (seeds) · **Source:** `skills/managing-knowledge/SKILL.md`, `commands/knowledge-audit.md`, `commands/revise-claude-md.md`, `templates/knowledge/`, `skills/claude-md-improver`
 
 ## User scenarios
 
-1. **Promote a lesson.** Given a retro bullet that's still true outside the feature, when Stage 11 runs, then it's filed in the right tier (path-specific → a tier-2 rule line, explanation → a tier-3 doc) and linked from `knowledge/index.md`.
+1. **Promote a lesson.** Given a retro bullet that's still true outside the feature, when Learn runs, then it's filed in the right tier (path-specific → a tier-2 rule line, explanation → a tier-3 doc) and linked from `knowledge/index.md`.
 2. **Repeated correction.** Given the user corrected the same thing twice and it's checkable, then it becomes a hookify rule rather than more text.
 3. **CLAUDE.md too long.** Given `CLAUDE.md` over 60 lines, when `/sdlc:knowledge-audit` runs, then it proposes moves line by line with reasons and before/after counts, and applies only what the user approves.
 
@@ -19,10 +19,11 @@ What the team learns is kept where the agent finds it at the right moment, witho
 | KNW-FR-003 | Filing a lesson: durable? → checkable and corrected before → hookify; else pick the tier; update before create; write tier-3 docs in OKF folders (conventions, decisions, gotchas, runbooks, features); link from the index and tier-2 rule; log in `knowledge/log.md`. | `[instructed]` managing-knowledge |
 | KNW-FR-004 | An unlinked tier-3 doc is invisible: every doc is linked from the index; broken index links are reported. | `[instructed]`; broken links `[enforced]` test_doctor › test_knowledge_index_links |
 | KNW-FR-005 | Tier-2 rules whose `paths:` match no files are reported (they never load). | `[enforced]` test_doctor › test_rules_whose_paths_match_nothing |
-| KNW-FR-006 | Stage 1 reads `knowledge/index.md` and opens only relevant docs; Stage 11 writes `retro.md` (history, not loaded later), promotes lessons, adds `knowledge/features/<feature>.md`, and its gate requires lessons linked and `CLAUDE.md` ≤ 60 lines. | `[instructed]` orchestrator §1, §11 |
+| KNW-FR-006 | Define reads `knowledge/index.md` and opens only relevant docs. Learn files a durable lesson only when the session found one, through `managing-knowledge` (corrected twice and checkable → hookify; `CLAUDE.md` over 60 lines → the audit); on L it also writes `retro.md` (history, not loaded later) and `knowledge/features/<feature>.md`, and every promoted lesson is linked from `knowledge/index.md` or a tier-2 rule. | `[instructed]` orchestrator: define, ship |
 | KNW-FR-007 | Audit: path-specific lines move to tier 2, explanations and procedures to tier 3, duplicates of tooling and stale lines are deleted; report before/after counts; apply only approved moves. | `[instructed]` managing-knowledge, knowledge-audit.md |
 | KNW-FR-008 | Brownfield setup drafts conventions, gotchas (from git history), decisions and area rules; written only with per-batch approval; `knowledge/` is user-owned from the start. | `[instructed]` brownfield.md |
 | KNW-FR-009 | The plugin never writes `CLAUDE.md` itself; changes there come from the user-approved audit or revise flows. | `[instructed]` setting-up-projects, revise-claude-md |
+| KNW-FR-010 | Learn runs at the end of every feature, on every track (a backlog: once, at Feature close), after Ship's verified-tree check and before its one commit, so it lands in it. Each high finding Prove fixed (`## Fixed` in `review.md`, every slice's included) that a reviewer could check next time gets one line in `<docs>/recurring-defects.md`, unless already listed. Define reads that file (an entry that applies becomes an acceptance criterion), and so does every reviewer brief. | `[instructed]` orchestrator: ship, define, `review-brief.md` |
 
 ## Non-goals
 

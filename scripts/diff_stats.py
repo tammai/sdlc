@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Diff facts for Stage 6 review: comment share, new files, single-use exports, single-implementation
+"""Diff facts for the reviewers in Prove: comment share, new files, single-use exports, single-implementation
 interfaces, new dependencies and the list of changed files, for the changes since a base ref (committed +
 uncommitted + untracked). The base defaults to the active feature's `Base:` commit.
 With --plan, new exports and dependencies are checked against the plan's "## Public Surface" list; --plan can repeat

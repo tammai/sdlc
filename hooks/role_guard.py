@@ -47,7 +47,7 @@ def problem(agent, tool, rel, root):
     if agent == "verifier" and tool in WRITES and not (
             rel.endswith("/test-report.md") and in_reports or rel == ".sdlc/baseline.md" or rel.startswith(".sdlc/.work/redgreen/")):
         return ("sdlc: the verifier writes only test-report.md, the baseline and its .sdlc/.work/redgreen/ worktree: it never edits "
-                "source, the spec, config or state.md. Report the problem; the fix goes back to Stage 4.")
+                "source, the spec, config or state.md. Report the problem; the fix goes back to Build.")
     if agent == "qa-tester":
         if tool in WRITES and not (rel.endswith("/qa-report.md") and in_reports or rel.startswith(".sdlc/.work/qa/")):
             return "sdlc: the qa-tester writes only qa-report.md and scratch files under .sdlc/.work/qa/."

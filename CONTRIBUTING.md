@@ -15,11 +15,11 @@ sdlc/
 │                            `hosts.py dist antigravity` builds Antigravity's install copy. hosts/hook.py (hand-written) runs
 │                            the hooks under Codex, Cursor and Antigravity
 ├── agents/                  subagents: verifier, reviewers, code-explorer/architect, simplifier, …
-├── commands/                slash commands (/sdlc:start, setup, upgrade, eject, doctor, status, prune, context-diet, review-pr, …)
-├── skills/                  skills; orchestrator/ is the conductor (a short core plus references/ read per stage), setting-up-projects/ runs setup/upgrade/eject
+├── commands/                slash commands (/sdlc:start, setup, upgrade, eject, doctor, status, prune, deploy, context-diet, review-pr, …)
+├── skills/                  skills; orchestrator/ is the conductor (a short core plus references/ read per phase), setting-up-projects/ runs setup/upgrade/eject
 ├── hooks/
 │   ├── hooks.json           which script runs on which event
-│   ├── verify_freshness.py  Stage 5 (Lite: 5–6) stale/fresh test tracking (original)
+│   ├── verify_freshness.py  Prove (Stage 5; old Lite features: 5–6) stale/fresh test tracking (original)
 │   ├── model_router.py      checks each subagent dispatch's model, logs dispatches (original)
 │   ├── role_guard.py        keeps the plugin's agents to their role's file access (original)
 │   ├── trust_anchor.py      shows the user changes to what verification trusts (original)
@@ -34,7 +34,7 @@ sdlc/
 ├── scripts/
 │   ├── scaffold.py          setup/upgrade/eject bookkeeping: lock, file classes, commands, CI generator
 │   ├── doctor.py            read-only health check
-│   ├── diff_stats.py        Stage 6 review facts, Public Surface check
+│   ├── diff_stats.py        review facts for Prove, Public Surface check
 │   ├── hosts.py             builds the other agents' manifests from .claude-plugin/ and agents/ (CI checks them)
 │   ├── backlog.py           the next ready slice of a feature's backlog.md
 │   ├── state.py             every state change in one call: state.md plus the control contract (beside it, git-ignored)
@@ -42,7 +42,7 @@ sdlc/
 │   ├── context_diet.py      per-source estimate of what Claude Code lists every call (/sdlc:context-diet)
 │   └── setup-ralph-loop.sh  (vendored)
 ├── templates/
-│   ├── spec/design/checklist/constitution-template.md   used by the Stage 1–2 skills
+│   ├── spec/design/checklist/constitution-template.md   used by the Define skills
 │   ├── backlog-template.md  a feature's backlog of slices (orchestrator)
 │   ├── design-system-template.md   setup's design-system step (UI projects)
 │   ├── knowledge/           OKF templates for tier 2/3 knowledge
@@ -61,7 +61,7 @@ sdlc/
 ├── CHANGELOG.md  NOTICE.md  LICENSE  README.md
 ```
 
-Original to this plugin: the orchestrator and setting-up-projects skills, `managing-knowledge`, `trimming-context`, the `verifier`, `qa-tester` and `ui-reviewer` agents, `verify_freshness.py`, `sdlc_review_gate.py`, `model_router.py`, `role_guard.py`, `trust_anchor.py`, everything in `scripts/` except the ralph script, `templates/project/`, `templates/knowledge/`, `templates/design-system-template.md`, `templates/backlog-template.md`, `migrations/`, `tests/`, `docs/`. Everything else is vendored; `NOTICE.md` says what came from where and what was changed.
+Original to this plugin: the orchestrator and setting-up-projects skills, `managing-knowledge`, `trimming-context`, the `verifier`, `qa-tester` and `ui-reviewer` agents, `verify_freshness.py`, `sdlc_review_gate.py`, `model_router.py`, `role_guard.py`, `trust_anchor.py`, `commands/deploy.md`, everything in `scripts/` except the ralph script, `templates/project/`, `templates/knowledge/`, `templates/design-system-template.md`, `templates/backlog-template.md`, `migrations/`, `tests/`, `docs/`. Everything else is vendored; `NOTICE.md` says what came from where and what was changed.
 
 ## Dev loop
 
@@ -80,7 +80,7 @@ python3 scripts/doctor.py --format md             # health check against the cur
 
 | Change | Also update |
 |---|---|
-| A stage, gate or track | `skills/orchestrator/SKILL.md`, then the files in the [runbook table](docs/runbook.md#add-or-change-a-stage-rule) |
+| A phase, gate or track | `skills/orchestrator/SKILL.md`, then the files in the [runbook table](docs/runbook.md#add-or-change-a-phase-rule) |
 | Anything a set-up repo receives (`templates/project/`, generated CI, config defaults) | `tests/test_project_templates.py`; a migration if projects own the affected file (see Releasing) |
 | A decision about how the plugin works | a new ADR in `docs/adr/` (never rewrite an accepted one) |
 | User-visible behavior | `README.md`, the relevant doc, the capability's spec in `docs/specs/`, and `CHANGELOG.md` under Unreleased |
@@ -92,7 +92,7 @@ After adding or changing a plugin feature (a hook, command, skill, agent, script
 
 1. List the names the change adds or renames (file names, hook names, fields, commands, phrases it replaces).
 2. Grep each across `README.md`, `CONTRIBUTING.md`, `CHANGELOG.md`, `knowledge/`, `.claude/rules/`, `docs/` (guidebook, playbook, runbook, prd, specs, ADRs) and the `<desc>` and labels of `docs/diagrams/*.svg`. Also grep the old wording the change replaces.
-3. Check the lists that enumerate the plugin: README "Always on", the guidebook Hooks table and `state.md` block, the CONTRIBUTING layout tree and "Original to this plugin", the runbook procedures and "Add or change a stage rule" table, the prd capability table, and the spec's Source line, requirements and Known gaps.
+3. Check the lists that enumerate the plugin: README "Always on", the guidebook Hooks table and `state.md` block, the CONTRIBUTING layout tree and "Original to this plugin", the runbook procedures and "Add or change a phase rule" table, the prd capability table, and the spec's Source line, requirements and Known gaps.
 4. Fix what's stale, or name what you left (e.g. an SVG that needs relayout) in your report.
 
 Keep it lean: the plugin's own code-style rule applies here too (why-only comments, the smallest change that works, no abstraction without a second use).

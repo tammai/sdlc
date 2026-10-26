@@ -63,7 +63,7 @@ Smoke test in a scratch repo:
 2. `/sdlc:doctor`: no ❌. Expected warnings: the repo isn't set up yet, and (before the first session finishes) the reviewer environment.
 3. `/sdlc:status` says the repo isn't set up and lists no features.
 4. `/sdlc:setup` with a one-line description: it proposes a stack, and after your OK writes `.sdlc/config.json` and the rest on a `sdlc/setup` branch. Run `/sdlc:doctor` again: the repo checks are ✅.
-5. `/sdlc:start` with a tiny request creates `.sdlc/state/<feature>.md` and announces a track and first stage.
+5. `/sdlc:start` with a tiny request creates `.sdlc/state/<feature>.md` and announces a track and its phases.
 
 ## Health check
 
@@ -104,7 +104,7 @@ Cause: the SessionStart hook builds a venv with the Claude Agent SDK in the back
 
 ### R4. Blocked at Stop with "re-run tests"
 
-The verify-freshness hook is active only while `state.md` says `Current: Stage 5 – Verify`, or Stage 5 or 6 with `Flow: lite`.
+The verify-freshness hook is active only while `state.md` says `Current: Stage 5 – Prove` (Stage 5; for a feature started under the old Lite flow, also Stage 6).
 
 1. Run the **full** test command: `commands.test` from `.sdlc/config.json` (monorepo: the stale package's own, from its `path`; the block message names it), or the `test:` command in `state.md`. A filtered run, single test file, pytest node id or single Go package doesn't count.
 2. Make sure no code changed after that run. Formatters, `sed -i` and subagents count as changes; the hook compares the worktree against the tree recorded at the last full run.
@@ -145,7 +145,7 @@ The verify-freshness hook is active only while `state.md` says `Current: Stage 5
 ### R9. `state.md` is missing, stale or hand-edited wrong
 
 1. The file is plain markdown; fix it directly. Keep the line format `Current: Stage <n> – <name>` and `Status: active`.
-2. The artifacts (`spec.md`, `plan.md`, `test-report.md`…) are the real record. To rebuild a lost state file, create one from the template in `skills/orchestrator/references/start.md` (then `state.py sync <feature>`), tick the stages whose artifacts exist, and set `Current:` to the next stage.
+2. The artifacts (`spec.md`, `plan.md`, `test-report.md`…) are the real record. To rebuild a lost state file, create one from the template in `skills/orchestrator/references/start.md` (then `state.py sync <feature>`), tick the phases whose artifacts exist, and set `Current:` to the next phase's stage (1 Define, 4 Build, 5 Prove, 8 Ship).
 3. Add a Deviations line saying the file was reconstructed.
 
 ### R10. Hooks error on Windows or with an odd Python
@@ -179,7 +179,7 @@ This is a decision, not a fault. Say `skip` or `just ship it`; the orchestrator 
 
 `/sdlc:upgrade --revisit` lists skipped migrations with the reason you gave and offers each again. `scaffold.py migrations --revisit` shows the same list without changing anything.
 
-### R16. Stage 5 blames the feature for an old failure, or the baseline looks wrong
+### R16. Prove blames the feature for an old failure, or the baseline looks wrong
 
 1. Check `.sdlc/baseline.md`: failing tests by file › name, lint/type errors as counts per rule and file. A count that went **up** counts as new.
 2. A pre-existing failure missing from the baseline: add it yourself with a note, and record a Deviation in that feature's `state.md`. The verifier never adds items.
@@ -233,7 +233,7 @@ claude --plugin-dir .                # load it for one session
 
 1. Run the tests and `claude plugin validate .`, and check that CI (`.github/workflows/ci.yml`) is green on the last pushed commit.
 2. Bump `version` in `.claude-plugin/plugin.json`, then run `python3 scripts/hosts.py build` so the Codex, Cursor and Antigravity manifests carry it too (CI fails while they differ). Repos record this number at setup and upgrade, so every release that changes project files needs a new one.
-3. Move the `Unreleased` notes in `CHANGELOG.md` under the new version, and update the README if commands, stages, configuration or requirements changed.
+3. Move the `Unreleased` notes in `CHANGELOG.md` under the new version, and update the README if commands, phases, configuration or requirements changed.
 4. If the release changes files that live in projects:
    - templates of generated or seeded files: nothing to do, `/sdlc:upgrade` regenerates or replaces them;
    - anything a project owns (required commands, config keys, knowledge layout, renamed paths): add `migrations/<version>-<slug>.md` with frontmatter `version`, `summary` and, if old plugins must stop, `min_plugin_version`, then the steps in prose.
@@ -276,12 +276,12 @@ The test suite runs hooks and scripts as subprocesses; this checks the installed
 2. Ask: "run `git push --force origin main`". It's blocked, and Claude can say why (the reason reaches Claude).
 3. Ask Claude to write `const k = "sk-ant-api03-…"` with 30+ characters after the prefix: blocked.
 
-**E. An S fix through Verify (must)**
+**E. An S fix through Prove (must)**
 1. `/sdlc:start fix: add returns a string when given numeric strings`. It proposes track S and creates `.sdlc/state/<feature>.md`.
-2. Stage 4 dispatches one implementer subagent with `model: haiku`, which writes a failing test first, then the fix.
-3. Stage 5 spawns a **fresh** verifier agent, which appends a round to `test-report.md`.
-4. While in Stage 5, ask Claude to change a source file **with a shell command** (e.g. `sed -i`), then end the turn: it's **blocked**, and the message names the test command. Run it; the turn then ends normally.
-5. Stage 6 runs the reviewer with diff stats; Stage 8 stops before merging and asks you.
+2. Build dispatches one implementer subagent with `model: haiku`, which writes a failing test first, then the fix.
+3. Prove spawns a **fresh** verifier agent and the reviewer (with diff stats) in parallel; the verifier which appends a round to `test-report.md`.
+4. While in Prove, ask Claude to change a source file **with a shell command** (e.g. `sed -i`), then end the turn: it's **blocked**, and the message names the test command. Run it; the turn then ends normally.
+5. Ship commits and stops before merging to ask you.
 
 **F. Security hooks (should)**
 1. Ask Claude to add `eval(input)` to a file: a security warning appears in Claude's context.
@@ -290,8 +290,8 @@ The test suite runs hooks and scripts as subprocesses; this checks the installed
 **G. Brownfield setup (must)**
 1. Copy a small real repo (or a sample with two packages in different languages) into `/tmp/sdlc-smoke-brown`, add one deliberately failing test, commit.
 2. `/sdlc:setup`: it records the existing commands per package and **asks you to approve** them; it writes `.sdlc/baseline.md` listing the failing test; audit drafts are shown in batches and nothing is written before you approve.
-3. `/sdlc:start` a small change; in Stage 5 the known failure doesn't fail the round, and a new failure would.
-4. Monorepo (should): edit a file in one package during Stage 5; the block names only that package and its command.
+3. `/sdlc:start` a small change; in Prove the known failure doesn't fail the round, and a new failure would.
+4. Monorepo (should): edit a file in one package during Prove; the block names only that package and its command.
 
 **H. Upgrade and eject (must)**
 1. In the greenfield repo, edit one guardrail file in `.claude/hookify/` and simulate an older scaffold: set `scaffold_version` in `.sdlc/scaffold.lock.json` to `1.2.9` (the only time to edit the lock by hand).
@@ -311,13 +311,13 @@ A teammate runs B–E on Windows in Git Bash.
 
 When every must item passes, record the date and commit in the changelog entry's notes (or the PR) and continue with step 6 above.
 
-### Add or change a stage rule
+### Add or change a phase rule
 
-Stage behavior lives in `skills/orchestrator/`: the core `SKILL.md` (tracks, tiers, state, what several stages share) and `references/` (one file per stage, plus `start.md`, `lite-flow.md`, `backlog-slices.md`). Anything two stages use goes in the core. After editing, keep these in step:
+Phase behavior lives in `skills/orchestrator/`: the core `SKILL.md` (the phase → stage number → file map, tracks, tiers, state, what several phases share) and `references/` (`define.md`, `build.md`, `prove.md`, `ship.md`, plus `start.md`, `backlog-slices.md`, `review-brief.md`). Anything two phases use goes in the core. The hooks key on the stage numbers (1, 4, 5, 8), not the names. After editing, keep these in step:
 
 | If you change… | Also check |
 |---|---|
-| Stage gates or tracks | `docs/diagrams/*.svg`, `docs/guidebook.md`, README stage table |
+| Phase gates or tracks | `docs/diagrams/*.svg`, `docs/guidebook.md`, README phase table, the gate table in `docs/sdlc/intents/2026-10-26-four-phases/spec.md` |
 | A hard stop | the Rules section of the orchestrator, `docs/playbook.md` |
 | Verify behavior | `agents/verifier.md`, `agents/qa-tester.md`, `hooks/verify_freshness.py`, `tests/test_verify_freshness.py`, `hooks/trust_anchor.py` (what it watches) |
 | An agent's role or file access | the agent's `tools:` frontmatter, `hooks/role_guard.py`, `tests/test_role_guard.py`, `docs/specs/03-scope-and-review.md` and `04-verification.md` |

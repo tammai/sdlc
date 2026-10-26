@@ -16,7 +16,7 @@ Situation-by-situation plays. Each says what to say or run, what the orchestrato
 | Change auth, payments, secrets, PII or migrations | [4](#4-change-something-risky) |
 | Pick up where you left off | [5](#5-resume-or-check-status) |
 | Something feels broken | `/sdlc:doctor`, then the [runbook](runbook.md#health-check) procedure it names |
-| Get out of a failing Verify | [6](#6-verify-keeps-failing) |
+| Get out of failing verify rounds | [6](#6-verify-keeps-failing) |
 | Get unblocked when a turn won't finish | [7](#7-the-stop-hook-says-re-run-tests) |
 | Answer review comments | [8](#8-handle-review-feedback) |
 | Skip process on purpose | [9](#9-skip-a-gate-deliberately) |
@@ -30,12 +30,12 @@ Situation-by-situation plays. Each says what to say or run, what the orchestrato
 
 **Say:** `/sdlc:start fix: export button 500s when the report is empty`
 
-1. The orchestrator proposes S: bug, few files, clear behavior. Stages run 4 → 5 → 6 (light) → 8. No spec, design or plan file.
-2. Stage 4: one implementer subagent on the cheap tier writes a failing test that reproduces the bug, then the fix. The session doesn't write the fix itself, so it costs the same on any session model. If something fails unexpectedly, `systematic-debugging` takes over.
-3. Stage 5: a fresh `verifier` and a `code-reviewer` (with `diff_stats.py` facts) run in parallel on the same commit. The repro test must be among the verifier's evidence. Findings are fixed together and re-verified once.
-4. Stage 8: PR and CI.
+1. The orchestrator proposes S: bug, few files, clear behavior. Define is a short `brief.md` (the bug, the expected behavior, its assumptions). No spec and no approval.
+2. Build: one implementer subagent on the cheap tier writes a failing test that reproduces the bug, then the fix. The session doesn't write the fix itself, so it costs the same on any session model. If something fails unexpectedly, `systematic-debugging` takes over.
+3. Prove: a fresh `verifier` and a `code-reviewer` (with `diff_stats.py` facts) run in parallel on the same commit. The repro test must be among the verifier's evidence. Findings are fixed together and re-verified once by a fresh verifier.
+4. Ship: Learn notes any defect Prove fixed, one commit, then merge, PR or keep.
 
-**You decide:** the merge. Nothing else stops you.
+**You decide:** merge, PR or keep. Nothing else stops you.
 
 **If the bug turns out bigger** (touches auth, spreads past 3 files, unclear cause): say so. The orchestrator names the signal in `state.md` and moves to M.
 
@@ -43,13 +43,14 @@ Situation-by-situation plays. Each says what to say or run, what the orchestrato
 
 **Say:** `/sdlc:start add CSV export to the reports page`
 
-Low-risk M work runs the **Lite flow**: you approve one `spec.md` with its task list, keep or drop its `Inferred` items, and the rest (native build, one verifier, one review, light security, one commit) runs on its own. You decide merge, PR or keep at the end. Say "use the full flow" for the steps below; high-risk M work always gets them.
+You decide twice: Define's one approval, and merge, PR or keep at the end.
 
-1. Stages 1 → 3 → 4 → 5 → 6 → 7 (light) → 8. Stage 2 joins if the approach isn't obvious.
-2. **Stage 1:** `writing-specs` produces `spec.md`. Read the `[inferred]` list the orchestrator shows. Each item is dropped unless you keep it, so keep only what you actually want. **You approve** the spec.
-3. **Stage 2 (when it runs):** read the Complexity Tracking table. Anything that doesn't cite a requirement should come out. **You approve** the design.
-4. **Stage 3:** check the Public Surface section: it's everything new that others can see. **You pick** subagent-driven (default for larger plans) or native execution.
-5. Stages 4–8 run on their own unless a gate fails.
+1. **Define:** any blocking questions come once, then `spec.md` with its tasks and a Public Surface section (everything new that others can see). Read the `[inferred]` list the orchestrator shows. Each item is dropped unless you keep it, so keep only what you actually want. If the approach isn't obvious, a design comes with it: anything in its Complexity Tracking table that doesn't cite a requirement should come out. **You approve once**: spec, tasks, design and `Build: native` (say `subagent` to hand the build to one implementer).
+2. **Build:** native, test first.
+3. **Prove:** verifier, reviewer and qa-tester (ui-reviewer on UI work) run in parallel on one commit, with light security. Findings are fixed together and re-verified once.
+4. **Ship:** Learn, one commit, then your merge, PR or keep.
+
+Low-risk M work runs `Flow: lite`: a short spec and an in-session re-verification. Say "use the full flow" for `writing-specs` with its checklist, a top-tier reviewer, the silent-failure-hunter and a fresh verifier for the re-verification; high-risk M work always gets it.
 
 **Bigger than one session?** The spec comes with a `backlog.md` of slices; approve both at once. Slices then run back to back and commit one by one. If the session runs low it stops at a slice boundary and names the next one: `/clear`, then `/sdlc:start`. Want to look at each slice first? Say so, and it records `Slice gates: plan, review, commit`. Long backlog, and you'd rather not `/clear` by hand? Run `python3 <plugin>/scripts/autopilot.py <feature>` in a terminal: a fresh headless session per slice, then feature close, stopping at your merge decision or at the first blocked slice.
 
@@ -59,19 +60,19 @@ Low-risk M work runs the **Lite flow**: you approve one `spec.md` with its task 
 
 **Say:** `/sdlc:start build an invoicing service with PDF output`
 
-1. Stages 1–8 and 11 (Stage 9 only when you ask; Stage 10 is parked). Stage 1 begins with `brainstorming` (writes `brainstorm.md`); it may open a visual companion that needs Node.
-2. Design dispatches `code-explorer` and `code-architect`. Expect options: minimal, minimal plus one named extension, pragmatic. Minimal is recommended unless it fails a named requirement.
-3. Stage 4 uses a git worktree and subagent-driven development: a fresh implementer per task, a task review after each.
-4. Stage 7 is full. Stage 11 writes `retro.md` and promotes lessons.
+1. All four phases, `Flow: full`. Define begins with `brainstorming` (writes `brainstorm.md`); it may open a visual companion that needs Node.
+2. Define's design dispatches `code-explorer` and `code-architect`. Expect options: minimal, minimal plus one named extension, pragmatic. Minimal is recommended unless it fails a named requirement. `analyzing-consistency` checks that every requirement has a task.
+3. Build (`Build: tasks`) uses a git worktree and subagent-driven development: a fresh implementer per task, a task review after each.
+4. Prove runs top-tier checkers and full security in one round. Ship's Learn also writes `retro.md` and a `knowledge/features/` page. Deploy only when you ask: `/sdlc:deploy`.
 
-**You decide:** spec, design, execution method, merge, deploy, migrations.
+**You decide:** Define's one approval (spec, design, tasks, `Build:`), merge, deploy, migrations.
 
 ## 4. Change something risky
 
-Auth, payments, secrets, PII, schema migrations: the work is **at least M** and **always gets full Stage 7**. `state.md` records `Risk: high`, so the verifier and reviewers run on `opus` (the model-router hook enforces it).
+Auth, payments, secrets, PII, schema migrations: the work is **at least M** and **always gets full security in Prove**. `state.md` records `Risk: high`, so the verifier and reviewers run on `opus` (the model-router hook enforces it).
 
-1. Expect the security-guidance hooks to warn on risky edits while you build (pattern warnings, diff review at turn end, a background review after `git commit` and `git push`; on a feature branch, build commits before Stage 5 wait for the next review-ready commit). Address every finding they raise, or acknowledge it with a reason.
-2. Stage 7 adds an explicit pass: `feature-reviewer` and `code-reviewer` with a security-only brief (injection, authz, secrets, SSRF, XSS, unsafe deserialization, dependency risk) plus the stack's dependency audit.
+1. Expect the security-guidance hooks to warn on risky edits while you build (pattern warnings, diff review at turn end, a background review after `git commit` and `git push`; on a feature branch, build commits before Prove wait for the next review-ready commit). Address every finding they raise, or acknowledge it with a reason.
+2. Prove adds, in the same parallel round as the verifier: `feature-reviewer` and `code-reviewer` with a security-only brief (injection, authz, secrets, SSRF, XSS, unsafe deserialization, dependency risk) plus the stack's dependency audit.
 3. Gate: no critical or high finding open, no secrets in the diff; written to `security.md`.
 4. DB migrations and production deploys are hard stops. Say go explicitly.
 
@@ -79,7 +80,7 @@ For deeper scanning, see `skills/orchestrator/references/integrations.md`. Claud
 
 ## 5. Resume or check status
 
-- `/sdlc:status`: one line per feature (track · stage · last gate), plus open questions and deviations. Read-only.
+- `/sdlc:status`: one line per feature (track · phase · last gate), plus open questions and deviations. Read-only.
 - `/sdlc:start` with no argument: resumes the single feature whose `state.md` says `Status: active`. If several are active it asks which.
 
 New session, same feature: nothing to re-explain. The state file and artifacts carry it.
@@ -94,12 +95,12 @@ Each round, a **new** verifier runs everything fresh, so flaky results show up a
 
 | Round | What happens |
 |---|---|
-| 1–2 fail | Back to Stage 4 for the listed failures only: failing test first, `systematic-debugging` for anything unexplained. Then Stage 5 again with another fresh verifier |
+| 1–2 fail | The orchestrator fixes the listed failures only, still in Prove: failing test first, `systematic-debugging` for anything unexplained. Then another fresh verifier, without asking you |
 | 3 fails | The orchestrator stops and brings you: what still fails, what each round changed, a root-cause hypothesis |
 
 **A failure that existed before your change:** if it's listed in `.sdlc/baseline.md` it doesn't fail the round. If it isn't, the verifier reports it as new and may ask to baseline it; that's your call, recorded as a Deviation. Baseline items that now pass are removed automatically.
 
-**A QA round you asked for failed a scenario but the tests pass:** the tests prove something other than what the spec says. If you send it back to Stage 4, write a failing test that reproduces the qa-tester's steps first. **A scenario marked "not run":** add the missing run step to `quickstart.md` or check it yourself.
+**A QA round you asked for failed a scenario but the tests pass:** the tests prove something other than what the spec says. If you have it fixed, write a failing test that reproduces the qa-tester's steps first. **A scenario marked "not run":** add the missing run step to `quickstart.md` or check it yourself.
 
 **"Doesn't prove the change":** that test passes with your code put back to `Base:`, so it can't be the evidence for a criterion. Make it assert the new behavior, or point the criterion at a test that does.
 
@@ -107,7 +108,7 @@ Each round, a **new** verifier runs everything fresh, so flaky results show up a
 
 ## 7. The stop hook says "re-run tests"
 
-Cause: you are in Stage 5 and code changed after the last full test run (or no full run happened). Fix: run the **full** suite: the `test` command from `.sdlc/config.json` (in a monorepo, the stale package's own, from its directory; the message names it), or the `test:` command in `state.md`. A filtered run, single file or single package doesn't count.
+Cause: you are in Prove (`Current: Stage 5 – Prove`) and code changed after the last full test run (or no full run happened). Fix: run the **full** suite: the `test` command from `.sdlc/config.json` (in a monorepo, the stale package's own, from its directory; the message names it), or the `test:` command in `state.md`. A filtered run, single file or single package doesn't count.
 
 If the change was only to docs (`.md`, `.sdlc/`, `knowledge/`, `docs/`) it doesn't mark results stale. For a hook that misbehaves, see [runbook R4](runbook.md#r4-blocked-at-stop-with-re-run-tests).
 
@@ -121,7 +122,7 @@ Use `sdlc:receiving-code-review`: verify each comment against the code before ag
 | Plan versus implementation | `sdlc:requesting-code-review` |
 | On the GitHub PR | `/sdlc:code-review` |
 
-Severity rules to know: unrequested public surface (an export, file, endpoint, option, config key or dependency not in the spec or plan with no stated reason) is **high**. Comment noise is **medium** and fixed in Stage 6, not ticketed.
+Severity rules to know: unrequested public surface (an export, file, endpoint, option, config key or dependency not in the spec or plan with no stated reason) is **high**. Comment noise is **medium** and fixed in Prove, not ticketed.
 
 ## 9. Skip a gate deliberately
 
@@ -135,10 +136,9 @@ It does not skip hard stops that protect irreversible actions without your expli
 
 ## 10. Merge and deploy
 
-1. Stage 8: `finishing-a-development-branch` offers merge, PR or keep, and cleans up worktrees. `/sdlc:commit-push-pr` opens the PR with links to `spec.md`, `test-report.md` and, if a QA round ran, `qa-report.md`. `/sdlc:clean_gone` prunes merged local branches afterward.
+1. Ship: Learn and one commit first, then `finishing-a-development-branch` offers merge, PR or keep, and cleans up worktrees. `/sdlc:commit-push-pr` opens the PR with links to `spec.md`, `test-report.md` and, if a QA round ran, `qa-report.md`. `/sdlc:clean_gone` prunes merged local branches afterward.
 2. **CI must be green. The orchestrator never merges without you saying so.**
-3. Stage 9 (any track, on request): uses the project's existing deploy path. It writes `release.md` (version, environment, steps run, smoke test, rollback command). You give the go-ahead before production or a migration. The smoke test must pass.
-4. Stage 10 (parked: no track runs it for now): check the agreed signals for the watch window. Out of threshold means a rollback or fix ticket.
+3. `/sdlc:deploy` (any track, on request): uses the project's existing deploy path. It writes `release.md` (version, environment, steps run, smoke test, rollback command). You give the go-ahead before production or a migration. The smoke test must pass.
 
 ## 11. Run an autonomous loop
 
@@ -148,7 +148,7 @@ For one well-specified task with a machine-checkable finish:
 /sdlc:ralph-loop "Make all tests in tests/export pass" --completion-promise "DONE" --max-iterations 15
 ```
 
-Always set `--max-iterations`. Cancel with `/sdlc:cancel-ralph`. Use it inside Stage 4 only; it doesn't replace gates, Verify still runs afterward.
+Always set `--max-iterations`. Cancel with `/sdlc:cancel-ralph`. Use it inside Build only; it doesn't replace gates, Prove still runs afterward.
 
 ## 12. Turn a correction into a rule
 
@@ -164,7 +164,7 @@ Start with `warn`. Move to `block` once the pattern has no false positives.
 ## 13. Keep always-loaded context small
 
 - `CLAUDE.md` over about 60 lines: run `/sdlc:knowledge-audit`. It proposes moves (file → tier, with a reason) and shows the line count before and after. Nothing is applied without your OK.
-- After a stage, `/sdlc:revise-claude-md` collects candidate lessons from the session and routes each to the right tier.
+- After a feature, `/sdlc:revise-claude-md` collects candidate lessons from the session and routes each to the right tier.
 - Every call also lists every enabled plugin's skills, agents and commands. Run `/sdlc:context-diet` in a project to see the estimate per source and turn off what the project doesn't use (for this project only, after your OK). It also turns off the standalone copies of plugins sdlc bundles. Personal skills can only be moved into the projects that use them, and synced claude.ai plugins are managed in claude.ai. Check `/context` in a new session for the real numbers.
 - Rule of thumb: tier 1 is only what nearly every task needs; area-specific guidance goes to tier 2 with `paths:`; everything else is tier 3, linked from `knowledge/index.md`.
 
@@ -196,7 +196,7 @@ Interrupted? Run `/sdlc:setup` again; it resumes from the last finished step.
 
 `/sdlc:start` and `/sdlc:status` tell you when the repo's scaffold is behind the installed plugin. Nothing breaks if you wait; you just miss the new rules and fixes.
 
-1. Finish or pause in-flight features if you can; the upgrade warns if one is past Stage 3.
+1. Finish or pause in-flight features if you can; the upgrade warns if one is past Define.
 2. `/sdlc:upgrade --dry-run` to see the plan: files regenerated, files replaced, files you edited, migrations.
 3. `/sdlc:upgrade` runs it on a `sdlc/upgrade-<from>-<to>` branch. For each plugin file you edited you choose: **apply** the proposed merge, **skip** this time, or **keep mine** (the plugin stops managing that file).
 4. Each migration is shown as a diff. Declined ones are recorded and not asked again; `/sdlc:upgrade --revisit` brings them back.
@@ -224,8 +224,7 @@ Interrupted? Run `/sdlc:setup` again; it resumes from the last finished step.
 | Adding a failure to the baseline | You, recorded as a Deviation |
 | PR or local merge after setup, upgrade, eject | You |
 | Track size | Orchestrator proposes, you can override |
-| Spec, design | You approve |
-| Execution method | You pick |
+| Spec, tasks or backlog, design, `Build:` | You approve once, in Define |
 | Verify verdict | The fresh verifier, never the orchestrator |
 | After three failed Verify rounds | You |
 | Merge, production deploy, DB migration | You |

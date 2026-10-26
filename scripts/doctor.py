@@ -230,7 +230,7 @@ def check_repo(r, root):
         if cfg.get("project", {}).get("kind") == "brownfield":
             b = os.path.join(root, cfg.get("baseline", ".sdlc/baseline.md"))
             r.add(g, "baseline", "ok" if os.path.exists(b) else "warn",
-                  "present" if os.path.exists(b) else "brownfield repo without a baseline: old failures will fail Stage 5",
+                  "present" if os.path.exists(b) else "brownfield repo without a baseline: old failures will fail Prove",
                   None if os.path.exists(b) else f"rerun the baseline step of /sdlc:setup · {RUNBOOK} R16")
 
     if status["setup"] == "complete" and sdlc_layout.docs_dir(root) is None:

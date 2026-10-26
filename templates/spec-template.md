@@ -109,7 +109,7 @@
   Every requirement carries its source:
     [user]       the user asked for it (their words, the request, the brainstorm)
     [clarified]  the user's answer to a question added or settled it
-    [inferred]   you added it; it is dropped at the Stage 1 gate unless the user keeps it
+    [inferred]   you added it; it is dropped at Define's approval unless the user keeps it
   Don't smuggle capabilities in as Assumptions: anything that adds work is an FR with a source.
 -->
 

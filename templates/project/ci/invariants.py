@@ -5,7 +5,7 @@ Only active features count (`Status: active` in their state file):
   - test-report.md: the latest round has its header, both tables and a verdict; with --require-ancestor, the round's
     commit is in this code's history.
   - the baseline: against --base, a new row or a higher lint count needs a feature's Deviations entry naming it.
-  - spec.md: no `[inferred]` tag past Stage 1.
+  - spec.md: no `[inferred]` tag past Define (Stage 1).
 
 Usage: python3 .sdlc/ci/invariants.py [--base REF] [--require-ancestor]
 Exits 1 and prints one line per problem. As a pre-commit hook: python3 .sdlc/ci/invariants.py --base HEAD
@@ -137,7 +137,7 @@ def main(argv=None):
         stage = STAGE.search(state)
         spec = os.path.join(docs, "spec.md")
         if stage and int(stage.group(1)) >= 2 and "[inferred]" in (read(spec) or ""):
-            problems.append(f"{spec}: `[inferred]` tags are left past Stage 1: the user keeps or drops each one")
+            problems.append(f"{spec}: `[inferred]` tags are left past Define: the user keeps or drops each one")
     if a.base:
         problems += check_baseline(a.base, deviations)
     for line in problems:
