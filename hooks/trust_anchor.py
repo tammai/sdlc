@@ -4,7 +4,8 @@
 The files the other hooks trust (state.md, spec.md, baseline.md, config.json) are writable by the agent they
 check, so this can't prevent a change; it makes one visible. For each active feature, on Stop:
   - `Track:`, `Risk:`, `Flow:`, `Top model:` or `Base:` differs from the value first seen, unless the change only
-    makes the process stricter (Track up, Risk low → high, Flow lite → full), which becomes the new anchor silently
+    makes the process stricter (Track up, Risk low → high, Flow lite → full): that becomes the new anchor and is
+    shown to the user without blocking, since they approved it already (it can switch off the Lite-only check)
   - `.sdlc/baseline.md` lists a failing test it didn't at the feature's `Base:` commit (it may only shrink)
   - the commands in `.sdlc/config.json` differ from those at `Base:`
   - `spec.md` changed after the feature entered Stage 5
@@ -78,14 +79,15 @@ def read(path):
         return None
 
 
-def check(root, name, text, anchor):
-    """Notices for one feature; updates `anchor` with what was seen."""
+def check(root, name, text, anchor, shown):
+    """Notices for one feature; stricter field changes go to `shown`; updates `anchor` with what was seen."""
     notices = []
     for f in FIELDS:
         now = field(text, f)
         first = anchor.setdefault("fields", {}).setdefault(f, now)
         if now != first and stricter(f, first, now):
             anchor["fields"][f] = now  # the new anchor, so moving back down is still a notice
+            shown.append(f"{f}: {first} → {now}")
         elif now != first:
             notices.append(f"{f}: {first} → {now}")
     base = vf.feature_base(root, name)
@@ -219,11 +221,13 @@ def main():
             if anchor.get("notices"):
                 accept(anchor)
     else:
-        new = list(left)
+        new, shown = list(left), []
         for name, text in features.items():
             anchor = saved.setdefault(name, {})
             anchor["status"] = "active"
-            notices = check(root, name, text, anchor)
+            stricter_now = []
+            notices = check(root, name, text, anchor, stricter_now)
+            shown += [f"{name}: {n}" for n in stricter_now]
             anchor["fields_seen"] = {f: field(text, f) for f in FIELDS}
             spec = read(os.path.join(root, located[name]["intents"], "spec.md"))
             anchor["spec_seen"] = hashlib.sha256(spec.encode("utf-8")).hexdigest() if spec is not None else None
@@ -232,8 +236,10 @@ def main():
             new += [f"{name}: {n}" for n in fresh]
         if corrupt:
             new.append("the trust anchor's own record (.sdlc/.work/trust-anchor.json) was damaged and was reset")
+        if shown and not new:
+            print(json.dumps({"systemMessage": "Stricter process: " + "; ".join(shown) + "."}))
         if new:
-            msg = "Verification anchors changed: " + "; ".join(new) + "."
+            msg = "Verification anchors changed: " + "; ".join(new + shown) + "."
             if data.get("stop_hook_active"):
                 print(json.dumps({"systemMessage": "⚠ " + msg}))
             else:

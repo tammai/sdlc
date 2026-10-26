@@ -62,11 +62,13 @@ class TrustAnchorTest(ProjectTestCase):
         self.assertIn("Flow: full → lite", self.stop()["systemMessage"])
 
     def test_a_stricter_flow_or_risk_needs_no_second_word_but_moving_back_does(self):
-        # The user approved the switch to the full flow already; a notice would ask them again
+        # The user approved the switch to the full flow already: shown, but blocking would ask them again
         self.state(risk="low", flow="lite")
         self.stop()
         self.state(risk="high", flow="full")
-        self.assertIsNone(self.stop())
+        out = self.stop()
+        self.assertNotIn("decision", out)
+        self.assertIn("Flow: lite → full", out["systemMessage"])
         self.state(risk="high", flow="lite")
         self.assertIn("Flow: full → lite", self.stop()["systemMessage"])
 
