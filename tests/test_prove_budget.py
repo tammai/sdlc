@@ -27,8 +27,8 @@ class ProveBudgetTest(ProjectTestCase):
         self.assertRegex(out["updatedInput"]["command"], r"^g?timeout -k 5 120 node probe\.js$")
         self.assertEqual(out["updatedInput"]["description"], "probe")
         self.assertEqual(out["updatedInput"]["timeout"], 130000)  # past the kill, so Claude Code never backgrounds it
-        loop = self.call(5, command="until grep -q done log; do sleep 3; done")["updatedInput"]["command"]
-        self.assertRegex(loop, r"^g?timeout -k 5 120 bash -c ")  # one deadline for the whole loop
+        # A loop can't take the prefix, and hiding it in `bash -c` would slip past the user's deny rules
+        self.assertEqual(self.call(5, command="until grep -q done log; do sleep 3; done").get("permissionDecision"), "deny")
 
     def test_project_commands_are_left_alone(self):
         self.assertEqual(self.call(5, command="cd app && npm test 2>&1 | tail -5", timeout=600000), {})

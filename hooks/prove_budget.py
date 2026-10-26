@@ -8,11 +8,12 @@ caller (session, verifier, reviewers). A command that isn't one of the project's
   - Bash: is killed at 120 s. At its own `timeout` Claude Code moves a command to the background instead of killing
     it, which an agent can then poll, so the hook rewrites the command: `timeout -k 5 120 <command>` for one step
     (each stage of a pipe; leading `cd`, `export` and the like stay as they are), which the user's permission rules
-    still match through the wrapper; anything else (two steps, loops, subshells) runs as one
-    `timeout -k 5 120 bash -c '<command>'`, which permission rules see as `bash`. The tool `timeout` becomes 130 s,
-    past the kill. Returned as `updatedInput` with no permission decision. Without a `timeout` binary (macOS without
-    coreutils) only the tool `timeout` is lowered, to 120 s.
-  - Bash with `run_in_background`, PowerShell and Monitor: denied with the reason, so there is no run to poll.
+    still match through the wrapper. The tool `timeout` becomes 130 s, past the kill. Returned as `updatedInput` with
+    no permission decision. Without a `timeout` binary (macOS without coreutils) only the tool `timeout` is lowered,
+    to 120 s.
+  - Bash that can't take the prefix (two timed steps, loops, subshells, `$(...)`, `&`), Bash with
+    `run_in_background`, PowerShell and Monitor: denied with the reason. Wrapping the first in `bash -c` would hide
+    it from the user's deny rules.
 The project's own commands are left alone. Any error: no output.
 """
 import json
@@ -107,8 +108,9 @@ def wrap_step(step):
 
 
 def bounded(command):
-    """The command, killed at CAP_S. One timed step (a pipeline counts as one): each of its commands gets the timeout
-    in front, which permission rules see through. Otherwise the whole command runs under one timeout in `bash -c`."""
+    """The command, killed at CAP_S, or None. One timed step (a pipeline counts as one): each of its commands gets the
+    timeout in front, which permission rules see through. Nothing else is rewritten: hidden in `bash -c`, the command
+    would slip past the user's deny rules."""
     parts = split_top_level(command)
     if parts and "&" not in (sep for _, sep in parts):
         wrapped = [(wrap_step(step), step, sep) for step, sep in parts]
@@ -121,7 +123,7 @@ def bounded(command):
         else:
             if timed_steps <= 1:
                 return "".join(w + sep for w, _, sep in wrapped)
-    return f"{TIMEOUT_BIN} -k 5 {CAP_S} bash -c {shlex.quote(command)}"
+    return None
 
 
 def deny(reason):
@@ -149,6 +151,9 @@ def main():
     elif tin.get("run_in_background"):
         out = deny("sdlc: in Prove, only the project's own commands run in the background. Run this in the "
                    "foreground (killed at 120 s) instead of starting it and polling.")
+    elif TIMEOUT_BIN and bounded(command) is None:
+        out = deny("sdlc: in Prove, a command other than the project's own runs one step at a time, killed at 120 s: "
+                   "no loops, subshells, `$(...)`, `&` or several chained commands. Split it into separate calls.")
     elif TIMEOUT_BIN:
         out = {"updatedInput": dict(tin, command=bounded(command), timeout=TOOL_TIMEOUT_MS)}  # replaces the input
     elif not isinstance(tin.get("timeout"), (int, float)) or tin["timeout"] > CAP_S * 1000:
