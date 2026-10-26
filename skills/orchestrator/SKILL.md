@@ -29,7 +29,7 @@ A new feature: `R/start.md` first. A backlog (`<intents>/backlog.md` exists): `R
 | Track | Signals | Shape |
 |---|---|---|
 | **S – fix** | bug or tweak, 1–3 files, clear expected behavior | Define writes short `intent.md`, `spec.md` and `plan.md`, no approval; built and verified in one place, no reviewers; Ship |
-| **M – feature** | a few files to a few days, approach mostly obvious | all four phases; risk low: `Flow: lite` (default), Prove is one fresh verifier; risk high or the user asks: `Flow: full`, with light review and QA |
+| **M – feature** | a few files to a few days, approach mostly obvious | all four phases; risk low: `Flow: lite` (default), Prove is one fresh verifier; risk high or the user asks: `Flow: full`, with light review |
 | **L – project** | new service/module, unclear approach, or touches auth, payments, data migration, public API | all four, with brainstorming and design in Define; `Flow: full` |
 
 Propose the *smallest* fitting track; size up only for a named signal, written in state. Bigger than one session (more than about 8 tasks, or several distinct parts) → a backlog. Auth, payments, secrets, PII or schema migrations: at least M, full security in Prove. **Risk** is `high` for those, a public API, or untrusted input reaching a shell, terminal, file path or database (S and M lite run no reviewer, so that work needs the full flow's review), else `low`; with the track it sets each dispatch's model tier:
@@ -38,7 +38,7 @@ Propose the *smallest* fitting track; size up only for a named signal, written i
 |---|---|---|---|
 | S | `subagent`, standard | nothing: the repro test and full suite, checked in this session | hooks only |
 | M, `Flow: lite` | `native` (or `subagent`, standard) | one fresh verifier, standard | light |
-| M, `Flow: full`, either risk | `native` | verifier, qa-tester and one light code-reviewer, all standard | light; full, standard, on auth, payments, secrets, PII, migrations |
+| M, `Flow: full`, either risk | `native` | verifier and one light code-reviewer, both standard | light; full, standard, on auth, payments, secrets, PII, migrations |
 | L | `tasks`, standard implementers | top | full, top |
 | Backlog slice | `native` | standard, top on risk high; Feature close reviewer top | at Feature close |
 
@@ -46,7 +46,7 @@ Tiers (Model Selection in `sdlc:subagent-driven-development`): cheap and standar
 
 **`Build: native | subagent | tasks`**, from the table, shown in Define's approval and never asked separately (`state.py set` if the user changes it); `R/build.md` says what each does.
 
-**`Flow: lite | full`** picks Prove's checkers and how it re-verifies fixes: lite, one fresh verifier, fixes re-verified with the full suite in this session; full, the verifier with light review and QA, fixes re-verified by a fresh verifier.
+**`Flow: lite | full`** picks Prove's checkers and how it re-verifies fixes: lite, one fresh verifier, fixes re-verified with the full suite in this session; full, the verifier with light review, fixes re-verified the same way unless the verifier itself failed a requirement or a fix reached beyond the findings (then a fresh verifier).
 
 ## State: always through `state.py`
 

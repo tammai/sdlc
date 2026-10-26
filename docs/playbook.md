@@ -54,7 +54,7 @@ A feature's documents go in `<docs>/intents/<feature>/` (`<docs>` is `docs/sdlc`
 4. **Prove:** on `Flow: lite`, one fresh `verifier` on the commit, plus light security (dependency audit, hook findings); no reviewers. Findings are fixed together, failing test first, then the full suite once more in the session.
 5. **Ship:** Learn, one commit, then your merge, PR or keep.
 
-Low-risk M work runs `Flow: lite`, as above. Say "use the full flow" to get `writing-specs` with its checklist, `writing-plans`, one light code-reviewer on `sonnet` (correctness, silent failures and security in one pass), a qa-tester (and a ui-reviewer on UI work) in Prove, and a fresh verifier for the re-check. High-risk M work always gets it, and so does a spec that needs a design decision the request doesn't settle.
+Low-risk M work runs `Flow: lite`, as above. Say "use the full flow" to get `writing-specs` with its checklist, `writing-plans`, one light code-reviewer on `sonnet` (correctness, silent failures and security in one pass), a ui-reviewer on UI work in Prove, and fixes re-checked with the full suite in the session (a fresh verifier only when the verifier itself failed). High-risk M work always gets it, and so does a spec that needs a design decision the request doesn't settle.
 
 **Good habits:** state non-goals up front; answer the questions briefly; challenge any addition you didn't ask for at the approval, not after the code exists. Too big for one session? See [19](#19-a-big-feature-becomes-a-backlog).
 
@@ -98,13 +98,13 @@ Each round, a **new** verifier runs everything fresh, so flaky results show up a
 
 | Round | What happens |
 |---|---|
-| Fails | The agent fixes the listed failures, failing test first, `systematic-debugging` for anything unexplained, then re-verifies without asking: a fresh verifier on the full flow and L, the full suite in the session on S and Lite |
+| Fails | The agent fixes the listed failures, failing test first, `systematic-debugging` for anything unexplained, then re-verifies without asking: a fresh verifier on L (and on the full flow when the verifier itself failed), the full suite in the session otherwise |
 | The same requirement fails in two rounds | It stops and brings you what still fails, what each round changed and a root-cause hypothesis |
 | Round 3 fails | The same stop |
 
 **A failure that existed before your change:** if `.sdlc/baseline.md` lists it, it doesn't fail the round. If not, the verifier reports it as new and may ask to baseline it; that's your call, recorded as a deviation. Baseline items that now pass are removed automatically.
 
-**"Could not verify within budget":** the verifier and the qa-tester run every command that isn't the project's own with a 2-minute limit, and get 10 minutes per round. A criterion or scenario they couldn't settle in that time comes to you; it is never counted as passed. Run it yourself, or say how to make it quicker.
+**"Could not verify within budget":** the verifier and the qa-tester run every command that isn't the project's own with a 2-minute limit (a hook enforces it in Claude Code), and get 10 minutes per round. A criterion or scenario they couldn't settle in that time comes to you; it is never counted as passed. Run it yourself, or say how to make it quicker.
 
 **A qa-tester scenario failed but the tests pass:** the tests prove something other than the spec. It's a finding like any other, fixed with a failing test that reproduces the steps. Only one that needs a new requirement comes to you. **"Not run":** the qa-tester lacked something it needed (a tool, a browser) and never installs anything. The reason is in `qa-report.md`: provide it, or check the scenario yourself. A scenario it couldn't work out how to run is a finding instead: the quickstart is missing a step.
 
@@ -310,5 +310,5 @@ Autopilot won't start a session while a notice is open; its JSON `stopped` reaso
 | Decision | Owner |
 |---|---|
 | Track and risk | The agent proposes; you can override |
-| Verify verdict | The latest fresh verifier (on Lite, the in-session suite after fixes; on S, the session's full-suite run) |
+| Verify verdict | The latest fresh verifier (on Lite and M full, the in-session suite after fixes; on S, the session's full-suite run) |
 | Fixing findings and re-running verify below the round cap | The agent, without asking |

@@ -56,7 +56,7 @@ Every `[enforced]` requirement in specs 02–06 rests on one of these mechanisms
 | Mechanism | Examples | Claude Code | Codex | Cursor | Antigravity |
 |---|---|---|---|---|---|
 | Plugin hook: freshness, trust anchor, hookify guardrails | Stale results in Prove (Stage 5), changed anchors, team guardrails | enforced | enforced once the hooks are trusted (`/hooks`); guardrails only where Claude Code set them up | enforced; guardrails only where Claude Code set them up | enforced in the CLI (`dist` install); guardrails only where Claude Code set them up |
-| Plugin hook: role guard, model router, security hooks | reviewers can't edit, dispatches name a model, security review | enforced | instructed | instructed | instructed |
+| Plugin hook: role guard, model router, prove budget, security hooks | reviewers can't edit, dispatches name a model, Prove's 120 s command cap, security review | enforced | instructed | instructed | instructed |
 | Plugin script run by a skill | scaffold, doctor, `diff_stats.py` | enforced | enforced, if the agent finds the plugin folder | same | same |
 | Subagent roles | fresh verifier, read-only reviewers | enforced (tools per agent) | instructed: Codex agents can't be made read-only, and plugin agents aren't loaded | reviewers `readonly`; the verifier instructed | instructed: all 13 load from the `dist` copy; no read-only flag |
 | Generated CI (`sdlc-verify`) | the full test suite on the merged code | enforced | enforced | enforced | enforced |
@@ -76,7 +76,7 @@ Every `[enforced]` requirement in specs 02–06 rests on one of these mechanisms
   - **Test results.** A full test run in Codex records `last_result: unknown`, because Codex sends a command's output without its exit code. Antigravity sends neither, so the same holds there. Cursor sends it.
   - **Cursor headless.** `cursor-agent -p` fires no `stop` or `beforeSubmitPrompt`, so the Stop checks run only in interactive sessions. Cursor on Windows (PowerShell) is untested.
   - **Antigravity** runs hooks in the CLI only; the `dist` install is the supported one. It has no hook that can stop a prompt, so a hookify prompt block reaches the agent as a message instead. A warning on a tool call becomes the `reason` of an `ask`; whether Antigravity shows it in its approval prompt is unconfirmed. The hook command tries `python3`, then `python`; if neither runs, Antigravity fails closed and denies every command and edit. Antigravity on WSL and Linux is untested.
-  - **Left out for now:** the role guard, the model router, the security review and the Ralph loop.
+  - **Left out for now:** the role guard, the model router, the prove budget, the security review and the Ralph loop.
 - **No glob scoping outside Claude Code.** Policy rules sit in `AGENTS.md`, so they always load. Writing `.cursor/rules/*.mdc` or `.agents/rules/*.md` would duplicate them, because those agents read `AGENTS.md` too.
 - **Codex's 32 KiB cap** on the combined `AGENTS.md` text: the block is about 10 KB with every policy rule. `agents` and doctor warn when the root file passes the cap (AGT-FR-018); nested `AGENTS.md` files in subfolders aren't counted.
 - **`AGENTS.override.md`** at the root makes Codex skip `AGENTS.md`, and with it the block.

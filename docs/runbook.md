@@ -329,7 +329,7 @@ Phase behavior lives in `skills/orchestrator/`: the core `SKILL.md` (the phase â
 |---|---|
 | Phase gates or tracks | `docs/diagrams/*.svg`, `docs/guidebook.md`, README phase table, the gate table in `docs/sdlc/intents/2026-10-26-four-phases/spec.md` |
 | A hard stop | the Rules section of the orchestrator, `docs/playbook.md`, R11 above |
-| Verify behavior | `agents/verifier.md`, `agents/qa-tester.md`, `hooks/verify_freshness.py`, `tests/test_verify_freshness.py`, `hooks/trust_anchor.py` (what it watches), `hooks/role_guard.py` (what the verifier may write) |
+| Verify behavior | `agents/verifier.md`, `agents/qa-tester.md`, `hooks/verify_freshness.py`, `hooks/prove_budget.py` (the 120 s cap), `tests/test_verify_freshness.py`, `hooks/trust_anchor.py` (what it watches), `hooks/role_guard.py` (what the verifier may write) |
 | State fields or stage numbers | `scripts/state.py`, `tests/test_state.py`, `docs/specs/12-control-contract.md`, the template in `references/start.md`, every hook that reads the field (`verify_freshness`, `trust_anchor`, `model_router`, `sdlc_review_gate`) |
 | An agent's role or file access | the agent's `tools:` frontmatter, `hooks/role_guard.py`, `tests/test_role_guard.py`, `docs/specs/03-scope-and-review.md` and `04-verification.md` |
 | Model tiers, track or risk | Model Selection in `skills/subagent-driven-development/SKILL.md`, `hooks/model_router.py`, `tests/test_model_router.py`, `hooks/trust_anchor.py` (it anchors `Risk:`), `docs/specs/02-orchestration.md` |

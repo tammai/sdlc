@@ -5,6 +5,11 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 ## Unreleased
 
 ### Changed
+- **Prove's command limit is enforced, and M full is lighter** (ADR 0012). On eval rounds 12–13, M full's Prove still took 40–50 minutes: agents ignored the instructed budget, got around it by polling background runs, ran slow red-green tests on Base for minutes, and QA was the critical path. Now:
+  - **prove-budget hook** (Claude Code): while a feature is in Prove (Stage 5), a Bash command that isn't one of the project's own (`.sdlc/config.json` commands) runs with a timeout of at most 120 s, and can't run in the background. The lowered timeout is passed back without a permission decision, so your permission rules still apply.
+  - **Red-green on Base** runs through the project's test command with a 30 s per-test timeout; a test that times out there counts as failing.
+  - **The code-reviewer is read-only:** it may run the project's test command but writes and runs no scripts; a suspicion that needs a probe is a finding.
+  - **M full:** no qa-tester. Fixes are re-verified with the full suite in the session, as on Lite; a fresh verifier runs only when the verifier itself failed a requirement or a fix went beyond the findings. L and Feature close are unchanged.
 - **Fewer agents per track, and a bounded Prove** (ADR 0011). On the planner-team eval the plugin took 4–7x the baseline's time and about 6x its tokens, mostly from unbounded verifier and QA probing and repeated verifier rounds, with no measured quality gain from that work. Now:
   - **Models:** no Haiku anywhere. The cheap tier is Sonnet, Sonnet dispatches pass `effort: high`, and the model router denies `haiku`. The router's Opus floor for reviewers, the verifier and the qa-tester applies on Track L only (it was `Risk: high`).
   - **Risk:** untrusted input reaching a shell, terminal, file path or database now sets `Risk: high`, so that work gets the full flow's review even though S and M Lite run none.

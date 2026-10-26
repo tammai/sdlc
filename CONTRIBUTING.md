@@ -22,6 +22,7 @@ sdlc/
 │   ├── verify_freshness.py  Prove (Stage 5; old Lite features: 5–6) stale/fresh test tracking (original)
 │   ├── model_router.py      checks each subagent dispatch's model, logs dispatches (original)
 │   ├── role_guard.py        keeps the plugin's agents to their role's file access (original)
+│   ├── prove_budget.py      caps non-project Bash commands at 120 s in Prove, no background runs (original)
 │   ├── trust_anchor.py      shows the user changes to what verification trusts (original)
 │   ├── pretooluse.py, stop.py, userpromptsubmit.py   hookify entry points (vendored)
 │   ├── stop-hook.sh         ralph-loop (vendored)
@@ -60,7 +61,7 @@ sdlc/
 ├── CHANGELOG.md  NOTICE.md  LICENSE  README.md
 ```
 
-Original to this plugin: the orchestrator and setting-up-projects skills, `managing-knowledge`, `trimming-context`, the `verifier`, `qa-tester` and `ui-reviewer` agents, `verify_freshness.py`, `sdlc_review_gate.py`, `model_router.py`, `role_guard.py`, `trust_anchor.py`, `commands/deploy.md`, everything in `scripts/` except the ralph script, `templates/project/`, `templates/knowledge/`, `templates/design-system-template.md`, `templates/backlog-template.md`, `migrations/`, `tests/`, `docs/`. Everything else is vendored; `NOTICE.md` says what came from where and what was changed.
+Original to this plugin: the orchestrator and setting-up-projects skills, `managing-knowledge`, `trimming-context`, the `verifier`, `qa-tester` and `ui-reviewer` agents, `verify_freshness.py`, `sdlc_review_gate.py`, `model_router.py`, `role_guard.py`, `prove_budget.py`, `trust_anchor.py`, `commands/deploy.md`, everything in `scripts/` except the ralph script, `templates/project/`, `templates/knowledge/`, `templates/design-system-template.md`, `templates/backlog-template.md`, `migrations/`, `tests/`, `docs/`. Everything else is vendored; `NOTICE.md` says what came from where and what was changed.
 
 ## Dev loop
 

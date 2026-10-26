@@ -11,7 +11,8 @@ processes, and turns their output back into the host's:
   - UserPromptSubmit   hooks/userpromptsubmit.py, hooks/trust_anchor.py
   - Stop               hooks/stop.py, hooks/verify_freshness.py, hooks/trust_anchor.py   a block from any keeps the agent going
 Left out: the security review and the Ralph loop (bash launchers and model calls), the role guard (no host names the
-plugin's agents on tool calls) and the model router (subagent dispatches carry no model).
+plugin's agents on tool calls), the model router (subagent dispatches carry no model) and the prove budget (no host's
+command payload has been checked for a timeout or background flag to change).
 
 Codex: payloads are Claude Code's, except that edits arrive as `apply_patch` with the patch text, which becomes one
 Write or Edit per file, and a command's output arrives with no exit code, so a full test run records `unknown`, not
