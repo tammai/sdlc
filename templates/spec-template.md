@@ -8,13 +8,7 @@
 
 **References**: [links to the docs/ artifacts this feature builds on: BA specs, QA test cases, designs. Link, never copy. Delete the line if there are none.]
 
-## Intent
-
-**Request (verbatim)**: [the request or ticket text, unedited]
-
-**Questions and answers**: [each blocking question and the user's answer; "none asked" if none]
-
-**Approaches considered**: [when brainstorming or a design weighed options: each one, the choice and why, linking brainstorm.md; delete otherwise]
+**Intent**: [intent.md](intent.md) (the request, answers, approaches and the chosen one; not repeated here)
 
 ## User Scenarios & Testing *(mandatory)*
 

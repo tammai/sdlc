@@ -28,7 +28,7 @@ A new feature: `R/start.md` first. A backlog (`<intents>/backlog.md` exists): `R
 
 | Track | Signals | Shape |
 |---|---|---|
-| **S – fix** | bug or tweak, 1–3 files, clear expected behavior | Define is a brief, no approval; Build, Prove, Ship |
+| **S – fix** | bug or tweak, 1–3 files, clear expected behavior | Define is a short `intent.md`, no approval; Build, Prove, Ship |
 | **M – feature** | a few files to a few days, approach mostly obvious | all four phases; risk low: `Flow: lite` (default); risk high or the user asks: `Flow: full` |
 | **L – project** | new service/module, unclear approach, or touches auth, payments, data migration, public API | all four, with brainstorming and design in Define; `Flow: full` |
 

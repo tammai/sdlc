@@ -2,7 +2,7 @@
 """sdlc prune: delete the working files of finished features, keep their record.
 
 A feature qualifies when its state.md on the main branch says `Status: done` (so it's merged) and
-hasn't changed for --older-than days. Its plan, reports, review and checklists go; spec, design,
+hasn't changed for --older-than days. Its plan, reports, review and checklists go; intent, spec, design,
 retro and state stay, and security.md stays on Risk: high. Git history keeps everything deleted.
 Usage: python3 prune.py [--root DIR] [--main REF] list [--older-than 45d]
        python3 prune.py [--root DIR] [--main REF] apply [--older-than 45d] FEATURE...

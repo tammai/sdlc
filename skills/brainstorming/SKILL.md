@@ -217,22 +217,27 @@ order, and brainstorm them one at a time.
 ## The Written Design
 
 Write a plain document a talented builder in the domain could plan
-from without going back to your human partner. Cover:
+from without going back to your human partner. Under the sdlc workflow
+it is `intent.md`: copy `${CLAUDE_PLUGIN_ROOT}/templates/intent-template.md`
+and keep its headings, so a reviewer and a script can both read it:
 
-- intent and the why
-- goals, non-goals, anti-goals
-- constraints
-- approaches (above)
-- the parts of the how they decided, as they decided them
-- what's left to the builder
+1. intent and the why, with the request verbatim
+2. questions and answers
+3. approaches considered (above), with their trade-offs
+4. the chosen approach and why
+5. the chosen approach in detail: the parts of the how they decided, as
+   they decided them
+6. goals, non-goals, anti-goals, constraints
+7. calls you made, and what's left to the builder
 
 For a small change, the short design covers the same points in a line
 or two each and goes straight to your human partner, without the
 builder check.
 
 **Where it goes:** in a software repo,
-`<intents>/brainstorm.md`, committed. The orchestrator turns it into
-`spec.md` (requirements) and `design.md` (the chosen approach).
+`<intents>/intent.md`, committed (features started before it was named
+that have `brainstorm.md`). The orchestrator turns it into `spec.md`
+(requirements) and, when a design runs, `design.md`.
 Otherwise, ask. Your human partner's preferences override both.
 
 **Builder check** (for a project): dispatch a fresh subagent with

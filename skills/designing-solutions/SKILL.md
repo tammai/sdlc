@@ -13,7 +13,7 @@ Structure adapted from GitHub Spec Kit's `plan` command (MIT); exploration and a
 
 ## Inputs
 
-- `<intents>/spec.md` (approved), `<intents>/brainstorm.md` if any
+- `<intents>/spec.md` (approved), `<intents>/intent.md` (the chosen approach; older features: `brainstorm.md`). The design details that approach; once written, `intent.md`'s detail section summarizes `design.md` and links it
 - `<docs>/constitution.md` if present
 - Template: `${CLAUDE_PLUGIN_ROOT}/templates/design-template.md`
 

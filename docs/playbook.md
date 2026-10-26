@@ -30,7 +30,7 @@ Situation-by-situation plays. Each says what to say or run, what the orchestrato
 
 **Say:** `/sdlc:start fix: export button 500s when the report is empty`
 
-1. The orchestrator proposes S: bug, few files, clear behavior. Define is a short `brief.md` (the bug, the expected behavior, its assumptions). No spec and no approval.
+1. The orchestrator proposes S: bug, few files, clear behavior. Define is a short `intent.md` (the bug and expected behavior, the fix options and the chosen one, its assumptions); it is also the implementer's brief. No spec and no approval.
 2. Build: one implementer subagent on the cheap tier writes a failing test that reproduces the bug, then the fix. The session doesn't write the fix itself, so it costs the same on any session model. If something fails unexpectedly, `systematic-debugging` takes over.
 3. Prove: a fresh `verifier` and a `code-reviewer` (with `diff_stats.py` facts) run in parallel on the same commit. The repro test must be among the verifier's evidence. Findings are fixed together and re-verified once by a fresh verifier.
 4. Ship: Learn notes any defect Prove fixed, one commit, then merge, PR or keep.
@@ -60,7 +60,7 @@ Low-risk M work runs `Flow: lite`: a short spec and an in-session re-verificatio
 
 **Say:** `/sdlc:start build an invoicing service with PDF output`
 
-1. All four phases, `Flow: full`. Define begins with `brainstorming` (writes `brainstorm.md`); it may open a visual companion that needs Node.
+1. All four phases, `Flow: full`. Define begins with `brainstorming` (writes `intent.md`); it may open a visual companion that needs Node.
 2. Define's design dispatches `code-explorer` and `code-architect`. Expect options: minimal, minimal plus one named extension, pragmatic. Minimal is recommended unless it fails a named requirement. `analyzing-consistency` checks that every requirement has a task.
 3. Build (`Build: tasks`) uses a git worktree and subagent-driven development: a fresh implementer per task, a task review after each.
 4. Prove runs top-tier checkers and full security in one round. Ship's Learn also writes `retro.md` and a `knowledge/features/` page. Deploy only when you ask: `/sdlc:deploy`.

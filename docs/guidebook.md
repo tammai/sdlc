@@ -41,7 +41,7 @@ Files named `sdlc-*` belong to the plugin; everything else is yours.
 
 | Track | Use when | Phases |
 |---|---|---|
-| **S · fix** | bug or tweak, 1–3 files, clear expected behavior | Define is a short `brief.md` with no approval; then Build, Prove, Ship |
+| **S · fix** | bug or tweak, 1–3 files, clear expected behavior | Define is a short `intent.md` with no approval; then Build, Prove, Ship |
 | **M · feature** | a few files to a few days, approach mostly obvious | all four; risk low: `Flow: lite` (default); risk high or on request: `Flow: full` |
 | **L · project** | new service or module, unclear approach, or touches auth, payments, data migration, public API | all four, with brainstorming and design in Define; `Flow: full` |
 
@@ -57,7 +57,7 @@ Anything touching auth, payments, secrets, PII or schema migrations is at least 
 
 | Phase | Produces | Gate |
 |---|---|---|
-| Define | `spec.md` with `## Intent`, tasks and `## Public Surface`, or a `backlog.md` (full flow: `checklists/requirements.md`; L: `brainstorm.md`; a design when the approach isn't obvious; S: only `brief.md`) | **You approve once** (not on S): spec, tasks or backlog, design and `Build:`. No `[inferred]` items left, Non-Goals filled, acceptance criteria testable, every requirement has a task, Public Surface declared, design criteria hold |
+| Define | `intent.md` on every track (the intent and why, the approaches weighed, the chosen one and why, and how it works: the first thing a reviewer reads; S: 10–20 lines, M: about a page, L: written by `brainstorming`), then `spec.md` with tasks and `## Public Surface`, or a `backlog.md` (full flow: `checklists/requirements.md`; a design when the approach isn't obvious; S: only `intent.md`) | **You approve once** (not on S): the chosen approach, spec, tasks or backlog, design and `Build:`. No `[inferred]` items left, Non-Goals filled, acceptance criteria testable, every requirement has a task, Public Surface declared, design criteria hold |
 | Build | code, tests | Every task done, build and full test suite pass, no TODO without a ticket |
 | Prove (max 3 failed rounds) | `test-report.md`, `review.md`, `security.md` (full security) | Fresh verifier PASS on the current commit, every acceptance criterion has evidence, no unresolved high finding, no test gap rated 8+ (L), no critical or high security finding, no secrets in the diff |
 | Ship, with Learn | `recurring-defects.md` lines (L: `retro.md`, a knowledge page), one commit, PR | Verified-tree check clean, Learn done, CI green. **Never merged without you saying so** |
@@ -142,7 +142,7 @@ Each round spawns a new `verifier`, which runs build, lint, typecheck and tests 
 | `/sdlc:doctor` | Health check of the machine, the plugin and the repo, with a fix for each problem. Changes nothing |
 | `/sdlc:deploy` | Deploy on request: the project's existing deploy path, `release.md`, your go-ahead before production or a DB migration, a smoke test |
 | `/sdlc:status` | Setup state and version drift, then one line per feature in `.sdlc/`: track, phase, last gate; open questions. Changes nothing |
-| `/sdlc:prune [--older-than 45d]` | Delete the plan, reports, review and checklists of merged features marked done; keeps spec, design, retro and state. Asks first, one commit |
+| `/sdlc:prune [--older-than 45d]` | Delete the plan, reports, review and checklists of merged features marked done; keeps intent, spec, design, retro and state. Asks first, one commit |
 | `/sdlc:context-diet` | Estimate each enabled plugin's and skill's per-call cost and propose turning the unrelated ones off for this project (`.claude/settings.local.json`, written after you approve). Any repo, Claude Code only |
 | `/sdlc:review-pr` | Local pre-PR review with the right agents for the diff |
 | `/sdlc:code-review` | Review a GitHub PR (needs `gh`) |
@@ -183,7 +183,7 @@ docs/sdlc/                 docs_dir: the documents people read (default; setup a
   design-system.md         the design system UI work follows (UI projects; yours)
   recurring-defects.md     defects Prove fixed, one line each: Learn adds, Define and reviewers read
   intents/<feature>/
-    brief.md  brainstorm.md  spec.md  design.md  backlog.md  plan-B<n>.md  test-report.md  qa-report.md  review.md  security.md  release.md  retro.md
+    intent.md  spec.md  design.md  backlog.md  plan-B<n>.md  test-report.md  qa-report.md  review.md  security.md  release.md  retro.md
 knowledge/                 tier 3, on-demand docs (index.md links everything)
 .claude/rules/<area>.md    tier 2, loads when matching paths are touched (yours)
 .claude/rules/sdlc*.md     plugin policy rules: workflow, code style, tests, migrations, sensitive areas, CI (generated)

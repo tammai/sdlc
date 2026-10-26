@@ -15,7 +15,7 @@ A spec says **what** users need and **why**. It never says how: no languages, fr
 
 ## Inputs
 
-- The feature request, the user's answers to Define's blocking questions, and `<intents>/brainstorm.md` if Define started with brainstorming.
+- The feature request, the user's answers to Define's blocking questions, and `<intents>/intent.md` (a feature started earlier may have `brainstorm.md` instead).
 - `<docs>/constitution.md` if it exists (project principles; treat MUST rules as hard constraints).
 - Template: `${CLAUDE_PLUGIN_ROOT}/templates/spec-template.md`
 
@@ -23,7 +23,7 @@ A spec says **what** users need and **why**. It never says how: no languages, fr
 
 1. **Name the feature.** If the orchestrator already chose the name, use it. Otherwise: `<yyyy-mm-dd>-<slug>`, or `<yyyy-mm-dd>-<ticket>-<slug>` when the request names a ticket (`2026-10-22-PROJ-123-month-filter`; a GitHub issue is `gh-42`). The date is today's, the same as `Started:`; the slug is 2–4 kebab-case words, action-noun where possible (`user-auth`, `fix-payment-timeout`), keeping technical terms (OAuth2, JWT). If `<intents>/` already exists and isn't the feature being resumed, add `-2` (then `-3`, …). The feature's branch and `knowledge/features/<name>.md` use the same name. The feature directory is `<intents>/`.
 2. **Copy the template** to `<intents>/spec.md` and fill it, keeping section order and headings.
-2a. **Intent** (first section): the request verbatim (or the ticket's text), each blocking question with its answer, and, when brainstorming or a design weighed approaches, the ones considered with the choice and why (summarize `brainstorm.md` and link it). Plain markdown under fixed headings, so a person and a script can both read it; no paraphrase in place of the request.
+2a. **Intent:** the spec's first line links `intent.md` (`Intent: [intent.md](intent.md)`); don't repeat the request, answers or approaches here. Run on its own (no orchestrator) with no `intent.md`: write one first from `${CLAUDE_PLUGIN_ROOT}/templates/intent-template.md`.
 3. **Extract** actors, actions, data, constraints from the request.
 4. **Unclear points:** the orchestrator already asked the blocking questions, in one message, before this skill; never ask more here and never leave `[NEEDS CLARIFICATION]` markers. Their answers are `[clarified]`. Anything still open gets an informed guess from context and industry norms: under Assumptions if it adds no work, as an `[inferred]` FR or SC if it does. The user keeps or drops those at the gate. Run on its own (no orchestrator), ask the blocking questions yourself first, the same way: one message, only what changes what gets built.
 5. **User scenarios** with acceptance scenarios (Given/When/Then). If no clear user flow exists, stop and say so.

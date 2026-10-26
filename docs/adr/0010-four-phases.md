@@ -17,9 +17,9 @@ Two of the touches were avoidable: a trust-anchor confirmation right after the u
 
 ## Decision
 
-- **Four phases, each at one stage number:** Define (1), Build (4), Prove (5), Ship (8). Learn is a small step inside Ship. A new feature never enters 2, 3, 6, 7 or 9–11.
+- **Four phases, each at one stage number:** Define (1), Build (4), Prove (5), Ship (8). Learn is a small step inside Ship. A new feature never enters 2, 3, 7 or 9–11; a backlog slice rests at 6 once committed, as before, because autopilot and the trust anchor read 8 as feature close having reached Ship.
 - **Stage numbers kept (option a).** The hooks read only the number, so none of them changes, except that the trust anchor no longer blocks a stricter change (Track up, Risk low → high, Flow lite → full); it shows it instead. Features started under the old stages resume in the phase their number maps to. No upgrade migration is needed.
-- **Define:** one approval covers spec, tasks (or backlog), design and `Build:`. The spec carries an Intent section and a Public Surface list.
+- **Define:** one approval covers spec, tasks (or backlog), design and `Build:`. Every track writes `intent.md` (intent and why, approaches, the chosen one and why, its detail), which the spec links, and the spec carries a Public Surface list.
 - **Prove:** verifier, reviewers and security checks run in one parallel round. A failed re-verification gets a fresh verifier round; only the round cap stops.
 - **Ship:** Learn adds Prove's fixed defects to `recurring-defects.md`, which Define and every reviewer read.
 - **Deploy** becomes `/sdlc:deploy`. **Operate** is removed and kept as a reference.

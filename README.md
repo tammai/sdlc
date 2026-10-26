@@ -104,7 +104,7 @@ The orchestrator runs on its own between these stops, and always asks you here:
 ```
 /sdlc:status          # setup state, then one line per feature: track · phase · last gate
 /sdlc:start           # no argument: resume the active feature
-/sdlc:prune           # clean up merged features done 45+ days ago; keeps spec, design, retro, state
+/sdlc:prune           # clean up merged features done 45+ days ago; keeps intent, spec, design, retro, state
 ```
 
 A new session needs no re-explaining; `state.md` carries it. To pause a feature, set `Status: paused` in its `state.md`.
