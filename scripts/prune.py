@@ -2,7 +2,8 @@
 """sdlc prune: delete the working files of finished features, keep their record.
 
 A feature qualifies when its state.md on the main branch says `Status: done` (so it's merged) and
-hasn't changed for --older-than days. Its plan, reports, review and checklists go; intent, spec, design,
+hasn't changed for --older-than days. Its plans (plan.md and the slices' plan-B<n>.md), reports, review and checklists
+go; intent, spec, design,
 retro and state stay, and security.md stays on Risk: high. Git history keeps everything deleted.
 Usage: python3 prune.py [--root DIR] [--main REF] list [--older-than 45d]
        python3 prune.py [--root DIR] [--main REF] apply [--older-than 45d] FEATURE...
@@ -21,6 +22,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(
 import sdlc_layout  # noqa: E402  (where feature state and documents live, in either layout)
 
 DELETE = ["plan.md", "test-report.md", "qa-report.md", "review.md", "checklists"]
+SLICE_PLAN = re.compile(r"plan-B\d+\.md")  # a backlog's per-slice plans
 
 
 def git(root, *args):
@@ -73,6 +75,8 @@ def candidate(root, ref, name, older_than):
     if not re.search(r"^Risk:\s*high\b", state, re.M | re.I):
         delete.append("security.md")
     here = [f for f in delete if os.path.exists(os.path.join(root, loc["intents"], f))]
+    if os.path.isdir(folder):
+        here += sorted(f for f in os.listdir(folder) if SLICE_PLAN.fullmatch(f))
     return {"feature": name, "age_days": age, "delete": here, "dir": loc["intents"]}
 
 

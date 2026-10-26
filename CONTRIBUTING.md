@@ -24,7 +24,6 @@ sdlc/
 │   ├── role_guard.py        keeps the plugin's agents to their role's file access (original)
 │   ├── trust_anchor.py      shows the user changes to what verification trusts (original)
 │   ├── pretooluse.py, stop.py, userpromptsubmit.py   hookify entry points (vendored)
-│   ├── posttooluse.py       hookify, kept for parity with upstream but not registered
 │   ├── stop-hook.sh         ralph-loop (vendored)
 │   ├── security_reminder_hook.py + modules, sg-python.sh   security-guidance (vendored; patched to ask sdlc_review_gate.py)
 │   └── sdlc_review_gate.py  one commit security review per review-ready diff while a feature is active (original)

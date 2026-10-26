@@ -220,7 +220,7 @@ Interrupted? Run `/sdlc:setup` again; it resumes from the last finished step.
 
 Every feature keeps its documents folder. Old plans and reports describe code that has since changed, and agents searching the repo can be misled by them.
 
-1. `/sdlc:prune` lists features marked done on the main branch 45+ days ago (`--older-than 90d` to change that), with the files that would go: `plan.md`, `test-report.md`, `qa-report.md`, `review.md`, `checklists/`.
+1. `/sdlc:prune` lists features marked done on the main branch 45+ days ago (`--older-than 90d` to change that), with the files that would go: `plan.md`, the slices' `plan-B<n>.md`, `test-report.md`, `qa-report.md`, `review.md`, `checklists/`.
 2. Pick which to prune. Intent, spec, design, retro and state stay, and so does `security.md` on high-risk features.
 3. It commits the deletions in one commit. Git history keeps everything.
 

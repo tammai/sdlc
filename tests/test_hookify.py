@@ -1,4 +1,4 @@
-"""hookify: hooks/pretooluse.py, posttooluse.py, stop.py, userpromptsubmit.py reading .claude/hookify.*.local.md."""
+"""hookify: hooks/pretooluse.py, stop.py, userpromptsubmit.py reading .claude/hookify.*.local.md."""
 import os
 import shutil
 import signal
@@ -67,10 +67,6 @@ class HookifyTest(ProjectTestCase):
         shutil.copy(os.path.join(EXAMPLES, "dangerous-rm.local.md"), self.path(".claude/hookify/no-rm.md"))
         self.assertDenied(self.pre("Bash", command="rm -rf build"))
 
-    def test_posttooluse_is_not_registered(self):
-        with open(os.path.join(HOOKS, "hooks.json")) as f:
-            self.assertNotIn("posttooluse.py", f.read())
-
     def test_condition_rule_on_file_path(self):
         self.install("sensitive-files-warning.local.md")
         self.assertIn("warn-sensitive-files",
@@ -99,7 +95,6 @@ class HookifyTest(ProjectTestCase):
     def test_every_hookify_entry_point_runs_clean(self):
         self.install("dangerous-rm.local.md")
         for name, payload in [
-            ("posttooluse.py", {"hook_event_name": "PostToolUse", "tool_name": "Bash", "tool_input": {"command": "ls"}}),
             ("stop.py", {"hook_event_name": "Stop"}),
             ("userpromptsubmit.py", {"hook_event_name": "UserPromptSubmit", "prompt": "hi"}),
         ]:
