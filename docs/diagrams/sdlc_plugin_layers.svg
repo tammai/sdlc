@@ -1,10 +1,10 @@
-<svg width="100%" viewBox="0 0 1000 1857" role="img" xmlns="http://www.w3.org/2000/svg">
+<svg width="100%" viewBox="0 0 1000 2231" role="img" xmlns="http://www.w3.org/2000/svg">
 <title>SDLC plugin layers</title>
-<desc>Layer map of the sdlc plugin by structure. Top to bottom: 23 commands, 24 skills grouped by orchestrator phase (Define, Build, Prove, Ship with Learn), 13 agents, scripts, templates, and the files written into the user's repo. Hooks (security-guidance, hookify, verify-freshness, model-router with role-guard and trust-anchor, ralph-loop) run on six Claude Code events outside the stack. Packaging, tests, docs and licenses sit underneath.</desc>
+<desc>Layer map of the sdlc plugin by structure. Top to bottom: 23 commands, 24 skills grouped by orchestrator phase (Define, Build, Prove, Ship with Learn), 13 agents, scripts, templates, and the files written into the user's repo (.sdlc/, docs/sdlc/, .claude/, CLAUDE.md, AGENTS.md, knowledge/). Hooks (security-guidance, hookify, verify-freshness, model-router with role-guard and trust-anchor, ralph-loop) run on six Claude Code events outside the stack. Packaging, the other hosts' manifests, tests, docs and licenses sit underneath.</desc>
 <style>
 text{font-family:anthropic-sans,-apple-system,"system-ui","Segoe UI",sans-serif;dominant-baseline:central;text-anchor:start}
 .dir{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-weight:600}
-.tx{fill:#0b0b0b}.mu{fill:#52514e}
+.bg{fill:#ffffff}.tx{fill:#0b0b0b}.mu{fill:#52514e}
 .a{stroke:#898781;stroke-width:1.5;fill:none}.af{fill:#898781}
 rect{stroke-width:.5}.sep{stroke-width:.5}
 .panel{fill:none;stroke-width:1.2;stroke-dasharray:5 4}
@@ -16,7 +16,7 @@ rect{stroke-width:.5}.sep{stroke-width:.5}
 .tmpl .bd{fill:#fdf3f6}.tmpl .ch{fill:#fbeaf0}.tmpl .bd,.tmpl .ch{stroke:#993556}.tmpl .eb{fill:#72243e}
 .state .bd{fill:#f5f9ee}.state .ch{fill:#eaf3de}.state .bd,.state .ch{stroke:#3b6d11}.state .eb{fill:#27500a}
 @media (prefers-color-scheme:dark){
-.tx{fill:#f0efea}.mu{fill:#aaa8a2}.a{stroke:#a09e96}.af{fill:#a09e96}
+.bg{fill:#1f1e1d}.tx{fill:#f0efea}.mu{fill:#aaa8a2}.a{stroke:#a09e96}.af{fill:#a09e96}
 .cmd .bd{fill:#1d1b38}.cmd .ch{fill:#26244a}.cmd .bd,.cmd .ch,.cmd .panel{stroke:#a098f0}.cmd .eb{fill:#cecbfa}
 .skill .bd{fill:#0c2036}.skill .ch{fill:#102a44}.skill .bd,.skill .ch{stroke:#6aa8e6}.skill .eb{fill:#b5d4f4}
 .agent .bd{fill:#09271f}.agent .ch{fill:#0c3228}.agent .bd,.agent .ch{stroke:#5ac8a5}.agent .eb{fill:#aae6d4}
@@ -26,6 +26,7 @@ rect{stroke-width:.5}.sep{stroke-width:.5}
 .state .bd{fill:#17240c}.state .ch{fill:#1f3310}.state .bd,.state .ch{stroke:#97c459}.state .eb{fill:#c0dd97}
 }
 </style>
+<rect class="bg" x="0" y="0" width="1000" height="2231"/>
 <text class="tx" x="20" y="30" font-size="20" font-weight="500">SDLC plugin layers</text>
 <text class="mu" x="20" y="54" font-size="12">How sdlc 1.8.1 is built, from what the user types down to what lands in their repo. Each band is one plugin structure and arrows show who calls whom.</text>
 <text class="mu" x="20" y="71" font-size="12">Hooks sit outside the stack because Claude Code fires them, not the workflow.</text>
@@ -111,7 +112,7 @@ rect{stroke-width:.5}.sep{stroke-width:.5}
 <polygon class="af" points="33.5,397 42.5,397 38,405"/>
 <text class="mu" x="154.0" y="392.0" font-size="11.5">start hands the feature to the orchestrator; other commands load one skill or run a script</text>
 <g class="skill">
-<rect class="bd" x="20" y="407" width="650" height="380.0" rx="6"/>
+<rect class="bd" x="20" y="407" width="650" height="409.0" rx="6"/>
 <text class="eb" x="34.0" y="427.0" font-size="10.5" letter-spacing="1">WORKFLOW</text>
 <text class="dir tx" x="34.0" y="445.0" font-size="13.5">skills/</text>
 <text class="mu" x="34.0" y="465.0" font-size="11">24 skills,</text>
@@ -127,242 +128,306 @@ rect{stroke-width:.5}.sep{stroke-width:.5}
 <text class="tx" x="262.0" y="460.0" font-size="12">setting-up-projects</text>
 <rect class="ch" x="407.2" y="450.0" width="155.2" height="20" rx="4"/>
 <text class="tx" x="415.2" y="460.0" font-size="12">project-constitution</text>
-<text class="mu" x="154" y="486.5" font-size="12"><tspan class="tx" font-weight="600">Define</tspan></text>
-<rect class="ch" x="254.0" y="479.0" width="108.2" height="20" rx="4"/>
+<text class="mu" x="154.0" y="486.5" font-size="12"><tspan class="tx" font-weight="600">Define</tspan></text>
+<rect class="ch" x="254.0" y="479.0" width="122.6" height="20" rx="4"/>
 <text class="tx" x="262.0" y="489.0" font-size="12">brainstorming</text>
-<rect class="ch" x="367.2" y="479.0" width="108.2" height="20" rx="4"/>
-<text class="tx" x="375.2" y="489.0" font-size="12">writing-specs</text>
-<rect class="ch" x="480.3" y="479.0" width="127.4" height="20" rx="4"/>
-<text class="tx" x="488.3" y="489.0" font-size="12">clarifying-specs</text>
-<text class="mu" x="154" y="515.5" font-size="12">· design (L)</text>
-<rect class="ch" x="254.0" y="508.0" width="148.2" height="20" rx="4"/>
-<text class="tx" x="262.0" y="518.0" font-size="12">designing-solutions</text>
-<text class="mu" x="154" y="544.5" font-size="12">· plans, check</text>
-<rect class="ch" x="254.0" y="537.0" width="108.2" height="20" rx="4"/>
-<text class="tx" x="262.0" y="547.0" font-size="12">writing-plans</text>
-<rect class="ch" x="367.2" y="537.0" width="162.2" height="20" rx="4"/>
-<text class="tx" x="375.2" y="547.0" font-size="12">analyzing-consistency</text>
-<text class="mu" x="154" y="573.5" font-size="12"><tspan class="tx" font-weight="600">Build</tspan></text>
-<rect class="ch" x="254.0" y="566.0" width="149.9" height="20" rx="4"/>
-<text class="tx" x="262.0" y="576.0" font-size="12">using-git-worktrees</text>
-<rect class="ch" x="408.9" y="566.0" width="205.6" height="20" rx="4"/>
-<text class="tx" x="416.9" y="576.0" font-size="12">subagent-driven-development</text>
-<rect class="ch" x="254.0" y="591.0" width="120.4" height="20" rx="4"/>
-<text class="tx" x="262.0" y="601.0" font-size="12">executing-plans</text>
-<rect class="ch" x="379.4" y="591.0" width="203.9" height="20" rx="4"/>
-<text class="tx" x="387.4" y="601.0" font-size="12">dispatching-parallel-agents</text>
-<rect class="ch" x="254.0" y="616.0" width="177.8" height="20" rx="4"/>
-<text class="tx" x="262.0" y="626.0" font-size="12">test-driven-development</text>
-<rect class="ch" x="436.8" y="616.0" width="156.9" height="20" rx="4"/>
-<text class="tx" x="444.8" y="626.0" font-size="12">systematic-debugging</text>
-<text class="mu" x="154" y="652.5" font-size="12"><tspan class="tx" font-weight="600">Prove</tspan></text>
-<text class="mu" x="154.0" y="667.5" font-size="12">verify, review</text>
-<rect class="ch" x="254.0" y="645.0" width="226.5" height="20" rx="4"/>
-<text class="tx" x="262.0" y="655.0" font-size="12">verification-before-completion</text>
-<rect class="ch" x="254.0" y="670.0" width="170.8" height="20" rx="4"/>
-<text class="tx" x="262.0" y="680.0" font-size="12">requesting-code-review</text>
-<rect class="ch" x="429.8" y="670.0" width="163.8" height="20" rx="4"/>
-<text class="tx" x="437.8" y="680.0" font-size="12">receiving-code-review</text>
-<text class="mu" x="154" y="706.5" font-size="12"><tspan class="tx" font-weight="600">Ship</tspan></text>
-<rect class="ch" x="254.0" y="699.0" width="226.5" height="20" rx="4"/>
-<text class="tx" x="262.0" y="709.0" font-size="12">finishing-a-development-branch</text>
-<text class="mu" x="154.0" y="735.5" font-size="12"><tspan class="tx" font-weight="600">Learn</tspan>,</text>
-<text class="mu" x="154.0" y="750.5" font-size="12">rules, tools</text>
-<rect class="ch" x="254.0" y="728.0" width="144.6" height="20" rx="4"/>
-<text class="tx" x="262.0" y="738.0" font-size="12">managing-knowledge</text>
-<rect class="ch" x="403.6" y="728.0" width="144.6" height="20" rx="4"/>
-<text class="tx" x="411.6" y="738.0" font-size="12">claude-md-improver</text>
-<rect class="ch" x="254.0" y="753.0" width="143.0" height="20" rx="4"/>
-<text class="tx" x="262.0" y="763.0" font-size="12">writing-hook-rules</text>
-<rect class="ch" x="402.0" y="753.0" width="44.0" height="20" rx="4"/>
-<text class="tx" x="410.0" y="763.0" font-size="12">todo</text>
-<rect class="ch" x="451.0" y="753.0" width="127.4" height="20" rx="4"/>
-<text class="tx" x="459.0" y="763.0" font-size="12">trimming-context</text>
+<text class="mu" x="362.2" y="489.0" font-size="10.5">L</text>
+<text class="mu" x="154.0" y="515.5" font-size="12">· spec</text>
+<rect class="ch" x="254.0" y="508.0" width="163.6" height="20" rx="4"/>
+<text class="tx" x="262.0" y="518.0" font-size="12">writing-specs</text>
+<text class="mu" x="362.2" y="518.0" font-size="10.5">full flow</text>
+<rect class="ch" x="422.6" y="508.0" width="199.6" height="20" rx="4"/>
+<text class="tx" x="430.6" y="518.0" font-size="12">clarifying-specs</text>
+<text class="mu" x="550.0" y="518.0" font-size="10.5">on request</text>
+<text class="mu" x="154.0" y="544.5" font-size="12">· design</text>
+<rect class="ch" x="254.0" y="537.0" width="256.2" height="20" rx="4"/>
+<text class="tx" x="262.0" y="547.0" font-size="12">designing-solutions</text>
+<text class="mu" x="402.2" y="547.0" font-size="10.5">L, or M if unclear</text>
+<text class="mu" x="154.0" y="573.5" font-size="12">· plan, check</text>
+<rect class="ch" x="254.0" y="566.0" width="163.6" height="20" rx="4"/>
+<text class="tx" x="262.0" y="576.0" font-size="12">writing-plans</text>
+<text class="mu" x="362.2" y="576.0" font-size="10.5">full flow</text>
+<rect class="ch" x="422.6" y="566.0" width="230.3" height="20" rx="4"/>
+<text class="tx" x="430.6" y="576.0" font-size="12">analyzing-consistency</text>
+<text class="mu" x="584.8" y="576.0" font-size="10.5">L, backlog</text>
+<text class="mu" x="154.0" y="602.5" font-size="12"><tspan class="tx" font-weight="600">Build</tspan></text>
+<rect class="ch" x="254.0" y="595.0" width="149.9" height="20" rx="4"/>
+<text class="tx" x="262.0" y="605.0" font-size="12">using-git-worktrees</text>
+<rect class="ch" x="408.9" y="595.0" width="205.6" height="20" rx="4"/>
+<text class="tx" x="416.9" y="605.0" font-size="12">subagent-driven-development</text>
+<rect class="ch" x="254.0" y="620.0" width="120.4" height="20" rx="4"/>
+<text class="tx" x="262.0" y="630.0" font-size="12">executing-plans</text>
+<rect class="ch" x="379.4" y="620.0" width="203.9" height="20" rx="4"/>
+<text class="tx" x="387.4" y="630.0" font-size="12">dispatching-parallel-agents</text>
+<rect class="ch" x="254.0" y="645.0" width="177.8" height="20" rx="4"/>
+<text class="tx" x="262.0" y="655.0" font-size="12">test-driven-development</text>
+<rect class="ch" x="436.8" y="645.0" width="156.9" height="20" rx="4"/>
+<text class="tx" x="444.8" y="655.0" font-size="12">systematic-debugging</text>
+<text class="mu" x="154.0" y="681.5" font-size="12"><tspan class="tx" font-weight="600">Prove</tspan></text>
+<text class="mu" x="154.0" y="696.5" font-size="12">verify, review</text>
+<rect class="ch" x="254.0" y="674.0" width="226.5" height="20" rx="4"/>
+<text class="tx" x="262.0" y="684.0" font-size="12">verification-before-completion</text>
+<rect class="ch" x="254.0" y="699.0" width="170.8" height="20" rx="4"/>
+<text class="tx" x="262.0" y="709.0" font-size="12">requesting-code-review</text>
+<rect class="ch" x="429.8" y="699.0" width="163.8" height="20" rx="4"/>
+<text class="tx" x="437.8" y="709.0" font-size="12">receiving-code-review</text>
+<text class="mu" x="154.0" y="735.5" font-size="12"><tspan class="tx" font-weight="600">Ship</tspan></text>
+<rect class="ch" x="254.0" y="728.0" width="226.5" height="20" rx="4"/>
+<text class="tx" x="262.0" y="738.0" font-size="12">finishing-a-development-branch</text>
+<text class="mu" x="154.0" y="764.5" font-size="12"><tspan class="tx" font-weight="600">Learn</tspan>,</text>
+<text class="mu" x="154.0" y="779.5" font-size="12">rules, tools</text>
+<rect class="ch" x="254.0" y="757.0" width="144.6" height="20" rx="4"/>
+<text class="tx" x="262.0" y="767.0" font-size="12">managing-knowledge</text>
+<rect class="ch" x="403.6" y="757.0" width="144.6" height="20" rx="4"/>
+<text class="tx" x="411.6" y="767.0" font-size="12">claude-md-improver</text>
+<rect class="ch" x="254.0" y="782.0" width="143.0" height="20" rx="4"/>
+<text class="tx" x="262.0" y="792.0" font-size="12">writing-hook-rules</text>
+<rect class="ch" x="402.0" y="782.0" width="44.0" height="20" rx="4"/>
+<text class="tx" x="410.0" y="792.0" font-size="12">todo</text>
+<rect class="ch" x="451.0" y="782.0" width="127.4" height="20" rx="4"/>
+<text class="tx" x="459.0" y="792.0" font-size="12">trimming-context</text>
 </g>
-<line class="a" x1="38" y1="789" x2="38" y2="808"/>
-<polygon class="af" points="33.5,807 42.5,807 38,815"/>
-<text class="mu" x="154.0" y="802.0" font-size="11.5">dispatch fresh subagents with a phase-specific brief</text>
+<line class="a" x1="38" y1="818" x2="38" y2="837"/>
+<polygon class="af" points="33.5,836 42.5,836 38,844"/>
+<text class="mu" x="154.0" y="831.0" font-size="11.5">dispatch fresh subagents with a phase-specific brief</text>
 <g class="agent">
-<rect class="bd" x="20" y="817" width="650" height="220.0" rx="6"/>
-<text class="eb" x="34.0" y="837.0" font-size="10.5" letter-spacing="1">WORKERS</text>
-<text class="dir tx" x="34.0" y="855.0" font-size="13.5">agents/</text>
-<text class="mu" x="34.0" y="875.0" font-size="11">13 subagents</text>
-<text class="mu" x="154" y="838.5" font-size="12"><tspan class="tx" font-weight="600">Define</tspan></text>
-<text class="mu" x="154.0" y="853.5" font-size="12">explore, design</text>
-<rect class="ch" x="254.0" y="831.0" width="148.0" height="20" rx="4"/>
-<text class="tx" x="262.0" y="841.0" font-size="12">code-explorer</text>
-<text class="mu" x="357.5" y="841.0" font-size="10.5">sonnet</text>
-<rect class="ch" x="407.0" y="831.0" width="155.0" height="20" rx="4"/>
-<text class="tx" x="415.0" y="841.0" font-size="12">code-architect</text>
-<text class="mu" x="517.5" y="841.0" font-size="10.5">sonnet</text>
-<text class="mu" x="154" y="877.5" font-size="12"><tspan class="tx" font-weight="600">Prove</tspan></text>
-<text class="mu" x="154.0" y="892.5" font-size="12">verify</text>
-<rect class="ch" x="254.0" y="870.0" width="193.9" height="20" rx="4" stroke-width="1.2"/>
-<text class="tx" x="262.0" y="880.0" font-size="12" font-weight="600">verifier</text>
-<text class="mu" x="322.7" y="880.0" font-size="10.5">new one every round</text>
-<rect class="ch" x="452.9" y="870.0" width="127.4" height="20" rx="4"/>
-<text class="tx" x="460.9" y="880.0" font-size="12">pr-test-analyzer</text>
-<rect class="ch" x="254.0" y="895.0" width="162.2" height="20" rx="4"/>
-<text class="tx" x="262.0" y="905.0" font-size="12">silent-failure-hunter</text>
-<rect class="ch" x="421.2" y="895.0" width="80.0" height="20" rx="4"/>
-<text class="tx" x="429.2" y="905.0" font-size="12">qa-tester</text>
-<text class="mu" x="154" y="931.5" font-size="12"><tspan class="tx" font-weight="600">Prove</tspan></text>
-<text class="mu" x="154.0" y="946.5" font-size="12">review, security</text>
-<rect class="ch" x="254.0" y="924.0" width="137.5" height="20" rx="4"/>
-<text class="tx" x="262.0" y="934.0" font-size="12">code-reviewer</text>
-<text class="mu" x="359.2" y="934.0" font-size="10.5">opus</text>
-<rect class="ch" x="396.5" y="924.0" width="170.6" height="20" rx="4"/>
-<text class="tx" x="404.5" y="934.0" font-size="12">feature-reviewer</text>
-<text class="mu" x="522.6" y="934.0" font-size="10.5">sonnet</text>
-<rect class="ch" x="254.0" y="949.0" width="130.7" height="20" rx="4"/>
-<text class="tx" x="262.0" y="959.0" font-size="12">comment-analyzer</text>
-<rect class="ch" x="389.7" y="949.0" width="155.2" height="20" rx="4"/>
-<text class="tx" x="397.7" y="959.0" font-size="12">type-design-analyzer</text>
-<rect class="ch" x="254.0" y="974.0" width="151.4" height="20" rx="4"/>
-<text class="tx" x="262.0" y="984.0" font-size="12">code-simplifier</text>
-<text class="mu" x="373.1" y="984.0" font-size="10.5">opus</text>
-<rect class="ch" x="410.4" y="974.0" width="93.0" height="20" rx="4"/>
-<text class="tx" x="418.4" y="984.0" font-size="12">ui-reviewer</text>
-<text class="mu" x="154.0" y="1010.5" font-size="12">Hookify</text>
-<rect class="ch" x="254.0" y="1003.0" width="162.2" height="20" rx="4"/>
-<text class="tx" x="262.0" y="1013.0" font-size="12">conversation-analyzer</text>
+<rect class="bd" x="20" y="846" width="650" height="220.0" rx="6"/>
+<text class="eb" x="34.0" y="866.0" font-size="10.5" letter-spacing="1">WORKERS</text>
+<text class="dir tx" x="34.0" y="884.0" font-size="13.5">agents/</text>
+<text class="mu" x="34.0" y="904.0" font-size="11">13 subagents;</text>
+<text class="mu" x="34.0" y="918.0" font-size="11">model: inherit</text>
+<text class="mu" x="34.0" y="932.0" font-size="11">unless shown</text>
+<text class="mu" x="154.0" y="867.5" font-size="12"><tspan class="tx" font-weight="600">Define</tspan></text>
+<text class="mu" x="154.0" y="882.5" font-size="12">explore, design</text>
+<rect class="ch" x="254.0" y="860.0" width="148.0" height="20" rx="4"/>
+<text class="tx" x="262.0" y="870.0" font-size="12">code-explorer</text>
+<text class="mu" x="357.5" y="870.0" font-size="10.5">sonnet</text>
+<rect class="ch" x="407.0" y="860.0" width="155.0" height="20" rx="4"/>
+<text class="tx" x="415.0" y="870.0" font-size="12">code-architect</text>
+<text class="mu" x="517.5" y="870.0" font-size="10.5">sonnet</text>
+<text class="mu" x="154.0" y="906.5" font-size="12"><tspan class="tx" font-weight="600">Prove</tspan></text>
+<text class="mu" x="154.0" y="921.5" font-size="12">verify</text>
+<rect class="ch" x="254.0" y="899.0" width="193.9" height="20" rx="4" stroke-width="1.2"/>
+<text class="tx" x="262.0" y="909.0" font-size="12" font-weight="600">verifier</text>
+<text class="mu" x="322.7" y="909.0" font-size="10.5">new one every round</text>
+<rect class="ch" x="452.9" y="899.0" width="127.4" height="20" rx="4"/>
+<text class="tx" x="460.9" y="909.0" font-size="12">pr-test-analyzer</text>
+<rect class="ch" x="254.0" y="924.0" width="162.2" height="20" rx="4"/>
+<text class="tx" x="262.0" y="934.0" font-size="12">silent-failure-hunter</text>
+<rect class="ch" x="421.2" y="924.0" width="80.0" height="20" rx="4"/>
+<text class="tx" x="429.2" y="934.0" font-size="12">qa-tester</text>
+<text class="mu" x="154.0" y="960.5" font-size="12"><tspan class="tx" font-weight="600">Prove</tspan></text>
+<text class="mu" x="154.0" y="975.5" font-size="12">review, security</text>
+<rect class="ch" x="254.0" y="953.0" width="137.5" height="20" rx="4"/>
+<text class="tx" x="262.0" y="963.0" font-size="12">code-reviewer</text>
+<text class="mu" x="359.2" y="963.0" font-size="10.5">opus</text>
+<rect class="ch" x="396.5" y="953.0" width="170.6" height="20" rx="4"/>
+<text class="tx" x="404.5" y="963.0" font-size="12">feature-reviewer</text>
+<text class="mu" x="522.6" y="963.0" font-size="10.5">sonnet</text>
+<rect class="ch" x="254.0" y="978.0" width="130.7" height="20" rx="4"/>
+<text class="tx" x="262.0" y="988.0" font-size="12">comment-analyzer</text>
+<rect class="ch" x="389.7" y="978.0" width="155.2" height="20" rx="4"/>
+<text class="tx" x="397.7" y="988.0" font-size="12">type-design-analyzer</text>
+<rect class="ch" x="254.0" y="1003.0" width="151.4" height="20" rx="4"/>
+<text class="tx" x="262.0" y="1013.0" font-size="12">code-simplifier</text>
+<text class="mu" x="373.1" y="1013.0" font-size="10.5">opus</text>
+<rect class="ch" x="410.4" y="1003.0" width="93.0" height="20" rx="4"/>
+<text class="tx" x="418.4" y="1013.0" font-size="12">ui-reviewer</text>
+<text class="mu" x="154.0" y="1039.5" font-size="12">Hookify</text>
+<rect class="ch" x="254.0" y="1032.0" width="162.2" height="20" rx="4"/>
+<text class="tx" x="262.0" y="1042.0" font-size="12">conversation-analyzer</text>
 </g>
-<line class="a" x1="38" y1="1039" x2="38" y2="1058"/>
-<polygon class="af" points="33.5,1057 42.5,1057 38,1065"/>
-<text class="mu" x="154.0" y="1052.0" font-size="11.5">commands and skills (not agents) run these for facts the model should not guess</text>
+<line class="a" x1="38" y1="1068" x2="38" y2="1087"/>
+<polygon class="af" points="33.5,1086 42.5,1086 38,1094"/>
+<text class="mu" x="154.0" y="1081.0" font-size="11.5">commands and skills (not agents) run these for state and facts the model should not guess</text>
 <g class="tool">
-<rect class="bd" x="20" y="1067" width="650" height="191.0" rx="6"/>
-<text class="eb" x="34.0" y="1087.0" font-size="10.5" letter-spacing="1">TOOLING</text>
-<text class="dir tx" x="34.0" y="1105.0" font-size="13.5">scripts/</text>
-<text class="mu" x="34.0" y="1125.0" font-size="11">plain code, no</text>
-<text class="mu" x="34.0" y="1139.0" font-size="11">model</text>
-<text class="mu" x="154.0" y="1088.5" font-size="12">Plugin</text>
-<text class="mu" x="154.0" y="1103.5" font-size="12">scripts</text>
-<rect class="ch" x="254.0" y="1081.0" width="274.2" height="20" rx="4"/>
-<text class="tx" x="262.0" y="1091.0" font-size="12">scaffold.py</text>
-<text class="mu" x="343.6" y="1091.0" font-size="10.5">setup, upgrade, eject records</text>
-<rect class="ch" x="254.0" y="1106.0" width="217.6" height="20" rx="4"/>
-<text class="tx" x="262.0" y="1116.0" font-size="12">doctor.py</text>
-<text class="mu" x="329.6" y="1116.0" font-size="10.5">read-only health check</text>
-<rect class="ch" x="254.0" y="1131.0" width="187.7" height="20" rx="4"/>
-<text class="tx" x="262.0" y="1141.0" font-size="12">diff_stats.py</text>
-<text class="mu" x="359.2" y="1141.0" font-size="10.5">review facts</text>
-<rect class="ch" x="446.7" y="1131.0" width="148.2" height="20" rx="4"/>
-<text class="tx" x="454.7" y="1141.0" font-size="12">setup-ralph-loop.sh</text>
-<text class="mu" x="154.0" y="1167.5" font-size="12">Inside skills</text>
-<rect class="ch" x="254.0" y="1160.0" width="85.6" height="20" rx="4"/>
-<text class="tx" x="262.0" y="1170.0" font-size="12">task-brief</text>
-<rect class="ch" x="344.6" y="1160.0" width="115.1" height="20" rx="4"/>
-<text class="tx" x="352.6" y="1170.0" font-size="12">review-package</text>
-<rect class="ch" x="464.7" y="1160.0" width="108.2" height="20" rx="4"/>
-<text class="tx" x="472.7" y="1170.0" font-size="12">sdd-workspace</text>
-<rect class="ch" x="254.0" y="1185.0" width="85.6" height="20" rx="4"/>
-<text class="tx" x="262.0" y="1195.0" font-size="12">task-start</text>
-<rect class="ch" x="344.6" y="1185.0" width="78.6" height="20" rx="4"/>
-<text class="tx" x="352.6" y="1195.0" font-size="12">task-done</text>
-<rect class="ch" x="428.2" y="1185.0" width="222.9" height="20" rx="4"/>
-<text class="tx" x="436.2" y="1195.0" font-size="12">brainstorming/scripts/ server</text>
-<text class="mu" x="154.0" y="1221.5" font-size="12">Language</text>
-<text class="mu" x="154.0" y="1236.5" font-size="12">server</text>
-<rect class="ch" x="254.0" y="1214.0" width="376.0" height="20" rx="4"/>
-<text class="tx" x="262.0" y="1224.0" font-size="12">.lsp.json</text>
-<text class="mu" x="329.6" y="1224.0" font-size="10.5">typescript-language-server for .ts .tsx .js .jsx</text>
+<rect class="bd" x="20" y="1096" width="650" height="274.0" rx="6"/>
+<text class="eb" x="34.0" y="1116.0" font-size="10.5" letter-spacing="1">TOOLING</text>
+<text class="dir tx" x="34.0" y="1134.0" font-size="13.5">scripts/</text>
+<text class="mu" x="34.0" y="1154.0" font-size="11">plain code, no</text>
+<text class="mu" x="34.0" y="1168.0" font-size="11">model</text>
+<text class="mu" x="154.0" y="1117.5" font-size="12">Project</text>
+<rect class="ch" x="254.0" y="1110.0" width="274.2" height="20" rx="4"/>
+<text class="tx" x="262.0" y="1120.0" font-size="12">scaffold.py</text>
+<text class="mu" x="343.6" y="1120.0" font-size="10.5">setup, upgrade, eject records</text>
+<rect class="ch" x="254.0" y="1135.0" width="217.6" height="20" rx="4"/>
+<text class="tx" x="262.0" y="1145.0" font-size="12">doctor.py</text>
+<text class="mu" x="329.6" y="1145.0" font-size="10.5">read-only health check</text>
+<text class="mu" x="154.0" y="1171.5" font-size="12">Feature state</text>
+<rect class="ch" x="254.0" y="1164.0" width="238.1" height="20" rx="4"/>
+<text class="tx" x="262.0" y="1174.0" font-size="12">state.py</text>
+<text class="mu" x="320.9" y="1174.0" font-size="10.5">state.md + control contract</text>
+<rect class="ch" x="254.0" y="1189.0" width="149.8" height="20" rx="4"/>
+<text class="tx" x="262.0" y="1199.0" font-size="12">backlog.py</text>
+<text class="mu" x="340.9" y="1199.0" font-size="10.5">next slice</text>
+<rect class="ch" x="408.8" y="1189.0" width="225.1" height="20" rx="4"/>
+<text class="tx" x="416.8" y="1199.0" font-size="12">autopilot.py</text>
+<text class="mu" x="503.4" y="1199.0" font-size="10.5">one session per slice</text>
+<text class="mu" x="154.0" y="1225.5" font-size="12">Facts, upkeep</text>
+<rect class="ch" x="254.0" y="1218.0" width="187.7" height="20" rx="4"/>
+<text class="tx" x="262.0" y="1228.0" font-size="12">diff_stats.py</text>
+<text class="mu" x="359.2" y="1228.0" font-size="10.5">review facts</text>
+<rect class="ch" x="446.7" y="1218.0" width="180.4" height="20" rx="4"/>
+<text class="tx" x="454.7" y="1228.0" font-size="12">prune.py</text>
+<text class="mu" x="520.4" y="1228.0" font-size="10.5">finished features</text>
+<rect class="ch" x="254.0" y="1243.0" width="195.8" height="20" rx="4"/>
+<text class="tx" x="262.0" y="1253.0" font-size="12">context_diet.py</text>
+<text class="mu" x="369.3" y="1253.0" font-size="10.5">context cost</text>
+<rect class="ch" x="454.8" y="1243.0" width="148.2" height="20" rx="4"/>
+<text class="tx" x="462.8" y="1253.0" font-size="12">setup-ralph-loop.sh</text>
+<text class="mu" x="154.0" y="1279.5" font-size="12">Inside skills</text>
+<rect class="ch" x="254.0" y="1272.0" width="85.6" height="20" rx="4"/>
+<text class="tx" x="262.0" y="1282.0" font-size="12">task-brief</text>
+<rect class="ch" x="344.6" y="1272.0" width="115.1" height="20" rx="4"/>
+<text class="tx" x="352.6" y="1282.0" font-size="12">review-package</text>
+<rect class="ch" x="464.7" y="1272.0" width="108.2" height="20" rx="4"/>
+<text class="tx" x="472.7" y="1282.0" font-size="12">sdd-workspace</text>
+<rect class="ch" x="254.0" y="1297.0" width="85.6" height="20" rx="4"/>
+<text class="tx" x="262.0" y="1307.0" font-size="12">task-start</text>
+<rect class="ch" x="344.6" y="1297.0" width="78.6" height="20" rx="4"/>
+<text class="tx" x="352.6" y="1307.0" font-size="12">task-done</text>
+<rect class="ch" x="428.2" y="1297.0" width="222.9" height="20" rx="4"/>
+<text class="tx" x="436.2" y="1307.0" font-size="12">brainstorming/scripts/ server</text>
+<text class="mu" x="154.0" y="1333.5" font-size="12">Language</text>
+<text class="mu" x="154.0" y="1348.5" font-size="12">server</text>
+<rect class="ch" x="254.0" y="1326.0" width="376.0" height="20" rx="4"/>
+<text class="tx" x="262.0" y="1336.0" font-size="12">.lsp.json</text>
+<text class="mu" x="329.6" y="1336.0" font-size="10.5">typescript-language-server for .ts .tsx .js .jsx</text>
 </g>
-<line class="a" x1="38" y1="1260" x2="38" y2="1279"/>
-<polygon class="af" points="33.5,1278 42.5,1278 38,1286"/>
-<text class="mu" x="154.0" y="1273.0" font-size="11.5">scaffold.py copies and tracks template files</text>
+<line class="a" x1="38" y1="1372" x2="38" y2="1391"/>
+<polygon class="af" points="33.5,1390 42.5,1390 38,1398"/>
+<text class="mu" x="154.0" y="1385.0" font-size="11.5">scaffold.py copies and tracks template files</text>
 <g class="tmpl">
-<rect class="bd" x="20" y="1288" width="650" height="185.0" rx="6"/>
-<text class="eb" x="34.0" y="1308.0" font-size="10.5" letter-spacing="1">CONTENT</text>
-<text class="dir tx" x="34.0" y="1326.0" font-size="13.5">templates/</text>
-<text class="dir tx" x="34.0" y="1344.0" font-size="13.5">examples/</text>
-<text class="mu" x="34.0" y="1364.0" font-size="11">shipped, not</text>
-<text class="mu" x="34.0" y="1378.0" font-size="11">executed</text>
-<text class="mu" x="154.0" y="1309.5" font-size="12">Project</text>
-<text class="mu" x="154.0" y="1324.5" font-size="12">scaffold</text>
-<rect class="ch" x="254.0" y="1302.0" width="155.2" height="20" rx="4"/>
-<text class="tx" x="262.0" y="1312.0" font-size="12">config.defaults.json</text>
-<rect class="ch" x="414.2" y="1302.0" width="94.2" height="20" rx="4"/>
-<text class="tx" x="422.2" y="1312.0" font-size="12">baseline.md</text>
-<rect class="ch" x="513.4" y="1302.0" width="70.5" height="20" rx="4"/>
-<text class="tx" x="521.4" y="1312.0" font-size="12">rules/</text>
-<text class="mu" x="569.9" y="1312.0" font-size="10.5">7</text>
-<rect class="ch" x="254.0" y="1327.0" width="157.5" height="20" rx="4"/>
-<text class="tx" x="262.0" y="1337.0" font-size="12">hookify/</text>
-<text class="mu" x="324.4" y="1337.0" font-size="10.5">15 guardrails</text>
-<rect class="ch" x="416.5" y="1327.0" width="130.6" height="20" rx="4"/>
-<text class="tx" x="424.5" y="1337.0" font-size="12">lint/</text>
-<text class="mu" x="466.0" y="1337.0" font-size="10.5">eslint, ruff</text>
-<text class="mu" x="154.0" y="1363.5" font-size="12">Feature docs</text>
-<rect class="ch" x="254.0" y="1356.0" width="108.2" height="20" rx="4"/>
-<text class="tx" x="262.0" y="1366.0" font-size="12">spec-template</text>
-<rect class="ch" x="367.2" y="1356.0" width="122.1" height="20" rx="4"/>
-<text class="tx" x="375.2" y="1366.0" font-size="12">design-template</text>
-<rect class="ch" x="254.0" y="1381.0" width="163.8" height="20" rx="4"/>
-<text class="tx" x="262.0" y="1391.0" font-size="12">constitution-template</text>
-<rect class="ch" x="422.8" y="1381.0" width="143.0" height="20" rx="4"/>
-<text class="tx" x="430.8" y="1391.0" font-size="12">checklist-template</text>
-<text class="mu" x="154.0" y="1417.5" font-size="12">Knowledge</text>
-<rect class="ch" x="254.0" y="1410.0" width="123.8" height="20" rx="4"/>
-<text class="tx" x="262.0" y="1420.0" font-size="12">knowledge/index</text>
-<rect class="ch" x="382.8" y="1410.0" width="109.8" height="20" rx="4"/>
-<text class="tx" x="390.8" y="1420.0" font-size="12">knowledge/doc</text>
-<rect class="ch" x="497.6" y="1410.0" width="116.8" height="20" rx="4"/>
-<text class="tx" x="505.6" y="1420.0" font-size="12">knowledge/rule</text>
-<text class="mu" x="154.0" y="1446.5" font-size="12">Examples</text>
-<rect class="ch" x="254.0" y="1439.0" width="231.1" height="20" rx="4"/>
-<text class="tx" x="262.0" y="1449.0" font-size="12">examples/hookify/</text>
-<text class="mu" x="390.4" y="1449.0" font-size="10.5">4 sample rules</text>
+<rect class="bd" x="20" y="1400" width="650" height="289.0" rx="6"/>
+<text class="eb" x="34.0" y="1420.0" font-size="10.5" letter-spacing="1">CONTENT</text>
+<text class="dir tx" x="34.0" y="1438.0" font-size="13.5">templates/</text>
+<text class="dir tx" x="34.0" y="1456.0" font-size="13.5">examples/</text>
+<text class="dir tx" x="34.0" y="1474.0" font-size="13.5">migrations/</text>
+<text class="mu" x="34.0" y="1494.0" font-size="11">shipped, not</text>
+<text class="mu" x="34.0" y="1508.0" font-size="11">executed</text>
+<text class="mu" x="154.0" y="1421.5" font-size="12">Project</text>
+<text class="mu" x="154.0" y="1436.5" font-size="12">scaffold</text>
+<rect class="ch" x="254.0" y="1414.0" width="155.2" height="20" rx="4"/>
+<text class="tx" x="262.0" y="1424.0" font-size="12">config.defaults.json</text>
+<rect class="ch" x="414.2" y="1414.0" width="94.2" height="20" rx="4"/>
+<text class="tx" x="422.2" y="1424.0" font-size="12">baseline.md</text>
+<rect class="ch" x="513.4" y="1414.0" width="70.5" height="20" rx="4"/>
+<text class="tx" x="521.4" y="1424.0" font-size="12">rules/</text>
+<text class="mu" x="569.9" y="1424.0" font-size="10.5">7</text>
+<rect class="ch" x="254.0" y="1439.0" width="157.5" height="20" rx="4"/>
+<text class="tx" x="262.0" y="1449.0" font-size="12">hookify/</text>
+<text class="mu" x="324.4" y="1449.0" font-size="10.5">15 guardrails</text>
+<rect class="ch" x="416.5" y="1439.0" width="130.6" height="20" rx="4"/>
+<text class="tx" x="424.5" y="1449.0" font-size="12">lint/</text>
+<text class="mu" x="466.0" y="1449.0" font-size="10.5">eslint, ruff</text>
+<rect class="ch" x="254.0" y="1464.0" width="195.7" height="20" rx="4"/>
+<text class="tx" x="262.0" y="1474.0" font-size="12">ci/</text>
+<text class="mu" x="291.2" y="1474.0" font-size="10.5">invariants, contract check</text>
+<rect class="ch" x="454.7" y="1464.0" width="137.8" height="20" rx="4"/>
+<text class="tx" x="462.7" y="1474.0" font-size="12">monorepo/</text>
+<text class="mu" x="545.6" y="1474.0" font-size="10.5">4 docs</text>
+<rect class="ch" x="254.0" y="1489.0" width="265.5" height="20" rx="4"/>
+<text class="tx" x="262.0" y="1499.0" font-size="12">agents/workflow.md</text>
+<text class="mu" x="404.3" y="1499.0" font-size="10.5">AGENTS.md block</text>
+<text class="mu" x="154.0" y="1525.5" font-size="12">Feature docs</text>
+<rect class="ch" x="254.0" y="1518.0" width="118.6" height="20" rx="4"/>
+<text class="tx" x="262.0" y="1528.0" font-size="12">intent-template</text>
+<rect class="ch" x="377.6" y="1518.0" width="108.2" height="20" rx="4"/>
+<text class="tx" x="385.6" y="1528.0" font-size="12">spec-template</text>
+<rect class="ch" x="490.8" y="1518.0" width="143.0" height="20" rx="4"/>
+<text class="tx" x="498.8" y="1528.0" font-size="12">checklist-template</text>
+<rect class="ch" x="254.0" y="1543.0" width="108.7" height="20" rx="4"/>
+<text class="tx" x="262.0" y="1553.0" font-size="12">plan-template</text>
+<rect class="ch" x="367.7" y="1543.0" width="122.1" height="20" rx="4"/>
+<text class="tx" x="375.7" y="1553.0" font-size="12">design-template</text>
+<rect class="ch" x="494.8" y="1543.0" width="132.0" height="20" rx="4"/>
+<text class="tx" x="502.8" y="1553.0" font-size="12">backlog-template</text>
+<rect class="ch" x="254.0" y="1568.0" width="163.8" height="20" rx="4"/>
+<text class="tx" x="262.0" y="1578.0" font-size="12">constitution-template</text>
+<rect class="ch" x="422.8" y="1568.0" width="175.4" height="20" rx="4"/>
+<text class="tx" x="430.8" y="1578.0" font-size="12">design-system-template</text>
+<text class="mu" x="154.0" y="1604.5" font-size="12">Knowledge</text>
+<rect class="ch" x="254.0" y="1597.0" width="123.8" height="20" rx="4"/>
+<text class="tx" x="262.0" y="1607.0" font-size="12">knowledge/index</text>
+<rect class="ch" x="382.8" y="1597.0" width="109.8" height="20" rx="4"/>
+<text class="tx" x="390.8" y="1607.0" font-size="12">knowledge/doc</text>
+<rect class="ch" x="497.6" y="1597.0" width="116.8" height="20" rx="4"/>
+<text class="tx" x="505.6" y="1607.0" font-size="12">knowledge/rule</text>
+<text class="mu" x="154.0" y="1633.5" font-size="12">Examples</text>
+<rect class="ch" x="254.0" y="1626.0" width="231.1" height="20" rx="4"/>
+<text class="tx" x="262.0" y="1636.0" font-size="12">examples/hookify/</text>
+<text class="mu" x="390.4" y="1636.0" font-size="10.5">4 sample rules</text>
+<text class="mu" x="154.0" y="1662.5" font-size="12">Upgrades</text>
+<rect class="ch" x="254.0" y="1655.0" width="197.9" height="20" rx="4"/>
+<text class="tx" x="262.0" y="1665.0" font-size="12">migrations/</text>
+<text class="mu" x="345.8" y="1665.0" font-size="10.5">2 upgrade notes</text>
 </g>
-<line class="a" x1="38" y1="1475" x2="38" y2="1494"/>
-<polygon class="af" points="33.5,1493 42.5,1493 38,1501"/>
-<text class="mu" x="154.0" y="1488.0" font-size="11.5">generated and committed into the user's repo</text>
+<line class="a" x1="38" y1="1691" x2="38" y2="1710"/>
+<polygon class="af" points="33.5,1709 42.5,1709 38,1717"/>
+<text class="mu" x="154.0" y="1704.0" font-size="11.5">generated into the user's repo; committed unless marked git-ignored</text>
 <g class="state">
-<rect class="bd" x="20" y="1503" width="650" height="181.0" rx="6"/>
-<text class="eb" x="34.0" y="1523.0" font-size="10.5" letter-spacing="1">STATE</text>
-<text class="dir tx" x="34.0" y="1541.0" font-size="13.5">user repo</text>
-<text class="mu" x="34.0" y="1561.0" font-size="11">outside the</text>
-<text class="mu" x="34.0" y="1575.0" font-size="11">plugin</text>
-<text class="mu" x="154.0" y="1524.5" font-size="12">.sdlc/</text>
-<rect class="ch" x="254.0" y="1517.0" width="148.0" height="20" rx="4"/>
-<text class="tx" x="262.0" y="1527.0" font-size="12">config.json</text>
-<text class="mu" x="343.6" y="1527.0" font-size="10.5">commands</text>
-<rect class="ch" x="407.0" y="1517.0" width="94.2" height="20" rx="4"/>
-<text class="tx" x="415.0" y="1527.0" font-size="12">baseline.md</text>
-<rect class="ch" x="254.0" y="1542.0" width="143.3" height="20" rx="4" stroke-width="1.2"/>
-<text class="tx" x="262.0" y="1552.0" font-size="12" font-weight="600">state/&lt;feature&gt;.md</text>
-<rect class="ch" x="402.3" y="1542.0" width="51.4" height="20" rx="4"/>
-<text class="tx" x="410.3" y="1552.0" font-size="12">lint/</text>
-<rect class="ch" x="458.7" y="1542.0" width="37.2" height="20" rx="4"/>
-<text class="tx" x="466.7" y="1552.0" font-size="12">ci/</text>
-<text class="mu" x="154.0" y="1574.5" font-size="12">docs/sdlc/</text>
-<rect class="ch" x="254.0" y="1567.0" width="122.1" height="20" rx="4"/>
-<text class="tx" x="262.0" y="1577.0" font-size="12">constitution.md</text>
-<rect class="ch" x="381.1" y="1567.0" width="129.1" height="20" rx="4"/>
-<text class="tx" x="389.1" y="1577.0" font-size="12">design-system.md</text>
-<rect class="ch" x="254.0" y="1592.0" width="143.3" height="20" rx="4" stroke-width="1.2"/>
-<text class="tx" x="262.0" y="1602.0" font-size="12" font-weight="600">intents/&lt;feature&gt;/</text>
-<rect class="ch" x="402.3" y="1592.0" width="66.4" height="20" rx="4"/>
-<text class="tx" x="410.3" y="1602.0" font-size="12">spec.md</text>
-<rect class="ch" x="473.7" y="1592.0" width="80.3" height="20" rx="4"/>
-<text class="tx" x="481.7" y="1602.0" font-size="12">design.md</text>
-<rect class="ch" x="559.0" y="1592.0" width="89.0" height="20" rx="4"/>
-<text class="tx" x="567.0" y="1602.0" font-size="12">backlog.md</text>
-<text class="mu" x="154.0" y="1628.5" font-size="12">.claude/</text>
-<rect class="ch" x="254.0" y="1621.0" width="59.4" height="20" rx="4"/>
-<text class="tx" x="262.0" y="1631.0" font-size="12">rules/</text>
-<rect class="ch" x="318.4" y="1621.0" width="102.9" height="20" rx="4"/>
-<text class="tx" x="326.4" y="1631.0" font-size="12">hookify/*.md</text>
-<rect class="ch" x="426.3" y="1621.0" width="143.0" height="20" rx="4"/>
-<text class="tx" x="434.3" y="1631.0" font-size="12">hookify.*.local.md</text>
-<text class="mu" x="154.0" y="1657.5" font-size="12">Repo root</text>
-<rect class="ch" x="254.0" y="1650.0" width="90.4" height="20" rx="4"/>
-<text class="tx" x="262.0" y="1660.0" font-size="12">CLAUDE.md</text>
-<rect class="ch" x="349.4" y="1650.0" width="89.0" height="20" rx="4"/>
-<text class="tx" x="357.4" y="1660.0" font-size="12">knowledge/</text>
+<rect class="bd" x="20" y="1719" width="650" height="285.0" rx="6"/>
+<text class="eb" x="34.0" y="1739.0" font-size="10.5" letter-spacing="1">STATE</text>
+<text class="dir tx" x="34.0" y="1757.0" font-size="13.5">user repo</text>
+<text class="mu" x="34.0" y="1777.0" font-size="11">outside the</text>
+<text class="mu" x="34.0" y="1791.0" font-size="11">plugin</text>
+<text class="mu" x="154.0" y="1740.5" font-size="12">.sdlc/</text>
+<rect class="ch" x="254.0" y="1733.0" width="148.0" height="20" rx="4"/>
+<text class="tx" x="262.0" y="1743.0" font-size="12">config.json</text>
+<text class="mu" x="343.6" y="1743.0" font-size="10.5">commands</text>
+<rect class="ch" x="407.0" y="1733.0" width="94.2" height="20" rx="4"/>
+<text class="tx" x="415.0" y="1743.0" font-size="12">baseline.md</text>
+<rect class="ch" x="506.2" y="1733.0" width="51.4" height="20" rx="4"/>
+<text class="tx" x="514.2" y="1743.0" font-size="12">lint/</text>
+<rect class="ch" x="562.6" y="1733.0" width="37.2" height="20" rx="4"/>
+<text class="tx" x="570.6" y="1743.0" font-size="12">ci/</text>
+<rect class="ch" x="254.0" y="1758.0" width="143.3" height="20" rx="4" stroke-width="1.2"/>
+<text class="tx" x="262.0" y="1768.0" font-size="12" font-weight="600">state/&lt;feature&gt;.md</text>
+<rect class="ch" x="402.3" y="1758.0" width="133.0" height="20" rx="4"/>
+<text class="tx" x="410.3" y="1768.0" font-size="12">.work/</text>
+<text class="mu" x="459.4" y="1768.0" font-size="10.5">git-ignored</text>
+<rect class="ch" x="254.0" y="1783.0" width="313.4" height="20" rx="4"/>
+<text class="tx" x="262.0" y="1793.0" font-size="12">state/&lt;feature&gt;.json, .events.jsonl</text>
+<text class="mu" x="491.5" y="1793.0" font-size="10.5">git-ignored</text>
+<text class="mu" x="154.0" y="1819.5" font-size="12">docs/sdlc/</text>
+<rect class="ch" x="254.0" y="1812.0" width="122.1" height="20" rx="4"/>
+<text class="tx" x="262.0" y="1822.0" font-size="12">constitution.md</text>
+<rect class="ch" x="381.1" y="1812.0" width="129.1" height="20" rx="4"/>
+<text class="tx" x="389.1" y="1822.0" font-size="12">design-system.md</text>
+<rect class="ch" x="254.0" y="1837.0" width="153.3" height="20" rx="4"/>
+<text class="tx" x="262.0" y="1847.0" font-size="12">recurring-defects.md</text>
+<rect class="ch" x="254.0" y="1862.0" width="143.3" height="20" rx="4" stroke-width="1.2"/>
+<text class="tx" x="262.0" y="1872.0" font-size="12" font-weight="600">intents/&lt;feature&gt;/</text>
+<rect class="ch" x="402.3" y="1862.0" width="79.1" height="20" rx="4"/>
+<text class="tx" x="410.3" y="1872.0" font-size="12">intent.md</text>
+<rect class="ch" x="486.4" y="1862.0" width="66.4" height="20" rx="4"/>
+<text class="tx" x="494.4" y="1872.0" font-size="12">spec.md</text>
+<rect class="ch" x="557.8" y="1862.0" width="69.2" height="20" rx="4"/>
+<text class="tx" x="565.8" y="1872.0" font-size="12">plan.md</text>
+<rect class="ch" x="254.0" y="1887.0" width="80.3" height="20" rx="4"/>
+<text class="tx" x="262.0" y="1897.0" font-size="12">design.md</text>
+<rect class="ch" x="339.3" y="1887.0" width="89.0" height="20" rx="4"/>
+<text class="tx" x="347.3" y="1897.0" font-size="12">backlog.md</text>
+<text class="mu" x="154.0" y="1923.5" font-size="12">.claude/</text>
+<rect class="ch" x="254.0" y="1916.0" width="59.4" height="20" rx="4"/>
+<text class="tx" x="262.0" y="1926.0" font-size="12">rules/</text>
+<rect class="ch" x="318.4" y="1916.0" width="102.9" height="20" rx="4"/>
+<text class="tx" x="326.4" y="1926.0" font-size="12">hookify/*.md</text>
+<rect class="ch" x="426.3" y="1916.0" width="143.0" height="20" rx="4"/>
+<text class="tx" x="434.3" y="1926.0" font-size="12">hookify.*.local.md</text>
+<rect class="ch" x="254.0" y="1941.0" width="97.6" height="20" rx="4"/>
+<text class="tx" x="262.0" y="1951.0" font-size="12">settings.json</text>
+<text class="mu" x="154.0" y="1977.5" font-size="12">Repo root</text>
+<rect class="ch" x="254.0" y="1970.0" width="90.4" height="20" rx="4"/>
+<text class="tx" x="262.0" y="1980.0" font-size="12">CLAUDE.md</text>
+<rect class="ch" x="349.4" y="1970.0" width="169.8" height="20" rx="4"/>
+<text class="tx" x="357.4" y="1980.0" font-size="12">AGENTS.md</text>
+<text class="mu" x="443.8" y="1980.0" font-size="10.5">other hosts</text>
+<rect class="ch" x="524.2" y="1970.0" width="89.0" height="20" rx="4"/>
+<text class="tx" x="532.2" y="1980.0" font-size="12">knowledge/</text>
 </g>
 <g class="hook">
-<rect class="panel" x="686" y="130" width="294" height="1554.0" rx="6"/>
+<rect class="panel" x="686" y="130" width="294" height="1874.0" rx="6"/>
 </g>
 <g class="hook">
 <text class="eb" x="700.0" y="150.0" font-size="10.5" letter-spacing="1">CROSS-CUTTING</text>
@@ -384,118 +449,172 @@ rect{stroke-width:.5}.sep{stroke-width:.5}
 <rect class="ch" x="700" y="346.0" width="66" height="18" rx="4"/>
 <text class="tx" x="733.0" y="355.5" font-size="11" style="text-anchor:middle">hookify</text>
 <text class="mu" x="774.0" y="355.5" font-size="11">rules that match the prompt</text>
-<line class="sep" x1="700" y1="371" x2="966" y2="371"/>
-<text class="dir tx" x="700.0" y="386.0" font-size="12">PreToolUse</text>
-<rect class="ch" x="700" y="396.0" width="66" height="18" rx="4"/>
-<text class="tx" x="733.0" y="405.5" font-size="11" style="text-anchor:middle">hookify</text>
-<text class="mu" x="774.0" y="405.5" font-size="11">warn or block before a tool</text>
-<text class="mu" x="774.0" y="419.5" font-size="11">runs</text>
+<rect class="ch" x="700" y="370.0" width="66" height="18" rx="4"/>
+<text class="tx" x="733.0" y="379.5" font-size="11" style="text-anchor:middle">router</text>
+<text class="mu" x="774.0" y="379.5" font-size="11">trust-anchor: the user's prompt</text>
+<text class="mu" x="774.0" y="393.5" font-size="11">accepts its open notices</text>
+<line class="sep" x1="700" y1="407" x2="966" y2="407"/>
+<text class="dir tx" x="700.0" y="422.0" font-size="12">PreToolUse</text>
 <rect class="ch" x="700" y="432.0" width="66" height="18" rx="4"/>
-<text class="tx" x="733.0" y="441.5" font-size="11" style="text-anchor:middle">router</text>
-<text class="mu" x="774.0" y="441.5" font-size="11">model per subagent; role-guard</text>
-<text class="mu" x="774.0" y="455.5" font-size="11">keeps sdlc agents to their role</text>
-<line class="sep" x1="700" y1="469" x2="966" y2="469"/>
-<text class="dir tx" x="700.0" y="484.0" font-size="12">PostToolUse</text>
-<rect class="ch" x="700" y="494.0" width="66" height="18" rx="4"/>
-<text class="tx" x="733.0" y="503.5" font-size="11" style="text-anchor:middle">security</text>
-<text class="mu" x="774.0" y="503.5" font-size="11">pattern warnings on edits;</text>
-<text class="mu" x="774.0" y="517.5" font-size="11">background review after git</text>
-<text class="mu" x="774.0" y="531.5" font-size="11">commit, push</text>
-<rect class="ch" x="700" y="544.0" width="66" height="18" rx="4"/>
-<text class="tx" x="733.0" y="553.5" font-size="11" style="text-anchor:middle">freshness</text>
-<text class="mu" x="774.0" y="553.5" font-size="11">any code change marks test</text>
-<text class="mu" x="774.0" y="567.5" font-size="11">results stale (Prove only)</text>
-<line class="sep" x1="700" y1="581" x2="966" y2="581"/>
-<text class="dir tx" x="700.0" y="596.0" font-size="12">Stop</text>
-<rect class="ch" x="700" y="606.0" width="66" height="18" rx="4"/>
-<text class="tx" x="733.0" y="615.5" font-size="11" style="text-anchor:middle">security</text>
-<text class="mu" x="774.0" y="615.5" font-size="11">diff review at turn end</text>
-<rect class="ch" x="700" y="630.0" width="66" height="18" rx="4"/>
-<text class="tx" x="733.0" y="639.5" font-size="11" style="text-anchor:middle">hookify</text>
-<text class="mu" x="774.0" y="639.5" font-size="11">stop rules, e.g. require tests</text>
-<rect class="ch" x="700" y="654.0" width="66" height="18" rx="4"/>
-<text class="tx" x="733.0" y="663.5" font-size="11" style="text-anchor:middle">ralph</text>
-<text class="mu" x="774.0" y="663.5" font-size="11">re-feeds the prompt (only</text>
-<text class="mu" x="774.0" y="677.5" font-size="11">inside /ralph-loop)</text>
-<rect class="ch" x="700" y="690.0" width="66" height="18" rx="4"/>
-<text class="tx" x="733.0" y="699.5" font-size="11" style="text-anchor:middle">freshness</text>
-<text class="mu" x="774.0" y="699.5" font-size="11">blocks finishing on stale tests</text>
-<line class="sep" x1="700" y1="715" x2="966" y2="715"/>
-<text class="mu" x="700.0" y="731.0" font-size="10" letter-spacing="0.8">SECURITY-GUIDANCE MODULES</text>
-<rect class="ch" x="700.0" y="739.0" width="157.0" height="18" rx="4"/>
-<text class="tx" x="706.0" y="748.0" font-size="11">security_reminder_hook</text>
-<rect class="ch" x="861.0" y="739.0" width="32.7" height="18" rx="4"/>
-<text class="tx" x="867.0" y="748.0" font-size="11">llm</text>
-<rect class="ch" x="700.0" y="761.0" width="78.9" height="18" rx="4"/>
-<text class="tx" x="706.0" y="770.0" font-size="11">review_api</text>
-<rect class="ch" x="782.9" y="761.0" width="63.0" height="18" rx="4"/>
-<text class="tx" x="788.9" y="770.0" font-size="11">patterns</text>
-<rect class="ch" x="849.9" y="761.0" width="56.7" height="18" rx="4"/>
-<text class="tx" x="855.9" y="770.0" font-size="11">gitutil</text>
-<rect class="ch" x="700.0" y="783.0" width="69.4" height="18" rx="4"/>
-<text class="tx" x="706.0" y="792.0" font-size="11">diffstate</text>
-<rect class="ch" x="773.4" y="783.0" width="96.5" height="18" rx="4"/>
-<text class="tx" x="779.4" y="792.0" font-size="11">session_state</text>
-<rect class="ch" x="700.0" y="805.0" width="94.9" height="18" rx="4"/>
-<text class="tx" x="706.0" y="814.0" font-size="11">extensibility</text>
-<rect class="ch" x="798.9" y="805.0" width="82.2" height="18" rx="4"/>
-<text class="tx" x="804.9" y="814.0" font-size="11">reporesolve</text>
-<text class="mu" x="700.0" y="835.0" font-size="10" letter-spacing="0.8">HOOKIFY ENGINE</text>
-<rect class="ch" x="700.0" y="843.0" width="117.2" height="18" rx="4"/>
-<text class="tx" x="706.0" y="852.0" font-size="11">core/rule_engine</text>
-<rect class="ch" x="821.2" y="843.0" width="129.9" height="18" rx="4"/>
-<text class="tx" x="827.2" y="852.0" font-size="11">core/config_loader</text>
-<rect class="ch" x="700.0" y="865.0" width="72.5" height="18" rx="4"/>
-<text class="tx" x="706.0" y="874.0" font-size="11">matchers/</text>
-<rect class="ch" x="776.5" y="865.0" width="51.8" height="18" rx="4"/>
-<text class="tx" x="782.5" y="874.0" font-size="11">utils/</text>
-<text class="mu" x="700.0" y="895.0" font-size="10" letter-spacing="0.8">LAUNCHERS</text>
-<rect class="ch" x="700.0" y="903.0" width="88.6" height="18" rx="4"/>
-<text class="tx" x="706.0" y="912.0" font-size="11">sg-python.sh</text>
-<rect class="ch" x="792.6" y="903.0" width="88.6" height="18" rx="4"/>
-<text class="tx" x="798.6" y="912.0" font-size="11">stop-hook.sh</text>
-<line class="sep" x1="700" y1="1620" x2="966" y2="1620"/>
-<line class="a" x1="705" y1="1654" x2="705" y2="1635"/>
-<polygon class="af" points="700.5,1636 709.5,1636 705,1628"/>
-<text class="mu" x="720.0" y="1642.0" font-size="11">Reads .sdlc/state/ for the current phase</text>
-<text class="mu" x="720.0" y="1656.0" font-size="11">and .claude/hookify*.md for rules,</text>
-<text class="mu" x="720.0" y="1670.0" font-size="11">both from the State layer.</text>
+<text class="tx" x="733.0" y="441.5" font-size="11" style="text-anchor:middle">hookify</text>
+<text class="mu" x="774.0" y="441.5" font-size="11">warn or block before a tool</text>
+<text class="mu" x="774.0" y="455.5" font-size="11">runs</text>
+<rect class="ch" x="700" y="468.0" width="66" height="18" rx="4"/>
+<text class="tx" x="733.0" y="477.5" font-size="11" style="text-anchor:middle">router</text>
+<text class="mu" x="774.0" y="477.5" font-size="11">model per subagent; role-guard</text>
+<text class="mu" x="774.0" y="491.5" font-size="11">keeps sdlc agents to their role</text>
+<line class="sep" x1="700" y1="505" x2="966" y2="505"/>
+<text class="dir tx" x="700.0" y="520.0" font-size="12">PostToolUse</text>
+<rect class="ch" x="700" y="530.0" width="66" height="18" rx="4"/>
+<text class="tx" x="733.0" y="539.5" font-size="11" style="text-anchor:middle">security</text>
+<text class="mu" x="774.0" y="539.5" font-size="11">pattern warnings on edits;</text>
+<text class="mu" x="774.0" y="553.5" font-size="11">background review after git</text>
+<text class="mu" x="774.0" y="567.5" font-size="11">commit, push</text>
+<rect class="ch" x="700" y="580.0" width="66" height="18" rx="4"/>
+<text class="tx" x="733.0" y="589.5" font-size="11" style="text-anchor:middle">freshness</text>
+<text class="mu" x="774.0" y="589.5" font-size="11">any code change marks test</text>
+<text class="mu" x="774.0" y="603.5" font-size="11">results stale (Prove only)</text>
+<line class="sep" x1="700" y1="617" x2="966" y2="617"/>
+<text class="dir tx" x="700.0" y="632.0" font-size="12">PostToolUseFailure</text>
+<rect class="ch" x="700" y="642.0" width="66" height="18" rx="4"/>
+<text class="tx" x="733.0" y="651.5" font-size="11" style="text-anchor:middle">freshness</text>
+<text class="mu" x="774.0" y="651.5" font-size="11">a failed full test run still</text>
+<text class="mu" x="774.0" y="665.5" font-size="11">counts as a run</text>
+<line class="sep" x1="700" y1="679" x2="966" y2="679"/>
+<text class="dir tx" x="700.0" y="694.0" font-size="12">Stop</text>
+<rect class="ch" x="700" y="704.0" width="66" height="18" rx="4"/>
+<text class="tx" x="733.0" y="713.5" font-size="11" style="text-anchor:middle">security</text>
+<text class="mu" x="774.0" y="713.5" font-size="11">diff review at turn end</text>
+<rect class="ch" x="700" y="728.0" width="66" height="18" rx="4"/>
+<text class="tx" x="733.0" y="737.5" font-size="11" style="text-anchor:middle">hookify</text>
+<text class="mu" x="774.0" y="737.5" font-size="11">stop rules, e.g. require tests</text>
+<rect class="ch" x="700" y="752.0" width="66" height="18" rx="4"/>
+<text class="tx" x="733.0" y="761.5" font-size="11" style="text-anchor:middle">ralph</text>
+<text class="mu" x="774.0" y="761.5" font-size="11">re-feeds the prompt (only</text>
+<text class="mu" x="774.0" y="775.5" font-size="11">inside /ralph-loop)</text>
+<rect class="ch" x="700" y="788.0" width="66" height="18" rx="4"/>
+<text class="tx" x="733.0" y="797.5" font-size="11" style="text-anchor:middle">freshness</text>
+<text class="mu" x="774.0" y="797.5" font-size="11">blocks finishing on stale tests</text>
+<rect class="ch" x="700" y="812.0" width="66" height="18" rx="4"/>
+<text class="tx" x="733.0" y="821.5" font-size="11" style="text-anchor:middle">router</text>
+<text class="mu" x="774.0" y="821.5" font-size="11">trust-anchor: blocks once when</text>
+<text class="mu" x="774.0" y="835.5" font-size="11">what verification trusts</text>
+<text class="mu" x="774.0" y="849.5" font-size="11">changed</text>
+<line class="sep" x1="700" y1="863" x2="966" y2="863"/>
+<text class="mu" x="700.0" y="879.0" font-size="10" letter-spacing="0.8">SECURITY-GUIDANCE MODULES</text>
+<rect class="ch" x="700.0" y="887.0" width="157.0" height="18" rx="4"/>
+<text class="tx" x="706.0" y="896.0" font-size="11">security_reminder_hook</text>
+<rect class="ch" x="861.0" y="887.0" width="32.7" height="18" rx="4"/>
+<text class="tx" x="867.0" y="896.0" font-size="11">llm</text>
+<rect class="ch" x="700.0" y="909.0" width="78.9" height="18" rx="4"/>
+<text class="tx" x="706.0" y="918.0" font-size="11">review_api</text>
+<rect class="ch" x="782.9" y="909.0" width="63.0" height="18" rx="4"/>
+<text class="tx" x="788.9" y="918.0" font-size="11">patterns</text>
+<rect class="ch" x="849.9" y="909.0" width="56.7" height="18" rx="4"/>
+<text class="tx" x="855.9" y="918.0" font-size="11">gitutil</text>
+<rect class="ch" x="700.0" y="931.0" width="69.4" height="18" rx="4"/>
+<text class="tx" x="706.0" y="940.0" font-size="11">diffstate</text>
+<rect class="ch" x="773.4" y="931.0" width="96.5" height="18" rx="4"/>
+<text class="tx" x="779.4" y="940.0" font-size="11">session_state</text>
+<rect class="ch" x="700.0" y="953.0" width="94.9" height="18" rx="4"/>
+<text class="tx" x="706.0" y="962.0" font-size="11">extensibility</text>
+<rect class="ch" x="798.9" y="953.0" width="82.2" height="18" rx="4"/>
+<text class="tx" x="804.9" y="962.0" font-size="11">reporesolve</text>
+<rect class="ch" x="700.0" y="975.0" width="112.2" height="18" rx="4"/>
+<text class="tx" x="706.0" y="984.0" font-size="11">sdlc_review_gate</text>
+<rect class="ch" x="816.2" y="975.0" width="118.6" height="18" rx="4"/>
+<text class="tx" x="822.2" y="984.0" font-size="11">ensure_agent_sdk</text>
+<rect class="ch" x="700.0" y="997.0" width="45.6" height="18" rx="4"/>
+<text class="tx" x="706.0" y="1006.0" font-size="11">_base</text>
+<text class="mu" x="700.0" y="1027.0" font-size="10" letter-spacing="0.8">HOOKIFY ENGINE</text>
+<rect class="ch" x="700.0" y="1035.0" width="76.5" height="18" rx="4"/>
+<text class="tx" x="706.0" y="1044.0" font-size="11">pretooluse</text>
+<rect class="ch" x="780.5" y="1035.0" width="123.7" height="18" rx="4"/>
+<text class="tx" x="786.5" y="1044.0" font-size="11">userpromptsubmit</text>
+<rect class="ch" x="908.2" y="1035.0" width="38.4" height="18" rx="4"/>
+<text class="tx" x="914.2" y="1044.0" font-size="11">stop</text>
+<rect class="ch" x="700.0" y="1057.0" width="117.2" height="18" rx="4"/>
+<text class="tx" x="706.0" y="1066.0" font-size="11">core/rule_engine</text>
+<rect class="ch" x="821.2" y="1057.0" width="129.9" height="18" rx="4"/>
+<text class="tx" x="827.2" y="1066.0" font-size="11">core/config_loader</text>
+<rect class="ch" x="700.0" y="1079.0" width="72.5" height="18" rx="4"/>
+<text class="tx" x="706.0" y="1088.0" font-size="11">matchers/</text>
+<rect class="ch" x="776.5" y="1079.0" width="51.8" height="18" rx="4"/>
+<text class="tx" x="782.5" y="1088.0" font-size="11">utils/</text>
+<text class="mu" x="700.0" y="1109.0" font-size="10" letter-spacing="0.8">SDLC HOOKS</text>
+<rect class="ch" x="700.0" y="1117.0" width="92.8" height="18" rx="4"/>
+<text class="tx" x="706.0" y="1126.0" font-size="11">model_router</text>
+<rect class="ch" x="796.8" y="1117.0" width="76.3" height="18" rx="4"/>
+<text class="tx" x="802.8" y="1126.0" font-size="11">role_guard</text>
+<rect class="ch" x="877.1" y="1117.0" width="86.6" height="18" rx="4"/>
+<text class="tx" x="883.1" y="1126.0" font-size="11">trust_anchor</text>
+<rect class="ch" x="700.0" y="1139.0" width="106.3" height="18" rx="4"/>
+<text class="tx" x="706.0" y="1148.0" font-size="11">verify_freshness</text>
+<rect class="ch" x="810.3" y="1139.0" width="78.3" height="18" rx="4"/>
+<text class="tx" x="816.3" y="1148.0" font-size="11">sdlc_layout</text>
+<text class="mu" x="700.0" y="1169.0" font-size="10" letter-spacing="0.8">LAUNCHERS</text>
+<rect class="ch" x="700.0" y="1177.0" width="88.6" height="18" rx="4"/>
+<text class="tx" x="706.0" y="1186.0" font-size="11">sg-python.sh</text>
+<rect class="ch" x="792.6" y="1177.0" width="88.6" height="18" rx="4"/>
+<text class="tx" x="798.6" y="1186.0" font-size="11">stop-hook.sh</text>
+<line class="sep" x1="700" y1="1940" x2="966" y2="1940"/>
+<line class="a" x1="705" y1="1974" x2="705" y2="1955"/>
+<polygon class="af" points="700.5,1956 709.5,1956 705,1948"/>
+<text class="mu" x="720.0" y="1962.0" font-size="11">Reads .sdlc/state/ for the current phase</text>
+<text class="mu" x="720.0" y="1976.0" font-size="11">and .claude/hookify*.md for rules,</text>
+<text class="mu" x="720.0" y="1990.0" font-size="11">both from the State layer.</text>
 </g>
 <g class="tool">
-<rect class="bd" x="20" y="1702" width="960" height="135.0" rx="6"/>
-<text class="eb" x="34.0" y="1722.0" font-size="10.5" letter-spacing="1">FOUNDATION</text>
-<text class="dir tx" x="34.0" y="1740.0" font-size="13.5">packaging</text>
-<text class="mu" x="34.0" y="1760.0" font-size="11">install, verify,</text>
-<text class="mu" x="34.0" y="1774.0" font-size="11">document</text>
-<text class="mu" x="154.0" y="1723.5" font-size="12">.claude-plugin/</text>
-<rect class="ch" x="254.0" y="1716.0" width="202.6" height="20" rx="4"/>
-<text class="tx" x="262.0" y="1726.0" font-size="12">plugin.json</text>
-<text class="mu" x="343.6" y="1726.0" font-size="10.5">name sdlc, v1.8.1</text>
-<rect class="ch" x="461.6" y="1716.0" width="129.0" height="20" rx="4"/>
-<text class="tx" x="469.6" y="1726.0" font-size="12">marketplace.json</text>
-<text class="mu" x="154.0" y="1752.5" font-size="12">Verification</text>
-<rect class="ch" x="254.0" y="1745.0" width="212.1" height="20" rx="4"/>
-<text class="tx" x="262.0" y="1755.0" font-size="12">tests/</text>
-<text class="mu" x="310.4" y="1755.0" font-size="10.5">22 test modules + helpers</text>
-<text class="mu" x="154.0" y="1781.5" font-size="12">Docs</text>
-<rect class="ch" x="254.0" y="1774.0" width="282.2" height="20" rx="4"/>
-<text class="tx" x="262.0" y="1784.0" font-size="12">docs/guidebook, playbook, runbook, prd</text>
-<rect class="ch" x="541.2" y="1774.0" width="93.1" height="20" rx="4"/>
-<text class="tx" x="549.2" y="1784.0" font-size="12">docs/adr/</text>
-<text class="mu" x="616.2" y="1784.0" font-size="10.5">10</text>
-<rect class="ch" x="639.2" y="1774.0" width="107.0" height="20" rx="4"/>
-<text class="tx" x="647.2" y="1784.0" font-size="12">docs/specs/</text>
-<text class="mu" x="732.2" y="1784.0" font-size="10.5">12</text>
-<rect class="ch" x="751.3" y="1774.0" width="153.9" height="20" rx="4"/>
-<text class="tx" x="759.3" y="1784.0" font-size="12">docs/diagrams/</text>
-<text class="mu" x="866.7" y="1784.0" font-size="10.5">5 svg</text>
-<text class="mu" x="154.0" y="1810.5" font-size="12">Legal</text>
-<rect class="ch" x="254.0" y="1803.0" width="76.5" height="20" rx="4"/>
-<text class="tx" x="262.0" y="1813.0" font-size="12">LICENSE</text>
-<rect class="ch" x="335.5" y="1803.0" width="90.4" height="20" rx="4"/>
-<text class="tx" x="343.5" y="1813.0" font-size="12">NOTICE.md</text>
-<rect class="ch" x="430.9" y="1803.0" width="200.8" height="20" rx="4"/>
-<text class="tx" x="438.9" y="1813.0" font-size="12">licenses/</text>
-<text class="mu" x="508.2" y="1813.0" font-size="10.5">Apache-2.0, MIT x2</text>
+<rect class="bd" x="20" y="2022" width="960" height="189.0" rx="6"/>
+<text class="eb" x="34.0" y="2042.0" font-size="10.5" letter-spacing="1">FOUNDATION</text>
+<text class="dir tx" x="34.0" y="2060.0" font-size="13.5">packaging</text>
+<text class="mu" x="34.0" y="2080.0" font-size="11">install, verify,</text>
+<text class="mu" x="34.0" y="2094.0" font-size="11">document</text>
+<text class="mu" x="154.0" y="2043.5" font-size="12">.claude-plugin/</text>
+<rect class="ch" x="254.0" y="2036.0" width="202.6" height="20" rx="4"/>
+<text class="tx" x="262.0" y="2046.0" font-size="12">plugin.json</text>
+<text class="mu" x="343.6" y="2046.0" font-size="10.5">name sdlc, v1.8.1</text>
+<rect class="ch" x="461.6" y="2036.0" width="129.0" height="20" rx="4"/>
+<text class="tx" x="469.6" y="2046.0" font-size="12">marketplace.json</text>
+<text class="mu" x="154.0" y="2072.5" font-size="12">Other hosts</text>
+<rect class="ch" x="254.0" y="2065.0" width="111.5" height="20" rx="4"/>
+<text class="tx" x="262.0" y="2075.0" font-size="12">.codex-plugin/</text>
+<rect class="ch" x="370.5" y="2065.0" width="122.6" height="20" rx="4"/>
+<text class="tx" x="378.5" y="2075.0" font-size="12">.agents/plugins/</text>
+<rect class="ch" x="498.1" y="2065.0" width="113.2" height="20" rx="4"/>
+<text class="tx" x="506.1" y="2075.0" font-size="12">.cursor-plugin/</text>
+<rect class="ch" x="616.3" y="2065.0" width="280.6" height="20" rx="4"/>
+<text class="tx" x="624.3" y="2075.0" font-size="12">plugin.json + hooks.json</text>
+<text class="mu" x="792.4" y="2075.0" font-size="10.5">Antigravity, root</text>
+<rect class="ch" x="254.0" y="2090.0" width="273.1" height="20" rx="4"/>
+<text class="tx" x="262.0" y="2100.0" font-size="12">hosts/</text>
+<text class="mu" x="310.6" y="2100.0" font-size="10.5">hook.py, 15 skills, 13 Cursor agents</text>
+<rect class="ch" x="532.1" y="2090.0" width="258.6" height="20" rx="4"/>
+<text class="tx" x="540.1" y="2100.0" font-size="12">scripts/hosts.py</text>
+<text class="mu" x="650.0" y="2100.0" font-size="10.5">builds them, CI checks</text>
+<text class="mu" x="154.0" y="2126.5" font-size="12">Verification</text>
+<rect class="ch" x="254.0" y="2119.0" width="212.1" height="20" rx="4"/>
+<text class="tx" x="262.0" y="2129.0" font-size="12">tests/</text>
+<text class="mu" x="310.4" y="2129.0" font-size="10.5">22 test modules + helpers</text>
+<text class="mu" x="154.0" y="2155.5" font-size="12">Docs</text>
+<rect class="ch" x="254.0" y="2148.0" width="282.2" height="20" rx="4"/>
+<text class="tx" x="262.0" y="2158.0" font-size="12">docs/guidebook, playbook, runbook, prd</text>
+<rect class="ch" x="541.2" y="2148.0" width="93.1" height="20" rx="4"/>
+<text class="tx" x="549.2" y="2158.0" font-size="12">docs/adr/</text>
+<text class="mu" x="616.2" y="2158.0" font-size="10.5">10</text>
+<rect class="ch" x="639.3" y="2148.0" width="107.0" height="20" rx="4"/>
+<text class="tx" x="647.3" y="2158.0" font-size="12">docs/specs/</text>
+<text class="mu" x="732.3" y="2158.0" font-size="10.5">12</text>
+<rect class="ch" x="751.3" y="2148.0" width="153.9" height="20" rx="4"/>
+<text class="tx" x="759.3" y="2158.0" font-size="12">docs/diagrams/</text>
+<text class="mu" x="866.7" y="2158.0" font-size="10.5">5 svg</text>
+<text class="mu" x="154.0" y="2184.5" font-size="12">Legal</text>
+<rect class="ch" x="254.0" y="2177.0" width="76.5" height="20" rx="4"/>
+<text class="tx" x="262.0" y="2187.0" font-size="12">LICENSE</text>
+<rect class="ch" x="335.5" y="2177.0" width="90.4" height="20" rx="4"/>
+<text class="tx" x="343.5" y="2187.0" font-size="12">NOTICE.md</text>
+<rect class="ch" x="430.9" y="2177.0" width="200.8" height="20" rx="4"/>
+<text class="tx" x="438.9" y="2187.0" font-size="12">licenses/</text>
+<text class="mu" x="508.2" y="2187.0" font-size="10.5">Apache-2.0, MIT x2</text>
 </g>
 </svg>

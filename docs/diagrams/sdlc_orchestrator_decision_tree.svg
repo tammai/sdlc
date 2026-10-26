@@ -1,6 +1,6 @@
 <svg width="100%" viewBox="0 0 680 1060" role="img" xmlns="http://www.w3.org/2000/svg">
 <title>SDLC orchestrator decision tree</title>
-<desc>/sdlc:start resumes an active feature in its phase or sets up a new one, sizes the work into the smallest fitting S, M or L track, then loops through the four phases Define, Build, Prove and Ship (with Learn): run the phase, check its gate, stop for the user at hard stops (Define's one approval, not on S; merge; production deploy; DB migration), repeat until no phases remain. Three failed verify rounds in Prove go to the user. Deploy runs only when asked, with /sdlc:deploy.</desc>
+<desc>/sdlc:start resumes an active feature in its phase or starts a new one (offering /sdlc:setup if the repo isn't set up), sizes the work into the smallest fitting S, M or L track, then loops through the four phases Define, Build, Prove and Ship (with Learn): run the phase, check its gate, stop for the user at hard stops (Define's one approval of intent, spec and plan, not on S; anything that adds scope; merge; production deploy; DB migration), repeat until no phases remain. Three failed verify rounds in Prove go to the user. Deploy runs only when asked, with /sdlc:deploy.</desc>
 <style>
 text{font-family:anthropic-sans,-apple-system,"system-ui","Segoe UI",sans-serif;text-anchor:middle;dominant-baseline:central}
 .a{fill:none;stroke:#898781;stroke-width:1.5}
@@ -44,8 +44,8 @@ text{font-family:anthropic-sans,-apple-system,"system-ui","Segoe UI",sans-serif;
 <text class="l" x="352" y="181" text-anchor="start">none</text>
 <g class="action"><rect x="220" y="190" width="240" height="66" rx="8"/>
 <text class="t" x="340.0" y="205">New feature setup</text>
-<text class="s" x="340.0" y="225">Ignore .sdlc/.work, detect stack</text>
-<text class="s" x="340.0" y="243">Offer constitution, knowledge once</text>
+<text class="s" x="340.0" y="225">Setup check (offer /sdlc:setup),</text>
+<text class="s" x="340.0" y="243">commands, ticket, feature name</text>
 </g>
 <line class="a" marker-end="url(#arrow)" x1="340" y1="256" x2="340" y2="284"/>
 <g class="decision"><rect x="190" y="284" width="300" height="86" rx="8"/>
@@ -59,7 +59,7 @@ text{font-family:anthropic-sans,-apple-system,"system-ui","Segoe UI",sans-serif;
 <path class="a" marker-end="url(#arrow)" d="M390 370 L390 385 L555 385 L555 400"/>
 <g class="action"><rect x="30" y="400" width="190" height="74" rx="8"/>
 <text class="t" x="125.0" y="419">S · fix</text>
-<text class="s" x="125.0" y="439">Brief → Build, Prove, Ship</text>
+<text class="s" x="125.0" y="439">Short intent, spec, plan</text>
 <text class="s" x="125.0" y="457">No approval · repro test</text>
 </g>
 <g class="action"><rect x="245" y="400" width="190" height="74" rx="8"/>
@@ -106,7 +106,7 @@ text{font-family:anthropic-sans,-apple-system,"system-ui","Segoe UI",sans-serif;
 <text class="l" x="352" y="751" text-anchor="start">yes</text>
 <g class="decision"><rect x="205" y="770" width="270" height="70" rx="8"/>
 <text class="t" x="340.0" y="787">Hard stop?</text>
-<text class="s" x="340.0" y="807">Define approval (not on S)</text>
+<text class="s" x="340.0" y="807">Define approval (not S) · added scope</text>
 <text class="s" x="340.0" y="825">Merge, production deploy, DB migration</text>
 </g>
 <line class="a" marker-end="url(#arrow)" x1="475" y1="805" x2="498" y2="805"/>

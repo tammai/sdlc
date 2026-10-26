@@ -1,6 +1,6 @@
 # PRD: sdlc, a Claude Code plugin for the whole software lifecycle
 
-- **Status:** extracted from the codebase at v1.3.0, 2026-10-22. Describes what the plugin does, not a wish list; gaps are listed as such.
+- **Status:** describes the plugin as it is (the version in `.claude-plugin/plugin.json` plus the "Unreleased" section of the [changelog](../CHANGELOG.md)), last checked 2026-10-26. Not a wish list; gaps are listed as such.
 - **Owner:** Tâm Mai
 - **Specs:** [docs/specs/](specs/README.md) · **Decisions:** [docs/adr/](adr/README.md)
 
@@ -8,61 +8,66 @@
 
 AI coding agents are fast but unreliable in predictable ways. They skip specs and jump to code; they claim tests pass without running them, or on stale results; they add scope nobody asked for (abstractions with one implementation, options, dependencies, long narrating comments); their review is done by the same context that wrote the code; and what they learn in one session is lost, or piled into an ever-growing `CLAUDE.md` that costs every future session.
 
-Teams that try to fix this assemble several plugins and conventions by hand, each with its own namespace, assumptions and gaps, and nothing ties them into one flow with gates.
+Teams that try to fix this assemble several plugins and conventions by hand, each with its own namespace, assumptions and gaps, and nothing ties them into one flow with gates. And process has a price in agent time, tokens and the user's attention.
 
 ## 2. Users
 
 | User | Needs |
 |---|---|
-| **Developer using Claude Code** (primary; solo or in a team) | Take a request from idea to merged code with the right amount of process, decide at the moments that matter, and trust that "tests pass" is true |
+| **Developer using an AI coding agent** (primary; solo or in a team) | Take a request from idea to merged code with the right amount of process, decide at the moments that matter, and trust that "tests pass" is true |
 | **Tech lead / AI-driven-development lead** | Roll out one consistent workflow to a team: shared guardrails and conventions, versioned upgrades, no per-person setup |
-| **Teammates joining a set-up repo** | Install one plugin and get the repo's commands, rules and knowledge without re-explaining |
-| **Claude, as the executing agent** | Clear phase instructions, the right skill or agent at each step, and machine feedback (hooks) when it drifts |
+| **Teammates joining a set-up repo**, in the same or another agent | Install one plugin and get the repo's commands, rules and knowledge without re-explaining |
+| **The executing agent** (later, role-based agents; a runner or control app) | Clear phase instructions, the right skill or agent at each step, what the next step needs on file, machine feedback (hooks) when it drifts, and machine-readable state |
 
 ## 3. Goals
 
-1. **One install, whole lifecycle:** spec, design, plan, implement, verify, review, security, ship, deploy, learn (operate is parked), with no dependency on other plugins.
-2. **Process sized to the work:** S, M or L tracks; the smallest track that fits by default. Low-risk M runs the Lite flow (one approval); work bigger than one session runs as a backlog of slices.
-3. **Gates with human decisions at the right points:** one approval of spec, tasks and design; anything that adds scope; merge, production deploy, migrations. Checks that pass don't stop for the user.
-4. **Truthful verification:** an independent verifier per round, tests that must fail without the change, test results that can't go stale unnoticed, and old failures that don't block new work.
-5. **Scope discipline:** every addition traced to a request from spec to diff; comment noise and over-engineering caught while writing and at review.
-6. **Small, findable knowledge:** three loading tiers; lessons promoted, repeated corrections turned into rules.
-7. **Safe adoption and evolution:** one-time setup for new and existing repos (including polyglot monorepos), versioned upgrades that never overwrite the team's edits, clean removal.
+1. **One install, whole lifecycle:** four phases (Define, Build, Prove, Ship with Learn) plus on-request `/sdlc:deploy`, with no other plugin needed.
+2. **Process sized to the work:** S, M or L, the smallest that fits. Low-risk M runs the Lite flow; work bigger than one session runs as a backlog of slices, optionally unattended (autopilot).
+3. **Everything on file:** Define writes `intent.md` (why), `spec.md` (what) and `plan.md` (how) on every track, so role-based agents can later hand work over through files.
+4. **Few human decisions:** one approval in Define (none on S), added scope, the round cap, merge, production deploy, migrations, anything irreversible. Passing checks and fixable failures don't stop.
+5. **Truthful verification:** one parallel Prove round on one commit (fresh verifier with red-green, plus the reviewers, QA and security the track needs), fixes together, one re-verification; no stale test results, and old failures don't block new work.
+6. **Scope discipline:** every addition traced from request to diff; over-engineering and unrequested behaviour caught while writing and at review.
+7. **Learning that sticks and stays small:** Learn on every feature adds fixed defects to `recurring-defects.md`, which Define and every reviewer read; knowledge in three loading tiers.
+8. **Quality at close to plain cost:** hidden-test and blind-review results held level while agent time, tokens and human touches fall (§8).
+9. **Safe adoption in any supported agent:** setup for new and existing repos (polyglot monorepos too) in Claude Code, Codex, Cursor or Antigravity; upgrades that never overwrite the team's edits; clean removal.
+10. **Machine-readable state:** one call per state change, and a control contract a runner or control app can follow.
 
 ## 4. Non-goals
 
 - Replacing the project's build, test or deploy tooling: sdlc runs the commands the repo already has.
 - Bundling outside services (GitHub MCP, Linear, Sentry, Vercel, Playwright, …); phases point to them.
 - Deep vulnerability scanning (Anthropic's `claude-security` is not bundled for licensing reasons).
+- Operating production: deploy is on request only; there is no operate phase.
 - Generating CI for systems other than GitHub Actions.
 - Telemetry or usage metrics.
-- Supporting Windows without Git Bash.
+- Claude Code on Windows without Git Bash.
 
 ## 5. Capabilities
 
 | # | Capability | Spec | Commands / entry points |
 |---|---|---|---|
 | 01 | Project setup, upgrade, eject; commands per package; generated CI | [01-setup-upgrade-eject](specs/01-setup-upgrade-eject.md) | `/sdlc:setup`, `/sdlc:upgrade`, `/sdlc:eject` |
-| 02 | Orchestrated lifecycle: tracks, the Lite flow, backlog slices, four phases (Define, Build, Prove, Ship, with Learn), gates, state, resume | [02-orchestration](specs/02-orchestration.md) | `/sdlc:start`, `/sdlc:status`, `hooks/model_router.py`, `scripts/backlog.py`, `scripts/autopilot.py` |
-| 03 | Scope tracing and review facts | [03-scope-and-review](specs/03-scope-and-review.md) | Stages 1–3, 6; `/sdlc:review-pr`, `scripts/diff_stats.py` |
-| 04 | Verification: fresh verifier rounds with red-green, a black-box QA tester on M, freshness hook, baseline | [04-verification](specs/04-verification.md) | Prove, `hooks/verify_freshness.py` |
-| 05 | Security guidance | [05-security](specs/05-security.md) | always-on hooks, Prove's security checks |
+| 02 | Orchestrated lifecycle: tracks, Lite flow, four phases with the three Define files, Build method, hard stops, backlog slices, autopilot, trust anchor, resume, on-request deploy | [02-orchestration](specs/02-orchestration.md) | `/sdlc:start`, `/sdlc:status`, `/sdlc:deploy`, `scripts/backlog.py`, `scripts/autopilot.py`, `hooks/model_router.py`, `hooks/trust_anchor.py` |
+| 03 | Scope tracing and review facts | [03-scope-and-review](specs/03-scope-and-review.md) | Define, Prove; `/sdlc:review-pr`, `/sdlc:code-review`, `scripts/diff_stats.py` |
+| 04 | Verification: fresh verifier with red-green in Prove's parallel round, black-box QA tester on M, freshness hook, baseline | [04-verification](specs/04-verification.md) | Prove, `hooks/verify_freshness.py` |
+| 05 | Security: always-on guidance, commit review once per review-ready diff, Prove's security checks | [05-security](specs/05-security.md) | always-on hooks, `hooks/sdlc_review_gate.py`, Prove |
 | 06 | Guardrails and conventions: policy rules, hookify, lint snippets | [06-guardrails-and-conventions](specs/06-guardrails-and-conventions.md) | `/sdlc:hookify*`, setup |
-| 07 | Three-tier knowledge | [07-knowledge](specs/07-knowledge.md) | `/sdlc:revise-claude-md`, `/sdlc:knowledge-audit`, Learn (in Ship) |
+| 07 | Three-tier knowledge; Learn on every feature, recurring defects | [07-knowledge](specs/07-knowledge.md) | `/sdlc:revise-claude-md`, `/sdlc:knowledge-audit`, Define (reads), Learn in Ship (writes) |
 | 08 | Health check, status, cleanup and context diet | [08-health-and-status](specs/08-health-and-status.md) | `/sdlc:doctor`, `/sdlc:status`, `/sdlc:prune`, `/sdlc:context-diet` |
-| 09 | Autonomous loop for one well-specified task | [09-autonomous-loop](specs/09-autonomous-loop.md) | `/sdlc:ralph-loop` |
+| 09 | Autonomous loop for one well-specified task | [09-autonomous-loop](specs/09-autonomous-loop.md) | `/sdlc:ralph-loop`, `/sdlc:cancel-ralph` |
 | 10 | UI follows the project's design system, without AI slop | [10-ui-design-system](specs/10-ui-design-system.md) | setup, Prove's `ui-reviewer`, `/sdlc:review-pr ui` |
-| 11 | Runs in Claude Code, Codex, Cursor and Antigravity; a second agent joins a set-up repo | [11-multi-agent](specs/11-multi-agent.md) | setup (detects the agent), `scripts/scaffold.py host`/`add-host`/`agents`, `scripts/hosts.py` |
-| 12 | State changes in one call, and a machine-readable control contract for a runner or control app | [12-control-contract](specs/12-control-contract.md) | `scripts/state.py` |
+| 11 | Runs in Claude Code, Codex, Cursor and Antigravity; a second agent joins a set-up repo | [11-multi-agent](specs/11-multi-agent.md) | setup (detects the agent), `scripts/scaffold.py host`/`add-host`/`agents`, `scripts/hosts.py`, `hosts/` |
+| 12 | State changes in one call; control contract v2 (`state.json` with `phase`, `events.jsonl`) | [12-control-contract](specs/12-control-contract.md) | `scripts/state.py` |
 
 ## 6. Key journeys
 
 1. **Adopt in an existing repo:** install → `/sdlc:doctor` → `/sdlc:setup` (commands recorded, baseline, audit approved in batches, PR) → `/sdlc:start` a small fix.
 2. **New project:** `/sdlc:setup <what you're building>` → approve the stack → skeleton, commands and CI pass on day one → first feature.
-3. **Feature (M):** `/sdlc:start <request>` → spec with the `[inferred]` triage → plan with Public Surface → implement with TDD → verify rounds → review with diff facts → PR → merge on the user's word.
-4. **Fix (S):** repro test → fix → verify → light review → PR.
-5. **Plugin update:** `/sdlc:status` shows drift → `/sdlc:upgrade --dry-run` → `/sdlc:upgrade` on a branch → PR.
-6. **Something feels off:** `/sdlc:doctor` → runbook procedure.
+3. **Feature (M):** `/sdlc:start <request>` → intent, spec (`[inferred]` guesses) and plan, approved once → Build from `plan.md` → Prove round, fixes, re-verification → Ship: Learn, commit, merge / PR / keep on the user's word.
+4. **Fix (S):** short intent, spec and plan with no approval → test-first fix → Prove → Ship.
+5. **Bigger than one session:** spec and `backlog.md` approved once → slices run in turn (or under autopilot) → feature close: one verifier round over every criterion, one top-tier review.
+6. **Plugin update:** `/sdlc:status` shows drift → `/sdlc:upgrade --dry-run` → `/sdlc:upgrade` on a branch → PR.
+7. **Something feels off:** `/sdlc:doctor` → [runbook](runbook.md) procedure.
 
 ## 7. Requirements across capabilities
 
@@ -73,37 +78,51 @@ Teams that try to fix this assemble several plugins and conventions by hand, eac
 | PRD-3 | The plugin never merges, deploys to production, runs migrations, pushes or installs tools without the user's explicit go-ahead. |
 | PRD-4 | Files the plugin writes into a project are tracked by ownership class; a user's edits are never overwritten without asking. |
 | PRD-5 | Vendored material keeps its license and attribution (`NOTICE.md`, `licenses/`). |
-| PRD-6 | Always-loaded context stays small: the plugin's always-on cost is about 4k tokens; `CLAUDE.md` is never written by the plugin. |
-| PRD-7 | Works on macOS, Linux and Windows (Git Bash), and in single-package repos and polyglot monorepos. |
+| PRD-6 | Always-loaded context stays small: phase text is read only when that phase starts (the orchestrator core is about 1,000 words), and `CLAUDE.md` is never written by the plugin. |
+| PRD-7 | Works on macOS, Linux and Windows, and in single-package repos and polyglot monorepos. |
+| PRD-8 | What the next step needs is on file: after Define, the build works from `intent.md`, `spec.md` and `plan.md`, not from the conversation. |
 
 ## 8. Success measures
 
-The plugin collects no metrics; these are proposed for a team rollout and would be measured from repo artifacts.
+The plugin collects no metrics. The primary measures come from the eval harness, which runs the same task with the plugin and with plain Claude:
 
-| Measure | Source |
-|---|---|
-| Share of features whose final verify round passes on the first or second round | `## Verify rounds` in `state.md` |
-| Deviations recorded per feature (skipped gates) | `## Deviations` in `state.md` |
-| High-severity review findings for unrequested surface | `review.md`, `diff_stats.py` flags |
-| `CLAUDE.md` line count over time (≤ 60) | repo history, `/sdlc:doctor` |
-| Baseline size over time (should shrink) | `.sdlc/baseline.md` history |
-| Repos on the current scaffold version | `/sdlc:status` drift per repo |
+| Measure | Last result (evals 8–10, planner task: plugin vs plain) | Target |
+|---|---|---|
+| Agent time | 107–160 min vs 20–26 | down |
+| Weighted tokens | 7.7–8.0M vs 1.3M | down |
+| Human touches | 4–5 vs 1 | down |
+| Hidden acceptance and regression tests | 9/9 and 10/10, same as plain | held level |
+| Blind-review defects | 0 blocking or major vs 1–2 major for plain | held level or fewer |
+
+The four phases ([ADR 0010](adr/0010-four-phases.md)) target the first three; they have not been through an eval yet.
+
+For a team rollout, from repo artifacts: Prove passing within two rounds (`state.md`), deviations per feature, `CLAUDE.md` under 60 lines, a shrinking baseline, and repos on the current scaffold (`/sdlc:status`).
 
 ## 9. Constraints and dependencies
 
-- **Runtime:** Claude Code with plugin support; `git`; Python 3.9+; `gh` for PR and code-review commands; Node for the brainstorm companion; Git Bash on Windows.
+- **Runtime:** Claude Code, Codex, Cursor or Antigravity with plugin support; `git`; Python 3.9+; `gh` for PR and code-review commands; Node for the brainstorm companion; Git Bash for Claude Code on Windows.
 - **Model calls:** the security reviewer uses the Claude API (API key or Claude Code's OAuth token); without credentials those reviews are skipped.
 - **Licensing:** MIT plugin; bundled Superpowers (MIT), GitHub Spec Kit (MIT), Anthropic Claude Code plugins (Apache-2.0).
 
-## 10. Release scope (1.4.0)
+## 10. Release scope
 
-Adds UI design-system enforcement (rule, guardrail, `ui-reviewer`, setup step), named model tiers with risk-based model choice and the model-router hook, upgrades that add new plugin files, and monorepo freshness from the feature's base commit. Hardens the guardrails (protected from the agent, broader `rm`, force-push and secret patterns) and fixes Windows issues (UTF-8 output, CRLF hashing, paths). Builds on 1.3.0's setup/upgrade/eject, `/sdlc:doctor`, scope tracing, policy rules, `diff_stats.py` and the baseline-aware verifier. See [CHANGELOG.md](../CHANGELOG.md).
+The [changelog](../CHANGELOG.md) is the per-release record. As of 1.8.1 plus Unreleased (2026-10-26): releases through 1.8.1 brought setup, upgrade and eject, doctor and status, scope tracing, the baseline-aware verifier, UI design-system enforcement, the model router, and Codex, Cursor and Antigravity as hosts with hooks and the `sdlc-invariants` CI check. Unreleased adds the four phases with the three Define files, Prove's parallel round, Learn on every feature, `/sdlc:deploy`, the Lite flow, backlog slices and autopilot, `state.py` with control contract v2, `/sdlc:context-diet`, and the commit security review once per review-ready diff.
 
 ## 11. Known gaps and open questions
+
+Current:
+
+- **The phase changes are instructed, not yet evaluated.** Evals 8–10 predate them; whether they close the cost gap in §8 is open, and `Build: subagent` against `native` hasn't been compared ([ADR 0009](adr/0009-cheaper-pipeline-and-control-contract.md)).
+- **Prompt-only guarantees:** apart from the model router, phase and hard-stop rules rest on instructions plus the user's approval. Mechanical are freshness, guardrails, the surface check, file ownership, the model router, the role guard's file-tool limits, the commit review gate and the trust anchor, which makes a change visible rather than preventing it. Each spec marks which is which; their Known gaps sections list the rest.
+- **Reviewers and the qa-tester keep Bash,** so a shell edit or reading source is only instructed against ([specs 03](specs/03-scope-and-review.md), [04](specs/04-verification.md)).
+- **Security-guidance hooks** are vendored and untested here; the review gate's limits live in a repo the agent can write ([spec 05](specs/05-security.md)).
+- **Outside Claude Code:** no role guard, model router, security review, Ralph loop, autopilot or context diet; Codex and Antigravity record `last_result: unknown` ([spec 11](specs/11-multi-agent.md)).
+- **Control contract:** a hand edit to `state.md` leaves `state.json` behind; `spend` is always null ([spec 12](specs/12-control-contract.md)).
+- **Generated CI** hasn't run on GitHub (YAML and local toolchains only; no `actionlint`), and setup → start → upgrade hasn't run as one continuous project.
+
+History:
 
 - **Live checks after 1.5.0 (2026-10-23, headless on Windows, about $3):** an M feature in the brownfield monorepo through Stage 8 (subagent-driven, red-green with `install`, dispatches logged per stage, simplifier before the opus review, `Verified:` tree checked); then probes of a failing full run (`last_result: fail`), a reviewer Edit denied by the role guard, a Risk change reaching the user, and the model router holding a reviewer to opus on high risk.
 - **Release smoke test (1.5.0, 2026-10-23, headless on Windows):** every must item passed again; the S fix ran the simplifier before the reviewer and recorded `Verified:`. Known issues are under 1.5.0 in the changelog.
 - **Release smoke test (1.4.0, 2026-10-22, headless sessions on Windows):** install, doctor, greenfield and brownfield setup (including resume after an interrupt), guardrails, an S fix through Verify, upgrade and eject all passed; hook warnings and block reasons reach Claude, and the model router named a tier for every dispatch. It found and fixed CRLF hashing and a freshness filter bug. Known issues are listed under 1.4.0 in the changelog.
-- **Prompt-only guarantees:** most phase gates (spec checklist, design mapping, review severity) rely on skill instructions plus user approval; mechanical are freshness, guardrails, the surface check, file ownership, the model router and its dispatch log, the role guard's file-tool limits, and the trust anchor's notices (which make a change visible rather than prevent it). Each spec marks which is which.
-- **Security-guidance hooks** are vendored and not covered by this repo's tests.
-- **Generated CI** has not run on GitHub yet (validated as YAML and against local toolchains only); `actionlint` not run.
+- **Multi-agent smoke tests (2026-10-24 and 2026-10-25):** see [spec 11](specs/11-multi-agent.md#known-gaps).

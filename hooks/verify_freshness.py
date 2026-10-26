@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """sdlc verify-freshness hook.
 
-Active only while an .sdlc feature is in Stage 5 (Verify), or in Stage 5 or 6 on the Lite flow (`Flow: lite`, whose
-review fixes are re-verified in-session). Freshness is tracked per scope: each package of a monorepo (`packages` in
+Active only while an .sdlc feature is in Stage 5 (Prove), or in Stage 5 or 6 on the Lite flow (`Flow: lite`: Stage 6 is where
+a backlog slice rests after its commit, and where features started under the old 11 stages re-verified review fixes). Freshness is tracked per scope: each package of a monorepo (`packages` in
 .sdlc/config.json), or the whole project.
   - PostToolUse Edit/Write/MultiEdit/NotebookEdit on a code file -> the owning package goes stale (a file outside
                                                                      every package: all of them)
@@ -118,7 +118,7 @@ def active_verify_feature(root):
             text = open(os.path.join(root, f["state"]), encoding="utf-8").read()
         except OSError:
             continue
-        # The Lite flow re-verifies Stage 6 review fixes with an in-session full run, so it stays tracked there
+        # On the Lite flow Stage 6 stays tracked: a slice rests there after its commit, and old features fixed review there
         stage = r"(5|6)" if re.search(r"^Flow:\s*lite\b", text, re.M | re.I) else r"5"
         if re.search(r"^Status:\s*active\b", text, re.M | re.I) and re.search(
             rf"^Current:\s*Stage\s*{stage}\b", text, re.M | re.I

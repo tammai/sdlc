@@ -61,6 +61,6 @@ Tiers (Model Selection in `sdlc:subagent-driven-development`): cheap `haiku`, st
 
 - One phase at a time; `state.py` at every move. A failed gate: stay, or step back one phase, with the reason. A code change after Prove's gate goes back to Prove.
 - **Ownership:** before advancing, compare `Owner:` with `git config user.email`; someone else's → say who (`Tool:`) and ask; on yes, `set` Owner and Tool and record the handover as a deviation. No `Owner:` → set yours.
-- **Hard stops, always ask:** Define's approval (not on S), anything that adds scope, merges, production deploys, DB migrations, anything irreversible. Everything else runs without asking: passing checks, and failed verify rounds below the round cap.
+- **Hard stops, always ask:** Define's approval (not on S), anything that adds scope, the round cap (`R/prove.md`), merges, production deploys, DB migrations, anything irreversible. Everything else runs without asking: passing checks, and failed verify rounds below the round cap.
 - "Skip" / "just ship it": name the skipped gates, record them as a deviation, comply. Never send the user to install another plugin for a core phase.
 - "Your human partner" in a bundled skill is the user; a bundled skill that would hand off on its own returns here, so the gate runs. Keep artifacts short; link instead of repeating.
