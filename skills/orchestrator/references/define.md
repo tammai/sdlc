@@ -7,7 +7,7 @@ Three documents and one approval: `intent.md` (why), `spec.md` (what) and `plan.
 1. **Read first.** If `knowledge/index.md` exists, read it and open only the docs relevant here. If `<docs>/recurring-defects.md` exists, read it: an entry that applies to this change becomes an acceptance criterion.
 2. **Blocking questions, once** (before `intent.md`; L: before brainstorming). Ask only what changes what gets built and the request, ticket, code and knowledge don't settle. One message: numbered, plain text, options A/B/C, your recommendation first. Or ask none. Every other open point is a guess: `[inferred]` (Lite: the `Inferred` list) with a one-line reason, kept or dropped at the approval. Answers are `[clarified]`. Never ask again later.
 3. **Keep to the brief.** Add no hardening, stricter validation, options, config or tooling that neither the request nor an applicable failure mode calls for. Anything else you'd add is `[inferred]` and dropped unless the user keeps it.
-4. **`intent.md`: the why.** Copy `${CLAUDE_PLUGIN_ROOT}/templates/intent-template.md` to `<intents>/intent.md` and keep its seven headings:
+4. **`intent.md`: the why.** Write `<intents>/intent.md` from `${CLAUDE_PLUGIN_ROOT}/templates/intent-template.md` (the core's rule on documents: file-writing tool, never the shell) and keep its seven headings:
    1. intent and why (with the request verbatim)
    2. questions and answers
    3. approaches considered, with trade-offs
@@ -47,7 +47,7 @@ Three documents and one approval: `intent.md` (why), `spec.md` (what) and `plan.
    - `## Deviations`, empty until Build.
 
    By track:
-   - **S and `Flow: lite`:** copy `${CLAUDE_PLUGIN_ROOT}/templates/plan-template.md` to `<intents>/plan.md` and write it yourself. S: 1–3 tasks. Lite: 3–6 tasks.
+   - **S and `Flow: lite`:** write `<intents>/plan.md` yourself from `${CLAUDE_PLUGIN_ROOT}/templates/plan-template.md`. S: 1–3 tasks. Lite: 3–6 tasks.
    - **`Flow: full`:** `sdlc:writing-plans` writes it, with bite-sized tasks. Tell it the orchestrator decides the execution method (`Build:`), so it asks no question.
    - **Bigger than one session** (more than about 8 tasks, or several distinct parts): `backlog.md` (`backlog-slices.md`), and `plan.md` gives each slice a how-outline: approach, main files, interfaces between slices, and the feature's Public Surface. Each slice's detailed `plan-B<n>.md` is written when the slice starts.
 8. **Consistency** on L, and on any backlog: run `sdlc:analyzing-consistency`. No CRITICAL or HIGH scope finding may remain; every requirement has a task or slice, and every task or slice cites a requirement.

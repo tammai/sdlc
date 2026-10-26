@@ -21,7 +21,7 @@ Structure adapted from GitHub Spec Kit's `plan` command (MIT); exploration and a
 
 0. **Check team knowledge.** If `knowledge/index.md` exists, open the decisions, conventions and gotchas that touch the areas this feature changes. Treat recorded decisions as constraints unless the user agrees to revisit one (then plan a new decision doc that supersedes it).
 1. **Explore the codebase.** Dispatch 2–3 `sdlc:code-explorer` agents in parallel, each on a different angle (similar existing features, the layers this feature touches, testing and conventions). Ask each for the 5–10 files most worth reading; read those files yourself.
-2. **Technical context.** Copy the template to `<intents>/design.md`. Fill Technical Context from what the repo actually uses. Mark real unknowns `NEEDS CLARIFICATION`. Performance, scale and constraints cite an SC id or say `n/a`: never design for numbers the spec doesn't contain.
+2. **Technical context.** Write `<intents>/design.md` from the template, with your file-writing tool, never through the shell (its tables and code spans break shell quoting). Fill Technical Context from what the repo actually uses. Mark real unknowns `NEEDS CLARIFICATION`. Performance, scale and constraints cite an SC id or say `n/a`: never design for numbers the spec doesn't contain.
 3. **Constitution check.** List each MUST principle and whether the design complies. An unjustified violation is a stop; a justified one goes in Complexity Tracking.
 4. **Phase 0 – research** → `<intents>/research.md`. For every `NEEDS CLARIFICATION` and every new dependency: Decision / Rationale / Alternatives considered. Use current docs for library APIs rather than memory.
 5. **Phase 1 – architecture.**

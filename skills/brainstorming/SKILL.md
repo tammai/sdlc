@@ -218,8 +218,9 @@ order, and brainstorm them one at a time.
 
 Write a plain document a talented builder in the domain could plan
 from without going back to your human partner. Under the sdlc workflow
-it is `intent.md`: copy `${CLAUDE_PLUGIN_ROOT}/templates/intent-template.md`
-and keep its headings, so a reviewer and a script can both read it:
+it is `intent.md`, written with your file-writing tool (never a shell
+heredoc) from `${CLAUDE_PLUGIN_ROOT}/templates/intent-template.md`,
+keeping its headings, so a reviewer and a script can both read it:
 
 1. intent and the why, with the request verbatim
 2. questions and answers

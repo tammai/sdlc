@@ -17,7 +17,7 @@ Write implementation plans for an engineer who has not seen this codebase or thi
 
 **Context:** If working in an isolated worktree, it should have been created via the `sdlc:using-git-worktrees` skill at execution time.
 
-**Save plans to:** `<intents>/plan.md`
+**Save plans to:** `<intents>/plan.md`, with your file-writing tool, never through the shell (`cat <<EOF`, `echo`): plans hold code spans, `$` and quotes that shell quoting breaks.
 - (User preferences for plan location override this default)
 
 ## Scope Check
