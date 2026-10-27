@@ -129,8 +129,30 @@ class HookifyTest(ProjectTestCase):
     def test_block_on_prompt_blocks_the_prompt(self):
         self.write(".claude/hookify/no-prompt.md", self.RM_RULE.replace("event: bash", "event: prompt")
                    .replace("field: command", "field: user_prompt"))
-        _, out, _, _ = run_hook(hook("userpromptsubmit.py"), {"hook_event_name": "UserPromptSubmit", "user_prompt": "forbidden"}, self.root)
+        # Claude Code names the field `prompt`; the rule field stays `user_prompt`
+        _, out, _, _ = run_hook(hook("userpromptsubmit.py"), {"hook_event_name": "UserPromptSubmit", "prompt": "forbidden"}, self.root)
         self.assertEqual(out.get("decision"), "block", out)
+
+    def test_stop_and_bash_rules_stay_on_their_own_events(self):
+        self.install("require-tests-stop.local.md")
+        rule = self.path(".claude/hookify.require-tests-stop.local.md")
+        with open(rule, encoding="utf-8") as f:
+            text = f.read().replace("enabled: false", "enabled: true")
+        with open(rule, "w", encoding="utf-8") as f:
+            f.write(text)
+        self.write("t.jsonl", '{"role":"user","text":"hi"}\n')
+        _, out, _, _ = run_hook(hook("pretooluse.py"),
+                                {"hook_event_name": "PreToolUse", "tool_name": "Read", "tool_input": {"file_path": "a.py"},
+                                 "transcript_path": self.path("t.jsonl")}, self.root)
+        self.assertEqual(out, {})
+        self.write(".claude/hookify/no-x.md", self.RM_RULE)
+        self.assertDenied(self.pre("PowerShell", command="forbidden"))
+
+    def test_own_errors_print_nothing(self):
+        for name in ("pretooluse.py", "stop.py", "userpromptsubmit.py"):
+            with self.subTest(hook=name):
+                code, _, raw, _ = run_hook(hook(name), "not json", self.root)
+                self.assertEqual((code, raw), (0, ""))
 
     def test_formatting_slips_do_not_disarm_a_rule(self):
         slips = {"leading blank line": lambda t: "\n" + t, "BOM": lambda t: "\ufeff" + t,

@@ -32,6 +32,13 @@ class ProveBudgetTest(ProjectTestCase):
 
     def test_project_commands_are_left_alone(self):
         self.assertEqual(self.call(5, command="cd app && npm test 2>&1 | tail -5", timeout=600000), {})
+        # A project command doesn't carry what is chained after it
+        self.assertNotEqual(self.call(5, command="npm test && sleep 900"), {})
+        self.assertEqual(self.call(5, command="npm test; node probe.js", run_in_background=True)
+                         .get("permissionDecision"), "deny")
+        self.write(".sdlc/config.json", json.dumps({"commands": {"test": "npm run build && npm test"}}))
+        self.assertEqual(self.call(5, command="npm run build && npm test -- --ci"), {})  # a chained project command
+        self.assertNotEqual(self.call(5, command="npm run build && npm test && sleep 900"), {})
         # verify.py runs only the project's commands and each acceptance test's own Run command (ADR 0013)
         verify = os.path.join(PLUGIN_ROOT, "scripts", "verify.py")
         self.assertEqual(self.call(5, command=f'python3 "{verify}" red AC-001', timeout=600000), {})

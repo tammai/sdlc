@@ -17,10 +17,8 @@ if PLUGIN_ROOT and PLUGIN_ROOT not in sys.path:
 try:
     from core.config_loader import attach_problems, load_rules
     from core.rule_engine import RuleEngine
-except ImportError as e:
-    error_msg = {"systemMessage": f"Hookify import error: {e}"}
-    print(json.dumps(error_msg), file=sys.stdout)
-    sys.exit(0)
+except ImportError:
+    sys.exit(0)  # never blocks or speaks on its own error (.claude/rules/hooks.md)
 
 
 def main():
@@ -41,12 +39,8 @@ def main():
         # Always output JSON (even if empty)
         print(json.dumps(result), file=sys.stdout)
 
-    except Exception as e:
-        # On any error, allow the operation
-        error_output = {
-            "systemMessage": f"Hookify error: {str(e)}"
-        }
-        print(json.dumps(error_output), file=sys.stdout)
+    except Exception:
+        pass  # on its own error: allow, with no output
 
     finally:
         # ALWAYS exit 0

@@ -18,8 +18,9 @@ import sys
 
 import sdlc_layout  # sibling module: where feature state and sdlc documents live
 
-REVIEWERS = {"ac-checker", "code-reviewer", "comment-analyzer", "feature-reviewer", "pr-test-analyzer", "silent-failure-hunter",
-             "type-design-analyzer", "ui-reviewer"}
+# Define's explorers and architects write only their report too (the relay's DISPATCH)
+REVIEWERS = {"ac-checker", "code-architect", "code-explorer", "code-reviewer", "comment-analyzer", "feature-reviewer",
+             "pr-test-analyzer", "silent-failure-hunter", "type-design-analyzer", "ui-reviewer"}
 WRITES = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 READS = {"Read", "Grep", "Glob"}
 

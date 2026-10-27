@@ -17,11 +17,8 @@ if PLUGIN_ROOT and PLUGIN_ROOT not in sys.path:
 try:
     from core.config_loader import attach_problems, load_rules
     from core.rule_engine import RuleEngine
-except ImportError as e:
-    # If imports fail, allow operation and log error
-    error_msg = {"systemMessage": f"Hookify import error: {e}"}
-    print(json.dumps(error_msg), file=sys.stdout)
-    sys.exit(0)
+except ImportError:
+    sys.exit(0)  # never blocks or speaks on its own error (.claude/rules/hooks.md)
 
 
 def main():
@@ -34,8 +31,9 @@ def main():
         # For PreToolUse, we use tool_name to determine "bash" vs "file" event
         tool_name = input_data.get('tool_name', '')
 
-        event = None
-        if tool_name == 'Bash':
+        # Any other tool gets only `event: all` rules: load_rules(None) would add stop and prompt rules too
+        event = 'all'
+        if tool_name in ('Bash', 'PowerShell'):
             event = 'bash'
         elif tool_name in ['Edit', 'Write', 'MultiEdit', 'NotebookEdit']:
             event = 'file'
@@ -52,12 +50,8 @@ def main():
         # Always output JSON (even if empty)
         print(json.dumps(result), file=sys.stdout)
 
-    except Exception as e:
-        # On any error, allow the operation and log
-        error_output = {
-            "systemMessage": f"Hookify error: {str(e)}"
-        }
-        print(json.dumps(error_output), file=sys.stdout)
+    except Exception:
+        pass  # on its own error: allow, with no output
 
     finally:
         # ALWAYS exit 0 - never block operations due to hook errors

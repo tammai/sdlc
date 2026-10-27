@@ -25,6 +25,12 @@ class RoleGuardTest(ProjectTestCase):
         self.assertIsNone(self.call("Edit", "src/a.ts"))  # the main session
         self.assertIsNone(self.call("Edit", "src/a.ts", "general-purpose"))
 
+    def test_define_explorers_write_only_their_report(self):
+        for agent in ("sdlc:code-explorer", "sdlc:code-architect"):
+            with self.subTest(agent=agent):
+                self.assertIsNone(self.call("Write", ".sdlc/.work/findings/login/code-explorer-r1.md", agent))
+                self.assertEqual(self.call("Write", "src/a.ts", agent), "deny")
+
     def test_reviewer_writes_its_findings_file_and_nothing_else(self):
         # Under the relay the main session passes paths, not findings: a reviewer writes its report here
         self.assertIsNone(self.call("Write", ".sdlc/.work/findings/code-reviewer-r1.md", "sdlc:code-reviewer"))

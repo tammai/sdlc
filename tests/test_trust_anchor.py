@@ -188,6 +188,20 @@ class TrustAnchorTest(ProjectTestCase):
         self.state(stage=8, risk="low")
         self.assertIsNone(self.stop())
 
+    def test_only_checker_reports_carry_a_verdict(self):
+        # The relay's diff facts and Define's explorer reports share the folder and have no VERDICT line
+        self.state(stage=4, risk="low")
+        self.stop()
+        self.write("src/login.ts", "export const a = 4\n")
+        self.state(stage=5, risk="low")
+        self.full_run()
+        self.dispatch("sdlc:code-reviewer")
+        self.write(".sdlc/.work/findings/login/diff-r1.md", "| file | lines |\n")
+        self.write(".sdlc/.work/findings/login/code-explorer-r1.md", "entry points\n")
+        self.write(".sdlc/.work/findings/login/code-reviewer-r1.md", "none\n\nVERDICT: PASS\n")
+        self.state(stage=8, risk="low")
+        self.assertIsNone(self.stop())
+
     def test_m_lite_goes_from_build_to_ship_on_a_passing_verify_but_m_full_needs_prove(self):
         self.state(stage=4, risk="low", flow="lite")
         self.stop()

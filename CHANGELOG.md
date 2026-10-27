@@ -4,6 +4,15 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
+### Fixed
+- **Relay Prove no longer fails on its own diff facts.** The trust anchor and the main session read VERDICT lines only from the checkers' reports (`code-reviewer`, `ac-checker`, `security`, `ui-reviewer`), not `diff-r<N>.md` or Define's explorer reports in the same folder.
+- **Define's code-explorer and code-architect can write their relay report** (Write tool, held to `.sdlc/.work/findings/` by the role guard; read-only on Cursor).
+- **Hookify prompt rules fire:** `field: user_prompt` reads Claude Code's `prompt` field.
+- **Hookify rules stay on their event:** a stop or prompt rule no longer runs, and denies, on Read, Grep and other tools; PowerShell commands get `bash` rules. The hookify PreToolUse hook runs only for Bash, PowerShell and file edits, which saves a process start on every other tool call; a `file` rule such as `sensitive-files-warning` no longer warns on Read of a matching path, only on edits.
+- **Hookify hooks print nothing on their own errors** (`.claude/rules/hooks.md`); broken rules are still reported.
+- **The Prove budget can't be skipped by chaining after a project command:** `npm test && sleep 900` is timed like any other command; builtins like `cd` and a pipe into a filter like `tail` still count as the project's run.
+- **Prove's docs agree on who checks:** M full runs one checker, re-verified by a fresh checker on what changed; the ac-checker runs on the standard tier; every code review is on opus (README, the core, `hooks.json`).
+
 ### Changed
 - **A thin main session and kept-alive stage agents** (ADR 0017). On the L eval, the main session's context per turn grew to 368k in Prove and 440k in Ship. Now:
   - **Relay**, on M and L in an interactive Claude Code session. The main session passes paths and runs the state moves. On M, a kept-alive maker does Define and Build; on L, a Define agent and then one Build agent per part. Agents end each turn with `DISPATCH:`, `ASK:`, `QUESTION:`, `STATUS:` or `DONE:`. S, autopilot, headless runs and the other agents keep the in-session flow.

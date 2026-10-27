@@ -25,7 +25,7 @@ import sys
 
 EDIT_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit"}
 # Write only for the relay's report file (ADR 0017); the relay runs only in Claude Code, so on Cursor they read
-RELAY_REPORT_ONLY = {"ac-checker", "code-reviewer"}
+RELAY_REPORT_ONLY = {"ac-checker", "code-architect", "code-explorer", "code-reviewer"}
 # Claude Code-only commands: the Ralph loop's Stop hook runs only there; hookify rules live in .claude/, which only
 # Claude Code's setup writes; context-diet trims Claude Code's own plugin config
 CLAUDE_ONLY_COMMANDS = {"cancel-ralph", "ralph-loop", "ralph-help", "hookify", "hookify-configure", "hookify-help",

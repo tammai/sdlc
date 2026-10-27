@@ -3,8 +3,8 @@
 
 PreToolUse on Bash, PowerShell and Monitor, active only while an .sdlc feature is in Stage 5 (Prove), for every
 caller (session, verifier, reviewers). A command that isn't one of the project's own (`commands` and
-`packages[].commands` in .sdlc/config.json: install, build, lint, typecheck, test; extra arguments and leading
-`cd <dir> &&` allowed):
+`packages[].commands` in .sdlc/config.json: install, build, lint, typecheck, test; extra arguments, builtins like
+`cd <dir> &&` beside them and a pipe into a filter like `tail` allowed, nothing else chained):
   - Bash: is killed at 120 s. At its own `timeout` Claude Code moves a command to the background instead of killing
     it, which an agent can then poll, so the hook rewrites the command: `timeout -k 5 120 <command>` for one step
     (each stage of a pipe; leading `cd`, `export` and the like stay as they are), which the user's permission rules
@@ -35,9 +35,11 @@ UNTIMED = {"cd", "pushd", "popd", "export", "unset", "set", "shopt", "alias", "s
            "echo", "printf", "exit"}
 COMPOUND = {"if", "then", "else", "elif", "fi", "for", "while", "until", "do", "done", "case", "esac", "select",
             "function", "time", "{", "}", "(", ")", "[[", "!"}
+# What a project command's output may be piped into and still count as the project's run (`npm test | tail -5`)
+FILTERS = {"tail", "head", "grep", "tee", "cat", "sort", "uniq", "wc", "cut"}
+CHAINABLE = UNTIMED - {"source", "."}  # beside a project command: `cd app && npm test; echo done`
 ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 PLUGIN_VERIFY = re.compile(r"""^python3?(?:\.exe)?[ \t]+(?:"([^"]+)"|([^ \t"]+))(?:[ \t]+[\w.=-]+)*\Z""")
-LEADING_CD = re.compile(r"""^\s*cd\s+("[^"]+"|'[^']+'|[^\s;&|]+)\s*&&\s*""")
 
 
 def in_prove(root):
@@ -74,13 +76,45 @@ def is_plugin_verify(command):
 
 
 def is_project_command(command, commands):
+    """Every step chained with &&, || or ; is a project command or a builtin like `cd`, piped only into a filter:
+    anything else chained after one (`npm test && sleep 900`) would run unbounded under its name."""
     if is_plugin_verify(command):
         return True
-    while LEADING_CD.match(command):
-        command = LEADING_CD.sub("", command, count=1)
-    command = command.strip()
-    return any(
-        command == c or command.startswith(c) and command[len(c)].isspace() for c in commands)
+    parts = [(step.strip(), sep) for step, sep in split_top_level(command) or []]
+    if not parts or any(sep == "&" for _, sep in parts):
+        return False
+    # A configured command may itself be a chain (`npm run build && npm test`): matched as a run of steps
+    configured = [[(st.strip(), sep) for st, sep in split_top_level(c) or [(c, "")]] for c in commands]
+    i, piped = 0, False
+    while i < len(parts):
+        step, sep = parts[i]
+        if piped:
+            if step.split(" ", 1)[0] not in FILTERS:
+                return False
+            i += 1
+        elif step.split(" ", 1)[0] in CHAINABLE:
+            i += 1
+        else:
+            run = next((c for c in configured if matches(parts[i:i + len(c)], c)), None)
+            if not run:
+                return False
+            i += len(run)
+            sep = parts[i - 1][1]
+        piped = sep == "|"
+    return True
+
+
+def matches(steps, configured):
+    """The steps are the configured chain, its last step with extra arguments allowed."""
+    if len(steps) != len(configured):
+        return False
+    for k, ((step, sep), (want, want_sep)) in enumerate(zip(steps, configured)):
+        last = k == len(configured) - 1
+        if not (step == want or last and step.startswith(want) and step[len(want)].isspace()):
+            return False
+        if not last and sep != want_sep:
+            return False
+    return True
 
 
 def split_top_level(command):

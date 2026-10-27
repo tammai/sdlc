@@ -162,12 +162,16 @@ def check(root, name, text, anchor, shown):
     return notices
 
 
+# Prove's checker reports (relay.md); the folder also holds the diff facts and Define's explorer reports, no VERDICT
+CHECKER_REPORT = r"(?:code-reviewer|ac-checker|security|ui-reviewer|verifier)-r\d+\.md"
+
+
 def failed_verdicts(root, name):
-    """Reports of the latest round in .sdlc/.work/findings/<feature>/ (`<agent>-r<n>.md`) whose VERDICT isn't PASS.
+    """Checker reports of the latest round in .sdlc/.work/findings/<feature>/ whose VERDICT isn't PASS.
     No reports (the in-session flow passes results back as text): nothing to check."""
     folder = os.path.join(root, ".sdlc", ".work", "findings", name)
     try:
-        files = [f for f in os.listdir(folder) if re.fullmatch(r".+-r\d+\.md", f)]
+        files = [f for f in os.listdir(folder) if re.fullmatch(CHECKER_REPORT, f)]
     except OSError:
         return []
     if not files:
