@@ -3,22 +3,19 @@
 
 The files the other hooks trust (state.md, spec.md, baseline.md, config.json) are writable by the agent they
 check, so this can't prevent a change; it makes one visible. For each active feature, on Stop:
-  - `Track:`, `Risk:`, `Flow:`, `Top model:`, `Base:` or `Prove:` differs from the value first seen, unless the change only
-    makes the process stricter (Track up, Risk low → high, Flow lite → full): that becomes the new anchor and is
-    shown to the user without blocking, since they approved it already (it can switch off the Lite-only check);
-    a backlog feature leaving Lite still blocks
+  - `Track:`, `Risk:`, `Top model:`, `Base:` or `Process:` differs from the value first seen, unless the change only
+    makes the process stricter (Track up, Risk low → high): that becomes the new anchor and is shown to the user
+    without blocking, since they approved it already
   - `.sdlc/baseline.md` lists a failing test it didn't at the feature's `Base:` commit (it may only shrink)
   - the commands in `.sdlc/config.json` differ from those at `Base:`
-  - `spec.md` changed after the feature entered Stage 5, or, on S (no spec), the state file's `Repro:` line
-  - the feature left Stage 5 while code differed from its last full test run, or moved past Stage 5 without it
-    (a verifier dispatched in Stage 5 since the last Stop counts, since a turn can run several stages; so does an
-    ac-checker on a passing full run of the current code (on M, the one checker: a code-reviewer), and that passing run alone on S, M with `Flow: lite`
-    or `Prove: skip`, which have no Prove)
+  - `spec.md` changed after the feature entered Review (Stage 5)
+  - the feature left Review while code differed from its last full test run, or moved past Review without a
+    passing full run of the current code, at every size (sdlc 2.0: that run is Review's evidence)
+  - leaving Review while the latest round of a review's report says `VERDICT: FAIL`, unless the user waived it
   - verify.py's record of its last run differs from the freshness hook's own copy (a hand-edited record)
-  - on `Flow: lite`, a Stop outside Stages 4-6 finds code that differs from the last full test run (one notice
-    per untested state of the code)
   - a feature seen active stopped being active, other than by finishing (`Status: done`)
-A new notice blocks the stop once, with a systemMessage so the user sees it; it doesn't block again. The user's
+Only 2.0 features (`Process: 2`) are anchored; a 1.x one is finished on 1.8.1, and a 2.0 one whose `Process:`
+line changes keeps its anchor, so the change is a notice. A new notice blocks the stop once, with a systemMessage so the user sees it; it doesn't block again. The user's
 next prompt accepts it: the current values become the new anchor. Only a prompt clears a notice, because only
 the user can send one. A damaged record is a notice too; a deleted one can't be told from a first run (Known
 gaps in spec 02). State: .sdlc/.work/trust-anchor.json. Any error: no output.
@@ -34,10 +31,10 @@ import sdlc_layout  # sibling module: where feature state and sdlc documents liv
 import verify_freshness as vf  # sibling hook: project root, git, worktree trees, freshness state
 
 STATE = os.path.join(".sdlc", ".work", "trust-anchor.json")
-# Base: the baseline and commands are compared at it. Flow: the Lite flow drops the top-tier review
-FIELDS = ("Track", "Risk", "Flow", "Top model", "Base", "Prove")
+# Base: the baseline and commands are compared at it. Process: 2 marks a 2.0 feature, the only kind the hooks act on
+FIELDS = ("Track", "Risk", "Top model", "Base", "Process")
 # Ordered weakest first: a move up one of these only adds checks, so it needs no second word from the user
-STRICTER = {"Track": ("s", "m", "l"), "Risk": ("low", "high"), "Flow": ("lite", "full"), "Prove": ("skip", "run")}
+STRICTER = {"Track": ("s", "m", "l"), "Risk": ("low", "high")}
 
 
 def field(text, name):
@@ -87,12 +84,10 @@ def check(root, name, text, anchor, shown):
     """Notices for one feature; stricter field changes go to `shown`; updates `anchor` with what was seen."""
     notices = []
     intents = os.path.join(root, sdlc_layout.features(root).get(name, {}).get("intents", ""))
-    # A backlog stays on Lite, and an autopilot slice session has no one to read a non-blocking message
-    backlog = os.path.isfile(os.path.join(intents, "backlog.md"))
     for f in FIELDS:
         now = field(text, f)
         first = anchor.setdefault("fields", {}).setdefault(f, now)
-        if now != first and stricter(f, first, now) and not (backlog and f == "Flow"):
+        if now != first and stricter(f, first, now):
             anchor["fields"][f] = now  # the new anchor, so moving back down is still a notice
             shown.append(f"{f}: {first} → {now}")
         elif now != first:
@@ -119,42 +114,25 @@ def check(root, name, text, anchor, shown):
         first = anchor.setdefault("spec", digest)
         if digest != first:
             notices.append("spec.md changed after the feature entered Stage 5")
-        # S has no spec.md: its one acceptance criterion is the state file's Repro line
-        repro = "\n".join(re.findall(r"^Repro:.*$", text, re.M)) or None  # the whole line: field() keeps one word
-        if anchor.setdefault("repro", repro) != repro:
-            notices.append("Repro changed after the feature entered Stage 5")
     prev = anchor.get("stage")
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")  # the model router's dispatch-log format
-    # Stops are samples: a Lite turn can run Stages 3 to 8 between two of them, so Stage 5 counts as passed when a
-    # verifier was dispatched in it since the last Stop (the evidence the Stage 5 gate trusts), or an ac-checker was
-    # and the last full run (verify) passed on the current code (ADR 0013)
-    # S and M lite have no Prove (Build's passing verify.py is their evidence), so their passing run counts on its own
-    s_track = re.search(r"^Track:\s*s\b", text, re.M | re.I)
-    m_lite = re.search(r"^Track:\s*m\b", text, re.M | re.I) and re.search(r"^Flow:\s*lite\b", text, re.M | re.I)
-    skipped = re.search(r"^Prove:\s*skip\b", text, re.M | re.I)  # the user chose it before Build
-    since = anchor.get("stop_time")
-    # M's one checker is a code-reviewer that also reads each AC beside its test; L keeps a separate ac-checker
-    m_checker = re.search(r"^Track:\s*m\b", text, re.M | re.I) and dispatched_since(root, since, "sdlc:code-reviewer")
-    if (prev is not None and prev < 5 < (st or 0) and not dispatched_since(root, since, "sdlc:verifier")
-            and not ((s_track or m_lite or skipped or m_checker or dispatched_since(root, since, "sdlc:ac-checker"))
-                     and suite_passed(root, name))):
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    # Stops are samples: a turn can run Build, Review and Ship between two of them, so passing Review is judged by
+    # its evidence, a passing full run of the current code, at every size (sdlc 2.0 has no verifier round)
+    if prev is not None and prev < 5 < (st or 0) and not suite_passed(root, name):
         notices.append(f"went from Stage {prev} to Stage {st} without Stage 5")
-    # The Lite flow re-verifies fixes in-session, so outside the build-verify-review loop (Stages 4-6) the code must
-    # match the last full run: checked at every such Stop, since the move out of the loop may not be seen
-    lite = re.search(r"^Flow:\s*lite\b", text, re.M | re.I)
     leaving_5 = prev == 5 and st is not None and st > 5
-    if st is not None and prev is not None and (leaving_5 or lite and st not in (4, 5, 6)):
+    if leaving_5:
         changed = changed_since_full_run(root, name)
         # Accepting covers this exact code, not these file names: new untested code in the same files is new
         anchor["untested_seen"] = vf.worktree_tree(root) if changed else None
         if changed and anchor["untested_seen"] != anchor.get("untested_ok"):
-            where = f"left Stage 5 for Stage {st}" if leaving_5 else f"Stage {st}"  # stable text: seen once
-            notices.append(f"{where} with code changed since the last full test run: " + ", ".join(changed[:5]))
-    # Only a checker judges Prove (ADR 0017): moving past Stage 5 needs its latest round's VERDICT lines to pass
+            notices.append(f"left Stage 5 for Stage {st} with code changed since the last full test run: "
+                           + ", ".join(changed[:5]))
+    # A review's report decides its findings: leaving Review needs the latest round's VERDICT lines to pass
     if prev is not None and st is not None and prev <= 5 < st:
         failed = failed_verdicts(root, name)
         if failed and not waived(text, failed):
-            notices.append("left Stage 5 while a checker's verdict is FAIL: " + ", ".join(failed))
+            notices.append("left Stage 5 while a review's verdict is FAIL: " + ", ".join(failed))
     disagree = verify_records_disagree(root, name)
     if disagree:
         notices.append(f"verify records disagree: {disagree}")
@@ -163,12 +141,12 @@ def check(root, name, text, anchor, shown):
     return notices
 
 
-# Prove's checker reports (relay.md); the folder also holds the diff facts and Define's explorer reports, no VERDICT
-CHECKER_REPORT = r"(?:code-reviewer|ac-checker|security|ui-reviewer|verifier)-r\d+\.md"
+# The reviews' reports (review.md); the folder also holds the diff facts and explorer reports, with no VERDICT
+CHECKER_REPORT = r"(?:code-reviewer|security|ui-reviewer|qa-tester|pr-test-analyzer)-r\d+\.md"
 
 
 def failed_verdicts(root, name):
-    """Checker reports of the latest round in .sdlc/.work/findings/<feature>/ whose VERDICT isn't PASS.
+    """Review reports of the latest round in .sdlc/.work/findings/<feature>/ whose VERDICT isn't PASS.
     No reports (the in-session flow passes results back as text): nothing to check."""
     folder = os.path.join(root, ".sdlc", ".work", "findings", name)
     try:
@@ -190,7 +168,7 @@ def failed_verdicts(root, name):
 
 
 def waived(text, failed):
-    """The user waived the round these failed reports belong to: a `waived round <N>` deviation (prove.md)."""
+    """The user waived the round these failed reports belong to: a `waived round <N>` deviation (review.md)."""
     n = int(re.search(r"-r(\d+)\.md$", failed[0]).group(1))
     return bool(re.search(rf"^- .*\bwaived round {n}\b", text, re.M | re.I))
 
@@ -215,24 +193,6 @@ def verify_records_disagree(root, name):
     if (a.get("tree"), a.get("result")) != (b.get("tree"), b.get("result")):
         return f"verify.json says {a.get('result')}, the hook saw {b.get('result')} (tree {str(b.get('tree'))[:12]})"
     return None
-
-
-def dispatched_since(root, since, agent):
-    try:
-        with open(os.path.join(root, ".sdlc", ".work", "dispatches.jsonl"), encoding="utf-8") as f:
-            lines = f.read().splitlines()
-    except OSError:
-        return False
-    for line in lines:
-        try:
-            d = json.loads(line)
-        except ValueError:
-            continue
-        if (isinstance(d, dict) and d.get("agent") == agent and not d.get("denied")
-                and str(d.get("time", "")) >= (since or "")
-                and any(re.match(r"Stage\s*5\b", str(s)) for s in d.get("stages") or [])):
-            return True
-    return False
 
 
 def suite_passed(root, name):
@@ -292,8 +252,8 @@ def main():
         seen.add(name)
         status = (field(text, "Status") or "").lower()
         was = saved.get(name, {})
-        if status == "active":
-            features[name] = text
+        if status == "active" and (re.search(r"^Process:\s*2\b", text, re.M) or was.get("status") == "active"):
+            features[name] = text  # a 2.0 feature, or one already anchored (so a changed Process: line shows)
         elif was.get("status") == "active":
             # Leaving active switches the model router and freshness hook off for it, so it's shown; finishing
             # is the one normal way out, from Stage 8 on (Ship can reach 8 and finish between two Stops)

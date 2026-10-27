@@ -66,31 +66,16 @@ class TrustAnchorTest(ProjectTestCase):
         self.prompt()
         self.assertIsNone(self.stop())
 
-    def test_switching_to_the_lite_flow_is_a_notice(self):
-        # Lite drops the top-tier review, so moving a full-flow feature onto it must reach the user
-        self.state(risk="low", flow="full")
+    def test_a_stricter_track_or_risk_needs_no_second_word_but_moving_back_does(self):
+        # The user approved the bigger track already: shown, but blocking would ask them again
+        self.state(risk="low", track="M")
         self.stop()
-        self.state(risk="low", flow="lite")
-        self.assertIn("Flow: full → lite", self.stop()["systemMessage"])
-
-    def test_a_stricter_flow_or_risk_needs_no_second_word_but_moving_back_does(self):
-        # The user approved the switch to the full flow already: shown, but blocking would ask them again
-        self.state(risk="low", flow="lite")
-        self.stop()
-        self.state(risk="high", flow="full")
+        self.state(risk="high", track="L")
         out = self.stop()
         self.assertNotIn("decision", out)
-        self.assertIn("Flow: lite → full", out["systemMessage"])
-        self.state(risk="high", flow="lite")
-        self.assertIn("Flow: full → lite", self.stop()["systemMessage"])
-
-    def test_a_backlog_feature_leaving_the_lite_flow_still_blocks(self):
-        # Slices must stay on Lite, and an autopilot session has no one to read a non-blocking message
-        self.write(".sdlc/login/backlog.md", "| ID | Status |\n|---|---|\n| B1 | todo |\n")
-        self.state(risk="low", flow="lite")
-        self.stop()
-        self.state(risk="low", flow="full")
-        self.assertEqual(self.stop()["decision"], "block")
+        self.assertIn("Track: M → L", out["systemMessage"])
+        self.state(risk="high", track="M")
+        self.assertIn("Track: L → M", self.stop()["systemMessage"])
 
     def test_removing_an_active_features_state_is_a_notice(self):
         self.state()
@@ -116,6 +101,21 @@ class TrustAnchorTest(ProjectTestCase):
         self.assertIn("src/login.ts", out["systemMessage"])
 
 
+    def test_leaving_review_needs_a_passing_full_run_at_every_size(self):
+        # 2.0: no verifier or checker round; at every size the passing full run on the current code is the evidence
+        for n, track in enumerate(("S", "M", "L"), start=2):
+            self.state(stage=4, risk="low", track=track)
+            self.stop()
+            self.prompt()
+            self.write("src/login.ts", f"export const a = {n}\n")
+            self.state(stage=5, risk="low", track=track)
+            self.full_run()
+            self.state(stage=8, risk="low", track=track)
+            self.assertIsNone(self.stop(), track)
+        self.write(".sdlc/login/state.md", STATE.format(track="L", risk="low", base=self.base, stage=8)
+                   .replace("Process: 2\n", "Process: 1\n"))
+        self.assertIn("Process", self.stop()["systemMessage"])  # the 2.0 marker changed under the hook
+
     def test_an_s_fix_proven_by_a_fresh_full_run_passes_stage_5_without_a_verifier(self):
         self.state(stage=4, risk="low", track="S")
         self.stop()
@@ -137,39 +137,7 @@ class TrustAnchorTest(ProjectTestCase):
         with open(self.path(".sdlc/.work/dispatches.jsonl"), "a", encoding="utf-8") as f:
             f.write(json.dumps({"time": now, "agent": agent, "stages": ["Stage 5"], "denied": False}) + "\n")
 
-    def test_an_ac_checker_round_on_a_passing_verify_passes_stage_5(self):
-        self.state(stage=4, risk="low")
-        self.stop()
-        self.write("src/login.ts", "export const a = 2\n")
-        self.state(stage=5, risk="low")
-        self.full_run()
-        self.state(stage=8, risk="low")
-        self.assertIn("without Stage 5", self.stop()["systemMessage"])  # a passing suite alone isn't Prove on M
-        self.prompt()
-        self.state(stage=4, risk="low")
-        self.stop()
-        self.write("src/login.ts", "export const a = 3\n")
-        self.state(stage=5, risk="low")
-        self.full_run()
-        self.dispatch("sdlc:ac-checker")
-        self.state(stage=8, risk="low")
-        self.assertIsNone(self.stop())
-
-    def test_on_m_the_one_checker_passes_stage_5_but_on_l_it_does_not(self):
-        # M's checker is a code-reviewer that also reads each AC beside its test; L keeps a separate ac-checker
-        for track, notice in (("M", False), ("L", True)):
-            self.state(stage=4, risk="low", track=track)
-            self.stop()
-            self.write("src/login.ts", f"export const a = '{track}'\n")
-            self.state(stage=5, risk="low", track=track)
-            self.full_run()
-            self.dispatch("sdlc:code-reviewer")
-            self.state(stage=8, risk="low", track=track)
-            out = self.stop()
-            self.assertEqual(bool(out and "without Stage 5" in out.get("systemMessage", "")), notice, track)
-            self.prompt()
-
-    def test_a_checker_fail_verdict_blocks_ship_whatever_the_maker_says(self):
+    def test_a_review_fail_verdict_blocks_ship_unless_waived(self):
         # Under the relay only the checker judges: its report's VERDICT line, not the maker's DONE, decides the round
         self.state(stage=4, risk="low")
         self.stop()
@@ -179,7 +147,7 @@ class TrustAnchorTest(ProjectTestCase):
         self.dispatch("sdlc:code-reviewer")
         self.write(".sdlc/.work/findings/login/code-reviewer-r1.md", "H1 lock token not re-checked\n\nVERDICT: FAIL — 1 high: H1\n")
         self.state(stage=8, risk="low")
-        self.assertIn("checker's verdict is FAIL", self.stop()["systemMessage"])
+        self.assertIn("review's verdict is FAIL", self.stop()["systemMessage"])
         self.prompt()
         self.write(".sdlc/.work/findings/login/code-reviewer-r2.md", "none\n\nVERDICT: PASS\n")  # the fix, re-checked
         self.state(stage=5, risk="low")
@@ -194,7 +162,7 @@ class TrustAnchorTest(ProjectTestCase):
         self.stop()
         self.prompt()
         self.state(stage=8, risk="low")
-        self.assertIn("checker's verdict is FAIL", self.stop()["systemMessage"])  # no waiver: still a notice
+        self.assertIn("review's verdict is FAIL", self.stop()["systemMessage"])  # no waiver: still a notice
         self.prompt()
         self.state(stage=5, risk="low")
         self.stop()
@@ -224,40 +192,6 @@ class TrustAnchorTest(ProjectTestCase):
         self.state(stage=8, risk="low")
         self.assertIsNone(self.stop())
 
-    def test_m_lite_goes_from_build_to_ship_on_a_passing_verify_but_m_full_needs_prove(self):
-        self.state(stage=4, risk="low", flow="lite")
-        self.stop()
-        self.write("src/login.ts", "export const a = 2\n")
-        self.state(stage=4, risk="low", flow="lite")
-        self.verify_run()  # Build's verify, recorded by the freshness hook
-        self.state(stage=8, risk="low", flow="lite")
-        self.assertIsNone(self.stop())
-        self.prompt()
-        self.state(stage=4, risk="low", flow="full")
-        self.stop()
-        self.prompt()
-        self.verify_run()
-        self.state(stage=8, risk="low", flow="full")
-        self.assertIn("without Stage 5", self.stop()["systemMessage"])
-        self.prompt()
-        # M full or L where the user chose, before Build, to skip Prove: the passing verify is the evidence
-        self.state(stage=4, risk="low", flow="full")
-        self.write(".sdlc/login/state.md", self.read_state() + "Prove: skip\n")
-        self.stop()
-        self.prompt()  # set at Define's approval: the user's reply accepts it
-        self.verify_run()
-        self.state(stage=8, risk="low", flow="full")
-        self.write(".sdlc/login/state.md", self.read_state() + "Prove: skip\n")
-        self.assertIsNone(self.stop())
-
-    def test_changing_an_s_fixs_repro_in_prove_is_a_notice(self):
-        # S has no spec.md: its one acceptance criterion is the Repro line, watched like a spec once Prove starts
-        self.state(stage=5, risk="low", track="S")
-        self.write(".sdlc/login/state.md", self.read_state() + "Repro: `t.js` › removes done | `node --test t.js`\n")
-        self.assertIsNone(self.stop())
-        self.write(".sdlc/login/state.md", self.read_state().replace("removes done", "runs"))
-        self.assertIn("Repro changed after the feature entered Stage 5", self.stop()["systemMessage"])
-
     def read_state(self):
         with open(self.path(".sdlc/login/state.md"), encoding="utf-8") as f:
             return f.read()
@@ -271,15 +205,6 @@ class TrustAnchorTest(ProjectTestCase):
         self.prompt()
         self.write(".sdlc/.work/verify.json", "[]")  # malformed or deleted while the hook holds a run: still a notice
         self.assertIn("verify records disagree", self.stop()["systemMessage"])
-
-    def test_lite_flow_review_fix_rerun_in_stage_6_is_not_a_notice(self):
-        self.state(stage=5, risk="low", flow="lite")
-        self.full_run()
-        self.stop()
-        self.state(stage=6, risk="low", flow="lite")
-        self.write("src/login.ts", "export const a = 2\n")  # a review fix, re-verified in-session
-        self.full_run()
-        self.assertIsNone(self.stop())
 
     def slice_in_one_turn(self, untested_fix=False, end=3):
         # A whole slice between two Stops, as Lite and back-to-back slices run: no Stop lands in Stages 4-6
@@ -295,20 +220,6 @@ class TrustAnchorTest(ProjectTestCase):
             self.write("src/login.ts", "export const a = 3\n")  # a review fix with no full run after it
         self.state(stage=end, risk="low", flow="lite")  # 3: committed, the next slice starts; 8: feature done
         return self.stop()
-
-    def test_lite_flow_slice_verified_within_one_turn_is_not_a_notice(self):
-        self.assertIsNone(self.slice_in_one_turn(end=8))  # Stage 5 ran unseen: the verifier dispatch shows it
-
-    def test_lite_flow_untested_fix_is_a_notice_until_the_user_accepts_it(self):
-        out = self.slice_in_one_turn(untested_fix=True)
-        self.assertIn("code changed since the last full test run: src/login.ts", out["systemMessage"])
-        self.prompt()
-        self.assertIsNone(self.stop())  # accepted: the same untested change doesn't block every later Stop
-        self.state(stage=5, risk="low", flow="lite")  # the next slice: a full run, then a new untested fix
-        self.full_run()
-        self.write("src/login.ts", "export const a = 4\n")
-        self.state(stage=3, risk="low", flow="lite")
-        self.assertIn("src/login.ts", self.stop()["systemMessage"])
 
 
 if __name__ == "__main__":
