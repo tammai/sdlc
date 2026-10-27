@@ -1109,9 +1109,24 @@ def cmd_migration(p, a):
     return {"applied": applied, "skipped": skipped}
 
 
+def old_features(p):
+    """Active features started under sdlc 1.x (no `Process: 2`): finished on 1.8.1 before a repo moves to 2.0."""
+    found = []
+    for name, f in sorted(sdlc_layout.features(p.root).items()):
+        try:
+            with open(p.path(f["state"]), encoding="utf-8") as fh:
+                text = fh.read()
+        except OSError:
+            continue
+        if re.search(r"^Status:\s*active\b", text, re.M | re.I) and not re.search(r"^Process:\s*2\b", text, re.M):
+            found.append(name)
+    return found
+
+
 def cmd_set_version(p, a):
     lock = p.require_lock()
-    parse_version(a.version)
+    if parse_version(a.version)[0] >= 2 and old_features(p):
+        raise Refused("finish these with sdlc 1.8.1 first: " + ", ".join(old_features(p)))
     lock["scaffold_version"] = a.version
     if a.min_plugin:
         parse_version(a.min_plugin)
@@ -1170,6 +1185,7 @@ def cmd_upgrade_plan(p, a):
     except ValueError as e:  # a Claude-only line in CLAUDE.md shouldn't block the rest of the upgrade
         plan["agents"] = f"error: {e}"
     plan["pending_migrations"] = pending_migrations(p)
+    plan["old_features"] = old_features(p)  # 2.0 can't run them: the upgrade stops until they're finished on 1.8.1
     return plan
 
 

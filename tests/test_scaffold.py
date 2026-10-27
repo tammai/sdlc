@@ -142,6 +142,17 @@ class ScaffoldTest(ProjectTestCase):
         self.assertEqual(self.sc("set-version", "1.4.1", "--min-plugin", "1.2.0")["min_plugin_version"], "1.4.0")
         self.assertIn("not a version", self.sc("set-version", "latest", expect=1)["error"])
 
+    def test_upgrade_to_2_waits_for_1x_features_to_finish(self):
+        self.init()
+        self.sc("set-version", "1.8.1")
+        self.set_plugin_version("2.0.0")
+        self.write(".sdlc/state/old-active.md", "Status: active\nCurrent: Stage 5 – Prove\n")
+        self.write(".sdlc/state/old-done.md", "Status: done\nCurrent: Stage 8 – Ship\n")
+        self.assertEqual(self.sc("upgrade-plan")["old_features"], ["old-active"])
+        self.assertIn("old-active", self.sc("set-version", "2.0.0", expect=2)["refused"])
+        self.write(".sdlc/state/old-active.md", "Status: done\nCurrent: Stage 8 – Ship\n")
+        self.assertEqual(self.sc("set-version", "2.0.0")["scaffold_version"], "2.0.0")
+
     # --- render / record / file states ---------------------------------------------------
 
     def test_render_generated_fills_placeholders_and_records(self):
