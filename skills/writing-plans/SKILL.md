@@ -44,6 +44,11 @@ deliverable needs them; split only where a reviewer could meaningfully
 reject one task while approving its neighbor. Each task ends with an
 independently testable deliverable.
 
+**Comparison proofs.** When a task proves the new code behaves like the old by running both on generated inputs,
+give it a budget, never a count like "at least 3,000 cases": about 1,000 cases or 2 minutes, whichever comes first.
+Call both versions in one process where the code allows (import the saved original), not a process per case. It
+runs once, in Build; Prove reuses that evidence unless the files it covers changed.
+
 ## Step Granularity
 
 **Each step is one action with a checkable result:**

@@ -13,6 +13,10 @@
    - Then: [the change, in a sentence or two]
    - Run: [the command that proves it, e.g. the full suite]
 
+<!-- A proof that the new code behaves like the old (old vs new on generated inputs) has a budget, not a count:
+     about 1,000 cases or 2 minutes, whichever comes first, calling both versions in one process where the code
+     allows (no process per case). It runs once, in Build; Prove reuses it unless the files it covers changed. -->
+
 ## Acceptance tests
 
 <!-- One row per acceptance criterion (AC-nnn) in spec.md: the test that proves it and the command that runs just that
