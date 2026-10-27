@@ -15,7 +15,7 @@ Four ideas carry the design:
 
 ## Project setup
 
-Before the first feature, `/sdlc:setup` prepares the repo once; `/sdlc:start` offers it when a repo isn't set up. See [sdlc_setup_phase.svg](diagrams/sdlc_setup_phase.svg).
+Before the first feature, `/sdlc:setting-up-projects` prepares the repo once; `/sdlc:start` offers it when a repo isn't set up. See [sdlc_setup_phase.svg](diagrams/sdlc_setup_phase.svg).
 
 **The project's commands.** Setup records the repo's own `install`, `test`, `lint`, `typecheck` and `build` commands in `.sdlc/config.json`, exactly as the team runs them (`pnpm test`, `go test ./...`, `make lint`, …); a step the repo doesn't have is `null`. Everything that runs them reads them from there, so nothing in the plugin is stack-specific. A monorepo lists `packages`, each with a path, a stack and its own commands, run from its directory; a polyglot repo is several packages with different stacks.
 
@@ -38,7 +38,7 @@ Setup runs on an `sdlc/setup` branch with one commit per step, resumes where it 
 
 Files named `sdlc-*` belong to the plugin; everything else is yours.
 
-**Upgrades.** When the plugin is newer than the repo's scaffold, `/sdlc:start` and `/sdlc:status` suggest `/sdlc:upgrade`, which never blocks your work. It runs on its own branch: regenerate, replace untouched files, walk you through edited ones, then apply versioned migrations one diff at a time (declined ones are asked again only with `--revisit`). The repo pins a minimum plugin version, so teammates on an older plugin get a warning. `/sdlc:eject` removes what the plugin owns and keeps your work.
+**Upgrades.** When the plugin is newer than the repo's scaffold, `/sdlc:start` and `/sdlc:status` suggest `/sdlc:setting-up-projects upgrade`, which never blocks your work. It runs on its own branch: regenerate, replace untouched files, walk you through edited ones, then apply versioned migrations one diff at a time (declined ones are asked again only with `--revisit`). The repo pins a minimum plugin version, so teammates on an older plugin get a warning. `/sdlc:setting-up-projects eject` removes what the plugin owns and keeps your work.
 
 ## Tracks
 
@@ -136,11 +136,12 @@ The one code reviewer on every track gets a one-pass brief (on M it also reads e
 | Group | Skills |
 |---|---|
 | Conductor | `orchestrator` |
-| Set up | `setting-up-projects` (setup, upgrade, eject; its `references/trimming-context.md` backs `/sdlc:context-diet`) |
+| Set up | `setting-up-projects` (setup, upgrade, eject; `/sdlc:setting-up-projects` runs it; its `references/trimming-context.md` backs `/sdlc:context-diet`) |
 | Specify and design | `brainstorming`, `writing-specs`, `clarifying-specs`, `designing-solutions`, `project-constitution` |
-| Plan and build | `writing-plans`, `analyzing-consistency`, `using-git-worktrees`, `subagent-driven-development`, `executing-plans`, `dispatching-parallel-agents`, `test-driven-development`, `systematic-debugging` |
-| Check | `verification-before-completion`, `receiving-code-review` (requesting a review is a reference in `executing-plans`; the entry points are Prove, `/sdlc:review-pr` and `/sdlc:code-review`) |
-| Ship and learn | `finishing-a-development-branch`, `managing-knowledge` (with the CLAUDE.md quality check that was `claude-md-improver`), `writing-hook-rules`, `todo` |
+| Plan and build | `writing-plans`, `analyzing-consistency`, `subagent-driven-development`, `executing-plans`, `test-driven-development`, `systematic-debugging` |
+| Check | `verification-before-completion` (requesting a review is a reference in `executing-plans`; the entry points are Prove, `/sdlc:review-pr`) |
+| Ship and learn | `managing-knowledge` (with the CLAUDE.md quality check that was `claude-md-improver`), `writing-hook-rules`, `todo` |
+| Orchestrator references (read when the flow needs them, not skills) | `using-git-worktrees.md`, `dispatching-parallel-agents.md`, `receiving-code-review.md`, `finishing-a-development-branch.md`, `commit-push-pr.md`, `clean-gone.md`, `github-pr-review.md` |
 
 ### Subagents
 
@@ -160,18 +161,17 @@ The one code reviewer on every track gets a one-pass brief (on M it also reads e
 | Command | Does |
 |---|---|
 | `/sdlc:start [request]` | Start a feature, or resume the active one if the request is empty (`B<n>`: a named slice) |
-| `/sdlc:setup [what you're building]` | Set the repo up once (greenfield or brownfield); resumes if interrupted |
-| `/sdlc:upgrade [--dry-run] [--revisit]` | Bring the repo's scaffold up to the installed plugin version |
-| `/sdlc:eject` | Remove the plugin's files from the repo, keeping your work |
+| `/sdlc:setting-up-projects [what you're building]` | Set the repo up once (greenfield or brownfield); resumes if interrupted |
+| `/sdlc:setting-up-projects upgrade [--dry-run] [--revisit]` | Bring the repo's scaffold up to the installed plugin version |
+| `/sdlc:setting-up-projects eject` | Remove the plugin's files from the repo, keeping your work |
 | `/sdlc:doctor` | Health check of the machine, the plugin and the repo, with a fix for each problem. Changes nothing |
 | `/sdlc:status` | Setup state and version drift, then one line per feature: track, phase, last gate, open questions. Changes nothing |
 | `/sdlc:deploy [feature] [environment]` | Deploy on request through the project's own deploy path, with your go-ahead before production or a DB migration |
 | `/sdlc:prune [--older-than 45d]` | Delete the working files of merged, finished features; keeps intent, spec, design, retro and state. Asks first, one commit |
 | `/sdlc:context-diet` | Propose turning off plugins and skills this project doesn't need, in `.claude/settings.local.json`, after you approve. Any repo, Claude Code only |
-| `/sdlc:review-pr` | Local pre-PR review of the diff with the right agents for it |
-| `/sdlc:code-review` | Review a GitHub PR (needs `gh`) |
+| `/sdlc:review-pr [PR number or URL]` | Local pre-PR review of the diff with the right agents for it, or a review of a GitHub PR (needs `gh`) |
 | `/sdlc:commit`, `/sdlc:commit-push-pr`, `/sdlc:clean_gone` | Git helpers |
-| `/sdlc:revise-claude-md`, `/sdlc:knowledge-audit` | Promote lessons; keep always-loaded context small |
+| `/sdlc:managing-knowledge lessons`, `/sdlc:managing-knowledge audit` | Promote lessons; keep always-loaded context small |
 | `/sdlc:hookify` | Turn repeated corrections into rules |
 | `/sdlc-extras:ralph-loop`, `/sdlc-extras:cancel-ralph`, `/sdlc-extras:ralph-help` | Optional self-iterating loop for one well-specified task (`sdlc-extras` plugin) |
 | `/sdlc-extras:hookify-list`, `/sdlc-extras:hookify-configure`, `/sdlc-extras:hookify-help` | List, toggle and explain hookify rules (`sdlc-extras` plugin) |
@@ -181,7 +181,7 @@ The one code reviewer on every track gets a one-pass brief (on M it also reads e
 | Hook | Events | Does |
 |---|---|---|
 | hookify | PreToolUse, UserPromptSubmit, Stop | Evaluates rules from `.claude/hookify.*.local.md` (personal, git-ignored) and committed `.claude/hookify/*.md` (team). Rules warn or block |
-| security-guidance | UserPromptSubmit, PostToolUse, Stop | Pattern warnings on edits, a diff review at turn end, an agentic review after `git commit` and `git push`. During a feature, build commits before Prove are reviewed together with the next review-ready commit, and only a security-touched change gets the model review (any other is recorded as reviewed, no model call) ([spec 05](specs/05-security.md)) |
+| security-guidance | UserPromptSubmit, PostToolUse, Stop | Pattern warnings on edits; a model review at turn end and after `git commit` only while a security-touched feature is active (or with `SDLC_SECURITY_REVIEW=always`), and after `git push`. During a feature, build commits before Prove are reviewed together with the next review-ready commit, and only a security-touched change gets the model review (any other is recorded as reviewed, no model call) ([spec 05](specs/05-security.md)) |
 | verify-freshness | PostToolUse, PostToolUseFailure (Bash, PowerShell, edits), Stop | Stage 5 (on `Flow: lite`, also Stage 6): stale/fresh test tracking; Stages 4–5: its own copy of each `verify.py` run (which `verify.py` also writes itself), also inside a chained command, copied from `verify.json` when its tree is the current code, which Prove's reuse checks ([above](#verification)) |
 | prove-budget | PreToolUse (Bash, PowerShell, Monitor) | In Prove (Stage 5): a Bash command other than the project's own (`.sdlc/config.json` commands) is rewritten to run under `timeout -k 5 120`, with the tool timeout at 130 s; one that can't take the prefix (loops, subshells, chained commands) is refused, as are `run_in_background`, Monitor and PowerShell for such commands; the project's own commands are untouched (with builtins like `cd` beside them and a pipe into a filter like `tail`; anything else chained after one is not one) |
 | model-router | PreToolUse (Agent, Task) | While a feature is active: denies a dispatch that names no model or names `haiku`, asks for Fable without `Top model: fable`, or runs a reviewer, the verifier or the qa-tester below Opus on `Track: L`; logs every dispatch to `.sdlc/.work/dispatches.jsonl` |
@@ -225,7 +225,7 @@ knowledge/                 tier 3, on-demand docs (index.md links everything)
 CLAUDE.md                  tier 1, at most 60 lines (never touched by the plugin)
 ```
 
-Each feature is named `<yyyy-mm-dd>-<s|m|l>-<slug>`, or `<yyyy-mm-dd>-<s|m|l>-<ticket>-<slug>` with a ticket (e.g. `2026-10-22-m-PROJ-123-month-filter`). The letter is the track it started on; a later size-up doesn't rename it. The branch uses the same name. Commit the state file and everything under `docs/sdlc/intents/<feature>/`. A repo set up before 1.7.0 keeps everything in `.sdlc/<feature>/` until `/sdlc:upgrade` moves it; the hooks read both layouts meanwhile ([ADR 0006](adr/0006-split-sdlc-docs-from-machinery.md)).
+Each feature is named `<yyyy-mm-dd>-<s|m|l>-<slug>`, or `<yyyy-mm-dd>-<s|m|l>-<ticket>-<slug>` with a ticket (e.g. `2026-10-22-m-PROJ-123-month-filter`). The letter is the track it started on; a later size-up doesn't rename it. The branch uses the same name. Commit the state file and everything under `docs/sdlc/intents/<feature>/`. A repo set up before 1.7.0 keeps everything in `.sdlc/<feature>/` until `/sdlc:setting-up-projects upgrade` moves it; the hooks read both layouts meanwhile ([ADR 0006](adr/0006-split-sdlc-docs-from-machinery.md)).
 
 ### `state.md`
 
@@ -290,7 +290,7 @@ Setup writes `.sdlc/config.json`; it's yours to edit and holds only what differs
 | `baseline` | Where the known-failures baseline lives (default `.sdlc/baseline.md`) |
 | `min_plugin_version` | Teammates on an older plugin get a warning to update |
 
-After changing commands or `ci`, run `/sdlc:upgrade` so the generated CI workflow follows. Don't edit `.sdlc/scaffold.lock.json` by hand. Why it's designed this way: [ADR 0001](adr/0001-project-setup-upgrade-eject.md), [ADR 0002](adr/0002-record-the-repos-own-commands.md), [ADR 0005](adr/0005-greenfield-monorepo-layout.md), [ADR 0006](adr/0006-split-sdlc-docs-from-machinery.md), [ADR 0007](adr/0007-multi-tool-adapters.md); the `scaffold.py` reference is in the [runbook](runbook.md#setup-upgrade-eject-internals).
+After changing commands or `ci`, run `/sdlc:setting-up-projects upgrade` so the generated CI workflow follows. Don't edit `.sdlc/scaffold.lock.json` by hand. Why it's designed this way: [ADR 0001](adr/0001-project-setup-upgrade-eject.md), [ADR 0002](adr/0002-record-the-repos-own-commands.md), [ADR 0005](adr/0005-greenfield-monorepo-layout.md), [ADR 0006](adr/0006-split-sdlc-docs-from-machinery.md), [ADR 0007](adr/0007-multi-tool-adapters.md); the `scaffold.py` reference is in the [runbook](runbook.md#setup-upgrade-eject-internals).
 
 ## Glossary
 
@@ -311,6 +311,6 @@ After changing commands or `ci`, run `/sdlc:upgrade` so the generated CI workflo
 | Design system | `docs/sdlc/design-system.md`: the library, tokens, components and patterns UI work must use; checked by `ui-reviewer` |
 | Project commands | `install`, `test`, `lint`, `typecheck`, `build` in `.sdlc/config.json`, per package in a monorepo |
 | Baseline | Failures that existed before setup; Prove fails only on new ones |
-| Scaffold version / drift | The plugin version a repo was set up or upgraded with; "behind" means `/sdlc:upgrade` has work to do |
+| Scaffold version / drift | The plugin version a repo was set up or upgraded with; "behind" means `/sdlc:setting-up-projects upgrade` has work to do |
 | Generated / seeded | Plugin files that upgrades regenerate / replace only while you haven't edited them |
 | Migration | A versioned change to files you own, applied only with your approval |

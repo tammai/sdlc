@@ -7,6 +7,7 @@ https://github.com/anthropics/claude-plugins-official — `licenses/anthropic-pl
 
 - **ralph-loop:** commands `ralph-loop`, `cancel-ralph`, `help` → `ralph-help`; `hooks/stop-hook.sh`; `scripts/setup-ralph-loop.sh`
 - **hookify:** commands `list` → `hookify-list`, `configure` → `hookify-configure`, `help` → `hookify-help`; agent `conversation-analyzer`
+- **feature-dev:** agent `code-reviewer` → `feature-reviewer`
 - **pr-review-toolkit:** agents `comment-analyzer`, `type-design-analyzer`
 - **code-simplifier:** agent `code-simplifier`
 

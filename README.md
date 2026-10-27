@@ -40,11 +40,11 @@ Restart the session afterward so the commands and hooks load. To work on the plu
 
 A repo can be shared by several agents: the first one to run setup does the shared part, and each agent after it adds only its own files.
 
-**Update:** update the marketplace and the plugin from `/plugin`, restart, then run `/sdlc:upgrade` in each repo.
+**Update:** update the marketplace and the plugin from `/plugin`, restart, then run `/sdlc:setting-up-projects upgrade` in each repo.
 
-**Uninstall:** run `/sdlc:eject` in each repo first (it removes the plugin's files and keeps your work), then `/plugin uninstall sdlc`.
+**Uninstall:** run `/sdlc:setting-up-projects eject` in each repo first (it removes the plugin's files and keeps your work), then `/plugin uninstall sdlc`.
 
-**Requirements:** `git`, `gh` (for `/sdlc:code-review` and PR commands), Python 3.9+ (hooks and scripts, stdlib only), Node (brainstorm visual companion), and for TypeScript code intelligence: `npm i -g typescript-language-server typescript`. The security hooks build their own Python environment on the first session start (about a minute). Your project needs nothing extra: sdlc runs the commands it already uses.
+**Requirements:** `git`, `gh` (for `/sdlc:review-pr` on a GitHub PR, and PR commands), Python 3.9+ (hooks and scripts, stdlib only), Node (brainstorm visual companion), and for TypeScript code intelligence: `npm i -g typescript-language-server typescript`. The security hooks build their own Python environment in the background the first time a security-touched feature needs a model review. Your project needs nothing extra: sdlc runs the commands it already uses.
 
 ## Use
 
@@ -59,8 +59,8 @@ One row per check (✅ / ⚠️ / ❌) for your machine, the plugin and the curr
 ### 2. Set up the repo (once)
 
 ```
-/sdlc:setup                              # existing code
-/sdlc:setup a REST API for invoices      # empty repo: say what you're building
+/sdlc:setting-up-projects                              # existing code
+/sdlc:setting-up-projects a REST API for invoices      # empty repo: say what you're building
 ```
 
 - Works on a `sdlc/setup` branch, one commit per step; rerun it to resume if interrupted. Needs a clean working tree.
@@ -117,8 +117,8 @@ A new session needs no re-explaining; `state.md` carries it. To pause a feature,
 ### 6. After a plugin update
 
 ```
-/sdlc:upgrade --dry-run    # see what would change
-/sdlc:upgrade              # apply it, on its own branch
+/sdlc:setting-up-projects upgrade --dry-run    # see what would change
+/sdlc:setting-up-projects upgrade              # apply it, on its own branch
 ```
 
 `/sdlc:start` and `/sdlc:status` tell you when the repo is behind. The upgrade regenerates the plugin's files, asks before touching any you edited (merge, skip, or keep yours), and applies versioned migrations one diff at a time.
@@ -127,23 +127,22 @@ A new session needs no re-explaining; `state.md` carries it. To pause a feature,
 
 - `/sdlc:doctor` names the problem and the [runbook](docs/runbook.md) procedure that fixes it.
 - Blocked at the end of a turn with "re-run tests": you're in Prove and code changed. Run the test command the message names.
-- `/sdlc:eject` removes the plugin's files and keeps your specs, knowledge, constitution, commands and baseline. It shows a dry run first.
+- `/sdlc:setting-up-projects eject` removes the plugin's files and keeps your specs, knowledge, constitution, commands and baseline. It shows a dry run first.
 
 ## Commands
 
 | Command | Does |
 |---|---|
-| `/sdlc:setup [what you're building]` | Set the repo up once (new or existing code); resumes if interrupted |
+| `/sdlc:setting-up-projects [what you're building]` | Set the repo up once (new or existing code); resumes if interrupted |
 | `/sdlc:start [request]` | Start a piece of work, or resume the active one with no argument |
 | `/sdlc:status` | Setup state and version drift, then one line per feature. Read-only |
 | `/sdlc:doctor` | Health check of machine, plugin and repo, with a fix per problem. Read-only |
-| `/sdlc:upgrade [--dry-run] [--revisit]` | Bring the repo up to the installed plugin version |
-| `/sdlc:eject` | Remove the plugin's files from the repo, keep your work |
-| `/sdlc:review-pr` | Local pre-PR review with the right agents for the diff |
-| `/sdlc:code-review` | Review a GitHub pull request (needs `gh`) |
+| `/sdlc:setting-up-projects upgrade [--dry-run] [--revisit]` | Bring the repo up to the installed plugin version |
+| `/sdlc:setting-up-projects eject` | Remove the plugin's files from the repo, keep your work |
+| `/sdlc:review-pr [PR number or URL]` | Local pre-PR review with the right agents for the diff, or a review of a GitHub PR (needs `gh`) |
 | `/sdlc:commit`, `/sdlc:commit-push-pr`, `/sdlc:clean_gone` | Commit; commit, push and open a PR; delete local branches whose remote is gone |
 | `/sdlc:hookify` | Turn a repeated correction into a rule |
-| `/sdlc:revise-claude-md`, `/sdlc:knowledge-audit` | File lessons into the right knowledge tier; keep always-loaded context small |
+| `/sdlc:managing-knowledge lessons`, `/sdlc:managing-knowledge audit` | File lessons into the right knowledge tier; keep always-loaded context small |
 | `/sdlc:context-diet` | Estimate what each plugin and skill adds to every call, and turn off the ones this project doesn't need, in `.claude/settings.local.json` after you approve. Works in any repo; Claude Code only |
 | `/sdlc:deploy [feature] [environment]` | Deploy through the project's own deploy path, with your go-ahead before production or a migration, a smoke test and `release.md`. On request only |
 
@@ -155,16 +154,16 @@ Skills such as `sdlc:writing-specs` or `sdlc:test-driven-development` are used b
 
 | Phase | Replaces | Bundled pieces |
 |---|---|---|
-| Setup (once per repo) | | `setting-up-projects`, `/sdlc:setup`, `/sdlc:upgrade`, `/sdlc:eject`, `/sdlc:doctor` |
+| Setup (once per repo) | | `setting-up-projects`, `/sdlc:setting-up-projects`, `/sdlc:setting-up-projects upgrade`, `/sdlc:setting-up-projects eject`, `/sdlc:doctor` |
 | Define | discover, design, plan | questions ride in the approval with recommended answers, `brainstorming` (L; asks you nothing under the orchestrator), `writing-specs`, `clarifying-specs` (on request), `designing-solutions` + `code-explorer`, `code-architect` agents (L, or an unclear approach), `analyzing-consistency` (L, backlogs) |
-| Build | implement | `scripts/verify.py` (each AC's test recorded red before its code, one full run at the end, drift recorded in the plan), `using-git-worktrees`, `executing-plans` / one implementer subagent / `subagent-driven-development` (`Build:`), `dispatching-parallel-agents`, `test-driven-development`, `systematic-debugging`, `/sdlc-extras:ralph-loop` (when installed) |
-| Prove | verify, review, security | M full and L with `Prove: run` (S, M lite and `Prove: skip` go from Build to Ship). First `verify.py status`: reuse Build's passing run, or rerun it once. M full: one fresh checker, a read-only `code-reviewer` that reads each acceptance criterion beside its test and reviews in one pass (correctness, silent failures, test gaps and security basics, with `diff_stats.py` facts; on `opus`, as every code review is), `ui-reviewer` on UI diffs. Security-touched (`Risk: high`, or the diff touches `areas.sensitive` or `areas.migrations`): one more `code-reviewer` with a security-only brief, and the dependency audit. One record, `review.md` (rounds, tickets, fixed, security). L: a separate `ac-checker` (reads each acceptance criterion beside its test; runs nothing) and a top-tier `code-reviewer`. A backlog's feature close (every backlog, once): the `ac-checker` over every criterion, one top-tier `code-reviewer` over the whole branch, `qa-tester`. Plans without `## Acceptance tests` (features started earlier) keep the fresh `verifier`. Commands are time-boxed (2 minutes each outside the project's own, enforced by the prove-budget hook). High findings go back to Build, fixed test first; then one re-verification (`verify.py`, and a fresh checker on the ACs that failed), max 3 rounds, and a stop when the same requirement fails twice; freshness hook. On request: `/sdlc:review-pr` (local diff), `/sdlc:code-review` (GitHub PR), `receiving-code-review` |
-| Ship, with learn | PR / CI, learn | commit on a feature branch without asking on every track; `finishing-a-development-branch` when you ask for a merge or PR, `/sdlc:commit`, `/sdlc:commit-push-pr`, `/sdlc:clean_gone`; learn: fixed defects into `recurring-defects.md`, `managing-knowledge` (3-tier) and `/sdlc:hookify` only for a lesson that isn't obvious from the code or the commit, retro on L; the PR links `spec.md` and `review.md`. An advisor, where available, is called once before the commit only when no prove ran |
+| Build | implement | `scripts/verify.py` (each AC's test recorded red before its code, one full run at the end, drift recorded in the plan), the `using-git-worktrees.md` reference, `executing-plans` / one implementer subagent / `subagent-driven-development` (`Build:`), `dispatching-parallel-agents`, `test-driven-development`, `systematic-debugging`, `/sdlc-extras:ralph-loop` (when installed) |
+| Prove | verify, review, security | M full and L with `Prove: run` (S, M lite and `Prove: skip` go from Build to Ship). First `verify.py status`: reuse Build's passing run, or rerun it once. M full: one fresh checker, a read-only `code-reviewer` that reads each acceptance criterion beside its test and reviews in one pass (correctness, silent failures, test gaps and security basics, with `diff_stats.py` facts; on `opus`, as every code review is), `ui-reviewer` on UI diffs. Security-touched (`Risk: high`, or the diff touches `areas.sensitive` or `areas.migrations`): one more `code-reviewer` with a security-only brief, and the dependency audit. One record, `review.md` (rounds, tickets, fixed, security). L: a separate `ac-checker` (reads each acceptance criterion beside its test; runs nothing) and a top-tier `code-reviewer`. A backlog's feature close (every backlog, once): the `ac-checker` over every criterion, one top-tier `code-reviewer` over the whole branch, `qa-tester`. Plans without `## Acceptance tests` (features started earlier) keep the fresh `verifier`. Commands are time-boxed (2 minutes each outside the project's own, enforced by the prove-budget hook). High findings go back to Build, fixed test first; then one re-verification (`verify.py`, and a fresh checker on the ACs that failed), max 3 rounds, and a stop when the same requirement fails twice; freshness hook. On request: `/sdlc:review-pr` (the local diff, or a GitHub PR by number or URL) |
+| Ship, with learn | PR / CI, learn | commit on a feature branch without asking on every track; the `finishing-a-development-branch.md` reference when you ask for a merge or PR, `/sdlc:commit`, and the orchestrator's `commit-push-pr.md` and `clean-gone.md` references; learn: fixed defects into `recurring-defects.md`, `managing-knowledge` (3-tier) and `/sdlc:hookify` only for a lesson that isn't obvious from the code or the commit, retro on L; the PR links `spec.md` and `review.md`. An advisor, where available, is called once before the commit only when no prove ran |
 | `/sdlc:deploy` | deploy | on request: project's own deploy path, go-ahead, smoke test, `release.md` |
 
 Operate (a watch window with agreed signals) is no longer part of the pipeline; its notes stay in `skills/orchestrator/references/operate.md`. Internally each phase keeps one stage number (`Current: Stage 1 – Define`, `4 – Build`, `5 – Prove`, `8 – Ship`), which the hooks read; features started under the old 11 stages carry on in the matching phase.
 
-Always on: security-guidance hooks (during a feature, the commit's model review runs only on a security-touched change), the verify-freshness hook (in Prove, Stage 5, and it keeps its own copy of each `verify.py` run in Build and Prove, which `verify.py` itself writes after every full or `red` run, so any spelling of the command counts, and which the hook also takes from `verify.json` when its tree is the current code, also when the run is chained (`cd … && …`, `… | tail`); on the Lite flow also Stage 6, where a backlog slice rests after its commit; per package in a monorepo), the prove-budget hook (in Prove, Stage 5: every shell command other than the project's own is killed at 120 s and never runs in the background, so nothing is polled), the model-router hook (while a feature is active: every subagent dispatch names its model, never `haiku`, Fable only on your request, every code review on opus, the other reviewers and the verifier on opus only on L, and each dispatch is logged), the trust-anchor hook (tells you when the risk, flow, `Prove:` choice, baseline, commands or spec change under a feature, or verify's record disagrees with the hook's copy, or it leaves Prove, or on the Lite flow stops outside Build and Prove, with untested code; a change that only adds checks, such as Lite to full, is shown without stopping you), the role-guard hook (reviewers, `sdlc-extras:` ones included, and the ac-checker can't edit files but their report under `.sdlc/.work/findings/`, the verifier writes only its report, the baseline and its probe scripts, the qa-tester can't read the code), hookify rules (personal `.claude/hookify.*.local.md`, team `.claude/hookify/*.md`), TypeScript LSP. Every hook starts the Python that `hooks/sg-python.sh` found and remembered, or the launcher itself when none is remembered; it skips the Microsoft Store `python3` stub.
+Always on: security-guidance hooks (pattern warnings on every edit; the turn-end and commit model reviews run only while a security-touched feature is active, ADR 0019), the verify-freshness hook (in Prove, Stage 5, and it keeps its own copy of each `verify.py` run in Build and Prove, which `verify.py` itself writes after every full or `red` run, so any spelling of the command counts, and which the hook also takes from `verify.json` when its tree is the current code, also when the run is chained (`cd … && …`, `… | tail`); on the Lite flow also Stage 6, where a backlog slice rests after its commit; per package in a monorepo), the prove-budget hook (in Prove, Stage 5: every shell command other than the project's own is killed at 120 s and never runs in the background, so nothing is polled), the model-router hook (while a feature is active: every subagent dispatch names its model, never `haiku`, Fable only on your request, every code review on opus, the other reviewers and the verifier on opus only on L, and each dispatch is logged), the trust-anchor hook (tells you when the risk, flow, `Prove:` choice, baseline, commands or spec change under a feature, or verify's record disagrees with the hook's copy, or it leaves Prove, or on the Lite flow stops outside Build and Prove, with untested code; a change that only adds checks, such as Lite to full, is shown without stopping you), the role-guard hook (reviewers, `sdlc-extras:` ones included, and the ac-checker can't edit files but their report under `.sdlc/.work/findings/`, the verifier writes only its report, the baseline and its probe scripts, the qa-tester can't read the code), hookify rules (personal `.claude/hookify.*.local.md`, team `.claude/hookify/*.md`), TypeScript LSP. Every hook starts the Python that `hooks/sg-python.sh` found and remembered, or the launcher itself when none is remembered; it skips the Microsoft Store `python3` stub.
 
 ## Knowledge: 3-tier loading
 
@@ -176,7 +175,7 @@ Keeps always-loaded context small while agents still find what they need:
 | 2 | `.claude/rules/<area>.md` with `paths:` | automatically when matching files are touched |
 | 3 | `knowledge/**.md` (Open Knowledge Format) | on demand, via `knowledge/index.md` and links from tier 2 |
 
-Retros in `docs/sdlc/intents/<feature>/retro.md` are history only. Every feature's learn step adds the defects it fixed to `recurring-defects.md` and promotes durable lessons when there are any; things corrected twice become hookify rules. Run `/sdlc:knowledge-audit` when CLAUDE.md grows.
+Retros in `docs/sdlc/intents/<feature>/retro.md` are history only. Every feature's learn step adds the defects it fixed to `recurring-defects.md` and promotes durable lessons when there are any; things corrected twice become hookify rules. Run `/sdlc:managing-knowledge audit` when CLAUDE.md grows.
 
 The other part of the per-call floor is the listings of every enabled plugin, skill and command. `/sdlc:context-diet` estimates them per source and proposes turning the unrelated ones off for this project only. It also turns off the standalone `security-guidance` and `code-review`, which sdlc already bundles.
 

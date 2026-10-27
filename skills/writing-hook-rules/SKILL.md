@@ -289,7 +289,7 @@ Better: `rm\s+-rf`
 **Naming:** `.claude/hookify.{descriptive-name}.local.md`
 **Gitignore:** Add `.claude/*.local.md` to `.gitignore`
 
-**Team rules (sdlc):** rules the whole team should share go in `.claude/hookify/{name}.md` and are committed. `/sdlc:setup` installs `sdlc-*.md` guardrails there; those belong to the plugin (replaced on upgrade while unedited). Name your own team rules without the `sdlc-` prefix.
+**Team rules (sdlc):** rules the whole team should share go in `.claude/hookify/{name}.md` and are committed. `/sdlc:setting-up-projects` installs `sdlc-*.md` guardrails there; those belong to the plugin (replaced on upgrade while unedited). Name your own team rules without the `sdlc-` prefix.
 
 **Parser limits:** the frontmatter parser is minimal. Never put `---` inside a pattern (it ends the frontmatter; write `-{3}`), keep each condition's `pattern:` on its own line (an inline `- field: x, pattern: y` item is split on commas), and don't quote patterns. Patterns are matched case-insensitively.
 

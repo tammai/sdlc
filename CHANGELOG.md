@@ -1,10 +1,18 @@
 # Changelog
 
-Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
+Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:setting-up-projects upgrade` brings them forward.
 
 ## Unreleased
 
 ### Changed
+- **The model security review runs only for security-touched work** (ADR 0019, amends 0015). The turn-end review and the commit review run only while an sdlc feature is active and its change is security-touched; outside a feature they don't run. Pattern warnings, secret blocking, the push review and Prove's security pass are unchanged. `SDLC_SECURITY_REVIEW=always` brings back the old behaviour.
+- **The reviewer's SDK installs lazily:** SessionStart no longer builds the venv. The first edit made while a security-touched feature is active starts the install in the background.
+- **Fewer always-loaded entry points.** Removed commands, with their replacements:
+  - `/sdlc:setup`, `/sdlc:upgrade` and `/sdlc:eject` → `/sdlc:setting-up-projects [what you're building | upgrade [--dry-run] [--revisit] | eject]`.
+  - `/sdlc:knowledge-audit` and `/sdlc:revise-claude-md` → `/sdlc:managing-knowledge [audit | lessons]`.
+  - `/sdlc:code-review` → `/sdlc:review-pr <PR number or URL>`.
+  - `dispatching-parallel-agents`, `using-git-worktrees`, `receiving-code-review` and `finishing-a-development-branch` are no longer skills, and `/sdlc:clean_gone` and `/sdlc:commit-push-pr` are no longer commands. All six are now references the flow reads when it needs them (`skills/orchestrator/references/`).
+- **`feature-reviewer` moved to sdlc-extras:** nothing in the flow dispatched it.
 - **On M the main session is the maker** (ADR 0018, amends 0017). In an interactive Claude Code session it does Define and Build itself, asks you directly and fixes the checker's highs itself. Prove is unchanged: one fresh checker on opus, a brief from fixed text and paths, moves from its VERDICT lines alone. L keeps its thin main session and stage agents.
 - **Opt-in hook timing:** with `SDLC_HOOK_TIMES=1`, every hook appends its name, event, tool, wall-clock time and exit code to `.sdlc/.work/hook-times.jsonl` (runbook R10a), to find what makes tool calls slow before cutting it.
 - **Build checks its own diff before Prove:** with Prove ahead, the builder runs the checker's one-pass list on its diff before the final `verify.py` and fixes what it finds, test first, logged as one `Self-check:` line in `review.md`. The fresh checker still runs and alone judges; this saves a fix round.

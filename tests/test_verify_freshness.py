@@ -258,7 +258,7 @@ class VerifyFreshnessTest(ProjectTestCase):
         self.set_state(test_cmd="pnpm test:all")
         self.assertIn("`pnpm test:all`", self.assertBlocks()["reason"])
 
-    # --- .sdlc/config.json (after /sdlc:setup) ---------------------------------------
+    # --- .sdlc/config.json (after /sdlc:setting-up-projects) ---------------------------------------
 
     def configure(self, **config):
         self.write(".sdlc/config.json", json.dumps({"min_plugin_version": "1.3.0", **config}))

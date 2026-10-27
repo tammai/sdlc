@@ -1,7 +1,6 @@
----
-name: revise-claude-md
-description: File learnings from this session into the right knowledge tier (CLAUDE.md, path-scoped rules, or knowledge/)
----
+# Lessons from this session
+
+Files learnings from this session into the right knowledge tier (CLAUDE.md, path-scoped rules, or knowledge/).
 
 Review this session for learnings about working with Claude Code in this codebase. Update CLAUDE.md with context that would help future Claude sessions be more effective.
 

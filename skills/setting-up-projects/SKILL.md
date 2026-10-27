@@ -17,6 +17,8 @@ S="python3 ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py"   # every command prints J
 
 ## Which flow
 
+Run as `/sdlc:setting-up-projects [what you're building | upgrade [--dry-run] [--revisit] | eject]`. `eject`, or a request to remove the workflow, runs **Eject** (`references/eject.md`): always show the dry-run plan and get the go-ahead first. `upgrade --dry-run` shows the upgrade plan and changes nothing; `--revisit` also re-offers skipped migrations. Anything else is context for Setup. Already set up and nothing to do: say so and point to `/sdlc:start`.
+
 This skill runs in Claude Code, Codex, Cursor or Antigravity. First `$S host`: `host` is the agent running you, found from where the plugin is installed (or the environment). If it's `null`, ask the user which agent this is (the only time setup asks) and pass it as `--host`. Then `$S status`:
 
 | `setup` | `drift` | Do |

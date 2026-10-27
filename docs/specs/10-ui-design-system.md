@@ -6,7 +6,7 @@ When a project has UI, every UI change follows the project's design system and a
 
 ## User scenarios
 
-1. **Existing system.** Given a React repo using shadcn/ui and a Tailwind theme, when the user runs `/sdlc:setup`, then `docs/sdlc/design-system.md` points at the theme, `components/ui` and the icon set, and the user approves it before it's written.
+1. **Existing system.** Given a React repo using shadcn/ui and a Tailwind theme, when the user runs `/sdlc:setting-up-projects`, then `docs/sdlc/design-system.md` points at the theme, `components/ui` and the icon set, and the user approves it before it's written.
 2. **No system.** Given a greenfield web app, when setup reaches the design-system step, then it proposes one mainstream library and a minimal token set; it never invents a bespoke system.
 3. **Hard-coded color.** When Claude writes `className="bg-[#1a2b3c]"` in a `.tsx` file, then a warning names the design system and the write goes ahead.
 4. **Generic hero.** Given an M full or L feature whose diff adds a purple-gradient hero with emoji feature cards, when Prove runs, then `sdlc:ui-reviewer` reports both as High and the gate doesn't pass until they're fixed.

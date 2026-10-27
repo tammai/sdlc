@@ -49,7 +49,7 @@ sdlc/
 │   ├── design-system-template.md   setup's design-system step (UI projects)
 │   ├── knowledge/           OKF templates for tier 2/3 knowledge
 │   └── project/             what setup places in a repo: config defaults, rules/, hookify/, lint/, agents/ (the AGENTS.md workflow section), baseline.md
-├── migrations/              <version>-<slug>.md steps that /sdlc:upgrade applies to project-owned files
+├── migrations/              <version>-<slug>.md steps that /sdlc:setting-up-projects upgrade applies to project-owned files
 ├── examples/hookify/        sample rules
 ├── plugins/sdlc-extras/     the optional companion plugin, same marketplace, version bumped with sdlc's (vendored):
 │                            commands/ ralph-loop, cancel-ralph, ralph-help, hookify-list, hookify-configure, hookify-help;

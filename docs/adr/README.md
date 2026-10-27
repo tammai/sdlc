@@ -18,9 +18,10 @@ Decisions about how the plugin itself is built: what was decided, why, and what 
 | [0012](0012-enforced-prove-budget.md) | An enforced Prove budget, and M full without QA | Accepted, amended by 0013 |
 | [0013](0013-build-proves-prove-judges.md) | Build proves, Prove judges | Accepted, amended by 0014 and 0015 |
 | [0014](0014-lighter-s-and-a-companion-plugin.md) | A lighter S, and a companion plugin for niche parts | Accepted, amended by 0015 |
-| [0015](0015-prove-only-where-it-pays.md) | Prove only where it pays: none on S and M lite, skippable on M full and L, security review only when security-touched | Accepted, amended by 0016 |
+| [0015](0015-prove-only-where-it-pays.md) | Prove only where it pays: none on S and M lite, skippable on M full and L, security review only when security-touched | Accepted, amended by 0016 and 0019 |
 | [0016](0016-cut-l-cost-where-it-bought-nothing.md) | Cut L's cost where it bought nothing: footprint sizing, one Define exchange, one reviewer, no Ship question | Accepted, amended by 0017 |
 | [0017](0017-thin-main-session-and-stage-agents.md) | A thin main session, kept-alive stage agents, one record file | Accepted, amended by 0018 |
 | [0018](0018-m-maker-in-the-main-session.md) | On M the main session is the maker; the checker stays a fresh subagent | Accepted |
+| [0019](0019-model-security-review-only-for-security-touched-work.md) | The model security review runs only for security-touched work; the reviewer SDK installs lazily | Accepted |
 
 New ADR: copy the shape of an existing one (Status, Context, Decision, Consequences), take the next number, and add a row here.

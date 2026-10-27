@@ -1,7 +1,6 @@
----
-name: clean_gone
-description: Cleans up all git branches marked as [gone] (branches that have been deleted on the remote but still exist locally), including removing associated worktrees.
----
+# Clean up gone branches
+
+Removes local branches whose remote branch was deleted ([gone]), and their worktrees.
 
 ## Your Task
 

@@ -17,6 +17,8 @@ branch left the default branch (a point `Base:` can't move; on the default branc
 review then widens. The widened diff starts at
 `Base:` only when every commit it covers descends from it, else at that branch point. MAX_WIDEN or more unreviewed
 commits: no widening (the push review still sees them).
+With no active feature the commit gets no model review and isn't recorded as reviewed (`off`), so the push review
+still covers it; review_wanted() tells the Stop review the same (ADR 0019); SDLC_SECURITY_REVIEW=always restores the review outside the flow.
 Anything else, or any error: the commits are reviewed exactly as given. The push review is untouched.
 """
 import json
@@ -44,7 +46,7 @@ def _git(root, *args):
     return p.stdout.strip() if p.returncode == 0 else None
 
 
-def _active_feature(root):
+def _active_features(root):
     found = []
     for f in sdlc_layout.features(root).values():
         try:
@@ -54,7 +56,16 @@ def _active_feature(root):
             continue
         if re.search(r"^Status:[ \t]*active[ \t]*(\(|$)", text, re.M | re.I):
             found.append(text)
+    return found
+
+
+def _active_feature(root):
+    found = _active_features(root)
     return found[0] if len(found) == 1 else None
+
+
+def _always():
+    return os.environ.get("SDLC_SECURITY_REVIEW", "").strip().lower() == "always"
 
 
 def _touches_guarded_paths(root, shas, guard=NEVER_DEFER):
@@ -123,9 +134,15 @@ def _names(root, *args):
     return None if out is None else [n for n in out.split("\0") if n]
 
 
-def _security_touched(root, text, start, anchor, shas):
+def _untracked(root):
+    out = _git(root, "ls-files", "--others", "--exclude-standard", "-z")
+    return None if out is None else [n for n in out.split("\0") if n]
+
+
+def _security_touched(root, text, start, anchor, shas, worktree=False):
     """Risk: high, an uncommitted change to .sdlc/config.json, or a change since the branch point and Base: (and
-    these commits) that touches a sensitive or migration path. Anything it can't tell counts as touched."""
+    these commits; with worktree, uncommitted and untracked files too) that touches a sensitive or migration path.
+    Anything it can't tell counts as touched."""
     if re.search(r"^Risk:\s*high\b", text, re.M | re.I):
         return True
     if _git(root, "diff", "--quiet", "HEAD", "--", ".sdlc/config.json") is None:
@@ -133,6 +150,8 @@ def _security_touched(root, text, start, anchor, shas):
     areas = _security_areas(root)
     lists = [_names(root, "diff", "--name-only", ref, "HEAD") for ref in {start, anchor} if ref]
     lists += [_names(root, "diff-tree", "-r", "--no-commit-id", "--name-only", "-m", "--root", s) for s in shas]
+    if worktree:
+        lists += [_names(root, "diff", "--name-only", "HEAD"), _untracked(root)]
     if areas is None or any(names is None for names in lists):
         return True
     names = {n.lower() for names in lists for n in names}  # src/Auth/ on a case-insensitive checkout too
@@ -148,6 +167,25 @@ def _branch_point(root):
     return None
 
 
+def review_wanted(repo_root):
+    """For the Stop review: True only when SDLC_SECURITY_REVIEW=always, or the one active feature's change (committed
+    since Base:, uncommitted or untracked) is security-touched. No active feature: False. Several active features, a
+    state without Base:, or any error: True."""
+    try:
+        if _always():
+            return True
+        found = _active_features(repo_root)
+        if not found:
+            return False
+        base = re.search(r"^Base:\s*`?([0-9a-f]{7,40})\b", found[0], re.M)
+        if len(found) > 1 or not base:
+            return True
+        start = _git(repo_root, "rev-parse", "--verify", "-q", base.group(1))
+        return not start or _security_touched(repo_root, found[0], start, None, [], worktree=True)
+    except Exception:
+        return True
+
+
 def decide(repo_root, shas, reviewed):
     """{defer, shas, own, range, active}. defer: review nothing now. shas: the commits this review covers (and
     marks reviewed), newest first; own: the commits that triggered it, the only ones to mark if the reviewer had to
@@ -155,6 +193,8 @@ def decide(repo_root, shas, reviewed):
     gate applied, so an amend is reviewed whole, never as a delta. Never raises."""
     given = {"defer": False, "shas": list(shas), "own": list(shas), "range": None, "active": False}
     try:
+        if not _always() and not _active_features(repo_root):
+            return {"defer": True, "off": True, "shas": [], "own": [], "range": None, "active": False}
         text = _active_feature(repo_root)
         stage = re.search(r"^Current:\s*Stage\s*(\d+)\b", text or "", re.M)
         base = re.search(r"^Base:\s*`?([0-9a-f]{7,40})\b", text or "", re.M)

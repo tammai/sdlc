@@ -1,6 +1,6 @@
 # Known failures baseline
 
-<!-- Written by /sdlc:setup (sdlc v{{plugin_version}}). Yours from then on: the plugin never overwrites it.
+<!-- Written by /sdlc:setting-up-projects (sdlc v{{plugin_version}}). Yours from then on: the plugin never overwrites it.
      Prove (Stage 5) fails only on failures NOT listed here. Rules:
      - Shrinks on its own: when a listed item passes, the verifier removes it and says so in test-report.md.
      - Never grows silently: adding an item needs the user's OK and a Deviations entry in that feature's state.md.

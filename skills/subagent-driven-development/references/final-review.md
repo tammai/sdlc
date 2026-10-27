@@ -28,7 +28,7 @@ Adjudicate any residual findings as in the fix loop's breaker
 ones and ledger what you decided. Only the four things that stop a running
 plan (top of SKILL.md) stop you here. There is no second fix wave —
 residual load-bearing findings surface to your human partner when
-finishing-a-development-branch presents the options.
+`${CLAUDE_PLUGIN_ROOT}/skills/orchestrator/references/finishing-a-development-branch.md` presents the options.
 
 ### Finish
 
@@ -46,4 +46,4 @@ delete this plan's workspace (`rm -rf <workspace>`) — the git history is
 the record now. Sibling directories belong to other plans; leave them
 alone.
 
-Use sdlc:finishing-a-development-branch.
+Follow `${CLAUDE_PLUGIN_ROOT}/skills/orchestrator/references/finishing-a-development-branch.md`.

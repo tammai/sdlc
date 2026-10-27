@@ -3,6 +3,8 @@ name: subagent-driven-development
 description: Runs an implementation plan with a fresh implementer subagent per task (and a review per task, except under the sdlc orchestrator, where Prove is the only review). Used by sdlc's Build with Build tasks (Track L), or when the user asks for subagent-driven execution.
 ---
 
+`${CLAUDE_PLUGIN_ROOT}` is the sdlc plugin's folder. Claude Code fills it in; on other agents it stays as written, so use the installed plugin's folder instead: the one above this file that holds `scripts/` and `skills/`.
+
 # Subagent-Driven Development
 
 Execute plan by dispatching a fresh implementer subagent per task, a task review (spec compliance + code quality) after each, and a broad whole-branch review at the end.
@@ -78,7 +80,7 @@ digraph process {
     "More tasks remain?" [shape=diamond];
     "Final review and finish: read references/final-review.md" [shape=box];
     "Final review clean: delete this plan's workspace" [shape=box];
-    "Use sdlc:finishing-a-development-branch" [shape=box style=filled fillcolor=lightgreen];
+    "Follow finishing-a-development-branch.md" [shape=box style=filled fillcolor=lightgreen];
 
     "Setup: worktree, ledger check, read plan, pre-flight review" -> "Dispatch implementer subagent (./implementer-prompt.md)";
     "Dispatch implementer subagent (./implementer-prompt.md)" -> "Implementer asks questions?";
@@ -94,14 +96,14 @@ digraph process {
     "More tasks remain?" -> "Dispatch implementer subagent (./implementer-prompt.md)" [label="yes"];
     "More tasks remain?" -> "Final review and finish: read references/final-review.md" [label="no"];
     "Final review and finish: read references/final-review.md" -> "Final review clean: delete this plan's workspace";
-    "Final review clean: delete this plan's workspace" -> "Use sdlc:finishing-a-development-branch";
+    "Final review clean: delete this plan's workspace" -> "Follow finishing-a-development-branch.md";
 }
 ```
 
 ## Setup
 
 Ensure the work happens in an isolated workspace: use
-sdlc:using-git-worktrees to create one or verify the existing one.
+`${CLAUDE_PLUGIN_ROOT}/skills/orchestrator/references/using-git-worktrees.md` to create one or verify the existing one.
 Never start implementation on a main/master branch without your human
 partner's explicit consent.
 

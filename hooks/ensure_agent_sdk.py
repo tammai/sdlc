@@ -85,6 +85,8 @@ SKIP_COOLDOWN = 9    # a recent build was signal-killed (memory pressure) — no
 SKIP_REVIEWS_OFF = 10  # the environment turns off every review that would
                        # load the SDK (kill switch included), so nothing is
                        # installed. See #5331.
+SKIP_LAZY = 11  # sdlc patch (ADR 0019): SessionStart installs nothing; the
+                # first review that wants the SDK starts this with --now
 
 # How long to skip rebuilds after a signal kill. Retries at most once per
 # window so a machine whose memory frees up still recovers (just not every
@@ -606,6 +608,8 @@ def main() -> tuple[int, str, str]:
     # advertise a reviewer the user turned off. See #5331.
     if llm_reviews_switched_off():
         return SKIP_REVIEWS_OFF, "", ""
+    if "--now" not in sys.argv[1:] and os.environ.get("SDLC_SECURITY_REVIEW", "").strip().lower() != "always":
+        return SKIP_LAZY, "", ""
 
     # Honesty check (fixes the misleading NOOP_VENV in #2071): the SDK
     # requires Python >=3.10 and uses 3.10+ syntax (match statements,

@@ -3,6 +3,8 @@ name: executing-plans
 description: Runs an implementation plan task by task in this session, test first, with one review of the whole branch at the end. Used by sdlc's Build with Build native on the full flow, or when the user asks to execute a plan natively.
 ---
 
+`${CLAUDE_PLUGIN_ROOT}` is the sdlc plugin's folder. Claude Code fills it in; on other agents it stays as written, so use the installed plugin's folder instead: the one above this file that holds `scripts/` and `skills/`.
+
 # Executing Plans
 
 Execute the plan yourself, task by task, in this session: no implementer
@@ -85,7 +87,7 @@ digraph process {
     "Final whole-branch review (fresh reviewer if you have one)" [shape=box];
     "Re-grade, then: Critical/Important → ONE fix pass, each fix RED→GREEN + green suite; Minor → ledger" [shape=box];
     "Final review clean: delete this plan's workspace" [shape=box];
-    "Use sdlc:finishing-a-development-branch" [shape=box style=filled fillcolor=lightgreen];
+    "Follow finishing-a-development-branch.md" [shape=box style=filled fillcolor=lightgreen];
 
     "Setup: worktree, workspace + ledger, read plan + spec, pre-flight scan" -> "task-start: brief + BASE; read the brief";
     "task-start: brief + BASE; read the brief" -> "Work the steps in order: TDD, run every verification, read every output";
@@ -101,14 +103,14 @@ digraph process {
     "More tasks remain?" -> "Final whole-branch review (fresh reviewer if you have one)" [label="no"];
     "Final whole-branch review (fresh reviewer if you have one)" -> "Re-grade, then: Critical/Important → ONE fix pass, each fix RED→GREEN + green suite; Minor → ledger";
     "Re-grade, then: Critical/Important → ONE fix pass, each fix RED→GREEN + green suite; Minor → ledger" -> "Final review clean: delete this plan's workspace";
-    "Final review clean: delete this plan's workspace" -> "Use sdlc:finishing-a-development-branch";
+    "Final review clean: delete this plan's workspace" -> "Follow finishing-a-development-branch.md";
 }
 ```
 
 ## Setup
 
 Ensure the work happens in an isolated workspace: use
-sdlc:using-git-worktrees to create one or verify the existing one.
+`${CLAUDE_PLUGIN_ROOT}/skills/orchestrator/references/using-git-worktrees.md` to create one or verify the existing one.
 Never start implementation on a main/master branch without your human
 partner's explicit consent.
 
@@ -305,7 +307,7 @@ When the final review is clean and its fixes are committed, delete this
 plan's workspace directory — the git history is the record now. Sibling
 directories belong to other plans; leave them alone.
 
-Use sdlc:finishing-a-development-branch.
+Follow `${CLAUDE_PLUGIN_ROOT}/skills/orchestrator/references/finishing-a-development-branch.md`.
 
 ## Common Rationalizations
 

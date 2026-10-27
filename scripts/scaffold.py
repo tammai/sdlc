@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""sdlc scaffold bookkeeping: the deterministic half of /sdlc:setup, /sdlc:upgrade and /sdlc:eject.
+"""sdlc scaffold bookkeeping: the deterministic half of /sdlc:setting-up-projects, /sdlc:setting-up-projects upgrade and /sdlc:setting-up-projects eject.
 
 Claude makes the judgment calls (what to generate, how to merge an edited file); this script owns the
 records so they stay exact:

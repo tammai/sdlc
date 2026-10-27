@@ -2,7 +2,7 @@
 
 The plugin installs and runs on its own in Claude Code, Codex, Cursor and Antigravity. Setup knows which agent is running it and writes that agent's files without asking. When a second agent opens a repo another agent already set up, its setup adds only its own layer and carries over what the first team wrote. [Issue #1](https://github.com/tammai/sdlc/issues/1); the design is in [ADR 0007](../adr/0007-multi-tool-adapters.md).
 
-**Entry points:** `/sdlc:setup` (or the `setting-up-projects` skill), `/sdlc:upgrade`, `/sdlc:eject`, `/sdlc:doctor` · **Source:** `scripts/scaffold.py host`, `add-host` and `agents`, `scripts/hosts.py`, `hosts/hook.py`, `templates/project/agents/workflow.md`, `templates/project/ci/invariants.py`, the Codex, Cursor and Antigravity manifests, `hosts/`
+**Entry points:** `/sdlc:setting-up-projects` (or the `setting-up-projects` skill), `/sdlc:setting-up-projects upgrade`, `/sdlc:setting-up-projects eject`, `/sdlc:doctor` · **Source:** `scripts/scaffold.py host`, `add-host` and `agents`, `scripts/hosts.py`, `hosts/hook.py`, `templates/project/agents/workflow.md`, `templates/project/ci/invariants.py`, the Codex, Cursor and Antigravity manifests, `hosts/`
 
 ## Install
 
@@ -16,7 +16,7 @@ The plugin installs and runs on its own in Claude Code, Codex, Cursor and Antigr
 ## User scenarios
 
 1. **Setup in Codex.** Given the plugin is installed in Codex, when the user asks to set up sdlc in a new repo, then setup records `hosts: ["codex"]` without asking which agent this is. The shared setup runs, and `AGENTS.md` gets the sdlc block with the workflow and the policy rules. Nothing is written under `.claude/`.
-2. **Claude Code joins.** Given that repo, when a Claude Code user runs `/sdlc:setup`, then setup sees it's joining, so it runs only the Claude Code layer (rules, guardrails, allowlist) and `scaffold.py agents`. The team's own `AGENTS.md` text reaches Claude Code through `.claude/rules/sdlc-agents-md.md`. The commands, baseline and constitution are not redone.
+2. **Claude Code joins.** Given that repo, when a Claude Code user runs `/sdlc:setting-up-projects`, then setup sees it's joining, so it runs only the Claude Code layer (rules, guardrails, allowlist) and `scaffold.py agents`. The team's own `AGENTS.md` text reaches Claude Code through `.claude/rules/sdlc-agents-md.md`. The commands, baseline and constitution are not redone.
 3. **Codex joins a Claude Code repo.** Given a repo Claude Code set up, when a Codex user runs setup, then `AGENTS.md` gains the block, built from `CLAUDE.md`, the team's `.claude/rules/` and the plugin's policy rules. The team's own text outside the block is untouched.
 4. **Can't tell.** Given Codex was started from a Claude Code shell and the plugin was loaded from a checkout, when setup runs, then it asks which agent this is: the only question it asks about hosts.
 5. **Drift.** Given a teammate edits `CLAUDE.md`, when anyone runs `/sdlc:doctor`, then the `AGENTS.md` check warns and names `scaffold.py agents`.

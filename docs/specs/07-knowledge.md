@@ -2,13 +2,13 @@
 
 What the team learns is kept where the agent finds it at the right moment, without growing the context every session pays for.
 
-**Entry points:** `/sdlc:revise-claude-md`, `/sdlc:knowledge-audit`, Define (reads) and Learn, in Ship (writes), setup (seeds) · **Source:** `skills/managing-knowledge/SKILL.md`, `commands/knowledge-audit.md`, `commands/revise-claude-md.md`, `templates/knowledge/`, `skills/managing-knowledge/references/claude-md-improver.md` (and its folder)
+**Entry points:** `/sdlc:managing-knowledge lessons`, `/sdlc:managing-knowledge audit`, Define (reads) and Learn, in Ship (writes), setup (seeds) · **Source:** `skills/managing-knowledge/SKILL.md`, `commands/knowledge-audit.md`, `commands/revise-claude-md.md`, `templates/knowledge/`, `skills/managing-knowledge/references/claude-md-improver.md` (and its folder)
 
 ## User scenarios
 
 1. **Promote a lesson.** Given a retro bullet that's still true outside the feature, when Learn runs, then it's filed in the right tier (path-specific → a tier-2 rule line, explanation → a tier-3 doc) and linked from `knowledge/index.md`.
 2. **Repeated correction.** Given the user corrected the same thing twice and it's checkable, then it becomes a hookify rule rather than more text.
-3. **CLAUDE.md too long.** Given `CLAUDE.md` over 60 lines, when `/sdlc:knowledge-audit` runs, then it proposes moves line by line with reasons and before/after counts, and applies only what the user approves.
+3. **CLAUDE.md too long.** Given `CLAUDE.md` over 60 lines, when `/sdlc:managing-knowledge audit` runs, then it proposes moves line by line with reasons and before/after counts, and applies only what the user approves.
 
 ## Requirements
 

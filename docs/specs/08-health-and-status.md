@@ -6,7 +6,7 @@ Tell the user what state their machine, the plugin and the repo are in, and what
 
 ## User scenarios
 
-1. **After install.** When the user runs `/sdlc:doctor` in a repo that isn't set up, then machine and plugin checks are shown and the repo check says "not set up" with `/sdlc:setup` as the fix; nothing fails.
+1. **After install.** When the user runs `/sdlc:doctor` in a repo that isn't set up, then machine and plugin checks are shown and the repo check says "not set up" with `/sdlc:setting-up-projects` as the fix; nothing fails.
 2. **Something broke.** Given a hookify rule with a broken regex, when `/sdlc:doctor` runs, then that check fails, naming the file and the runbook procedure, and the exit code is 1.
 3. **Where am I.** When the user runs `/sdlc:status`, then they see setup state and drift, then one line per feature.
 4. **Clean up.** Given a feature marked done on main 60 days ago, when the user runs `/sdlc:prune` and approves, then its plan, reports, review and checklists are deleted in one commit and its spec and state stay.
@@ -22,10 +22,10 @@ Tell the user what state their machine, the plugin and the repo are in, and what
 | HLT-FR-002 | Every check is ok, warn, fail or skip with a one-line detail and, if not ok, a fix (a command or a runbook procedure). Exit 1 if any check fails. JSON or Markdown table output. | `[enforced]` test_doctor › test_markdown_output, test_repo_not_set_up_is_a_warning_not_a_failure |
 | HLT-FR-003 | Environment: Python ≥ 3.9, "hook python": `hooks/sg-python.sh`, which finds the Python every hook in `hooks.json` starts (directly once remembered), run under Git Bash finds a working Python 3 (fail otherwise: the hooks fail open without it; System32's WSL bash doesn't count), git (fail if missing), gh (warn), jq (warn: the `sdlc-extras` Ralph loop's stop hook needs it), the security reviewer environment (via the security hooks' own lookup; skip if model reviews are switched off; when not built, explains that it needs credentials reaching the hooks). | `[enforced]` test_doctor › test_environment_and_plugin_checks_always_run, test_hook_python_that_does_not_run_fails |
 | HLT-FR-004 | Plugin: version; every script referenced in `hooks.json` exists. | `[enforced]` test_doctor › test_environment_and_plugin_checks_always_run |
-| HLT-FR-005 | Repo setup: not set up (warn, `/sdlc:setup`), in progress (warn, with steps done), complete; version drift (behind → warn with pending migrations; plugin too old → fail); corrupt config or lock → fail. | `[enforced]` test_doctor › test_healthy_set_up_repo, test_setup_in_progress, test_version_drift, test_corrupt_lock_fails |
+| HLT-FR-005 | Repo setup: not set up (warn, `/sdlc:setting-up-projects`), in progress (warn, with steps done), complete; version drift (behind → warn with pending migrations; plugin too old → fail); corrupt config or lock → fail. | `[enforced]` test_doctor › test_healthy_set_up_repo, test_setup_in_progress, test_version_drift, test_corrupt_lock_fails |
 | HLT-FR-006 | Plugin files missing or generated files hand-edited → warn (upgrade restores or regenerates); seeded files the user edited are listed as info. | `[enforced]` test_doctor › test_missing_and_hand_edited_plugin_files |
 | HLT-FR-007 | Commands: missing required commands, missing package paths or duplicate names → fail; tools not on PATH → warn, per package. | `[enforced]` test_doctor › test_missing_commands_fail, test_command_tools_not_installed_warn, test_monorepo_commands_per_package |
-| HLT-FR-008 | Brownfield without a baseline → warn; `.sdlc/.work/` not git-ignored → warn; the control contract's files (`.sdlc/state/*.json`, `*.events.jsonl`, `*.commands/`) not git-ignored → warn, fix `/sdlc:upgrade`. | `[enforced]` test_doctor › test_brownfield_without_baseline, test_gitignore, test_gitignore_set_up_before_the_control_contract_warns |
+| HLT-FR-008 | Brownfield without a baseline → warn; `.sdlc/.work/` not git-ignored → warn; the control contract's files (`.sdlc/state/*.json`, `*.events.jsonl`, `*.commands/`) not git-ignored → warn, fix `/sdlc:setting-up-projects upgrade`. | `[enforced]` test_doctor › test_brownfield_without_baseline, test_gitignore, test_gitignore_set_up_before_the_control_contract_warns |
 | HLT-FR-009 | Your rules whose `paths:` match no files → warn (the plugin's own `sdlc-*` policy rules are skipped: they wait for files to exist); hookify rules that don't parse or have a bad regex → fail. | `[enforced]` test_doctor › test_rules_whose_paths_match_nothing, test_hookify_rules_parse |
 | HLT-FR-010 | `CLAUDE.md` over 60 lines → warn; `knowledge/` without an index or with broken links → warn. | `[enforced]` test_doctor › test_claude_md_budget, test_knowledge_index_links |
 | HLT-FR-012 | A stale `AGENTS.md` block or Claude Code mirror → warn; a Claude-only line in its sources → fail ([spec 11](11-multi-agent.md) AGT-FR-005). | `[enforced]` test_doctor › test_agents_md_out_of_date_warns |
@@ -36,7 +36,7 @@ Tell the user what state their machine, the plugin and the repo are in, and what
 
 | ID | Requirement | Guarantee |
 |---|---|---|
-| HLT-FR-020 | Setup state and scaffold vs plugin version first; suggests `/sdlc:setup`, `/sdlc:upgrade` (naming pending migrations) or a plugin update as needed; lists edited plugin files only if any. | `[instructed]` commands/status.md; data `[enforced]` test_scaffold › test_status_before_setup, test_drift, test_status_lists_pending_migrations |
+| HLT-FR-020 | Setup state and scaffold vs plugin version first; suggests `/sdlc:setting-up-projects`, `/sdlc:setting-up-projects upgrade` (naming pending migrations) or a plugin update as needed; lists edited plugin files only if any. | `[instructed]` commands/status.md; data `[enforced]` test_scaffold › test_status_before_setup, test_drift, test_status_lists_pending_migrations |
 | HLT-FR-021 | One line per feature: feature · track · current stage · last gate; then open questions and deviations for active features. Changes nothing. | `[instructed]` commands/status.md |
 
 ### Prune

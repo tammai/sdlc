@@ -1583,6 +1583,11 @@ def handle_commit_review_posttooluse(input_data):
     # sdlc patch: while a feature is active, a build commit (before Stage 5) is deferred, not reviewed and not
     # recorded as reviewed; the next review-ready commit's review also covers it (hooks/sdlc_review_gate.py)
     _sdlc = sdlc_review_gate.decide(repo_root, shas, _load_reviewed_shas(repo_root))
+    if _sdlc.get("off"):
+        # sdlc patch (ADR 0019): no active feature, no commit review; not recorded, so the push review still sees it
+        debug_log("Commit review: no active sdlc feature, skipped")
+        emit_metrics({"skipped": True, "skip_reason": 92, **_base})
+        sys.exit(0)
     if _sdlc["defer"]:
         debug_log("Commit review: sdlc feature not review-ready yet, deferred")
         emit_metrics({"skipped": True, "skip_reason": 90, **_base})
@@ -2497,6 +2502,11 @@ def handle_stop_hook(input_data):
             save_repo_hint(session_id, repo_cwd)
         cwd = repo_cwd
 
+    # sdlc patch (ADR 0019): the turn-end model review runs only for a security-touched active feature
+    if not sdlc_review_gate.review_wanted(repo_cwd or cwd):
+        debug_log("Stop hook: no security-touched sdlc feature, skipped")
+        _skip(51)
+
     # The baseline belongs to the checkout the prompt hook captured it in.
     # When the turn ends in another one (the session entered a worktree, or
     # the edits were in a different repo), it says nothing about what changed
@@ -2791,7 +2801,7 @@ def handle_stop_hook(input_data):
 
 _SDK_BOOTSTRAP_THROTTLE = os.path.join(_resolve_state_dir(), ".sdk_bootstrap_spawned")
 
-def _maybe_bootstrap_agent_sdk_async():
+def _maybe_bootstrap_agent_sdk_async(cwd=None):
     """Fire-and-forget SDK bootstrap, for remote-pod environments.
 
     Under CLAUDE_CODE_SYNC_PLUGIN_INSTALL=true (CCR-style remote pods),
@@ -2807,12 +2817,17 @@ def _maybe_bootstrap_agent_sdk_async():
     the build window. No-ops in ~10ms on local installs (SDK already
     importable, or already installed under the state dir, which is not on
     sys.path here) and when the environment turns the LLM reviews off.
+    sdlc patch (ADR 0019): this is the only install; SessionStart builds nothing
+    (ensure_agent_sdk.py without --now), and here it waits until an LLM review
+    would run, i.e. a security-touched sdlc feature is active.
     """
     try:
         import importlib.util
         if importlib.util.find_spec("claude_agent_sdk") is not None:
             return
         if llm_reviews_switched_off() or agent_sdk_installed(_resolve_state_dir()):
+            return
+        if not sdlc_review_gate.review_wanted(cwd or os.getcwd()):
             return
         import time as _t
         try:
@@ -2827,7 +2842,7 @@ def _maybe_bootstrap_agent_sdk_async():
         script = os.path.join(
             os.path.dirname(os.path.abspath(__file__)), "ensure_agent_sdk.py")
         subprocess.Popen(
-            [sys.executable, script],
+            [sys.executable, script, "--now"],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             stdin=subprocess.DEVNULL, start_new_session=True,
         )
@@ -2880,7 +2895,7 @@ def main():
     # Fires on Edit/Write too (not just Bash), so the venv is usually built
     # before the first `git commit`.
     if hook_event_name == "PostToolUse":
-        _maybe_bootstrap_agent_sdk_async()
+        _maybe_bootstrap_agent_sdk_async(input_data.get("cwd"))
 
     # Handle UserPromptSubmit — capture git baseline
     if hook_event_name == "UserPromptSubmit":

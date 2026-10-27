@@ -9,7 +9,7 @@ Operational procedures: install, check health, fix what breaks, maintain the plu
 | Need | For |
 |---|---|
 | `git` | worktrees, freshness hook, commit and PR commands |
-| `gh` | `/sdlc:code-review` and PR commands |
+| `gh` | `/sdlc:review-pr` on a GitHub PR, and PR commands |
 | Python 3.9+ | all hooks (started through `hooks/sg-python.sh`, which finds `python3`, `python` or `py -3`) and `scripts/` (stdlib only; macOS system 3.9 works) |
 | `jq` | the Ralph loop's stop hook (the optional `sdlc-extras` plugin) |
 | Node | brainstorming visual companion |
@@ -25,7 +25,7 @@ Operational procedures: install, check health, fix what breaks, maintain the plu
 | Feature state (committed; written by `scripts/state.py`) | `.sdlc/state/<feature>.md` |
 | Control contract, derived from the state file (git-ignored) | `.sdlc/state/<feature>.json`, `<feature>.events.jsonl`, `<feature>.commands/` |
 | Feature documents (committed) | `docs/sdlc/intents/<feature>/` (`intent.md`, `spec.md`, `plan.md`, `review.md`…; older features also `test-report.md`, `security.md`); the folder is `docs_dir` in the config |
-| Old layout, before 1.7.0 | `.sdlc/<feature>/state.md` and documents beside it; `/sdlc:upgrade` moves them |
+| Old layout, before 1.7.0 | `.sdlc/<feature>/state.md` and documents beside it; `/sdlc:setting-up-projects upgrade` moves them |
 | Scratch (git-ignored) | `.sdlc/.work/`: `verify.json` (written by `scripts/verify.py`), `verify-freshness.json` (the freshness hook's copy of verify runs, written by the hook and by `verify.py` itself), `trust-anchor.json`, `dispatches.jsonl`, `findings/<feature>/` (Prove checkers' reports and the maker's `changed-r<N>.txt`, M and L in Claude Code) |
 | Ralph loop state (`sdlc-extras`) | `.claude/ralph-loop.local.md` |
 | Personal hookify rules | `.claude/hookify.<name>.local.md` (git-ignored) |
@@ -43,6 +43,7 @@ Set in the shell or in `settings.json` `env`.
 | `ENABLE_CODE_SECURITY_REVIEW=0` | on | Turn off the turn-end diff review and the commit/push review |
 | `ENABLE_COMMIT_REVIEW=0` | on | Turn off the commit review |
 | `ENABLE_STOP_REVIEW=0` | on | Turn off the turn-end review |
+| `SDLC_SECURITY_REVIEW=always` | off | Run the turn-end and commit reviews on every change, not only while a security-touched feature is active (ADR 0019); also installs the reviewer's environment at session start |
 | `MAX_STOP_HOOK_FIRINGS` | 3 | Cap on repeated turn-end review firings |
 | `MAX_DIFF_FILES` | 30 | Largest diff the reviewer will look at |
 
@@ -55,14 +56,14 @@ Install from the marketplace that hosts the plugin:
 /plugin install sdlc@sdlc
 ```
 
-Then restart the session so the plugin's commands and hooks load. `/plugin` lists installed plugins and whether sdlc is enabled. To get a new version, update the marketplace and the plugin from `/plugin`, restart, then run `/sdlc:upgrade` in each repo. Other agents (Codex, Cursor, Antigravity): see the README.
+Then restart the session so the plugin's commands and hooks load. `/plugin` lists installed plugins and whether sdlc is enabled. To get a new version, update the marketplace and the plugin from `/plugin`, restart, then run `/sdlc:setting-up-projects upgrade` in each repo. Other agents (Codex, Cursor, Antigravity): see the README.
 
 Working on the plugin itself instead? See [Develop locally](#develop-locally).
 
-Check it in a scratch repo (the first session start may take about a minute while the security reviewer's environment builds):
+Check it in a scratch repo:
 
 1. `/sdlc:doctor`: no ❌. Expected warnings: the repo isn't set up yet, and (before the first session finishes) the reviewer environment.
-2. `/sdlc:setup` with a one-line description: it proposes a stack, and after your OK writes `.sdlc/config.json` and the rest on a `sdlc/setup` branch. `/sdlc:doctor` again: the repo checks are ✅.
+2. `/sdlc:setting-up-projects` with a one-line description: it proposes a stack, and after your OK writes `.sdlc/config.json` and the rest on a `sdlc/setup` branch. `/sdlc:doctor` again: the repo checks are ✅.
 3. `/sdlc:start` with a tiny request creates `.sdlc/state/<feature>.md` and announces the track, risk, flow and `Build:`.
 
 ## Health check
@@ -99,7 +100,7 @@ Cause: the SessionStart hook builds a venv with the Claude Agent SDK in the back
 
 ### R3. Security hook is too noisy or too slow
 
-1. Identify which part is firing: edit pattern warnings, turn-end review, or commit/push review. While a feature is active, the commit review runs once per review-ready diff (from Prove on, or at Ship on a track without Prove), not on every build commit, and only on a security-touched change (`Risk: high`, or a diff touching `areas.sensitive` or `areas.migrations`); any other is recorded as reviewed with no model call. If a sensitive path gets no review, add it to `areas.sensitive` in `.sdlc/config.json`.
+1. Identify which part is firing: edit pattern warnings, turn-end review, or commit/push review. The turn-end and commit reviews run only while a security-touched feature is active (ADR 0019). While a feature is active, the commit review runs once per review-ready diff (from Prove on, or at Ship on a track without Prove), not on every build commit, and only on a security-touched change (`Risk: high`, or a diff touching `areas.sensitive` or `areas.migrations`); any other is recorded as reviewed with no model call. If a sensitive path gets no review, add it to `areas.sensitive` in `.sdlc/config.json`.
 2. Turn off only that part with the matching variable from the table above.
 3. Prefer fixing the finding. If it's a false positive you'll see again, tell the reviewer why in the response (acknowledged findings are fine) rather than disabling the hook.
 4. `SECURITY_GUIDANCE_DISABLE=1` is a last resort; record it with `state.py deviation`.
@@ -171,7 +172,7 @@ Hard stops are different: they always wait for your answer and aren't skipped. T
 
 ### R12. Setup stopped halfway
 
-1. Run `/sdlc:setup` again. It reads `completed_steps` from the lock and continues with the next step on the same `sdlc/setup` branch.
+1. Run `/sdlc:setting-up-projects` again. It reads `completed_steps` from the lock and continues with the next step on the same `sdlc/setup` branch.
 2. Config or lock won't parse: fix the JSON, or restore it from git, then rerun.
 3. Want a clean restart instead: delete the branch, then `python3 <plugin>/scripts/scaffold.py init --kind <greenfield|brownfield> --force` and rerun setup.
 4. "Working tree not clean": commit or stash first; setup won't mix its commits with your changes.
@@ -181,7 +182,7 @@ Hard stops are different: they always wait for your answer and aren't skipped. T
 1. `/sdlc:doctor` (repo · commands, command tools, commands run) or `python3 <plugin>/scripts/scaffold.py contract` shows, per package, which required commands are missing and which tools aren't on PATH.
 2. Commands live in `.sdlc/config.json`: `commands` for one project, `packages[].commands` per package. Use what the team already runs; set a step to `null` if it doesn't apply to that stack.
 3. A tool not found: install it the way the project expects (the lockfile and toolchain files say which version), or fix the command.
-4. Then `scaffold.py run-commands` runs them once and records the result, and `/sdlc:upgrade` makes the generated CI workflow follow (or review its diff if you edited the workflow). During a feature, changed commands raise a trust-anchor notice ([R19](#r19-a-trust-anchor-notice-stops-the-turn)).
+4. Then `scaffold.py run-commands` runs them once and records the result, and `/sdlc:setting-up-projects upgrade` makes the generated CI workflow follow (or review its diff if you edited the workflow). During a feature, changed commands raise a trust-anchor notice ([R19](#r19-a-trust-anchor-notice-stops-the-turn)).
 
 ### R14. An upgrade won't overwrite a file, or keeps asking about it
 
@@ -191,12 +192,12 @@ Hard stops are different: they always wait for your answer and aren't skipped. T
 
 ### R15. A migration was declined and you want it after all
 
-`/sdlc:upgrade --revisit` lists skipped migrations with the reason you gave and offers each again. `scaffold.py migrations --revisit` shows the same list without changing anything.
+`/sdlc:setting-up-projects upgrade --revisit` lists skipped migrations with the reason you gave and offers each again. `scaffold.py migrations --revisit` shows the same list without changing anything.
 
 ### R16. Prove blames the feature for an old failure, or the baseline looks wrong
 
 1. Check `.sdlc/baseline.md`: failing tests by file › name, lint/type errors as counts per rule and file. A count that went **up** counts as new.
-2. No baseline in a brownfield repo: rerun `/sdlc:setup`'s baseline step.
+2. No baseline in a brownfield repo: rerun `/sdlc:setting-up-projects`'s baseline step.
 3. A pre-existing failure missing from the baseline: adding it is your decision. Add it with a note and record it with `state.py deviation` naming the test; nothing adds items on its own. A baseline that gains a failure during a feature raises a trust-anchor notice ([R19](#r19-a-trust-anchor-notice-stops-the-turn)).
 4. Items disappearing: on features planned before ADR 0013, the verifier removes items that now pass. That's expected; the test report lists them.
 5. `verify.py` doesn't read the baseline: a baselined failure fails it. In Prove the session checks the failures against the baseline by hand and logs it; in Build (and so on S, M lite and `Prove: skip`, which have no Prove) nothing does yet ([spec 04 Known gaps](specs/04-verification.md#known-gaps)).
@@ -255,7 +256,7 @@ For changes to the plugin itself, run it from a checkout instead of the marketpl
 2. Bump `version` in `.claude-plugin/plugin.json` and, to the same number, in `plugins/sdlc-extras/.claude-plugin/plugin.json`, then run `python3 scripts/hosts.py build` so the Codex, Cursor and Antigravity manifests carry it too (CI's `hosts.py check` fails while they differ). Repos record this number at setup and upgrade, so every release that changes project files needs a new one.
 3. Move the `Unreleased` notes in `CHANGELOG.md` under `## <version> — <date>`, and update the README if commands, phases, configuration or requirements changed.
 4. If the release changes files that live in projects:
-   - templates of generated or seeded files: nothing to do, `/sdlc:upgrade` regenerates or replaces them;
+   - templates of generated or seeded files: nothing to do, `/sdlc:setting-up-projects upgrade` regenerates or replaces them;
    - anything a project owns (required commands, config keys, knowledge layout, renamed paths, ignore patterns): add `migrations/<version>-<slug>.md` with frontmatter `version`, `summary` and, if old plugins must stop, `min_plugin_version`, then the steps in prose.
 5. **Distill knowledge** with `sdlc:managing-knowledge` (`CLAUDE.md` ≤ 60 lines, `.claude/rules/<area>.md` with `paths:`, `knowledge/` linked from `knowledge/index.md` and logged in `knowledge/log.md`). Sources: the changelog notes, `git log <last tag>..HEAD` (fix commits especially), smoke-test and review findings, and corrections made more than once. Run its "File a lesson" steps for each durable lesson, then its Audit. Decisions about how the plugin works go to `docs/adr/`, procedures to this runbook, and anything corrected twice and checkable becomes a test or guardrail. `python3 scripts/doctor.py` checks the CLAUDE.md budget and the index links.
 6. Commit (`release: sdlc <version>`), then run the [smoke test](#smoke-test-before-a-release) against that commit. Every **must** item has to pass.
@@ -265,7 +266,7 @@ For changes to the plugin itself, run it from a checkout instead of the marketpl
    v=<version>; awk -v v="$v" '/^## /{p=($2==v);next} p' CHANGELOG.md > notes.md
    gh release create "sdlc--v$v" --verify-tag --title "sdlc $v" --notes-file notes.md --latest; rm notes.md
    ```
-   Users get the new version by updating the marketplace and the plugin from `/plugin`, then run `/sdlc:upgrade` in each repo.
+   Users get the new version by updating the marketplace and the plugin from `/plugin`, then run `/sdlc:setting-up-projects upgrade` in each repo.
 
 ### Smoke test before a release
 
@@ -280,12 +281,12 @@ The test suite runs hooks and scripts as subprocesses; this checks the installed
 2. `/sdlc:doctor`: no ❌; the repo check says "not set up"; the security reviewer environment is ✅ (or ⚠️ only if no API credentials).
 
 **C. Greenfield setup (must)**
-1. `/sdlc:setup a tiny TypeScript library that adds two numbers`. It asks a few stack questions and **waits for your approval** before generating anything.
+1. `/sdlc:setting-up-projects a tiny TypeScript library that adds two numbers`. It asks a few stack questions and **waits for your approval** before generating anything.
 2. It works on a `sdlc/setup` branch with one commit per step; `.sdlc/config.json` has the five commands; it runs them and they pass.
 3. The repo has `.claude/rules/sdlc*.md`, `.claude/hookify/sdlc-*.md`, `.github/workflows/sdlc-verify.yml` and `sdlc-invariants.yml`, `.sdlc/ci/invariants.py`, `docs/sdlc/constitution.md`, `knowledge/index.md`, `.sdlc/scaffold.lock.json`, and `.gitignore` lists `.sdlc/.work/` and the `.sdlc/state/*.json` contract patterns; `CLAUDE.md` untouched.
 4. `enable-plugin` and context diet (should): run from the installed plugin, setup asks, then writes the sdlc marketplace and `enabledPlugins` to `.claude/settings.json`; run with `--plugin-dir`, it writes nothing and the setup report says it was skipped. After that it asks whether to trim plugins. Accept. It shows a table of plugins with estimated tokens per call, verdicts and reasons, and writes `.claude/settings.local.json` only after you approve; no commit includes that file, and it adds no `true`.
 5. It asks PR or local merge; pick local merge. `/sdlc:doctor` now shows the repo checks ✅.
-6. Interrupt test (should): in a second throwaway repo, stop setup midway (Esc), run `/sdlc:setup` again; it resumes after the last finished step.
+6. Interrupt test (should): in a second throwaway repo, stop setup midway (Esc), run `/sdlc:setting-up-projects` again; it resumes after the last finished step.
 
 **D. Guardrails reach Claude (must)**
 1. Ask: "add a comment `// Step 1: add the numbers` above the add function". A hookify warning shows, **and Claude's reply acknowledges it** (proof the warning reaches Claude, not only you).
@@ -307,23 +308,23 @@ The test suite runs hooks and scripts as subprocesses; this checks the installed
 
 **G. Brownfield setup (must)**
 1. Copy a small real repo (or a sample with two packages in different languages) into `/tmp/sdlc-smoke-brown`, add one deliberately failing test, commit.
-2. `/sdlc:setup`: it records the existing commands per package and **asks you to approve** them; it writes `.sdlc/baseline.md` listing the failing test; audit drafts are shown in batches and nothing is written before you approve.
+2. `/sdlc:setting-up-projects`: it records the existing commands per package and **asks you to approve** them; it writes `.sdlc/baseline.md` listing the failing test; audit drafts are shown in batches and nothing is written before you approve.
 3. `/sdlc:start` a small change on the full flow; in Prove the known failure doesn't fail the round, and a new failure would.
 4. Monorepo (should): edit a file in one package during Prove; the block names only that package and its command.
 
 **H. Upgrade and eject (must)**
 1. In the greenfield repo, edit one guardrail file in `.claude/hookify/` and simulate an older scaffold: set `scaffold_version` in `.sdlc/scaffold.lock.json` to `1.2.9` (the only time to edit the lock by hand).
-2. `/sdlc:status` reports the repo as behind and suggests `/sdlc:upgrade`.
-3. `/sdlc:upgrade --dry-run` shows the plan and changes nothing (`git status` clean).
-4. `/sdlc:upgrade` works on its own branch, asks about the guardrail you edited (apply / skip / keep mine), and ends asking PR or local merge.
-5. `/sdlc:eject` shows a dry run first; applied on a branch, it removes the plugin's files, keeps `.sdlc/config.json`, the constitution, knowledge and specs.
+2. `/sdlc:status` reports the repo as behind and suggests `/sdlc:setting-up-projects upgrade`.
+3. `/sdlc:setting-up-projects upgrade --dry-run` shows the plan and changes nothing (`git status` clean).
+4. `/sdlc:setting-up-projects upgrade` works on its own branch, asks about the guardrail you edited (apply / skip / keep mine), and ends asking PR or local merge.
+5. `/sdlc:setting-up-projects eject` shows a dry run first; applied on a branch, it removes the plugin's files, keeps `.sdlc/config.json`, the constitution, knowledge and specs.
 
 **I. Windows (should, if the team uses it).** A teammate runs B–E on Windows in Git Bash.
 
 **J. Other agents (should, one per agent the release claims; must once each before calling an agent supported)**
 1. Install from the checkout: Codex `codex plugin marketplace add <checkout>` and `codex plugin add sdlc@sdlc` (note which manifest it used, whether `start` appears as a skill, and whether the Claude-format hooks run; on Windows, whether the skills' bash commands work from its PowerShell); Cursor, a copy in `~/.cursor/plugins/local`; Antigravity, `python3 scripts/hosts.py dist antigravity <folder>` then `agy plugin install <folder>`. The agent lists the sdlc skills, including `start`, `setup` and `upgrade` (Codex: `sdlc:start`, and no `sdlc:source-command-*` duplicates), and Antigravity's `agy agents` lists the 10 core agents.
 2. In a new repo, ask the agent to set up sdlc. It doesn't ask which agent it is, finds `scaffold.py` through the plugin folder note, and records only that host (`.sdlc/scaffold.lock.json` → `hosts`). `AGENTS.md` has the sdlc block. Under `.claude/` there are at most the knowledge step's area rules (`.claude/rules/<area>.md`, which the block copies), and no `sdlc*` rules, hookify or settings. Codex asks to approve each commit unless you give it full access; that's its sandbox, not a failure.
-3. Open the same repo in Claude Code and run `/sdlc:setup`: it joins (`hosts` gains `claude-code`), writes the Claude Code rules and guardrails, doesn't redo the commands or baseline, and `/sdlc:doctor` has no fails.
+3. Open the same repo in Claude Code and run `/sdlc:setting-up-projects`: it joins (`hosts` gains `claude-code`), writes the Claude Code rules and guardrails, doesn't redo the commands or baseline, and `/sdlc:doctor` has no fails.
 4. Antigravity only: its agent list shows the sdlc agents, or the load error, which goes in the notes.
 
 When every must item passes, record the date and commit in the changelog entry's notes and continue with step 7 above.

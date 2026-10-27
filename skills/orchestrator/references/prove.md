@@ -59,7 +59,7 @@ Build produced the evidence (`build.md`): every acceptance criterion's test reco
 4. **Still failing** (verify is red after a fix pass, or the AC checker, on M the checker, still says an AC doesn't prove or a high stands): when a requirement that failed in the previous round fails again, stop (below). Otherwise back to Build and re-verify as in steps 2 and 3, without asking.
 5. **UI.** The ui-reviewer's high findings are off-system values or components, AI-slop patterns, missing states and accessibility blockers. A visual check (screenshots) runs only when the user asks; say so in its brief. Its "Proposed design-system changes" go to the user. Accepted: add them to `<docs>/design-system.md`, log it, and the findings they cover are resolved. Declined: the code moves to an existing token or component, which is a code change, so back to Build.
 
-The verdict comes from the latest `verify.py` run on the current code and the latest AC checker; `sdlc:verification-before-completion` covers anything you claim yourself. On request: `/sdlc:review-pr`, `/sdlc:code-review` (a GitHub PR), `sdlc:receiving-code-review`.
+The verdict comes from the latest `verify.py` run on the current code and the latest AC checker; `sdlc:verification-before-completion` covers anything you claim yourself. On request: `/sdlc:review-pr` (the local diff, or a GitHub PR by number or URL); acting on review feedback, [receiving-code-review.md](receiving-code-review.md).
 
 **Report when done:** the end-of-Prove message lists every drift (what, why, effect) and every `manual` AC, so the user sees them without opening the plan.
 

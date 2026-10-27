@@ -103,10 +103,24 @@ class ReviewGateTest(ProjectTestCase):
         self.commit("a.ts", "one\non main\n")
         self.assertFalse(sdlc_review_gate.decide(self.root, [self.head()[:7]], set())["defer"])
 
-    def test_without_an_active_feature_a_commit_is_reviewed_as_before(self):
-        self.commit("b.ts", "2")
+    def test_without_an_active_feature_a_commit_gets_no_model_review_unless_asked(self):
+        # ADR 0019: no review and nothing recorded as reviewed, so the push review still covers it
+        self.commit("src/auth/b.ts", "2")
+        plan = sdlc_review_gate.decide(self.root, ["abc1234"], set())
+        self.assertTrue(plan["defer"] and plan["off"])
+        self.assertEqual(plan["shas"], [])
+        os.environ["SDLC_SECURITY_REVIEW"] = "always"
+        self.addCleanup(os.environ.pop, "SDLC_SECURITY_REVIEW", None)
         self.assertEqual(sdlc_review_gate.decide(self.root, ["abc1234"], set()),
                          {"defer": False, "shas": ["abc1234"], "own": ["abc1234"], "range": None, "active": False})
+
+    def test_the_turn_end_review_runs_only_for_a_security_touched_feature(self):
+        self.write("src/list.ts", "sort")
+        self.assertFalse(sdlc_review_gate.review_wanted(self.root))  # no active feature
+        self.stage(5, risk="low")
+        self.assertFalse(sdlc_review_gate.review_wanted(self.root))
+        self.write("src/auth/login.ts", "x")  # untracked, in areas.sensitive
+        self.assertTrue(sdlc_review_gate.review_wanted(self.root))
 
     def test_a_feature_whose_base_is_not_in_this_history_defers_nothing(self):
         # A stale state file from another branch must not hold back reviews of unrelated work

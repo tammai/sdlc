@@ -21,4 +21,4 @@ Clean working tree, branch `sdlc/eject`, then:
 3. Run the verify commands (`$S commands` before ejecting, or from `.sdlc/config.json`) to confirm the project still builds.
 4. Commit, then **ask**: open a PR or merge locally.
 
-Report what was removed, what was kept, and that the plugin can be uninstalled (`/plugin uninstall sdlc`) or set up again later with `/sdlc:setup`.
+Report what was removed, what was kept, and that the plugin can be uninstalled (`/plugin uninstall sdlc`) or set up again later with `/sdlc:setting-up-projects`.

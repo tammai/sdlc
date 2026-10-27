@@ -47,13 +47,13 @@ Teams that try to fix this assemble several plugins and conventions by hand, eac
 
 | # | Capability | Spec | Commands / entry points |
 |---|---|---|---|
-| 01 | Project setup, upgrade, eject; commands per package; generated CI | [01-setup-upgrade-eject](specs/01-setup-upgrade-eject.md) | `/sdlc:setup`, `/sdlc:upgrade`, `/sdlc:eject` |
+| 01 | Project setup, upgrade, eject; commands per package; generated CI | [01-setup-upgrade-eject](specs/01-setup-upgrade-eject.md) | `/sdlc:setting-up-projects`, `/sdlc:setting-up-projects upgrade`, `/sdlc:setting-up-projects eject` |
 | 02 | Orchestrated lifecycle: tracks, Lite flow, four phases with the three Define files, Build method, hard stops, backlog slices, autopilot, the relay (a thin main session on L, the main session as maker on M, fresh checkers on both), trust anchor, resume, on-request deploy | [02-orchestration](specs/02-orchestration.md) | `/sdlc:start`, `/sdlc:status`, `/sdlc:deploy`, `scripts/backlog.py`, `scripts/autopilot.py`, `hooks/model_router.py`, `hooks/trust_anchor.py` |
-| 03 | Scope tracing and review facts | [03-scope-and-review](specs/03-scope-and-review.md) | Define, Prove; `/sdlc:review-pr`, `/sdlc:code-review`, `scripts/diff_stats.py` |
+| 03 | Scope tracing and review facts | [03-scope-and-review](specs/03-scope-and-review.md) | Define, Prove; `/sdlc:review-pr`, `scripts/diff_stats.py` |
 | 04 | Verification: `verify.py` in Build (each criterion's test recorded red, the verify plan, plan drift), reused in Prove and judged by a fresh checker (M: the code-reviewer; L: an ac-checker; old plans: the fresh verifier with red-green), black-box QA tester at Feature close or on request, time and probe budgets (a hook kills commands at 120 s), freshness hook, baseline | [04-verification](specs/04-verification.md) | Prove, `hooks/verify_freshness.py` |
 | 05 | Security: always-on guidance, commit review once per review-ready diff and only on a security-touched change, Prove's security checks on a security-touched change | [05-security](specs/05-security.md) | always-on hooks, `hooks/sdlc_review_gate.py`, Prove |
 | 06 | Guardrails and conventions: policy rules, hookify, lint snippets | [06-guardrails-and-conventions](specs/06-guardrails-and-conventions.md) | `/sdlc:hookify`, setup (`sdlc-extras`: `hookify-list`, `-configure`, `-help`) |
-| 07 | Three-tier knowledge; Learn on every feature, recurring defects | [07-knowledge](specs/07-knowledge.md) | `/sdlc:revise-claude-md`, `/sdlc:knowledge-audit`, Define (reads), Learn in Ship (writes) |
+| 07 | Three-tier knowledge; Learn on every feature, recurring defects | [07-knowledge](specs/07-knowledge.md) | `/sdlc:managing-knowledge lessons`, `/sdlc:managing-knowledge audit`, Define (reads), Learn in Ship (writes) |
 | 08 | Health check, status, cleanup and context diet | [08-health-and-status](specs/08-health-and-status.md) | `/sdlc:doctor`, `/sdlc:status`, `/sdlc:prune`, `/sdlc:context-diet` |
 | 09 | Autonomous loop for one well-specified task | [09-autonomous-loop](specs/09-autonomous-loop.md) | `/sdlc-extras:ralph-loop`, `/sdlc-extras:cancel-ralph` (the optional `sdlc-extras` plugin) |
 | 10 | UI follows the project's design system, without AI slop | [10-ui-design-system](specs/10-ui-design-system.md) | setup, Prove's `ui-reviewer`, `/sdlc:review-pr ui` |
@@ -62,12 +62,12 @@ Teams that try to fix this assemble several plugins and conventions by hand, eac
 
 ## 6. Key journeys
 
-1. **Adopt in an existing repo:** install → `/sdlc:doctor` → `/sdlc:setup` (commands recorded, baseline, audit approved in batches, PR) → `/sdlc:start` a small fix.
-2. **New project:** `/sdlc:setup <what you're building>` → approve the stack → skeleton, commands and CI pass on day one → first feature.
+1. **Adopt in an existing repo:** install → `/sdlc:doctor` → `/sdlc:setting-up-projects` (commands recorded, baseline, audit approved in batches, PR) → `/sdlc:start` a small fix.
+2. **New project:** `/sdlc:setting-up-projects <what you're building>` → approve the stack → skeleton, commands and CI pass on day one → first feature.
 3. **Feature (M):** `/sdlc:start <request>` → intent, spec (`[inferred]` guesses) and plan, approved once, with its questions and their recommended answers in the same message → Build from `plan.md`, each criterion's test recorded red, `verify.py` at the end → (full only, unless skipped at the approval) Prove: one fresh code review that also checks each AC's test, findings fixed in Build, re-verification → Ship: Learn, commit on a feature branch and report it (every track; merge or PR on the user's word).
 4. **Fix (S):** no documents: `Intent:` and `Repro:` lines in the state file, no approval → test-first fix, built and verified in one place, no Prove → Ship: a commit on a feature branch, reported without asking.
 5. **Bigger than one session:** spec and `backlog.md` approved once → slices built and committed in turn, no Prove per slice (or under autopilot) → feature close: one Prove round (unless `Prove: skip`) with the ac-checker over every criterion, one top-tier review of the whole branch and the qa-tester; then Ship, which keeps the branch until the user says merge or PR.
-6. **Plugin update:** `/sdlc:status` shows drift → `/sdlc:upgrade --dry-run` → `/sdlc:upgrade` on a branch → PR.
+6. **Plugin update:** `/sdlc:status` shows drift → `/sdlc:setting-up-projects upgrade --dry-run` → `/sdlc:setting-up-projects upgrade` on a branch → PR.
 7. **Something feels off:** `/sdlc:doctor` → [runbook](runbook.md) procedure.
 
 ## 7. Requirements across capabilities
