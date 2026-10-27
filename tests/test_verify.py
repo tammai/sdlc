@@ -83,6 +83,20 @@ class VerifyTest(ProjectTestCase):
         self.assertEqual(code, 1)
         self.assertIn("tests/missing.py not found", out)
 
+    def test_drift_needs_a_deviation_with_what_why_and_effect(self):
+        self.spec()  # no ACs: only the commands and the drift check run
+        tasks = ["1. **Store** — FR-001\n   - Files: `src/store.py`"]
+        self.plan([], tasks=tasks)
+        self.write("src/store.py", "x = 1\n")
+        self.write("src/cache.py", "y = 2\n")  # untracked, not in the plan
+        code, out, _ = self.verify()
+        self.assertEqual(code, 1)
+        self.assertIn("drift: src/cache.py", out)
+        self.plan([], tasks=tasks, deviations=["- `src/cache.py` (task 1) — What: helper · Why: reuse · Effect: none on ACs"])
+        code, out, rec = self.verify()
+        self.assertEqual(code, 0, out)
+        self.assertEqual(rec["last"]["drift"][0]["covered"], True)
+
     def test_an_ac_without_a_row_fails(self):
         self.spec("AC-001", "AC-002")
         self.plan([("AC-001", "tests/t.py › ok", 'python3 -c "pass"')])

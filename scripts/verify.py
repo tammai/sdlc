@@ -7,7 +7,9 @@ Usage: verify.py [--root DIR] [--feature NAME] [--timeout S] [red AC-nnn]
   in spec.md: a row in plan.md's `## Acceptance tests` table, a `manual` row's reason, the test file, a recorded red
   run, and the row's Run command passing. Writes the result to .sdlc/.work/verify.json and exits 0 on pass, 1 on a
   failure, 2 when there's no feature to verify. A plan without the table is an old plan: the AC checks are skipped
-  and Prove uses the verifier.
+  and Prove uses the verifier. Then drift from plan.md: a changed file no task or acceptance test names, a task
+  whose files didn't change, an export or dependency the Public Surface doesn't list; each needs a `## Deviations`
+  line naming it, with What:, Why: and Effect:.
 `red AC-nnn`, run before the AC's code is written: runs that AC's test and records it failing (exit 0). A test that
   passes, can't be found or can't run is refused (exit 1, nothing recorded): it would prove nothing.
 Stdlib only, Python 3.9+.
@@ -24,6 +26,7 @@ from datetime import datetime, timezone
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(HERE), "hooks"))
 sys.path.insert(0, HERE)
+import diff_stats  # noqa: E402  (changed files and the Public Surface check, since the feature's Base)
 import scaffold  # noqa: E402  (the verify plan and the shell that runs project commands)
 import sdlc_layout  # noqa: E402
 import verify_freshness as vf  # noqa: E402  (worktree trees)
@@ -31,6 +34,8 @@ import verify_freshness as vf  # noqa: E402  (worktree trees)
 RECORD = os.path.join(".sdlc", ".work", "verify.json")
 AC_ID = re.compile(r"\bAC-\d{3}\b")
 TABLE_ROW = re.compile(r"^\s*\|\s*(AC-\d{3})\s*\|(.*?)\|(.*?)\|\s*$")
+TASK_START = re.compile(r"^\s*(\d+)\.\s")
+BACKTICKED = re.compile(r"`([^`]+)`")
 
 
 def now():
@@ -100,6 +105,40 @@ def docs(root, feature):
     return read(os.path.join(folder, "spec.md")) or "", read(os.path.join(folder, "plan.md")) or ""
 
 
+def covered(item, deviations):
+    return any(item in line and all(re.search(rf"{part}:\s*[^·\s]", line) for part in ("What", "Why", "Effect"))
+               for line in deviations.splitlines())
+
+
+def drift(root, feature, plan_text):
+    """[{item, kind, covered}] for what the change did that plan.md didn't say, or None without a Base."""
+    state = read(os.path.join(root, sdlc_layout.paths(root, feature)["state"])) or ""
+    m = re.search(r"^Base:\s*`?([0-9a-f]{7,40})\b", state, re.M)
+    if not m:
+        return None
+    plan_path = os.path.join(root, sdlc_layout.paths(root, feature)["intents"], "plan.md")
+    facts = diff_stats.collect(root, m.group(1), [plan_path] if os.path.exists(plan_path) else [])
+    docs_dir = sdlc_layout.docs_dir(root)
+    changed = [f for f in facts["changed_files"] if not f.startswith(".sdlc/") and not f.lower().endswith(".md")
+               and not (docs_dir and f.startswith(docs_dir + "/"))]
+    tasks, current = {}, None
+    for line in (section(plan_text, "Tasks") or "").splitlines():
+        t = TASK_START.match(line)
+        if t:
+            current = t.group(1)
+        if current:
+            tasks.setdefault(current, set()).update(BACKTICKED.findall(line))
+    named = set().union(*tasks.values()) if tasks else set()
+    named |= {r["file"] for r in acceptance_map(plan_text) or [] if r["file"]}
+    items = [(f, "file") for f in changed if f not in named]
+    items += [(f"task {n}", "task") for n, files in tasks.items()
+              if any("/" in f or "." in f for f in files) and not files & set(changed)]
+    surface = facts.get("surface") or {}
+    items += [(n, "surface") for n in surface.get("undeclared_exports", []) + surface.get("undeclared_dependencies", [])]
+    deviations = section(plan_text, "Deviations") or ""
+    return [{"item": i, "kind": k, "covered": covered(i, deviations)} for i, k in items]
+
+
 def full(root, feature, timeout=1800):
     started = time.time()
     rec = load_record(root)
@@ -135,9 +174,15 @@ def full(root, feature, timeout=1800):
                 code, out = run(row["run"], root, timeout)
                 if code:
                     failures.append(f"{ac}: its test fails (exit {code})\n{out[-500:]}")
+    drifted = drift(root, feature, plan_text)
+    if drifted is None:
+        notes.append("no Base: in state.md, so drift wasn't checked")
+    for d in drifted or []:
+        if not d["covered"]:
+            failures.append(f"drift: {d['item']} has no Deviations entry with What:, Why: and Effect:")
     rec["last"] = {"at": now(), "tree": vf.worktree_tree(root), "head": vf.git_head(root),
                    "result": "fail" if failures else "pass", "seconds": round(time.time() - started, 1),
-                   "failures": failures, "manual": manual}
+                   "failures": failures, "manual": manual, "drift": drifted or []}
     save_record(root, rec)
     return rec["last"], notes
 
