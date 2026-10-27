@@ -751,7 +751,18 @@ def cmd_gitignore(p, a):
     with open(path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + ("\n" if lines else ""))
     p.save()
-    return {"added": added, "removed": removed, "owned": ours}
+    # A line only ignores untracked files: what was committed before it (the hooks' scratch, say) stays tracked and
+    # shows as modified after every run. Untrack it from the index; the files stay on disk
+    untracked = []
+    for line in a.add or []:
+        pattern = line.rstrip("/")
+        listed = subprocess.run(["git", "-C", p.root, "ls-files", "--", pattern], capture_output=True,
+                                encoding="utf-8", errors="replace")
+        files = [f for f in listed.stdout.splitlines() if f] if listed.returncode == 0 else []
+        if files and subprocess.run(["git", "-C", p.root, "rm", "-r", "--cached", "-q", "--", pattern],
+                                    capture_output=True).returncode == 0:
+            untracked += files
+    return {"added": added, "removed": removed, "owned": ours, "untracked": untracked}
 
 
 # --- hosts: which coding agents run this repo's sdlc ---------------------------------------

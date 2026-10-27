@@ -271,6 +271,19 @@ class ScaffoldTest(ProjectTestCase):
         self.sc("gitignore", "--remove", ".sdlc/.work/", ".env", "node_modules/")
         self.assertEqual(self.read(".gitignore"), "node_modules/\n.sdlc/.work/\n")
 
+    def test_gitignore_untracks_what_was_committed_before_the_ignore(self):
+        self.init()
+        git = ["git", "-C", self.root, "-c", "user.email=t@t", "-c", "user.name=t"]
+        subprocess.run(git + ["init", "-q"], check=True)
+        self.write(".sdlc/.work/trust-anchor.json", "{}")  # committed by mistake, before the ignore line
+        subprocess.run(git + ["add", "-f", ".sdlc/.work/trust-anchor.json"], check=True)
+        subprocess.run(git + ["commit", "-q", "-m", "oops"], check=True)
+        out = self.sc("gitignore", "--add", ".sdlc/.work/")
+        self.assertEqual(out["untracked"], [".sdlc/.work/trust-anchor.json"])
+        tracked = subprocess.run(git + ["ls-files", ".sdlc/.work"], capture_output=True, encoding="utf-8").stdout
+        self.assertEqual(tracked.strip(), "")
+        self.assertTrue(os.path.exists(self.path(".sdlc/.work/trust-anchor.json")))  # kept on disk
+
     # --- migrations --------------------------------------------------------------------------
 
     def test_pending_migrations_window_and_order(self):
