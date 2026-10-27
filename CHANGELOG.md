@@ -5,6 +5,16 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 ## Unreleased
 
 ### Changed
+- **Cut L's cost where it bought nothing** (ADR 0016). On the L eval the plugin matched plain Claude's hidden tests and beat its rubric (4.20 vs 3.60), but took 193 min vs 18, 56.2M tokens vs 3.1M, and 5 touches vs 1. The gain came from review. Now:
+  - **`verify.py` writes the hook's copy of its own run**, so a run inside a subagent, spelled any way, counts for Prove's reuse (it showed "records disagree").
+  - **Comparison proofs have a budget:** about 1,000 cases or 2 minutes, in-process where possible, run once in Build. Prove doesn't rerun Build's proof scripts.
+  - **Size by footprint:** a change confined to 1–2 files with a settled approach is M full with risk high, built as one piece (1–3 tasks), never sliced. L means new modules, several parts, or an approach still unclear. On M with risk high, the code reviewer is top tier.
+  - **One piece, lighter Define:** three short files (intent about 40 lines, a Lite-shape spec, a plan from the template). No design, consistency check or brainstorming; a short approval.
+  - **Define is one exchange:** questions and the choice of approach ride in the approval message with pre-filled answers ("Reply 'approved' to take these, or change any line").
+  - **Ship doesn't ask on any track:** it commits on the branch and says "say merge or PR to go further". This replaces "`Flow: full` and L still ask" below.
+  - **Prove sends one code reviewer** with a one-pass brief (bugs, silent failures, test gaps), and one security reviewer when the change is security-touched. The silent-failure-hunter, pr-test-analyzer and feature-reviewer no longer run in Prove.
+  - **Advisor once per feature,** before Ship's commit.
+  - **One flakiness loop** over timing-sensitive tests at the end of Build, never per task.
 - **One review on L: Prove's.** `Build: tasks` (L's default) no longer runs a reviewer, fix round and re-review per task: the orchestrator tells subagent-driven development "Prove is the only review", and a task is done when its implementer reports DONE with its tests passing. In the planner-team L round each task cost an Opus review plus, on a finding, a fix round and a scoped re-review before the next task could start.
 - **Prove only where it pays** (ADR 0015). The S-task eval found quality equal to a plain run, and what still cost on every track was Prove and review. Now:
   - **No Prove on S and M lite.** Build's passing `verify.py` goes straight to Ship (`state.py verified`, then `advance <f> 8`). The trust anchor accepts that run on S, M with `Flow: lite` and `Prove: skip`, and still reports M full or L reaching Ship without Prove. This replaces "M Lite: Prove dispatches one fresh verifier" (ADR 0011) and the ac-checker on M lite (ADR 0013) below.

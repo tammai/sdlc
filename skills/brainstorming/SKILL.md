@@ -55,7 +55,7 @@ open points with your recommended answer (recorded as `[recommended]` in
 `intent.md`), lay out the approaches in `intent.md` with your
 recommendation, write the doc on it, and return to the orchestrator.
 Steps 1 and 3 below are then the orchestrator's approval, not messages of
-your own.
+your own, and you make no visual companion offer unless the user asks.
 
 ## Your First Message
 

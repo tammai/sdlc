@@ -1,6 +1,6 @@
 <svg width="100%" viewBox="0 0 680 572" role="img" xmlns="http://www.w3.org/2000/svg">
 <title>SDLC tracks and their phases</title>
-<desc>Sizing picks the smallest fitting S, M or L track. Each track runs the four phases Define, Build, Prove and Ship with Learn; M and L write intent.md, spec.md and plan.md; S writes no documents, only Intent: and Repro: lines in its state file, with no approval, and every track's Build records each acceptance criterion's test failing before its code and ends with one passing verify.py run, which goes straight to Ship on S and on M's default Flow lite (no Prove); M full (high risk or on request) and L run Prove, skippable at Define's approval, which reuses that run: a fresh ac-checker reading each test against its criterion plus a light code review on M full, and the top-tier reviewers on L; full security only when the change is security-touched; L adds brainstorming and design in Define, and its Build (tasks) runs one implementer per task with no per-task review. A dot marks phases that end by asking the user (M's Ship only on the full flow). Backlog slices loop Build and a commit, with no Prove per slice, then a feature close with one Prove. Deploy is the on-request command /sdlc:deploy on any track, not a phase.</desc>
+<desc>Sizing picks the smallest fitting S, M or L track. Each track runs the four phases Define, Build, Prove and Ship with Learn; M and L write intent.md, spec.md and plan.md; S writes no documents, only Intent: and Repro: lines in its state file, with no approval, and every track's Build records each acceptance criterion's test failing before its code and ends with one passing verify.py run, which goes straight to Ship on S and on M's default Flow lite (no Prove); M full (high risk or on request) and L run Prove, skippable at Define's approval, which reuses that run: a fresh ac-checker reading each test against its criterion plus one code review with a one-pass brief on M full, and a top-tier one on L; full security only when the change is security-touched; L adds brainstorming and design in Define, and its Build (tasks) runs one implementer per task with no per-task review. A dot marks phases that end by asking the user (Define on M and L; Ship asks nobody and keeps the branch). Backlog slices loop Build and a commit, with no Prove per slice, then a feature close with one Prove. Deploy is the on-request command /sdlc:deploy on any track, not a phase.</desc>
 <style>
 text{font-family:anthropic-sans,-apple-system,"system-ui","Segoe UI",sans-serif;text-anchor:middle;dominant-baseline:central}
 .a{fill:none;stroke:#898781;stroke-width:1.5}
@@ -70,11 +70,11 @@ rect{stroke-width:.5}
 </g>
 <g class="run"><rect x="250" y="384" width="180" height="58" rx="4"/>
 <text class="r" x="340.0" y="398" font-weight="600">Ship · Learn</text>
-<text class="r" x="340.0" y="415">lite: commit, reported;</text>
-<text class="r" x="340.0" y="430">full: merge, PR or keep</text>
-<circle class="dot" cx="420" cy="398" r="3.5"/>
+<text class="r" x="340.0" y="415">commit on a branch,</text>
+<text class="r" x="340.0" y="430">reported; you ask to merge</text>
+
 </g>
-<g class="head"><rect x="460" y="110" width="180" height="56" rx="8"/><text class="t" x="550.0" y="128">L · project</text><text class="s" x="550.0" y="148">Unclear or risky area</text></g>
+<g class="head"><rect x="460" y="110" width="180" height="56" rx="8"/><text class="t" x="550.0" y="128">L · project</text><text class="s" x="550.0" y="148">Unclear or several parts</text></g>
 <line class="a" marker-end="url(#arrow)" x1="550.0" y1="166" x2="550.0" y2="184"/>
 <g class="run"><rect x="460" y="186" width="180" height="58" rx="4"/>
 <text class="r" x="550.0" y="200" font-weight="600">Define</text>
@@ -95,8 +95,8 @@ rect{stroke-width:.5}
 <g class="run"><rect x="460" y="384" width="180" height="58" rx="4"/>
 <text class="r" x="550.0" y="398" font-weight="600">Ship · Learn</text>
 <text class="r" x="550.0" y="415">+ retro.md, feature doc</text>
-<text class="r" x="550.0" y="430">merge, PR or keep</text>
-<circle class="dot" cx="630" cy="398" r="3.5"/>
+<text class="r" x="550.0" y="430">branch kept; merge on ask</text>
+
 </g>
 <g class="opt"><rect x="40" y="456" width="600" height="34" rx="4"/><text class="r" x="340" y="473">/sdlc:deploy · on request, any track · not a phase</text>
 <circle class="dot" cx="630" cy="473" r="3.5"/>

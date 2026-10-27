@@ -26,7 +26,7 @@ Operational procedures: install, check health, fix what breaks, maintain the plu
 | Control contract, derived from the state file (git-ignored) | `.sdlc/state/<feature>.json`, `<feature>.events.jsonl`, `<feature>.commands/` |
 | Feature documents (committed) | `docs/sdlc/intents/<feature>/` (`intent.md`, `spec.md`, `plan.md`, `test-report.md`, `review.md`…); the folder is `docs_dir` in the config |
 | Old layout, before 1.7.0 | `.sdlc/<feature>/state.md` and documents beside it; `/sdlc:upgrade` moves them |
-| Scratch (git-ignored) | `.sdlc/.work/`: `verify.json` (written by `scripts/verify.py`), `verify-freshness.json` (with the hook's own copy of verify runs), `trust-anchor.json`, `dispatches.jsonl` |
+| Scratch (git-ignored) | `.sdlc/.work/`: `verify.json` (written by `scripts/verify.py`), `verify-freshness.json` (the freshness hook's copy of verify runs, written by the hook and by `verify.py` itself), `trust-anchor.json`, `dispatches.jsonl` |
 | Ralph loop state (`sdlc-extras`) | `.claude/ralph-loop.local.md` |
 | Personal hookify rules | `.claude/hookify.<name>.local.md` (git-ignored) |
 | Team hookify rules | `.claude/hookify/<name>.md` (committed) |
