@@ -2,7 +2,7 @@
 """Check the shared sdlc files, whichever agent or person changed them (seeded by the sdlc plugin v{{plugin_version}}).
 
 Only active features count (`Status: active` in their state file):
-  - test-report.md: the latest round has its header, both tables and a verdict; with --require-ancestor, the round's
+  - review.md (test-report.md on features started before it held the rounds): the latest round has its header, both tables and a verdict; with --require-ancestor, the round's
     commit is in this code's history.
   - the baseline: against --base, a new row or a higher lint count needs a feature's Deviations entry naming it.
   - spec.md: no `[inferred]` tag past Define (Stage 1).
@@ -62,8 +62,11 @@ def section(text, heading):
 
 
 def check_report(name, docs, require_ancestor):
-    path = os.path.join(docs, "test-report.md")
+    path = os.path.join(docs, "review.md")
     text = read(path)
+    if "## Round" not in (text or ""):
+        path = os.path.join(docs, "test-report.md")
+        text = read(path)
     rounds = list(ROUND.finditer(text or ""))
     if text is None or (not rounds and "## Round" not in text):
         return []  # not verified yet

@@ -28,7 +28,7 @@ Build produced the evidence (`build.md`): every acceptance criterion's test reco
 
 ## Then
 
-1. **Log.** Append a round to `<intents>/test-report.md` in this shape (the `sdlc-invariants` CI check reads the header, both tables and the verdict line):
+1. **Log.** One file holds Prove's record: `<intents>/review.md` (a feature started earlier keeps its `test-report.md` and `security.md`). Append a round to it in this shape (the `sdlc-invariants` CI check reads the header, both tables and the verdict line):
 
    ```markdown
    ## Round <N> — <UTC time> — commit <hash>
@@ -51,7 +51,7 @@ Build produced the evidence (`build.md`): every acceptance criterion's test reco
    - An AC the checker says doesn't prove: fix its test (or its Run cell) so it would catch the behaviour missing, and record the change in `## Deviations` (what, why, effect). Its code already exists, so it can't be recorded red again; the fresh AC checker in step 3 reads the new test.
    - A failed qa scenario is a finding like any other; only a failure that needs a new requirement goes to the user.
    - Simplifications are findings.
-   - Medium and low go to `<intents>/review.md` as tickets. Comment noise flagged by the diff facts is medium and fixed now.
+   - Medium and low go to `review.md`'s `## Tickets`. Comment noise flagged by the diff facts is medium and fixed now.
    - List each fixed high finding in `review.md` under `## Fixed`, one line each (what and where); Learn reads it.
    - A failure to baseline is the user's decision, recorded with `state.py deviation` naming the test; never added silently.
 3. **One re-verification** once the fixes pass `$V` in Build: `state.py advance <f> 5`, `$V status` (reuse), a fresh `sdlc:ac-checker` on the ACs that failed (only when one did), then `state.py verified` with the resulting tree, and `state.py log <f> "fixes re-verified (<verify result>)"`. No second reviewer round. Nothing to fix: no re-verification.
@@ -69,6 +69,6 @@ The verdict comes from the latest `verify.py` run on the current code and the la
 - Every acceptance criterion has a test that failed before its code and passes now, or is `manual` with its reason and the checker's reading.
 - No unresolved high finding from any checker (a waiver is the user's, recorded with `state.py deviation`); medium and low are ticketed.
 - No test gap rated 8 or more, and no skipped or retried-until-green test touching this feature.
-- Security-touched: no critical or high security finding open, no secrets in the diff, and `<intents>/security.md` written. Otherwise: nothing to record beyond the pattern hooks.
+- Security-touched: no critical or high security finding open, no secrets in the diff, and `review.md`'s `## Security` section written (findings, the dependency audit, the hooks' findings). Otherwise: nothing to record beyond the pattern hooks.
 
 Then `state.py verified <f> <commit> <tree>` (the core's Verified tree) and `state.py advance <f> 8 --gate pass`.

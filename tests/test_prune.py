@@ -42,6 +42,15 @@ class PruneTest(ProjectTestCase):
         self.assertEqual(code, 0, out)
         self.assertEqual(self.left("2026-01-01-month-filter"), ["spec.md", "state.md"])
 
+    def test_a_high_risk_feature_keeps_its_review_with_the_security_section(self):
+        name = "2026-01-01-month-filter"
+        self.write(f".sdlc/{name}/state.md", f"# {name}\nStatus: done\nRisk: high\n")
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "risk", env={"GIT_AUTHOR_DATE": OLD, "GIT_COMMITTER_DATE": OLD})
+        code, out = self.prune("apply", name)
+        self.assertEqual(code, 0, out)
+        self.assertEqual(self.left(name), ["review.md", "security.md", "spec.md", "state.md"])
+
     def test_done_feature_in_the_new_layout_keeps_only_its_record(self):
         name = "2026-01-02-PROJ-7-export"
         self.write(".sdlc/config.json", json.dumps({"docs_dir": "docs/sdlc"}))

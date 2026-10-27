@@ -48,6 +48,16 @@ class InvariantsTest(ProjectTestCase):
         base = self.commit()
         self.assertEqual(self.check("--base", base, "--require-ancestor"), (0, "sdlc invariants: ok\n"))
 
+    def test_rounds_in_review_md_are_checked_ahead_of_an_old_test_report(self):
+        # Prove logs its rounds in review.md now; a feature started earlier keeps its test-report.md
+        head = self.commit()
+        self.write("docs/sdlc/intents/login/test-report.md", ROUND.format(n=1, commit=head))
+        self.write("docs/sdlc/intents/login/review.md", "# Review\n\n" + ROUND.format(n=2, commit="1234567"))
+        self.commit()
+        code, out = self.check("--require-ancestor")
+        self.assertEqual(code, 1)
+        self.assertIn("review.md: round 2", out)
+
     def test_a_round_that_does_not_prove_this_code_fails(self):
         self.write("docs/sdlc/intents/login/test-report.md", ROUND.format(n=1, commit="1234567"))  # never committed
         self.commit()
