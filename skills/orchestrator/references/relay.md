@@ -11,7 +11,7 @@
 Each stage agent is `general-purpose` and names its tier (Model Selection in `sdlc:subagent-driven-development`): the M maker standard (`model: sonnet`); on L, the Define agent top (`model: opus`, where brainstorming and the design run) and each Build agent standard. Each is spawned once and resumed with `SendMessage` every time after, so it never re-reads its files. Start a fresh one from the files instead after `/clear` or in a new session. A fresh one's brief names the feature, its phase file and `plan.md`'s `## Handoff to Build`.
 
 - **Define agent.** Its brief: "You are the Define agent for `<feature>`. Read `${CLAUDE_PLUGIN_ROOT}/skills/orchestrator/references/define.md` and follow it from step 1, then the Protocol in `${CLAUDE_PLUGIN_ROOT}/skills/orchestrator/references/relay.md`. You ask the user nothing directly." It writes `intent.md`, `spec.md` and `plan.md` on the recommended answers, then writes its approval message to `<intents>/approval.md` and ends with `ASK:`. Every decision the user's reply settles goes into `plan.md`'s `## Handoff to Build` with its reason before the agent's `DONE:`, because the next agent knows only what is written.
-- **Build agent.** Its brief: "You are the Build agent for `<feature>`. Read `${CLAUDE_PLUGIN_ROOT}/skills/orchestrator/references/build.md` and `prove.md`, then `<intents>/plan.md` (its `## Handoff to Build` first), `spec.md` and `intent.md`, and the Protocol in `${CLAUDE_PLUGIN_ROOT}/skills/orchestrator/references/relay.md`. Build the whole change." It builds natively in its own context, whatever `Build:` says, and runs `verify.py` red per AC and once at the end. Then it writes the Prove briefs and ends with `DONE: build pass` and one `DISPATCH:` per Prove agent from `prove.md`'s table. When Prove's results come back, it is resumed. It reads the findings, logs the round in `review.md`, and ends with `DONE: prove pass|fail`. On a fail, it is resumed in Build to fix the findings: it knows the design, so it breaks fewer of its rules.
+- **Build agent.** Its brief: "You are the Build agent for `<feature>`. Read `${CLAUDE_PLUGIN_ROOT}/skills/orchestrator/references/build.md` and `prove.md`, then `<intents>/plan.md` (its `## Handoff to Build` first), `spec.md` and `intent.md`, and the Protocol in `${CLAUDE_PLUGIN_ROOT}/skills/orchestrator/references/relay.md`. Build the whole change." It builds natively in its own context, whatever `Build:` says, and runs `verify.py` red per AC and once at the end. Then it writes the list of files it changed to `.sdlc/.work/findings/<feature>/changed-r<round>.txt` and ends with `DONE: build pass`. **It never judges Prove.** It doesn't write the checkers' briefs or read their verdict as pass or fail. When a round fails, it is resumed with the reports to **fix** every high finding: it knows the design, so it breaks fewer of its rules. It may not downgrade or waive a high finding. If it disagrees with one, it ends with `ASK:` and a file stating the finding and its case, because a waiver is the user's.
 - **L with several distinct parts:** one Build agent per part, **one after another** in the same worktree (`verify.py`'s records are single files that two agents would overwrite). Each is kept alive for its part's fixes.
 
 ## Protocol
@@ -20,7 +20,7 @@ A stage agent can't start agents of its own: where a skill or phase file says to
 
 | Line | The main session |
 |---|---|
-| `DISPATCH: <agent type> (<model>) → <brief path>` (one per line, several allowed) | spawns each, in one message so they run at the same time, each with the brief "Read `<brief path>` and do what it says. Write your report to `.sdlc/.work/findings/<agent>-r<round>.md` and answer with that path only." Then it resumes the stage agent with the paths. |
+| `DISPATCH: <agent type> (<model>) → <brief path>` (one per line, several allowed; Define's explorers, never Prove's checkers) | spawns each, in one message so they run at the same time, each with the brief "Read `<brief path>` and do what it says. Write your report to `.sdlc/.work/findings/<feature>/<agent>-r<round>.md` and answer with that path only." Then it resumes the stage agent with the paths. |
 | `ASK: <file path>` | shows the file to the user verbatim and resumes the agent with the reply verbatim. |
 | `QUESTION: <one line>` | asks the user, and resumes the agent with the answer. |
 | `STATUS: <one line>` | shows it to the user, and resumes the agent with "continue". |
@@ -28,13 +28,25 @@ A stage agent can't start agents of its own: where a skill or phase file says to
 
 **State.** The main session runs the moves: `advance`, `round` and `verified` (the `tree` from `verify.py status`, a short JSON it may read). Stage agents run `set`, `log`, `deviation` and `blocker`. Both read the state file.
 
+## Prove: the main session dispatches, the checkers judge
+
+The main session writes each checker's brief itself, from the fixed text below and paths only; the maker adds nothing but its changed-file list. For round `<N>`:
+
+1. `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/diff_stats.py" --format md --base <Base> --plan <intents>/plan.md > .sdlc/.work/findings/<feature>/diff-r<N>.md` (output to the file; don't read it).
+2. Dispatch, at the same time, each fresh, on `model: opus` (the code review stays on the top tier at every risk):
+   - **M: the checker**, `sdlc:code-reviewer`: "You are Prove's checker for `<feature>`, round `<N>`. Read `${CLAUDE_PLUGIN_ROOT}/skills/orchestrator/references/review-brief.md`, then `.sdlc/.work/findings/<feature>/diff-r<N>.md`, `<intents>/spec.md` and `<intents>/plan.md`. First read each `AC-nnn` beside the test `plan.md`'s `## Acceptance tests` names and say whether it would fail if the behaviour were missing. Then review the diff in one pass for correctness, silent failures, test gaps (rated 1–10) and security. Round 2 and later: only what `.sdlc/.work/findings/<feature>/changed-r<N>.txt` lists, and the earlier highs. Write your report to `.sdlc/.work/findings/<feature>/code-reviewer-r<N>.md`, ending with its VERDICT line, and answer with the path."
+   - **L: the same review brief** without the AC part, for `sdlc:code-reviewer`; and `sdlc:ac-checker` (standard tier) with "the feature dir `<intents>`; report to `.sdlc/.work/findings/<feature>/ac-checker-r<N>.md`".
+   - **When they apply:** `sdlc:ui-reviewer` on a UI diff, and, when the feature is security-touched (`Risk: high` in state, or the maker's changed files touch `areas.sensitive` or `areas.migrations`), one more `sdlc:code-reviewer` with a security-only brief (injection, authz, secrets, SSRF, XSS, unsafe deserialization, dependency risk), reporting to `security-r<N>.md`.
+3. Read only the verdicts: `grep -h "^VERDICT" .sdlc/.work/findings/<feature>/*-r<N>.md`. Every report PASS → `DONE` for Prove (below). Any FAIL, or a report with no VERDICT line → the round failed. The trust anchor reads the same lines: leaving Stage 5 while the latest round has a FAIL is a notice.
+4. Resume the maker: "Log round `<N>` in `review.md` with the verdicts as the checkers wrote them; highs under `## Fixed` once fixed, the rest under `## Tickets`."
+
 **The moves:**
 
 - Define agent `DONE: define pass` → `advance <f> 4 --gate pass`, then the Build agent.
 - Build agent `DONE: build pass`:
-  - L, a part that isn't the last: start the next part's Build agent; no Prove yet (one Prove, at the end). Only the last part's `DONE:` carries the Prove `DISPATCH:` lines, and its brief covers the whole change since `Base:`.
-  - with Prove: `advance <f> 5 --gate pass`, then its `DISPATCH:` lines.
+  - L, a part that isn't the last: start the next part's Build agent; no Prove yet (one Prove, at the end, over the whole change since `Base:`).
+  - with Prove: `advance <f> 5 --gate pass`, then Prove's round (above).
   - with no Prove (M lite, `Prove: skip`): `verified`, `advance <f> 8 --gate pass`, Ship.
-- `DONE: prove pass` → `round <f> <N> pass`, `verified`, `advance <f> 8 --gate pass`, then Ship in the main session (`ship.md`, at small context).
-- `DONE: prove fail` → `round <f> <N> fail "<the line>"`, `advance <f> 4`, then resume the Build agent (on L, the one whose part holds the finding's files): "fix the findings in `review.md`, then `verify.py`". Its next `DONE: build pass` comes with the re-verification's `DISPATCH:` (M: a fresh checker on what changed; L: an ac-checker on the ACs that failed, or nothing) → `advance <f> 5`, as above.
+- Every verdict PASS → `round <f> <N> pass`, `verified`, `advance <f> 8 --gate pass`, then Ship in the main session (`ship.md`, at small context).
+- Any FAIL → `round <f> <N> fail "<the VERDICT lines>"`, `advance <f> 4`, then resume the Build agent (on L, the one whose part holds the finding's files): "fix every high in `.sdlc/.work/findings/<feature>/*-r<N>.md`, each with a failing test first, then `verify.py`". Its next `DONE: build pass` → `advance <f> 5` and round `<N+1>`: fresh checkers on what changed (L: the ac-checker only on the ACs that failed).
 - The hard stops still go to the user: the round cap and a requirement failing twice come back as `ASK:`.

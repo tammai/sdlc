@@ -169,6 +169,25 @@ class TrustAnchorTest(ProjectTestCase):
             self.assertEqual(bool(out and "without Stage 5" in out.get("systemMessage", "")), notice, track)
             self.prompt()
 
+    def test_a_checker_fail_verdict_blocks_ship_whatever_the_maker_says(self):
+        # Under the relay only the checker judges: its report's VERDICT line, not the maker's DONE, decides the round
+        self.state(stage=4, risk="low")
+        self.stop()
+        self.write("src/login.ts", "export const a = 4\n")
+        self.state(stage=5, risk="low")
+        self.full_run()
+        self.dispatch("sdlc:code-reviewer")
+        self.write(".sdlc/.work/findings/login/code-reviewer-r1.md", "H1 lock token not re-checked\n\nVERDICT: FAIL — 1 high: H1\n")
+        self.state(stage=8, risk="low")
+        self.assertIn("checker's verdict is FAIL", self.stop()["systemMessage"])
+        self.prompt()
+        self.write(".sdlc/.work/findings/login/code-reviewer-r2.md", "none\n\nVERDICT: PASS\n")  # the fix, re-checked
+        self.state(stage=5, risk="low")
+        self.stop()
+        self.dispatch("sdlc:code-reviewer")
+        self.state(stage=8, risk="low")
+        self.assertIsNone(self.stop())
+
     def test_m_lite_goes_from_build_to_ship_on_a_passing_verify_but_m_full_needs_prove(self):
         self.state(stage=4, risk="low", flow="lite")
         self.stop()

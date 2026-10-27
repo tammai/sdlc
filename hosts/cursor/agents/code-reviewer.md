@@ -57,4 +57,6 @@ Group issues by severity (Critical: 90-100, Important: 80-89).
 
 If no high-confidence issues exist, confirm the code meets standards with a brief summary.
 
+End every review with one verdict line, as its last line: `VERDICT: PASS`, or `VERDICT: FAIL — <n> high: <ids>` when any finding is high (Critical, or an Important bug, silent failure, security issue or a test gap rated 8 or more). Only you write it; whoever fixes the code doesn't get to change it.
+
 Be thorough but filter aggressively - quality over quantity. Focus on issues that truly matter.

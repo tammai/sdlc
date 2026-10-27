@@ -31,12 +31,17 @@ Ship's single advisor call read 414k tokens. Prove's fix pass resumed an impleme
    - **Stage agents** are resumed with `SendMessage`, not re-spawned. Each ends every turn with one line: `DISPATCH:`, `ASK:`, `QUESTION:`, `STATUS:` or `DONE:`.
    - **Dispatching:** stage agents can't start agents, so they ask the main session to dispatch for them.
    - **Tiers:** the M maker and L's Build agents are standard (sonnet). L's Define agent is top tier (opus), because brainstorming and the design run there. M's Define therefore moves from the session's tier to sonnet.
-   - **One Prove on L:** only the last part's `DONE:` dispatches Prove, over the whole change. A fix goes to the agent whose part holds the finding's files.
+   - **One Prove on L:** after the last part, over the whole change. A fix goes to the agent whose part holds the finding's files.
    - **Where it doesn't run:** S, backlogs, autopilot, headless runs, Codex, Cursor and Antigravity keep the in-session flow. On Cursor, the ac-checker and code-reviewer stay `readonly`. Whether a `claude -p` session is woken when a background agent finishes is unverified.
-2. **Paths, not contents.** Reviewers write their report under `.sdlc/.work/findings/`; the role guard allows them that folder and nothing else. `ac-checker` and `code-reviewer` gain the Write tool for it.
-3. **The maker fixes Prove's findings.** It knows the design, so it breaks fewer of the design's rules. Reviewers stay fresh every round.
+2. **Paths, not contents.** Reviewers write their report under `.sdlc/.work/findings/<feature>/`; the role guard allows them that folder and nothing else. `ac-checker` and `code-reviewer` gain the Write tool for it.
+3. **Only a checker judges; the maker fixes.** The eval session's check of `4045939` found the maker writing the checkers' briefs and reading their findings as pass or fail, which undid the checkers' independence. The Stage 5 gate checked only that a checker was dispatched. Now:
+   - Every checker's report ends with `VERDICT: PASS` or `VERDICT: FAIL — <n> high: <ids>`.
+   - The main session writes the checkers' briefs from fixed text and paths. The maker adds only a changed-file list.
+   - The main session reads the VERDICT lines alone and makes the `round`/`advance` moves from them.
+   - The trust anchor gives a notice when a feature leaves Stage 5 while the latest round has a FAIL.
+   - The maker is resumed only to fix every high, because it knows the design and breaks fewer of its rules. It may not downgrade or waive a finding; a disagreement goes to the user. Reviewers stay fresh every round.
 4. **M's checker.** M's Prove is one fresh `code-reviewer` that also reads each AC beside its test, reading the diff once.
-   - Tier: standard, top on risk high.
+   - Tier: top (opus) at every risk, the user's decision: the code review stays on opus. The model router denies a code-reviewer below opus on every track. The maker and builders keep their tiers.
    - The trust anchor accepts it as M's Stage 5 evidence. L and Feature close keep a separate `ac-checker`.
 5. **`plan.md` opens with `## Handoff to Build`.** It lists:
    - decisions and their reasons;
@@ -58,4 +63,4 @@ Ship's single advisor call read 414k tokens. Prove's fix pass resumed an impleme
 - **Not run live.** The first relay run's transcript has to show the relay lines working before a campaign relies on it. If an agent ends without one, the main session has nothing to act on.
 - **Expected saving:** roughly 25–30M main-session cache reads on l-team. That estimate came from the 8-task `ef7fabd` run, so on `46b85d0` (one-piece M) it may be smaller.
 - **Context limit:** a maker kept alive through Define, Build and fixes carries its own context. After `/clear` or in a new session, a fresh one starts from the files, beginning at `## Handoff to Build`.
-- **Unmeasured:** whether one standard-tier checker on M at risk low catches what a separate ac-checker plus a reviewer would.
+- **Unmeasured:** whether one checker on M catches what a separate ac-checker plus a reviewer would. Also unmeasured: M's Define on sonnet, as part of the maker.

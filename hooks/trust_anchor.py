@@ -149,12 +149,38 @@ def check(root, name, text, anchor, shown):
         if changed and anchor["untested_seen"] != anchor.get("untested_ok"):
             where = f"left Stage 5 for Stage {st}" if leaving_5 else f"Stage {st}"  # stable text: seen once
             notices.append(f"{where} with code changed since the last full test run: " + ", ".join(changed[:5]))
+    # Only a checker judges Prove (ADR 0017): moving past Stage 5 needs its latest round's VERDICT lines to pass
+    if prev is not None and st is not None and prev <= 5 < st:
+        failed = failed_verdicts(root, name)
+        if failed:
+            notices.append("left Stage 5 while a checker's verdict is FAIL: " + ", ".join(failed))
     disagree = verify_records_disagree(root, name)
     if disagree:
         notices.append(f"verify records disagree: {disagree}")
     anchor["stage"] = st
     anchor["stop_time"] = now
     return notices
+
+
+def failed_verdicts(root, name):
+    """Reports of the latest round in .sdlc/.work/findings/<feature>/ (`<agent>-r<n>.md`) whose VERDICT isn't PASS.
+    No reports (the in-session flow passes results back as text): nothing to check."""
+    folder = os.path.join(root, ".sdlc", ".work", "findings", name)
+    try:
+        files = [f for f in os.listdir(folder) if re.fullmatch(r".+-r\d+\.md", f)]
+    except OSError:
+        return []
+    if not files:
+        return []
+    latest = max(int(re.search(r"-r(\d+)\.md$", f).group(1)) for f in files)
+    failed = []
+    for f in sorted(files):
+        if int(re.search(r"-r(\d+)\.md$", f).group(1)) != latest:
+            continue
+        verdicts = re.findall(r"^\W*verdict:\W*(pass|fail)\b", read(os.path.join(folder, f)) or "", re.M | re.I)
+        if not verdicts or verdicts[-1].lower() != "pass":
+            failed.append(f)
+    return failed
 
 
 def verify_records_disagree(root, name):

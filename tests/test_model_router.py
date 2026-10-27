@@ -38,6 +38,12 @@ class ModelRouterTest(ProjectTestCase):
         self.write(".sdlc/login/state.md", "# login\nStatus: active\nTrack: M\nRisk: high\nTop model: opus\n")
         self.assertIsNone(self.dispatch(subagent_type="sdlc:qa-tester", model="sonnet"))
 
+    def test_a_code_reviewer_runs_on_opus_on_every_track_and_risk(self):
+        # The user's decision: the review stays on the top tier, M at risk low included (the checker is a code-reviewer)
+        out = self.dispatch(subagent_type="sdlc:code-reviewer", model="sonnet")
+        self.assertEqual(out["hookSpecificOutput"]["permissionDecision"], "deny")
+        self.assertIsNone(self.dispatch(subagent_type="general-purpose", model="sonnet"))  # the maker keeps its tier
+
     def test_dispatch_without_a_model_is_denied(self):
         out = self.dispatch(subagent_type="sdlc:verifier")
         self.assertEqual(out["hookSpecificOutput"]["permissionDecision"], "deny")

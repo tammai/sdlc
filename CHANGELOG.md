@@ -8,7 +8,9 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 - **A thin main session and kept-alive stage agents** (ADR 0017). On the L eval, the main session's context per turn grew to 368k in Prove and 440k in Ship. Now:
   - **Relay**, on M and L in an interactive Claude Code session. The main session passes paths and runs the state moves. On M, a kept-alive maker does Define and Build; on L, a Define agent and then one Build agent per part. Agents end each turn with `DISPATCH:`, `ASK:`, `QUESTION:`, `STATUS:` or `DONE:`. S, autopilot, headless runs and the other agents keep the in-session flow.
   - **M's Prove is one checker:** a fresh code-reviewer that also checks each AC's test. The trust anchor accepts it on M.
-  - **Reviewers write their report** under `.sdlc/.work/findings/`; the role guard allows that folder only.
+  - **Only a checker judges Prove.** Each report ends with a `VERDICT:` line, and the main session acts on those lines alone; the maker only fixes, and can't downgrade or waive a finding. The main session writes the checkers' briefs. The trust anchor gives a notice when a feature leaves Stage 5 with a FAIL verdict in the latest round.
+  - **Every code review runs on opus,** at every track and risk, M's checker and the security review included. The model router denies a code-reviewer below opus.
+  - **Reviewers write their report** under `.sdlc/.work/findings/<feature>/`; the role guard allows that folder only.
   - **`plan.md` opens with `## Handoff to Build`:** decisions with reasons, rejected options, facts from the code, what must not break, open calls, and risks with their proofs.
   - **No advisor once Prove has run.**
   - **One record file, `review.md`:** rounds, tickets, fixes and security. `test-report.md` and `security.md` are no longer written on new features. The `sdlc-invariants` CI check reads `review.md` first (`/sdlc:upgrade` brings the new check), and prune keeps `review.md` on `Risk: high`. Learn writes only lessons that aren't obvious, and no feature note.

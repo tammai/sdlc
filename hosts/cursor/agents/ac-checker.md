@@ -32,7 +32,7 @@ Under 25 lines:
 AC-001: proves
 AC-002: does not prove: asserts 200, not that the duplicate is rejected
 AC-003: manual: the badge uses the `success` token as the AC says; colour on screen not checked
-Verdict: PASS | FAIL
+VERDICT: PASS | FAIL — <n> high: <AC ids>
 ```
 
 FAIL when any AC does not prove, or a manual AC's change doesn't do what it says. When the brief names a report path under `.sdlc/.work/findings/`, write this there and answer with the path only; you write nothing else.
