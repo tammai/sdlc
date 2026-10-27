@@ -37,18 +37,18 @@ rect{stroke-width:.6}
 }</style>
 <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z"/></marker></defs>
 <g class="neutral">
-<rect x="20" y="20" width="960" height="50" rx="6"/>
-<text class="t m" x="500.0" y="37">/sdlc:start → the orchestrator picks the smallest track that fits</text>
-<text class="s m" x="500.0" y="55">Sized by footprint, not by risk words: risk raises the review, not the number of steps</text>
+<rect x="120" y="20" width="859" height="50" rx="6"/>
+<text class="t m" x="549.5" y="37">/sdlc:start → the orchestrator picks the smallest track that fits</text>
+<text class="s m" x="549.5" y="55">Sized by footprint, not by risk words: risk raises the review, not the number of steps</text>
 </g>
-<line class="a" x1="500.0" y1="70" x2="500.0" y2="93" marker-end="url(#ar)"/>
+<line class="a" x1="549.5" y1="70" x2="549.5" y2="93" marker-end="url(#ar)"/>
 <g class="hook">
-<rect x="20" y="96" width="960" height="50" rx="6"/>
-<text class="t" x="32" y="113">Always on, every track</text>
-<text class="s" x="200" y="113">hookify: blocks rm -rf, force-push to main, secret values; warns on .only, console.log, comment noise</text>
-<text class="s" x="200" y="131">security-guidance: edit warnings, commit review only when security-touched · model-router + role-guard + trust-anchor</text>
+<rect x="120" y="96" width="859" height="50" rx="6"/>
+<text class="t" x="132" y="113">Always on, every track</text>
+<text class="s" x="290" y="113">hookify: blocks rm -rf, force-push to main, secret values; warns on .only, console.log, comment noise</text>
+<text class="s" x="290" y="131">security-guidance: edit warnings, commit review only when security-touched · model-router + role-guard + trust-anchor</text>
 </g>
-<line class="a" x1="500.0" y1="146" x2="500.0" y2="164"/>
+<line class="a" x1="549.5" y1="146" x2="549.5" y2="164"/>
 <line class="a" x1="224.0" y1="164" x2="875.0" y2="164"/>
 <line class="a" x1="224.0" y1="164" x2="224.0" y2="183" marker-end="url(#ar)"/>
 <line class="a" x1="441.0" y1="164" x2="441.0" y2="183" marker-end="url(#ar)"/>
