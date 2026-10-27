@@ -29,7 +29,7 @@ Three documents and one approval: `intent.md` (why), `spec.md` (what) and `plan.
    - **`Flow: lite`:** write it yourself; don't load `sdlc:writing-specs`. Sections:
      - Goal: one or two sentences.
      - Requirements: `FR-nnn`, each testable, from the request; additions go in an `Inferred` list.
-     - Acceptance criteria: about 10 or fewer, each a behaviour a test can prove.
+     - Acceptance criteria: about 10 or fewer, each a new or changed behaviour a test can prove, so its test fails before the change. Never "existing tests still pass": `verify.py` runs the whole suite anyway, and such a criterion can't be recorded red.
      - Non-Goals.
      - Failure modes: the edges from `review-brief.md` that apply, each turned into an acceptance criterion; none → one line saying so.
 
