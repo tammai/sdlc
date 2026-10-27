@@ -18,10 +18,11 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v7
-      # Below 3.15: its UTF-8 default hides the Windows code-page crashes the tests exist to catch
+      # 3.10, as in local runs (CONTRIBUTING): the oldest we test, so newer syntax fails here, and below 3.15, whose
+      # UTF-8 default hides the Windows code-page crashes the tests exist to catch
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.10"
       - name: python3 on PATH (hooks start with it)
         if: runner.os == 'Windows'
         # setup-python usually ships python3.exe already; copy only when it doesn't
