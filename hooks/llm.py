@@ -29,13 +29,8 @@ import threading
 import time
 import traceback
 import urllib.parse
-import urllib.request
 from typing import Optional, Tuple, Dict, Any, List, Callable
 
-try:
-    import ssl
-except ImportError:  # a Python built without TLS
-    ssl = None
 
 import extensibility
 import review_api
@@ -223,6 +218,10 @@ def _context_without_unreadable_store_certs():
     or when no entry is readable. Trust is never widened: the certificates
     come from the same stores, under the same server-authentication filter,
     and the chain and host name are verified as in any default context."""
+    try:
+        import ssl  # here, not at the top: only API calls need it
+    except ImportError:  # a Python built without TLS
+        return None, 0
     enum_certificates = getattr(ssl, "enum_certificates", None)  # Windows only
     if enum_certificates is None:
         return None, 0
@@ -263,6 +262,7 @@ def _urlopen(request, timeout):
     """urllib.request.urlopen for the plugin's API calls. Uses Python's
     default TLS context unless that cannot be built because of the Windows
     certificate store (see above); checked once per process."""
+    import urllib.request  # here, not at the top: ~45 ms the edit and prompt hooks never need
     global _store_tls_context, _store_certs_skipped
     if _store_tls_context is _STORE_TLS_UNSET:
         with _store_tls_lock:
@@ -283,6 +283,7 @@ def _urlopen(request, timeout):
 
 
 def _probe_anthropic(timeout: float = 5.0) -> bool:
+    import urllib.request  # here, not at the top: ~45 ms the edit and prompt hooks never need
     req = urllib.request.Request(_anthropic_base_url() + "/", method="HEAD")
     try:
         with _urlopen(req, timeout):
@@ -561,6 +562,7 @@ def _newest_opus(model_ids) -> Optional[str]:
 
 def _fetch_newest_opus() -> Optional[str]:
     """Newest Opus the configured endpoint lists; None if it can't say."""
+    import urllib.request  # here, not at the top: ~45 ms the edit and prompt hooks never need
     # Newest first, so one modest page is enough; an org with many models
     # otherwise returns a megabyte-sized listing.
     url = _anthropic_base_url() + "/v1/models?limit=100"
@@ -972,6 +974,7 @@ def _call_claude(prompt, output_schema, thinking_budget=10000, max_tokens=16000,
     the next model. 429 still retries regardless — that's a per-key throttle a
     different model won't help with.
     """
+    import urllib.request  # here, not at the top: ~45 ms the edit and prompt hooks never need
     global _last_call_claude_http_error
     _last_call_claude_http_error = None
 

@@ -79,6 +79,9 @@ unset SG_LAUNCHER_FALLBACK
 # converted in-shell. Git Bash and MSYS2 (OSTYPE=msys) mount drives at
 # /<letter>; anything else (`/tmp`, `/usr`, Cygwin's /cygdrive) needs cygpath
 # to resolve. See #6470.
+# Whether the hook's arguments arrived in native form: only then can hooks.json start the remembered interpreter
+# directly (see remember_fast), with no launcher to convert them.
+sg_native=1
 if command -v cygpath >/dev/null 2>&1; then
     sg_drive_mounts=""
     case "${OSTYPE:-}" in msys*) sg_drive_mounts=1 ;; esac
@@ -86,6 +89,7 @@ if command -v cygpath >/dev/null 2>&1; then
     for a in "$@"; do
         case "$a" in
             /[A-Za-z]/*)
+                sg_native=""
                 if [ -n "$sg_drive_mounts" ]; then
                     drive="${a:1:1}"
                     rest="${a:3}"
@@ -93,7 +97,7 @@ if command -v cygpath >/dev/null 2>&1; then
                 else
                     converted+=("$(cygpath -w "$a")")
                 fi ;;
-            /*) converted+=("$(cygpath -w "$a")") ;;
+            /*) sg_native=""; converted+=("$(cygpath -w "$a")") ;;
             *)  converted+=("$a") ;;
         esac
     done
@@ -160,12 +164,34 @@ sg_cached=""
 if [ -n "$SG_CACHE" ] && [ -f "$SG_CACHE" ] && [ ! -L "$SG_CACHE" ] && [ -O "$SG_CACHE" ]; then
     IFS= read -r sg_cached < "$SG_CACHE" 2>/dev/null || true
 fi
+# The fast path: hooks.json reads this file and, when it names an executable, starts it with the hook directly,
+# without this launcher (one bash start less per hook). Only in the plugin's data folder (only Claude Code sets
+# it), only for a `python...` name (it takes no extra argument, unlike `py -3`), and only when no argument needed
+# converting; otherwise it is removed, so hooks.json falls back to this launcher.
+SG_FAST=""
+[ -n "${CLAUDE_PLUGIN_DATA:-}" ] && [ "$sg_cache_dir" = "$CLAUDE_PLUGIN_DATA" ] && SG_FAST="$CLAUDE_PLUGIN_DATA/sdlc-hook-python.fast"
+remember_fast() {
+    # $1: the interpreter's name, $2: its absolute path
+    local tmp
+    [ -n "$SG_FAST" ] || return 0
+    case "$1" in
+        python*) [ -n "$sg_native" ] && [ -n "$2" ] || { rm -f "$SG_FAST" 2>/dev/null; return 0; } ;;
+        *) rm -f "$SG_FAST" 2>/dev/null; return 0 ;;
+    esac
+    tmp=$(mktemp "$SG_FAST.XXXXXX" 2>/dev/null) || return 0
+    if printf '%s\n' "$2" > "$tmp" 2>/dev/null; then
+        mv -f "$tmp" "$SG_FAST" 2>/dev/null || rm -f "$tmp"
+    else
+        rm -f "$tmp"
+    fi
+}
 sg_cached_name=${sg_cached%%$'\t'*}
 sg_cached_path=${sg_cached#*$'\t'}
 case "$sg_cached_name" in
     "py -3"|python3|python|python3.[0-9]|python3.[0-9][0-9])
         sg_head=${sg_cached_name%% *}
         if [ "$sg_cached_path" != "$sg_cached" ] && [ "$(type -P "$sg_head")" = "$sg_cached_path" ]; then
+            [ -z "$SG_FAST" ] || [ -f "$SG_FAST" ] || remember_fast "$sg_cached_name" "$sg_cached_path"
             # shellcheck disable=SC2086
             exec $sg_cached_name "$@"
         fi ;;
@@ -174,6 +200,7 @@ remember() {
     local line tmp
     [ -n "$SG_CACHE" ] || return 0
     line="$*"$'\t'"$(type -P "${1%% *}")"
+    remember_fast "$*" "${line#*$'\t'}"
     [ "$sg_cached" = "$line" ] && return 0
     tmp=$(mktemp "$SG_CACHE.XXXXXX" 2>/dev/null) || return 0
     if printf '%s\n' "$line" > "$tmp" 2>/dev/null; then

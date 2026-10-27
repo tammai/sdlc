@@ -68,7 +68,6 @@ import re
 import subprocess
 import sys
 import threading
-import urllib.request
 from datetime import datetime
 from enum import IntEnum
 from typing import Optional, Tuple, Dict, Any, List

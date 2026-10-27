@@ -9,6 +9,7 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 - **Opt-in hook timing:** with `SDLC_HOOK_TIMES=1`, every hook appends its name, event, tool, wall-clock time and exit code to `.sdlc/.work/hook-times.jsonl` (runbook R10a), to find what makes tool calls slow before cutting it.
 - **Build checks its own diff before Prove:** with Prove ahead, the builder runs the checker's one-pass list on its diff before the final `verify.py` and fixes what it finds, test first, logged as one `Self-check:` line in `review.md`. The fresh checker still runs and alone judges; this saves a fix round.
 - **Test discipline in Build:** no sleep loops waiting on a command, and concurrency or kill tests with the fewest processes that show the behaviour; implementers are told the same.
+- **Faster hooks, about 30% per event** (measured on Windows: an Edit's hooks 414 to 278 ms, a Bash call's 314 to 223 ms). Each hook's command starts the Python the launcher remembered directly, falling back to `sg-python.sh` when none is remembered; the security hook loads its HTTP and TLS modules only when it calls a model.
 
 ### Fixed
 - **Relay Prove no longer fails on its own diff facts.** The trust anchor and the main session read VERDICT lines only from the checkers' reports (`code-reviewer`, `ac-checker`, `security`, `ui-reviewer`), not `diff-r<N>.md` or Define's explorer reports in the same folder.

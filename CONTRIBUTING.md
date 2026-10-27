@@ -21,7 +21,7 @@ sdlc/
 │                            (references/trimming-context.md: /sdlc:context-diet); executing-plans/references/ holds requesting-code-review.md
 │                            and code-reviewer.md; managing-knowledge/references/ holds claude-md-improver.md and its folder
 ├── hooks/
-│   ├── hooks.json           which script runs on which event; every hook starts through sg-python.sh
+│   ├── hooks.json           which script runs on which event; every hook starts the Python sg-python.sh remembered, else sg-python.sh
 │   ├── verify_freshness.py  Prove (Stage 5; on `Flow: lite` also 6, where a backlog slice rests) stale/fresh test tracking, and its own copy of verify.py runs (original)
 │   ├── model_router.py      checks each subagent dispatch's model, logs dispatches (original)
 │   ├── role_guard.py        keeps the plugin's agents to their role's file access; reviewers write only .sdlc/.work/findings/ (original)

@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/ensure_agent_sdk.py\"",
+            "command": "f=\"$CLAUDE_PLUGIN_DATA/sdlc-hook-python.fast\"; p=; [ -z \"$SDLC_HOOK_TIMES\" ] && [ -O \"$f\" ] && [ ! -L \"$f\" ] && read -r p < \"$f\"; [ -n \"$p\" ] && [ -x \"$p\" ] && { export PYTHONUTF8=1; exec \"$p\" \"${CLAUDE_PLUGIN_ROOT}/hooks/ensure_agent_sdk.py\"; }; exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/ensure_agent_sdk.py\"",
             "timeout": 180
           }
         ]
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/security_reminder_hook.py\""
+            "command": "f=\"$CLAUDE_PLUGIN_DATA/sdlc-hook-python.fast\"; p=; [ -z \"$SDLC_HOOK_TIMES\" ] && [ -O \"$f\" ] && [ ! -L \"$f\" ] && read -r p < \"$f\"; [ -n \"$p\" ] && [ -x \"$p\" ] && { export PYTHONUTF8=1; exec \"$p\" \"${CLAUDE_PLUGIN_ROOT}/hooks/security_reminder_hook.py\"; }; exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/security_reminder_hook.py\""
           }
         ]
       },
@@ -25,7 +25,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/userpromptsubmit.py\"",
+            "command": "f=\"$CLAUDE_PLUGIN_DATA/sdlc-hook-python.fast\"; p=; [ -z \"$SDLC_HOOK_TIMES\" ] && [ -O \"$f\" ] && [ ! -L \"$f\" ] && read -r p < \"$f\"; [ -n \"$p\" ] && [ -x \"$p\" ] && { export PYTHONUTF8=1; exec \"$p\" \"${CLAUDE_PLUGIN_ROOT}/hooks/userpromptsubmit.py\"; }; exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/userpromptsubmit.py\"",
             "timeout": 10
           }
         ]
@@ -34,7 +34,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/trust_anchor.py\"",
+            "command": "f=\"$CLAUDE_PLUGIN_DATA/sdlc-hook-python.fast\"; p=; [ -z \"$SDLC_HOOK_TIMES\" ] && [ -O \"$f\" ] && [ ! -L \"$f\" ] && read -r p < \"$f\"; [ -n \"$p\" ] && [ -x \"$p\" ] && { export PYTHONUTF8=1; exec \"$p\" \"${CLAUDE_PLUGIN_ROOT}/hooks/trust_anchor.py\"; }; exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/trust_anchor.py\"",
             "timeout": 10
           }
         ]
@@ -45,7 +45,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/security_reminder_hook.py\""
+            "command": "f=\"$CLAUDE_PLUGIN_DATA/sdlc-hook-python.fast\"; p=; [ -z \"$SDLC_HOOK_TIMES\" ] && [ -O \"$f\" ] && [ ! -L \"$f\" ] && read -r p < \"$f\"; [ -n \"$p\" ] && [ -x \"$p\" ] && { export PYTHONUTF8=1; exec \"$p\" \"${CLAUDE_PLUGIN_ROOT}/hooks/security_reminder_hook.py\"; }; exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/security_reminder_hook.py\""
           }
         ],
         "matcher": "Edit|Write|MultiEdit|NotebookEdit"
@@ -54,7 +54,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/security_reminder_hook.py\"",
+            "command": "f=\"$CLAUDE_PLUGIN_DATA/sdlc-hook-python.fast\"; p=; [ -z \"$SDLC_HOOK_TIMES\" ] && [ -O \"$f\" ] && [ ! -L \"$f\" ] && read -r p < \"$f\"; [ -n \"$p\" ] && [ -x \"$p\" ] && { export PYTHONUTF8=1; exec \"$p\" \"${CLAUDE_PLUGIN_ROOT}/hooks/security_reminder_hook.py\"; }; exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/security_reminder_hook.py\"",
             "if": "Bash(git*commit*)",
             "asyncRewake": true,
             "rewakeMessage": "Background security review of committed or pushed changes — address or acknowledge the findings below, then continue with the user's original request or continue waiting for their reply:",
@@ -62,7 +62,7 @@
           },
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/security_reminder_hook.py\"",
+            "command": "f=\"$CLAUDE_PLUGIN_DATA/sdlc-hook-python.fast\"; p=; [ -z \"$SDLC_HOOK_TIMES\" ] && [ -O \"$f\" ] && [ ! -L \"$f\" ] && read -r p < \"$f\"; [ -n \"$p\" ] && [ -x \"$p\" ] && { export PYTHONUTF8=1; exec \"$p\" \"${CLAUDE_PLUGIN_ROOT}/hooks/security_reminder_hook.py\"; }; exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/security_reminder_hook.py\"",
             "if": "Bash(git*push*)",
             "asyncRewake": true,
             "rewakeMessage": "Background security review of committed or pushed changes — address or acknowledge the findings below, then continue with the user's original request or continue waiting for their reply:",
@@ -70,7 +70,7 @@
           },
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/security_reminder_hook.py\"",
+            "command": "f=\"$CLAUDE_PLUGIN_DATA/sdlc-hook-python.fast\"; p=; [ -z \"$SDLC_HOOK_TIMES\" ] && [ -O \"$f\" ] && [ ! -L \"$f\" ] && read -r p < \"$f\"; [ -n \"$p\" ] && [ -x \"$p\" ] && { export PYTHONUTF8=1; exec \"$p\" \"${CLAUDE_PLUGIN_ROOT}/hooks/security_reminder_hook.py\"; }; exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/security_reminder_hook.py\"",
             "if": "Bash(gt *)",
             "asyncRewake": true,
             "rewakeMessage": "Background security review of committed or pushed changes — address or acknowledge the findings below, then continue with the user's original request or continue waiting for their reply:",
@@ -84,7 +84,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/verify_freshness.py\"",
+            "command": "f=\"$CLAUDE_PLUGIN_DATA/sdlc-hook-python.fast\"; p=; [ -z \"$SDLC_HOOK_TIMES\" ] && [ -O \"$f\" ] && [ ! -L \"$f\" ] && read -r p < \"$f\"; [ -n \"$p\" ] && [ -x \"$p\" ] && { export PYTHONUTF8=1; exec \"$p\" \"${CLAUDE_PLUGIN_ROOT}/hooks/verify_freshness.py\"; }; exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/verify_freshness.py\"",
             "timeout": 10
           }
         ]
@@ -96,7 +96,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/verify_freshness.py\"",
+            "command": "f=\"$CLAUDE_PLUGIN_DATA/sdlc-hook-python.fast\"; p=; [ -z \"$SDLC_HOOK_TIMES\" ] && [ -O \"$f\" ] && [ ! -L \"$f\" ] && read -r p < \"$f\"; [ -n \"$p\" ] && [ -x \"$p\" ] && { export PYTHONUTF8=1; exec \"$p\" \"${CLAUDE_PLUGIN_ROOT}/hooks/verify_freshness.py\"; }; exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/verify_freshness.py\"",
             "timeout": 10
           }
         ]
@@ -107,7 +107,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/security_reminder_hook.py\"",
+            "command": "f=\"$CLAUDE_PLUGIN_DATA/sdlc-hook-python.fast\"; p=; [ -z \"$SDLC_HOOK_TIMES\" ] && [ -O \"$f\" ] && [ ! -L \"$f\" ] && read -r p < \"$f\"; [ -n \"$p\" ] && [ -x \"$p\" ] && { export PYTHONUTF8=1; exec \"$p\" \"${CLAUDE_PLUGIN_ROOT}/hooks/security_reminder_hook.py\"; }; exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/security_reminder_hook.py\"",
             "asyncRewake": true,
             "rewakeMessage": "Background security review feedback — address or acknowledge the findings below, then continue with the user's original request or continue waiting for their reply. This is supplementary, not a replacement for your previous response:",
             "rewakeSummary": "Background security review found issues"
@@ -118,7 +118,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/stop.py\"",
+            "command": "f=\"$CLAUDE_PLUGIN_DATA/sdlc-hook-python.fast\"; p=; [ -z \"$SDLC_HOOK_TIMES\" ] && [ -O \"$f\" ] && [ ! -L \"$f\" ] && read -r p < \"$f\"; [ -n \"$p\" ] && [ -x \"$p\" ] && { export PYTHONUTF8=1; exec \"$p\" \"${CLAUDE_PLUGIN_ROOT}/hooks/stop.py\"; }; exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/stop.py\"",
             "timeout": 10
           }
         ]
@@ -127,7 +127,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/verify_freshness.py\"",
+            "command": "f=\"$CLAUDE_PLUGIN_DATA/sdlc-hook-python.fast\"; p=; [ -z \"$SDLC_HOOK_TIMES\" ] && [ -O \"$f\" ] && [ ! -L \"$f\" ] && read -r p < \"$f\"; [ -n \"$p\" ] && [ -x \"$p\" ] && { export PYTHONUTF8=1; exec \"$p\" \"${CLAUDE_PLUGIN_ROOT}/hooks/verify_freshness.py\"; }; exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/verify_freshness.py\"",
             "timeout": 10
           }
         ]
@@ -136,7 +136,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/trust_anchor.py\"",
+            "command": "f=\"$CLAUDE_PLUGIN_DATA/sdlc-hook-python.fast\"; p=; [ -z \"$SDLC_HOOK_TIMES\" ] && [ -O \"$f\" ] && [ ! -L \"$f\" ] && read -r p < \"$f\"; [ -n \"$p\" ] && [ -x \"$p\" ] && { export PYTHONUTF8=1; exec \"$p\" \"${CLAUDE_PLUGIN_ROOT}/hooks/trust_anchor.py\"; }; exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/trust_anchor.py\"",
             "timeout": 10
           }
         ]
@@ -148,7 +148,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/pretooluse.py\"",
+            "command": "f=\"$CLAUDE_PLUGIN_DATA/sdlc-hook-python.fast\"; p=; [ -z \"$SDLC_HOOK_TIMES\" ] && [ -O \"$f\" ] && [ ! -L \"$f\" ] && read -r p < \"$f\"; [ -n \"$p\" ] && [ -x \"$p\" ] && { export PYTHONUTF8=1; exec \"$p\" \"${CLAUDE_PLUGIN_ROOT}/hooks/pretooluse.py\"; }; exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/pretooluse.py\"",
             "timeout": 10
           }
         ]
@@ -158,7 +158,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/role_guard.py\"",
+            "command": "f=\"$CLAUDE_PLUGIN_DATA/sdlc-hook-python.fast\"; p=; [ -z \"$SDLC_HOOK_TIMES\" ] && [ -O \"$f\" ] && [ ! -L \"$f\" ] && read -r p < \"$f\"; [ -n \"$p\" ] && [ -x \"$p\" ] && { export PYTHONUTF8=1; exec \"$p\" \"${CLAUDE_PLUGIN_ROOT}/hooks/role_guard.py\"; }; exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/role_guard.py\"",
             "timeout": 10
           }
         ]
@@ -168,7 +168,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/prove_budget.py\"",
+            "command": "f=\"$CLAUDE_PLUGIN_DATA/sdlc-hook-python.fast\"; p=; [ -z \"$SDLC_HOOK_TIMES\" ] && [ -O \"$f\" ] && [ ! -L \"$f\" ] && read -r p < \"$f\"; [ -n \"$p\" ] && [ -x \"$p\" ] && { export PYTHONUTF8=1; exec \"$p\" \"${CLAUDE_PLUGIN_ROOT}/hooks/prove_budget.py\"; }; exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/prove_budget.py\"",
             "timeout": 10
           }
         ]
@@ -178,7 +178,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/model_router.py\"",
+            "command": "f=\"$CLAUDE_PLUGIN_DATA/sdlc-hook-python.fast\"; p=; [ -z \"$SDLC_HOOK_TIMES\" ] && [ -O \"$f\" ] && [ ! -L \"$f\" ] && read -r p < \"$f\"; [ -n \"$p\" ] && [ -x \"$p\" ] && { export PYTHONUTF8=1; exec \"$p\" \"${CLAUDE_PLUGIN_ROOT}/hooks/model_router.py\"; }; exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/model_router.py\"",
             "timeout": 10
           }
         ]

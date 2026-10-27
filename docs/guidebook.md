@@ -189,7 +189,7 @@ The one code reviewer on every track gets a one-pass brief (on M it also reads e
 | role-guard | PreToolUse (file tools) | Holds the plugin's agents to their role: reviewers (the `sdlc-extras:` ones too), the ac-checker and Define's code-explorer and code-architect can't edit files but their report under `.sdlc/.work/findings/`, the verifier writes only its report, the baseline, its red-green worktree and its probe scripts, the qa-tester can't read or search code. Bash stays open to them |
 | SessionStart | SessionStart | Creates a Python environment for the security reviewer on first run |
 
-Every hook starts through `bash hooks/sg-python.sh`, which finds a working Python 3 and skips the Microsoft Store `python3` stub (with `SDLC_HOOK_TIMES=1` it also logs each hook's time to `.sdlc/.work/hook-times.jsonl`: runbook R10a); `/sdlc:doctor`'s "hook python" check runs it. The `sdlc-extras` plugin adds the Ralph loop's Stop hook, active only while a `/sdlc-extras:ralph-loop` runs.
+Every hook starts through `bash hooks/sg-python.sh`, which finds a working Python 3 and skips the Microsoft Store `python3` stub; once it has found one, the hook's command in `hooks.json` starts that Python directly, one process fewer per hook (with `SDLC_HOOK_TIMES=1` it also logs each hook's time to `.sdlc/.work/hook-times.jsonl`: runbook R10a); `/sdlc:doctor`'s "hook python" check runs it. The `sdlc-extras` plugin adds the Ralph loop's Stop hook, active only while a `/sdlc-extras:ralph-loop` runs.
 
 In Codex, Cursor and the Antigravity CLI, `hosts/hook.py` runs hookify, verify-freshness and trust-anchor on the agent's own hook events (in Codex, once you trust them in `/hooks`; see [spec 11](specs/11-multi-agent.md)).
 

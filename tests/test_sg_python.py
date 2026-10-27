@@ -1,6 +1,7 @@
 """hooks/sg-python.sh: the launcher every hook starts through finds a working Python 3 once and remembers it."""
 import json
 import os
+import shutil
 import subprocess
 import unittest
 
@@ -53,6 +54,27 @@ class LauncherTest(ProjectTestCase):
             entry = json.loads(f.read())
         self.assertEqual((entry["hook"], entry["event"], entry["tool"], entry["rc"]), ("h.py", "PreToolUse", "Bash", 2))
         self.assertIsInstance(entry["ms"], int)
+
+    def test_hooks_json_starts_the_remembered_interpreter_directly_and_the_launcher_without_one(self):
+        with open(os.path.join(HOOKS, "hooks.json"), encoding="utf-8") as f:
+            command = json.load(f)["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
+        sh = shutil.which("sh") or BASH  # Claude Code runs hook commands with `sh -c` outside Windows
+        env = dict(os.environ, CLAUDE_PLUGIN_ROOT=os.path.dirname(HOOKS), CLAUDE_PLUGIN_DATA=self.root,
+                   CLAUDE_PROJECT_DIR=self.root)
+        env.pop("SDLC_HOOK_TIMES", None)
+        payload = json.dumps({"hook_event_name": "PreToolUse", "tool_name": "Read", "tool_input": {}})
+
+        def run():
+            return subprocess.run([sh, "-c", command], input=payload, capture_output=True, encoding="utf-8",
+                                  errors="replace", env=env, cwd=self.root)
+        p = run()  # nothing remembered: the launcher finds Python and remembers it
+        self.assertEqual(p.stdout.strip(), "{}", p.stderr)
+        self.assertTrue(os.path.exists(self.path("sdlc-hook-python.fast")))
+        self.write("stub", "#!/bin/sh\necho direct\n")
+        os.chmod(self.path("stub"), 0o755)
+        with open(self.path("sdlc-hook-python.fast"), "w", encoding="utf-8", newline="\n") as f:
+            f.write(self.path("stub") + "\n")  # as the launcher writes it: LF, never CRLF
+        self.assertEqual(run().stdout.strip(), "direct")  # remembered: started with no launcher in between
 
     def test_without_a_plugin_data_folder_it_remembers_per_user_never_in_shared_temp(self):
         env = {k: v for k, v in os.environ.items() if k != "CLAUDE_PLUGIN_DATA"}
