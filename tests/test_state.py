@@ -102,6 +102,15 @@ class StateTest(ProjectTestCase):
         self.assertIn("Slice: B1   Slice base: abc1234   Slice gates: plan, commit\n", text)
         self.assertEqual(text.count("Slice gates:"), 1)
 
+    def test_an_s_fix_records_its_intent_and_repro_in_state(self):
+        # S writes no documents: Define puts the one-line intent and the repro test in the state file
+        self.write(".sdlc/state/login.md", STATE)
+        self.assertEqual(self.state("set", "login", "Intent", "remove --cascade skips done dependents")[0], 0)
+        repro = "`test/p.test.js` › removes done | `node --test test/p.test.js`"
+        self.assertEqual(self.state("set", "login", "Repro", repro)[0], 0)
+        with open(self.md, encoding="utf-8") as f:
+            self.assertIn(f"Repro: {repro}\n", f.read())
+
     def test_a_deviation_goes_under_deviations(self):
         # The sdlc-invariants CI check looks for a baseline change named under ## Deviations, not the Gate log
         self.write(".sdlc/state/login.md", STATE.replace("## Open questions", "## Deviations\n-\n\n## Open questions"))

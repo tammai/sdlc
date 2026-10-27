@@ -59,9 +59,14 @@ SHELL_SEP = re.compile(r"\|\||&&|[|;&]")
 REDIRECT = re.compile(r"&?\d*[<>]{1,2}&?\s*[^\s;&|<>]*")
 GO_ALL_PACKAGES = ("./...", "...", ".")
 # The plugin's verify script, optionally after `cd <dir> &&`; options take a value, so their values aren't actions
-# A run of verify.py in any segment of a command: agents wrap it (`cd <dir> && …`, `… 2>&1 | tail`, `…; echo $?`)
-VERIFY_CMD = re.compile(r"""(?:^|&&|\|\||[;|\n])\s*python3?(?:\.exe)?[ \t]+"""
-                        r"""(?:"(?P<dq>[^"]+)"|'(?P<sq>[^']+)'|(?P<bare>[^ \t"';&|]+))(?P<args>[^;&|\n\r]*)""")
+# A run of verify.py as the command itself: optionally after `cd <dir> &&`, redirects removed first, and followed
+# only by output filters (`| tail`, `| head`, `| grep`, `| cat`) or `; echo …`. Anywhere else it may not run
+# (`true || verify.py`), or something after it may rewrite its record (`verify.py; sed … verify.json`)
+VERIFY_CMD = re.compile(r"""^\s*(?:cd\s+(?:"[^"]+"|'[^']+'|[^\s;&|]+)\s*&&\s*)*"""
+                        r"""python3?(?:\.exe)?[ \t]+(?:"(?P<dq>[^"]+)"|'(?P<sq>[^']+)'|(?P<bare>[^ \t"';&|]+))"""
+                        r"""(?P<args>[^;&|\n\r]*)"""
+                        r"""(?P<tail>(?:[ \t]*\|[ \t]*(?:tail|head|grep|cat)\b[^;&|\n\r`$()<>]*)*"""
+                        r"""(?:[ \t]*;[ \t]*echo\b[^;&|\n\r`()<>]*)?)[ \t]*\Z""")
 VERIFY_OPTS = ("--root", "--feature", "--timeout")
 PLUGIN_VERIFY = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts", "verify.py")
 ERROR_FILE = os.path.join(".sdlc", ".work", "verify-freshness.error")
@@ -346,31 +351,33 @@ def is_plugin_verify(path):
 
 
 def verify_runs(command, root, cwd, feature):
-    """[("red", "AC-nnn") | ("full", None)] for each run of the plugin's scripts/verify.py on this project and
-    feature in the command; a run against another root, directory or feature, or `--help`, proves nothing here."""
-    runs = []
-    for m in VERIFY_CMD.finditer(command or ""):
-        if not is_plugin_verify(m.group("dq") or m.group("sq") or m.group("bare")):
-            continue
-        try:
-            words = shlex.split(m.group("args"))
-        except ValueError:
-            continue
-        words = [part for w in words for part in (w.split("=", 1) if w.startswith("--") and "=" in w else [w])]
-        if any(w.startswith("-") and w not in VERIFY_OPTS for w in words):
-            continue  # --help, or an option verify.py doesn't take: nothing was verified
-        opts = {w: words[i + 1] for i, w in enumerate(words[:-1]) if w in VERIFY_OPTS}
-        here = os.path.join(root, run_dir(command, m.start("args"), root, cwd))
-        if os.path.normcase(os.path.abspath(os.path.join(here, opts.get("--root", ".")))) != os.path.normcase(root):
-            continue
-        if opts.get("--feature", feature) != feature:
-            continue
-        args = [w for i, w in enumerate(words) if not w.startswith("-") and not (i and words[i - 1] in VERIFY_OPTS)]
-        if not args:
-            runs.append(("full", None))
-        elif args[0] == "red" and len(args) > 1:
-            runs.append(("red", args[1]))
-    return runs
+    """([("red", "AC-nnn") | ("full", None)], whether the call's exit code is verify.py's) for a run of the plugin's
+    scripts/verify.py on this project and feature; ([], False) for anything else, including a run against another
+    root, directory or feature, or `--help`."""
+    flat = REDIRECT.sub(" ", command or "")
+    m = VERIFY_CMD.match(flat)
+    if not m or not is_plugin_verify(m.group("dq") or m.group("sq") or m.group("bare")):
+        return [], False
+    try:
+        words = shlex.split(m.group("args"))
+    except ValueError:
+        return [], False
+    words = [part for w in words for part in (w.split("=", 1) if w.startswith("--") and "=" in w else [w])]
+    if any(w.startswith("-") and w not in VERIFY_OPTS for w in words):
+        return [], False  # --help, or an option verify.py doesn't take: nothing was verified
+    opts = {w: words[i + 1] for i, w in enumerate(words[:-1]) if w in VERIFY_OPTS}
+    here = os.path.join(root, run_dir(flat, m.start("args"), root, cwd))
+    if os.path.normcase(os.path.abspath(os.path.join(here, opts.get("--root", ".")))) != os.path.normcase(root):
+        return [], False
+    if opts.get("--feature", feature) != feature:
+        return [], False
+    args = [w for i, w in enumerate(words) if not w.startswith("-") and not (i and words[i - 1] in VERIFY_OPTS)]
+    observable = not m.group("tail").strip()  # after a pipe or an echo, the exit code is another command's
+    if not args:
+        return [("full", None)], observable
+    if args[0] == "red" and len(args) > 1:
+        return [("red", args[1])], observable
+    return [], False  # status, or something verify.py won't accept
 
 
 def active_build_or_prove_feature(root):
@@ -385,10 +392,11 @@ def active_build_or_prove_feature(root):
     return None
 
 
-def record_verify(root, feature, runs):
+def record_verify(root, feature, runs, exit_result=None):
     """The hook's own copy of verify runs: the entry verify.py just wrote to verify.json, taken only when it is for
     the code as it is now. Not the command's exit code: after `| tail` or `; echo $?` that's another command's. A
-    later edit to verify.json, in another call, then no longer matches this copy (the trust anchor reports it). A
+    later edit to verify.json, in another call, then no longer matches this copy (the trust anchor reports it). When
+    the call's exit code is verify.py's own (`exit_result`), the entry must agree with it. A
     full run also counts as a full test run of every scope, so Build's verify carries into Prove: the Stop check
     compares that tree with the code, so later edits still make it stale. Without a tree nothing is recorded."""
     tree = worktree_tree(root)
@@ -403,22 +411,30 @@ def record_verify(root, feature, runs):
     if st.get("feature") != feature:
         st = {"feature": feature, "scopes": {}}
     rec = st.setdefault("verify", {})
+    recorded = False
     for kind, ac in runs:
         if kind == "red":
+            if exit_result == "fail":  # verify.py red exits non-zero when it refuses: nothing was recorded
+                continue
             entry = (script.get("red") or {}).get(ac)
             if isinstance(entry, dict) and entry.get("tree") == tree:
                 rec.setdefault("red", {})[ac] = tree
+                recorded = True
             continue
         last = script.get("last")
         if not isinstance(last, dict) or last.get("tree") != tree or last.get("result") not in ("pass", "fail"):
             continue
+        if exit_result and exit_result != last["result"]:
+            continue
         rec["last"] = {"tree": tree, "result": last["result"], "at": now()}
+        recorded = True
         scopes, _ = load_scopes(root, None)
         for sc in scopes:
             st.setdefault("scopes", {}).setdefault(sc["name"], {}).update(
                 stale=False, reason="", last_test_at=now(), last_test_cmd="verify.py", last_result=last["result"],
                 head=git_head(root), tree=tree)
-    save(root, st)
+    if recorded:
+        save(root, st)
 
 
 def main():
@@ -431,11 +447,12 @@ def main():
     if event in ("PostToolUse", "PostToolUseFailure") and data.get("tool_name") in SHELL_TOOLS:
         resp = data.get("tool_response") or {}
         building = active_build_or_prove_feature(root)
-        runs = building and verify_runs((data.get("tool_input") or {}).get("command", ""), root, data.get("cwd"),
-                                        building)
+        runs, observable = verify_runs((data.get("tool_input") or {}).get("command", ""), root, data.get("cwd"),
+                                       building) if building else ([], False)
         if runs:
             if not (data.get("is_interrupt") or (isinstance(resp, dict) and resp.get("interrupted"))):
-                record_verify(root, building, runs)
+                exit_result = ("fail" if event == "PostToolUseFailure" else "pass") if observable else None
+                record_verify(root, building, runs, exit_result)
             return
     feature, test_cmd = active_verify_feature(root)
     if not feature:

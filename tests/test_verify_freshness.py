@@ -602,15 +602,24 @@ class VerifyFreshnessTest(ProjectTestCase):
         self.bash(f'python3 "{verify}" --help')  # exits 0 without running anything
         self.bash('python3 scripts/verify.py')  # the project's own script of that name, not the plugin's
         self.bash(f'python3 "{verify}"', interrupted=True)
+        # Mentioning verify.py isn't running it, and nothing may rewrite its record in the same call
+        self.bash(f'true || python3 "{verify}"')
+        self.bash(f'python3 "{verify}"; sed -i s/fail/pass/ .sdlc/.work/verify.json')
+        run_hook(HOOK, {"hook_event_name": "PostToolUseFailure", "cwd": self.root, "tool_name": "Bash",
+                        "tool_input": {"command": f'python3 "{verify}"'}, "error": "Exit code 1"},
+                 self.root)  # its own exit says fail, verify.json says pass
         self.assertFalse(os.path.exists(self.path(".sdlc/.work/verify-freshness.json")))
-        # The shapes agents really use: a cd into the project, a pipe, an echo of the exit code (eval r1)
+        # The shapes agents really use: a cd into the project, a redirect, a pipe, an echo of the exit code (eval r1)
         self.bash(f'cd "{self.root}" && python3 "{verify}" red AC-001 2>&1 | tail -40')
-        self.bash(f'cd "{self.root}" && python3 "{verify}"; echo exit=$?')
+        self.bash(f'python3 "{verify}" 2>&1 | tail -5')
         with open(self.path(".sdlc/.work/verify-freshness.json"), encoding="utf-8") as f:
             st = json.load(f)
         self.assertIn("AC-001", st["verify"]["red"])
         self.assertEqual(st["verify"]["last"]["result"], "pass")
         self.assertFalse(st["scopes"]["(root)"]["stale"])
+        self.bash(f'cd "{self.root}" && python3 "{verify}"; echo exit=$?')
+        with open(self.path(".sdlc/.work/verify-freshness.json"), encoding="utf-8") as f:
+            self.assertEqual(json.load(f)["verify"]["last"]["result"], "pass")
         # A record for other code (left from an earlier run, or edited) isn't copied
         self.verify_wrote(result="pass", tree="0" * 40)
         self.write("src/a.ts", "changed")

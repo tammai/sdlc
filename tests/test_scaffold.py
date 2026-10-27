@@ -295,6 +295,11 @@ class ScaffoldTest(ProjectTestCase):
         tracked = subprocess.run(git + ["ls-files", ".sdlc/.work"], capture_output=True, encoding="utf-8").stdout
         self.assertEqual(tracked.strip(), "")
         self.assertTrue(os.path.exists(self.path(".sdlc/.work/trust-anchor.json")))  # kept on disk
+        # A * in a line stays within one folder, as in .gitignore: a team rule under .claude/rules/ stays tracked
+        self.write(".claude/rules/team.local.md", "rule")
+        subprocess.run(git + ["add", "-f", ".claude/rules/team.local.md"], check=True)
+        subprocess.run(git + ["commit", "-q", "-m", "rule"], check=True)
+        self.assertEqual(self.sc("gitignore", "--add", ".claude/*.local.md")["untracked"], [])
 
     # --- migrations --------------------------------------------------------------------------
 

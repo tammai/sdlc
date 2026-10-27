@@ -774,7 +774,7 @@ def cmd_gitignore(p, a):
     # shows as modified after every run. Untrack it from the index; the files stay on disk
     untracked = []
     for line in a.add or []:
-        pattern = line.rstrip("/")
+        pattern = ":(glob)" + line.rstrip("/")  # glob magic: `*` stays within a folder, as in .gitignore
         listed = subprocess.run(["git", "-C", p.root, "ls-files", "--", pattern], capture_output=True,
                                 encoding="utf-8", errors="replace")
         files = [f for f in listed.stdout.splitlines() if f] if listed.returncode == 0 else []
