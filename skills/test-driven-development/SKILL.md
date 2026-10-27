@@ -1,6 +1,6 @@
 ---
 name: test-driven-development
-description: Use when implementing any feature or bugfix, before writing implementation code
+description: Red-green-refactor discipline for writing code, one failing test first, watched to fail, then the least code that passes it. Use in the sdlc orchestrator's Build phase or an implementation plan's tasks, or when the user asks for test-first work.
 ---
 
 # Test-Driven Development (TDD)

@@ -1,6 +1,6 @@
 ---
 name: brainstorming
-description: "You MUST use this before any creative work - creating features, building components, adding functionality, modifying behavior, or planning anything new, in software or out of it (a talk, a business, a renovation)."
+description: Interviews the user to find out what they want before anything is designed, one question at a time, then lays out approaches and writes a design doc for approval. Use when the user asks to brainstorm or think a design through, or when the sdlc orchestrator's Define phase calls for it (Track L, or an unclear approach).
 ---
 
 `${CLAUDE_PLUGIN_ROOT}` is the sdlc plugin's folder. Claude Code fills it in; on other agents it stays as written, so use the installed plugin's folder instead: the one above this file that holds `scripts/` and `skills/`.
