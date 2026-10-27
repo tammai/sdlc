@@ -159,6 +159,10 @@ The state file is `.sdlc/state/<feature>.md`; beside it, git-ignored, `state.py`
 
 `hooks/sg-python.sh` probes `python3`, `python` and `py -3`, skipping the Microsoft Store stub, and forces UTF-8. It remembers the interpreter it chose, and where that name resolved, in `sdlc-hook-python` in the plugin's data folder (else `~/.cache/sdlc/`, never a shared temp folder; a file the user doesn't own is ignored), so later hooks skip the probes; it probes again when that name resolves elsewhere or is gone. Delete that file to force a fresh probe. If the security hook still fails, run `bash hooks/sg-python.sh -c "import sys; print(sys.version)"` to see which interpreter it chose. Every hook in `hooks/hooks.json` starts through it, so one working Python 3 serves them all. Doctor's "hook python" row runs the launcher; when it fails, install Python 3 from python.org (not the Microsoft Store) and, on Windows, Git Bash. The Ralph loop's hook (`sdlc-extras`) runs under bash.
 
+### R10a. Hooks feel slow
+
+Set `SDLC_HOOK_TIMES=1` in the session's environment (for one project: `"env": {"SDLC_HOOK_TIMES": "1"}` in `.claude/settings.local.json`) and restart the session. Each hook then appends `{"t", "hook", "ms", "rc"}` to the project's `.sdlc/.work/hook-times.jsonl` (only where `.sdlc/` exists): the script name, its wall-clock time including the launcher, and its exit code. It costs one more bash start per hook, so turn it off after measuring. Total time per hook: `python3 -c "import json,collections; c=collections.Counter(); [c.update({e['hook']: e['ms']}) for e in map(json.loads, open('.sdlc/.work/hook-times.jsonl'))]; print(c.most_common())"`.
+
 ### R11. A gate is blocking and you disagree
 
 A gate is a phase's exit check; it is a decision, not a fault. Say `skip` or `just ship it`: the orchestrator names the skipped gates, records them with `state.py deviation`, and continues. See [playbook 9](playbook.md#9-skip-a-gate-deliberately).

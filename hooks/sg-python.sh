@@ -22,6 +22,23 @@
 #        "${CLAUDE_PLUGIN_ROOT}/hooks/security_reminder_hook.py"
 set -e
 
+# Opt-in timing (SDLC_HOOK_TIMES=1): run this launcher again, untimed, and append the hook's wall-clock time to
+# the project's .sdlc/.work/hook-times.jsonl, keeping its output and exit code (2 wakes the model on an
+# asyncRewake hook). Off, nothing below changes: the interpreter still replaces this shell.
+if [ "${SDLC_HOOK_TIMES:-}" = 1 ] && [ -z "${SG_TIMED:-}" ] && [ -n "${EPOCHREALTIME:-}" ]; then
+    sg_t0=${EPOCHREALTIME//[!0-9]/}
+    sg_rc=0
+    SG_TIMED=1 "$BASH" "$0" "$@" || sg_rc=$?
+    sg_t1=${EPOCHREALTIME//[!0-9]/}
+    sg_dir="${CLAUDE_PROJECT_DIR:-$PWD}/.sdlc"
+    if [ -d "$sg_dir" ]; then
+        mkdir -p "$sg_dir/.work" 2>/dev/null &&
+            printf '{"t": %s, "hook": "%s", "ms": %s, "rc": %s}\n' "$((10#$sg_t0 / 1000000))" "${1##*[/\\]}" \
+                "$(((10#$sg_t1 - 10#$sg_t0) / 1000))" "$sg_rc" >> "$sg_dir/.work/hook-times.jsonl" 2>/dev/null || true
+    fi
+    exit "$sg_rc"
+fi
+
 # Force UTF-8 for ALL Python filesystem + IO operations (PEP 540).
 # Without this, Windows Python defaults `locale.getpreferredencoding()` to
 # cp1252 — which makes `text=True` in subprocess.run / open() / json.load

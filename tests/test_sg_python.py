@@ -1,4 +1,5 @@
 """hooks/sg-python.sh: the launcher every hook starts through finds a working Python 3 once and remembers it."""
+import json
 import os
 import subprocess
 import unittest
@@ -32,6 +33,24 @@ class LauncherTest(ProjectTestCase):
         with open(self.path("sdlc-hook-python"), encoding="utf-8") as f:
             self.assertEqual(f.read().strip(), remembered)
 
+
+    def test_opt_in_logs_each_hooks_time_and_keeps_its_output_and_exit_code(self):
+        self.write("h.py", "print('hi')\nraise SystemExit(2)\n")  # 2: an asyncRewake hook's 'wake the model'
+        os.makedirs(self.path(".sdlc"))
+        log = self.path(".sdlc/.work/hook-times.jsonl")
+        for timed in (False, True):
+            env = dict(os.environ, CLAUDE_PLUGIN_DATA=self.root, CLAUDE_PROJECT_DIR=self.root)
+            env.pop("SDLC_HOOK_TIMES", None)
+            if timed:
+                env["SDLC_HOOK_TIMES"] = "1"
+            p = subprocess.run([BASH, LAUNCHER, self.path("h.py")], capture_output=True, encoding="utf-8",
+                               errors="replace", env=env)
+            self.assertEqual((p.stdout.strip(), p.returncode), ("hi", 2), p.stderr)
+            self.assertEqual(os.path.exists(log), timed)
+        with open(log, encoding="utf-8") as f:
+            entry = json.loads(f.read())
+        self.assertEqual((entry["hook"], entry["rc"]), ("h.py", 2))
+        self.assertIsInstance(entry["ms"], int)
 
     def test_without_a_plugin_data_folder_it_remembers_per_user_never_in_shared_temp(self):
         env = {k: v for k, v in os.environ.items() if k != "CLAUDE_PLUGIN_DATA"}
