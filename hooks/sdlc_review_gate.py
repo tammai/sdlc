@@ -112,7 +112,7 @@ def _security_areas(root):
             globs += _globs(f.read()) or []
     except OSError:
         pass
-    return [_glob_re(g.lower() if os.name == "nt" else g) for g in globs]
+    return [_glob_re(g.lower()) for g in globs]  # case-folded both sides: folding only adds matches
 
 
 def _names(root, *args):
@@ -132,7 +132,7 @@ def _security_touched(root, text, start, anchor, shas):
     lists += [_names(root, "diff-tree", "-r", "--no-commit-id", "--name-only", "-m", "--root", s) for s in shas]
     if areas is None or any(names is None for names in lists):
         return True
-    names = {n.lower() if os.name == "nt" else n for names in lists for n in names}
+    names = {n.lower() for names in lists for n in names}  # src/Auth/ on a case-insensitive checkout too
     return any(rx.match(n) for n in names for rx in areas)
 
 
