@@ -572,6 +572,16 @@ class VerifyFreshnessTest(ProjectTestCase):
         self.bash("npm test")
         self.assertAllows()
 
+    def test_a_verify_run_counts_as_a_full_run_and_is_recorded_by_the_hook(self):
+        self.set_state(stage=4, test_cmd="npm test")  # Build: verify runs there, before Prove
+        self.write("src/a.ts", "")
+        self.bash('python3 "/plugin/scripts/verify.py" red AC-001')
+        self.bash('python3 "/plugin/scripts/verify.py"')
+        st = json.load(open(self.path(".sdlc/.work/verify-freshness.json"), encoding="utf-8"))
+        self.assertIn("AC-001", st["verify"]["red"])
+        self.assertEqual(st["verify"]["last"]["result"], "pass")
+        self.assertFalse(st["scopes"]["(root)"]["stale"])
+
 
 if __name__ == "__main__":
     unittest.main()

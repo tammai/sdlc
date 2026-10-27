@@ -14,6 +14,10 @@ a backlog slice rests after its commit, and where features started under the old
                                                                      scope's tree from its last full run (catches
                                                                      edits via Bash, formatters, subagents); block if
                                                                      any scope is stale, naming what to rerun
+  - PostToolUse / PostToolUseFailure Bash running scripts/verify.py,  -> the hook's own copy of the run under "verify"
+    in Build or Prove (Stage 4 or 5)                                     (`red AC-nnn`: that AC's tree; a full run: tree
+                                                                     and result, and every scope fresh); verify.py
+                                                                     keeps its own record, and the two are compared
 
 The worktree tree is built with a throwaway copy of the git index (the real index is never touched).
 Test commands: `commands.test` / `packages[].commands.test` from .sdlc/config.json; without a config, the
@@ -52,6 +56,9 @@ SHELL_SEP = re.compile(r"\|\||&&|[|;&]")
 # Redirects (2>&1, >out, &>log, <in) are removed, not cut at: arguments after them still filter the run
 REDIRECT = re.compile(r"&?\d*[<>]{1,2}&?\s*[^\s;&|<>]*")
 GO_ALL_PACKAGES = ("./...", "...", ".")
+# The plugin's verify script, optionally after `cd <dir> &&`; options take a value, so their values aren't actions
+VERIFY_CMD = re.compile(r"""^(?:\s*cd\s+("[^"]+"|'[^']+'|\S+)\s*&&)*\s*python3?(?:\.exe)?\s+["']?[^"'\s]*scripts[/\\]verify\.py["']?(?P<args>[^;&|]*)$""")
+VERIFY_OPTS = ("--root", "--feature", "--timeout")
 ERROR_FILE = os.path.join(".sdlc", ".work", "verify-freshness.error")
 _root = None  # for the error marker
 
@@ -315,6 +322,63 @@ def fresh_scopes(command, scopes, root_tests, root, cwd, configured):
     return names
 
 
+def verify_run(command):
+    """("red", "AC-nnn") or ("full", None) for a run of the plugin's scripts/verify.py, else None."""
+    m = VERIFY_CMD.match(command or "")
+    if not m:
+        return None
+    try:
+        words = shlex.split(m.group("args"))
+    except ValueError:
+        return None
+    args = [w for i, w in enumerate(words) if not w.startswith("-") and not (i and words[i - 1] in VERIFY_OPTS)]
+    if not args:
+        return "full", None
+    if args[0] == "red" and len(args) > 1:
+        return "red", args[1]
+    return None  # status, or something verify.py won't accept
+
+
+def active_build_or_prove_feature(root):
+    for name, f in sdlc_layout.features(root).items():
+        try:
+            text = open(os.path.join(root, f["state"]), encoding="utf-8").read()
+        except OSError:
+            continue
+        if re.search(r"^Status:\s*active\b", text, re.M | re.I) and re.search(
+                r"^Current:\s*Stage\s*[45]\b", text, re.M | re.I):
+            return name
+    return None
+
+
+def record_verify(root, data, kind, ac):
+    """The hook's own copy of a verify run (verify.py writes its own; Prove and the trust anchor compare them). A
+    full run also counts as a full test run of every scope, so Build's verify carries into Prove."""
+    feature = active_build_or_prove_feature(root)
+    if not feature:
+        return
+    event = data.get("hook_event_name")
+    # Other hosts send no exit code and get `| cat` appended (hosts/hook.py), which VERIFY_CMD doesn't match: there
+    # the hook keeps no copy, and Prove reruns verify instead of reusing it
+    result = "fail" if event == "PostToolUseFailure" else "pass"
+    st = load(root)
+    if st.get("feature") != feature:
+        st = {"feature": feature, "scopes": {}}
+    tree = worktree_tree(root)
+    rec = st.setdefault("verify", {})
+    if kind == "red":
+        if result == "pass":  # verify.py red exits 0 only when the test failed as it should
+            rec.setdefault("red", {})[ac] = tree
+    else:
+        rec["last"] = {"tree": tree, "result": result, "at": now()}
+        scopes, _ = load_scopes(root, None)
+        for sc in scopes:
+            st.setdefault("scopes", {}).setdefault(sc["name"], {}).update(
+                stale=False, reason="", last_test_at=now(), last_test_cmd="verify.py", last_result=result,
+                head=git_head(root), tree=tree)
+    save(root, st)
+
+
 def main():
     data = json.load(sys.stdin)
     event = data.get("hook_event_name", "")
@@ -322,6 +386,11 @@ def main():
     root = _root = project_root(data.get("cwd"))
     if not root:
         return
+    if event in ("PostToolUse", "PostToolUseFailure") and data.get("tool_name") == "Bash":
+        run = verify_run((data.get("tool_input") or {}).get("command", ""))
+        if run:
+            record_verify(root, data, *run)
+            return
     feature, test_cmd = active_verify_feature(root)
     if not feature:
         return
