@@ -1,6 +1,6 @@
 ---
 name: orchestrator
-description: Use when the user wants to take a feature, fix or project through the software lifecycle end to end (define, build, prove, ship, learn), or asks where they are in that flow. Also use when the message is, or opens with, a link to a GitHub issue, Linear, Jira or other tracker ticket to work on. Sizes the work, runs each phase with the bundled skills, agents and commands, and enforces phase gates via .sdlc/state.md.
+description: Takes a feature, fix or project through define, build, prove, ship and learn, sizing the work and gating each phase via .sdlc state. Use when the user wants work taken through that flow or asks where it stands, or when the message is or opens with a GitHub, Linear, Jira or other tracker ticket link.
 ---
 
 `${CLAUDE_PLUGIN_ROOT}` is the sdlc plugin's folder (other agents: the installed plugin folder above this file). `R` is this skill's `references/` folder.

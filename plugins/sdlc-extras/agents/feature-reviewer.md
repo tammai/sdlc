@@ -1,7 +1,7 @@
 ---
 name: feature-reviewer
 description: Reviews code for bugs, logic errors, security vulnerabilities, code quality issues, and adherence to project conventions, using confidence-based filtering to report only high-priority issues that truly matter
-tools: Glob, Grep, LS, Read, NotebookRead, WebFetch, WebSearch, KillShell, BashOutput
+tools: Glob, Grep, Read, WebFetch, WebSearch
 model: sonnet
 color: red
 ---

@@ -1,7 +1,7 @@
 ---
 name: code-architect
 description: Designs feature architectures by analyzing existing codebase patterns and conventions, then providing comprehensive implementation blueprints with specific files to create/modify, component designs, data flows, and build sequences
-tools: Glob, Grep, LS, Read, NotebookRead, WebFetch, WebSearch, KillShell, BashOutput, Write
+tools: Glob, Grep, Read, WebFetch, WebSearch, Write
 model: sonnet
 color: green
 ---

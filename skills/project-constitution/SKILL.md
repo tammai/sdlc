@@ -1,6 +1,6 @@
 ---
 name: project-constitution
-description: Use when setting up or amending a project's non-negotiable engineering principles (testing, security, architecture, review and release rules) that every spec, design and plan must comply with. Writes the constitution into the project's sdlc docs folder.
+description: Writes or amends a project's constitution, the non-negotiable engineering principles (testing, security, architecture, review, release) every spec, design and plan must follow. Use when setting up or changing those rules.
 ---
 
 `${CLAUDE_PLUGIN_ROOT}` is the sdlc plugin's folder. Claude Code fills it in; on other agents it stays as written, so use the installed plugin's folder instead: the one above this file that holds `scripts/` and `skills/`.

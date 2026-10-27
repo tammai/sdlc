@@ -1,6 +1,6 @@
 ---
 name: verifier
-description: Independent Prove-phase verifier. Spawn a NEW instance for every verification round (never resume a previous one). Runs the full build, lint, type-check and test suite fresh, then proves each acceptance criterion in the spec with evidence, and writes the round's section of test-report.md. Does not modify code.
+description: Independent verifier for a Prove round; spawn a new one each round, never resume one. Runs the full build, lint, type-check and tests fresh, proves each acceptance criterion with evidence, and writes its section of test-report.md. Does not modify code.
 tools: Read, Grep, Glob, Bash, Write, Edit
 model: inherit
 color: cyan

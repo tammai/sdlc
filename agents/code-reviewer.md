@@ -1,7 +1,7 @@
 ---
 name: code-reviewer
 tools: Glob, Grep, Read, Bash, Write
-description: Reviews a diff for bugs, security problems and breaks from the project's rules (CLAUDE.md), reporting only high-confidence issues. Read-only. Used in the sdlc Prove phase and by /sdlc:review-pr; also when the user asks for a review before committing or opening a PR. Tell it which changes to review.
+description: Reviews a diff for bugs, security problems and breaks from the project's rules, reporting only high-confidence issues. Read-only. Used in sdlc's Prove, by /sdlc:review-pr, and when the user asks for a review before a commit or PR. Tell it which changes to review.
 model: opus
 color: green
 ---

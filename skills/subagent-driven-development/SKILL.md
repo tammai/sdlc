@@ -1,6 +1,6 @@
 ---
 name: subagent-driven-development
-description: Runs an implementation plan with a fresh implementer subagent per task (and a review per task, except under the sdlc orchestrator, where Prove is the only review). Used by sdlc's Build with Build tasks (Track L), or when the user asks for subagent-driven execution.
+description: Runs an implementation plan with a fresh implementer subagent per task. Used by sdlc's Build on Track L, or when the user asks for subagent-driven execution.
 ---
 
 `${CLAUDE_PLUGIN_ROOT}` is the sdlc plugin's folder. Claude Code fills it in; on other agents it stays as written, so use the installed plugin's folder instead: the one above this file that holds `scripts/` and `skills/`.

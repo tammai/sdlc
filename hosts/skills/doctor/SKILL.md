@@ -1,6 +1,6 @@
 ---
 name: doctor
-description: Health check for sdlc — machine (git, gh, Python, security reviewer), plugin install, and this repo (setup, version drift, project commands and their tools, rules, hookify rules, knowledge, feature state). Use when something feels off, after installing or upgrading, or before onboarding a teammate.
+description: Health check of the machine (git, gh, Python), the plugin install and this repo's sdlc setup. Use when something feels off, after installing or upgrading, or before onboarding a teammate.
 ---
 
 `${CLAUDE_PLUGIN_ROOT}` is the sdlc plugin's folder. Claude Code fills it in; on other agents it stays as written, so use the installed plugin's folder instead: the one above this file that holds `scripts/` and `skills/`.

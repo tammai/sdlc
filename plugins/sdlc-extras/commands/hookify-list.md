@@ -7,7 +7,7 @@ allowed-tools: ["Glob", "Read", "Skill"]
 
 # List Hookify Rules
 
-**Load sdlc:writing-hook-rules skill first** to understand rule format.
+**Load the sdlc:hookify skill first** (its `references/rule-syntax.md`) to understand rule format.
 
 Show all configured hookify rules in the project.
 

@@ -1,6 +1,6 @@
 ---
 name: todo
-description: Use when the user says to add a todo, park something for later or note a follow-up, or when work is deliberately left out of the current change. Records the item in the project's todo file instead of a TODO comment in code, and ticks it off when it is done.
+description: Records a follow-up in the project's todo file instead of a TODO comment, and ticks it off when done. Use when the user says to add a todo or park something, or when work is left out of the current change on purpose.
 ---
 
 # Todo

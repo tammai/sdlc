@@ -140,7 +140,7 @@ The one code reviewer on every track gets a one-pass brief (on M it also reads e
 | Specify and design | `brainstorming`, `writing-specs`, `clarifying-specs`, `designing-solutions`, `project-constitution` |
 | Plan and build | `writing-plans`, `analyzing-consistency`, `subagent-driven-development`, `executing-plans`, `test-driven-development`, `systematic-debugging` |
 | Check | `verification-before-completion` (requesting a review is a reference in `executing-plans`; the entry points are Prove, `/sdlc:review-pr`) |
-| Ship and learn | `managing-knowledge` (with the CLAUDE.md quality check that was `claude-md-improver`), `writing-hook-rules`, `todo` |
+| Ship and learn | `managing-knowledge` (with the CLAUDE.md quality check that was `claude-md-improver`), `hookify` (with the rule syntax that was `writing-hook-rules`), `todo` |
 | Orchestrator references (read when the flow needs them, not skills) | `using-git-worktrees.md`, `dispatching-parallel-agents.md`, `receiving-code-review.md`, `finishing-a-development-branch.md`, `commit-push-pr.md`, `clean-gone.md`, `github-pr-review.md` |
 
 ### Subagents

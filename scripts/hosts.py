@@ -28,7 +28,7 @@ EDIT_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit"}
 RELAY_REPORT_ONLY = {"ac-checker", "code-architect", "code-explorer", "code-reviewer"}
 # Claude Code-only commands: the Ralph loop's Stop hook runs only there; hookify rules live in .claude/, which only
 # Claude Code's setup writes; context-diet trims Claude Code's own plugin config
-CLAUDE_ONLY_COMMANDS = {"cancel-ralph", "ralph-loop", "ralph-help", "hookify", "hookify-configure", "hookify-help",
+CLAUDE_ONLY_COMMANDS = {"cancel-ralph", "ralph-loop", "ralph-help", "hookify-configure", "hookify-help",
                         "hookify-list", "context-diet"}
 
 

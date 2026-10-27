@@ -5,7 +5,7 @@ allowed-tools: ["Glob", "Read", "Edit", "AskUserQuestion", "Skill"]
 
 # Configure Hookify Rules
 
-**Load sdlc:writing-hook-rules skill first** to understand rule format.
+**Load the sdlc:hookify skill first** (its `references/rule-syntax.md`) to understand rule format.
 
 Enable or disable existing hookify rules using an interactive interface.
 

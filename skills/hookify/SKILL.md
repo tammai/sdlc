@@ -1,12 +1,14 @@
 ---
-description: Create hooks to prevent unwanted behaviors from conversation analysis or explicit instructions
-argument-hint: Optional specific behavior to address
-allowed-tools: ["Read", "Write", "AskUserQuestion", "Task", "Grep", "Skill"]
+name: hookify
+description: Turns a behaviour the user corrected, or an explicit instruction, into a hookify rule (warn or block on a bash command, file edit, prompt or stop). Use when the user asks to create, write or configure a hookify or hook rule, or to stop Claude repeating a mistake.
+argument-hint: "[the behaviour to prevent]"
 ---
+
+`${CLAUDE_PLUGIN_ROOT}` is the sdlc plugin's folder. Claude Code fills it in; on other agents it stays as written, so use the installed plugin's folder instead: the one above this file that holds `scripts/` and `skills/`.
 
 # Hookify - Create Hooks from Unwanted Behaviors
 
-**FIRST: Load the sdlc:writing-hook-rules skill** using the Skill tool to understand rule file format and syntax.
+**FIRST: read [references/rule-syntax.md](references/rule-syntax.md)** for the rule file format and syntax.
 
 Create hook rules to prevent problematic behaviors by analyzing the conversation or from explicit user instructions.
 
@@ -16,12 +18,12 @@ You will help the user create hookify rules to prevent unwanted behaviors. Follo
 
 ### Step 1: Gather Behavior Information
 
-**If $ARGUMENTS is provided:**
-- User has given specific instructions: `$ARGUMENTS`
+**If the user named a behaviour** (the text after `/sdlc:hookify`, or their request):
+- User has given specific instructions: use them
 - Still analyze recent conversation (last 10-15 user messages) for additional context
 - Look for examples of the behavior happening
 
-**If $ARGUMENTS is empty:**
+**If they named none:**
 - Launch the `sdlc-extras:conversation-analyzer` agent to find problematic behaviors when the sdlc-extras companion plugin is installed; otherwise do the same analysis yourself, following the prompt below
 - Agent will scan user prompts for frustration signals
 - Agent will return structured findings

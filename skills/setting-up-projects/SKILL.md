@@ -1,6 +1,6 @@
 ---
 name: setting-up-projects
-description: Use when a project has no .sdlc/config.json yet (new or existing repo), when /sdlc:start or /sdlc:status reports the project isn't set up or its scaffold is behind the installed plugin, or when the user asks to set up, upgrade or remove the sdlc workflow in a repo. Runs setup (greenfield or brownfield), upgrade and eject, keeping every plugin-written file tracked so later plugin updates can patch it safely.
+description: Sets up (greenfield or brownfield), upgrades or ejects the sdlc workflow in a repo, tracking every plugin-written file so plugin updates can patch it. Use when a repo has no .sdlc/config.json, its scaffold is behind the installed plugin, or the user asks to set up, upgrade or remove sdlc.
 ---
 
 `${CLAUDE_PLUGIN_ROOT}` is the sdlc plugin's folder. Claude Code fills it in; on other agents it stays as written, so use the installed plugin's folder instead: the one above this file that holds `scripts/` and `skills/`.

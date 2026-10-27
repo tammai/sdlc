@@ -1,6 +1,6 @@
 ---
 name: managing-knowledge
-description: Use when saving a lesson, decision, gotcha or runbook so future agents find it, when setting up a project's knowledge base, or when CLAUDE.md is getting long. Files each item into the right loading tier (CLAUDE.md, path-scoped rule, or knowledge/ doc) so context stays small.
+description: Files a lesson, decision, gotcha or runbook into the right loading tier (CLAUDE.md, path-scoped rule or knowledge/ doc) so context stays small; also sets up and audits a knowledge base. Use when saving something future agents need, or when CLAUDE.md grows long.
 ---
 
 `${CLAUDE_PLUGIN_ROOT}` is the sdlc plugin's folder. Claude Code fills it in; on other agents it stays as written, so use the installed plugin's folder instead: the one above this file that holds `scripts/` and `skills/`.

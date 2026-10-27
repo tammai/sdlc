@@ -171,7 +171,7 @@ If you've corrected the same thing twice **and** a pattern in a command, file ed
 
 1. `/sdlc:hookify` with a description, or with no arguments to scan the session for candidates (with `sdlc-extras` installed, its `conversation-analyzer` agent does the scan).
 2. Rules live in `.claude/hookify/<name>.md` (committed, team) or `.claude/hookify.<name>.local.md` (personal, git-ignored).
-3. A rule has an `event` (`bash`, `file`, `stop`, `prompt`, `all`), an `action` (`warn` or `block`) and conditions. Syntax: `sdlc:writing-hook-rules`.
+3. A rule has an `event` (`bash`, `file`, `stop`, `prompt`, `all`), an `action` (`warn` or `block`) and conditions. Syntax: the `sdlc:hookify` skill's `references/rule-syntax.md`.
 4. With `sdlc-extras` installed, `/sdlc-extras:hookify-list` shows what's active and `/sdlc-extras:hookify-configure` turns rules on or off. Without it, edit `enabled:` in the rule file.
 
 Start with `warn`. Move to `block` once the pattern has no false positives.
