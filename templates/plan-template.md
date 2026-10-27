@@ -3,7 +3,7 @@
 **Intent:** [intent.md](intent.md) · **Spec:** [spec.md](spec.md) · **Build:** [native | subagent | tasks]
 
 <!-- The how, written in Define. A builder with no conversation context must be able to work from intent.md, spec.md
-     and this file alone. S: 1–3 tasks. M lite: 3–6. A deviation during Build is written back here, with its reason. -->
+     and this file alone. S: 1–3 tasks. M lite: 3–6. A change confined to 1–2 files: 1–3, whatever the track. A deviation during Build is written back here, with its reason. -->
 
 ## Tasks
 

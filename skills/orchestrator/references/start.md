@@ -24,7 +24,7 @@
 # <feature>
 Status: active
 Docs: <intents>   (this feature's documents folder)
-Track: S | M | L   (sized up because: <named signal, or "—" for the smallest fitting track>)
+Track: S | M | L   (sized up because: <named signal, or "—" for the smallest fitting track>; footprint: <n> files)
 Risk: low | high   (<signal: auth, payments, secrets, PII, migration, public API>)
 Flow: lite | full   (lite: every S; M with risk low unless the user asked for full; any backlog feature)
 Prove: run   (M full and L: run | skip, the user's choice at Define's approval; autopilot or headless: run)

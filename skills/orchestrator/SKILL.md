@@ -29,16 +29,16 @@ A new feature: `R/start.md` first. A backlog (`<intents>/backlog.md` exists): `R
 | Track | Signals | Shape |
 |---|---|---|
 | **S – fix** | bug or tweak, 1–3 files, clear expected behavior | Define records a one-line `Intent:` and the `Repro:` test in the state file, no documents, no approval; the repro test, the fix and one `verify.py`; no Prove; Ship commits without asking |
-| **M – feature** | a few files to a few days, approach mostly obvious | all four phases; risk low: `Flow: lite` (default), no Prove: Build's passing `verify.py` goes to Ship; risk high or the user asks: `Flow: full`, with Prove (ac-checker and light review) |
-| **L – project** | new service/module, unclear approach, or touches auth, payments, data migration, public API | all four, with brainstorming and design in Define; `Flow: full`, with Prove |
+| **M – feature** | a few files to a few days, approach mostly obvious; also any change confined to 1–2 files whose approach Define settles, even with an L signal (then risk high, `Flow: full`) | all four phases; risk low: `Flow: lite` (default), no Prove: Build's passing `verify.py` goes to Ship; risk high or the user asks: `Flow: full`, with Prove (ac-checker and light review) |
+| **L – project** | new service/module, several distinct parts, or an approach still unclear after Define; touching auth, payments, data migration or a public API is L only beyond 1–2 files | all four, with brainstorming and design in Define; `Flow: full`, with Prove |
 
-Propose the *smallest* fitting track; size up only for a named signal, written in state. Bigger than one session (more than about 8 tasks, or several distinct parts) → a backlog. Auth, payments, secrets, PII or schema migrations: at least M, full security in Prove. **Risk** is `high` for those, a public API, or untrusted input reaching a shell, terminal, file path or database (S and M lite run no reviewer, so that work needs the full flow's review), else `low`; with the track it sets each dispatch's model tier:
+Propose the *smallest* fitting track; size up only for a named signal, written in state with the footprint (how many files the change touches). **Size by footprint, not by risk words:** risk raises the review, not the number of pieces. One piece of work stays one piece: never split a change confined to 1–2 files into slices or a long task list. A backlog only for several distinct parts that won't fit one session. Auth, payments, secrets, PII or schema migrations: at least M, full security in Prove. **Risk** is `high` for those, a public API, or untrusted input reaching a shell, terminal, file path or database (S and M lite run no reviewer, so that work needs the full flow's review), else `low`; with the track it sets each dispatch's model tier:
 
 | | Build default | Prove dispatches | Security review |
 |---|---|---|---|
 | S | `subagent`, standard | no Prove: Build's red record and passing `verify.py` | only when security-touched |
 | M, `Flow: lite` | `native` (or `subagent`, standard) | no Prove: Build's passing `verify.py` | only when security-touched |
-| M, `Flow: full`, either risk | `native` | ac-checker and one light code-reviewer, both standard | only when security-touched: full, standard |
+| M, `Flow: full`, either risk | `native` | ac-checker standard; one code-reviewer, standard (top on risk high) | only when security-touched: full, standard |
 | L | `tasks`, standard implementers | ac-checker standard; code reviewer and the others top | only when security-touched: full, top |
 | Backlog (slices) | `native` | none per slice; one Prove at Feature close, on every backlog (reviewer top) | only when security-touched, at Feature close |
 

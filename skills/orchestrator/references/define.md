@@ -53,10 +53,10 @@ Three documents and one approval: `intent.md` (why), `spec.md` (what) and `plan.
 
    By track:
    - **`Flow: lite`:** write `<intents>/plan.md` yourself from `${CLAUDE_PLUGIN_ROOT}/templates/plan-template.md`, with 3–6 tasks.
-   - **`Flow: full`:** `sdlc:writing-plans` writes it, with bite-sized tasks. Tell it the orchestrator decides the execution method (`Build:`), so it asks no question.
-   - **Bigger than one session** (more than about 8 tasks, or several distinct parts): `backlog.md` (`backlog-slices.md`), and `plan.md` gives each slice a how-outline: approach, main files, interfaces between slices, and the feature's Public Surface. Each slice's detailed `plan-B<n>.md` is written when the slice starts.
+   - **`Flow: full`:** `sdlc:writing-plans` writes it. Tell it the orchestrator decides the execution method (`Build:`), so it asks no question, and that a change confined to 1–2 files gets 1–3 tasks: one piece of work stays one piece.
+   - **Bigger than one session** (several distinct parts that won't fit one session; never a 1–2-file change): `backlog.md` (`backlog-slices.md`), and `plan.md` gives each slice a how-outline: approach, main files, interfaces between slices, and the feature's Public Surface. Each slice's detailed `plan-B<n>.md` is written when the slice starts.
 8. **Consistency** on L, and on any backlog: run `sdlc:analyzing-consistency`. No CRITICAL or HIGH scope finding may remain; every requirement has a task or slice, and every task or slice cites a requirement.
-10. **Size up** to `Flow: full` when the spec needs a design decision the request doesn't settle, or risk turns out high: `state.py set <f> Flow full` (or `Risk high`) and say why in one line. Not for a backlog feature.
+10. **Size up** to `Flow: full` when the spec needs a design decision the request doesn't settle, or risk turns out high: `state.py set <f> Flow full` (or `Risk high`) and say why in one line. Not for a backlog feature. To L only when the approach is still unclear here or the change grew past 1–2 files into several parts; L with a 1–2-file footprint and a settled approach goes down to M (`state.py set <f> Track M`, `Risk high`, `Flow full`).
 11. **Approval, the one hard stop.** One message, containing:
     - the paths to `intent.md`, `spec.md` and `plan.md` (and `backlog.md`);
     - the chosen approach in one line, with the alternatives' names (M: your recommendation, which the user can change in the reply; then update `intent.md` and `plan.md`);
