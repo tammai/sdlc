@@ -39,7 +39,8 @@ class VerifyTest(ProjectTestCase):
 
     def record(self):
         try:
-            return json.load(open(self.path(".sdlc/.work/verify.json"), encoding="utf-8"))
+            with open(self.path(".sdlc/.work/verify.json"), encoding="utf-8") as f:
+                return json.load(f)
         except OSError:
             return {}
 

@@ -584,7 +584,8 @@ class VerifyFreshnessTest(ProjectTestCase):
         self.assertFalse(os.path.exists(self.path(".sdlc/.work/verify-freshness.json")))
         self.bash('python3 "/plugin/scripts/verify.py" red AC-001')
         self.bash('python3 "/plugin/scripts/verify.py" --feature login')
-        st = json.load(open(self.path(".sdlc/.work/verify-freshness.json"), encoding="utf-8"))
+        with open(self.path(".sdlc/.work/verify-freshness.json"), encoding="utf-8") as f:
+            st = json.load(f)
         self.assertIn("AC-001", st["verify"]["red"])
         self.assertEqual(st["verify"]["last"]["result"], "pass")
         self.assertFalse(st["scopes"]["(root)"]["stale"])

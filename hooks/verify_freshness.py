@@ -470,8 +470,7 @@ def main():
         label = "" if sc["name"] == ROOT else f"{sc['name']}: "
         parts.append(f"{label}{st['scopes'][sc['name']]['reason']}" + (f" → run `{how}`" if how else ""))
     msg = (f"Verify freshness ({feature}): test results are stale — " + "; ".join(parts) +
-           ". Rerun the full tests before claiming anything passes, or dispatch a fresh sdlc:verifier agent "
-           "for this round.")
+           ". Rerun verify.py (or the full tests) before claiming anything passes.")
     if data.get("stop_hook_active"):
         print(json.dumps({"systemMessage": "⚠ " + msg}))
     else:

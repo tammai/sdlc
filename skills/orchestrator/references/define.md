@@ -21,6 +21,7 @@ Three documents and one approval: `intent.md` (why), `spec.md` (what) and `plan.
    - **M:** about a page, written yourself after reading the code the change touches. Don't load `sdlc:brainstorming`. Lay out 2–3 approaches and recommend one; the user confirms it, or picks another, in the approval. Ask no extra question.
    - **L:** `sdlc:brainstorming` writes it. It builds on the answers, spends its questions on approaches (the user picks there), and runs its builder check.
 5. **`spec.md`: the what.** Requirements and how to tell they're met; no files, code structure or tasks (those are the plan's). It opens with `Intent: [intent.md](intent.md) · Plan: [plan.md](plan.md)`. UI work: read `ui-work.md` first.
+   - **Every track:** each acceptance criterion carries an id, `AC-001` onward, numbered across the spec; `plan.md`'s `## Acceptance tests` names the test that proves each one (step 7).
    - **S:** a few lines, written yourself: the expected behaviour as 1–3 FRs and 1–3 acceptance criteria, one of them the repro.
    - **`Flow: lite`:** write it yourself; don't load `sdlc:writing-specs`. Sections:
      - Goal: one or two sentences.
@@ -40,7 +41,8 @@ Three documents and one approval: `intent.md` (why), `spec.md` (what) and `plan.
 
    UI design-system additions the user approves go into `<docs>/design-system.md` before Build, logged with `state.py log`.
 7. **`plan.md`: the how.** It holds:
-   - the tasks in order, each naming its files, the test it starts with, the command that proves it, and its FR;
+   - the tasks in order, each naming its files (backticked: `verify.py` reports a changed file no task or test names as drift), the test it starts with, the command that proves it, and its FR;
+   - `## Acceptance tests`: one row per `AC-nnn`, with the test that proves it (`file › name`) and a command that runs only that test; a criterion no automated test can prove (a visual result, a wording change) is `manual`, with its reason in the Run cell. Build records each test red before its code and `verify.py` checks the table;
    - `## Public Surface`, which Prove checks the diff against;
    - `## UI mapping` on UI work;
    - `## Review Focus`;
@@ -59,6 +61,7 @@ Three documents and one approval: `intent.md` (why), `spec.md` (what) and `plan.
     - every `[inferred]` item as its own list, with a one-line reason each (dropped unless the user keeps it; dropped items go to Non-Goals);
     - the design's choice and the rejected alternative, when a design ran;
     - the tasks (or slices) in one line each, and the Public Surface;
+    - the acceptance criteria with the test that will prove each, and the `manual` ones listed apart with their reasons;
     - `Build: <the track's default>`, which the user can change in the reply.
 
     **Gate:**
@@ -69,6 +72,7 @@ Three documents and one approval: `intent.md` (why), `spec.md` (what) and `plan.
     - Non-Goals is filled;
     - the acceptance criteria are testable;
     - every FR has a task (or slice) in the plan, and every task an FR;
+    - every `AC-nnn` has a row in `## Acceptance tests`;
     - `plan.md` declares the Public Surface;
     - the design criteria hold, when a design ran;
     - the three files stand alone.

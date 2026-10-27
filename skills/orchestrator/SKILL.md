@@ -36,9 +36,9 @@ Propose the *smallest* fitting track; size up only for a named signal, written i
 
 | | Build default | Prove dispatches | Security in Prove |
 |---|---|---|---|
-| S | `subagent`, standard | nothing: the repro test and full suite, checked in this session | hooks only |
-| M, `Flow: lite` | `native` (or `subagent`, standard) | one fresh verifier, standard | light |
-| M, `Flow: full`, either risk | `native` | verifier and one light code-reviewer, both standard | light; full, standard, on auth, payments, secrets, PII, migrations |
+| S | `subagent`, standard | nothing: the repro test's red record and `verify.py`, checked in this session | hooks only |
+| M, `Flow: lite` | `native` (or `subagent`, standard) | one fresh ac-checker, standard (on Build's `verify.py` evidence) | light |
+| M, `Flow: full`, either risk | `native` | ac-checker and one light code-reviewer, both standard | light; full, standard, on auth, payments, secrets, PII, migrations |
 | L | `tasks`, standard implementers | top | full, top |
 | Backlog slice | `native` | standard, top on risk high; Feature close reviewer top | at Feature close |
 
@@ -46,7 +46,7 @@ Tiers (Model Selection in `sdlc:subagent-driven-development`): cheap and standar
 
 **`Build: native | subagent | tasks`**, from the table, shown in Define's approval and never asked separately (`state.py set` if the user changes it); `R/build.md` says what each does.
 
-**`Flow: lite | full`** picks Prove's checkers and how it re-verifies fixes: lite, one fresh verifier, fixes re-verified with the full suite in this session; full, the verifier with light review, fixes re-verified the same way unless the verifier itself failed a requirement or a fix reached beyond the findings (then a fresh verifier).
+**`Flow: lite | full`** picks Prove's checkers: lite, the ac-checker alone; full, the ac-checker with light review. Fixes are re-verified in this session on both (`verify.py`, and a fresh ac-checker on any AC that failed).
 
 ## State: always through `state.py`
 

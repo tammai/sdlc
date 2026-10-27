@@ -13,6 +13,16 @@
    - Then: [the change, in a sentence or two]
    - Run: [the command that proves it, e.g. the full suite]
 
+## Acceptance tests
+
+<!-- One row per acceptance criterion (AC-nnn) in spec.md: the test that proves it and the command that runs just that
+     test. Build records each test failing before its code (`verify.py red AC-nnn`), and verify.py checks the table.
+     A criterion no automated test can prove: Test `manual`, and the Run cell says why. -->
+
+| AC | Test | Run |
+|---|---|---|
+| AC-001 | [test file] › [test name] | `[command that runs only this test]` |
+
 ## Public Surface
 
 <!-- Every new export, endpoint, CLI command, config key, env var and dependency, one per line with its requirement.
@@ -31,4 +41,5 @@
 
 ## Deviations
 
-<!-- Written during Build: what changed from the tasks above, and why. Empty until then. -->
+<!-- Written during Build, in the same commit as the drift, one line each; verify.py fails on drift with no line:
+     - `[file, task N or surface name]` — What: [what drifted] · Why: [what the plan didn't foresee] · Effect: [on ACs, public surface, risk, other code] -->

@@ -35,8 +35,11 @@
 
 **Acceptance Scenarios**:
 
-1. **Given** [initial state], **When** [action], **Then** [expected outcome]
-2. **Given** [initial state], **When** [action], **Then** [expected outcome]
+1. **AC-001** **Given** [initial state], **When** [action], **Then** [expected outcome]
+2. **AC-002** **Given** [initial state], **When** [action], **Then** [expected outcome]
+
+<!-- Every acceptance criterion carries an id, AC-001 onward, numbered across the whole spec: plan.md's
+     "## Acceptance tests" names the test that proves each one, and verify.py checks it. -->
 
 ---
 
