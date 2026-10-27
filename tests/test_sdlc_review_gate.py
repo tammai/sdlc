@@ -9,7 +9,7 @@ from helpers import HOOKS, ProjectTestCase
 sys.path.insert(0, HOOKS)
 import sdlc_review_gate  # noqa: E402
 
-STATE = "# login\nStatus: active\nBase: {base}\nCurrent: Stage {stage} – x\n"
+STATE = "# login\nStatus: active\nRisk: {risk}\nBase: {base}\nCurrent: Stage {stage} – x\n"
 
 
 class ReviewGateTest(ProjectTestCase):
@@ -32,8 +32,8 @@ class ReviewGateTest(ProjectTestCase):
     def head(self):
         return self.git("rev-parse", "HEAD")
 
-    def stage(self, n, base=None):
-        self.write(".sdlc/state/login.md", STATE.format(base=base or self.base, stage=n))
+    def stage(self, n, base=None, risk="high"):
+        self.write(".sdlc/state/login.md", STATE.format(base=base or self.base, stage=n, risk=risk))
 
     def test_build_commits_wait_for_the_review_ready_one_whose_review_covers_their_changes(self):
         self.stage(4)
@@ -48,6 +48,17 @@ class ReviewGateTest(ProjectTestCase):
         net = self.git("diff", *plan["range"])  # one diff for the whole range: no hunk of either commit is lost
         self.assertIn("+build change", net)
         self.assertIn("+ready change", net)
+
+    def test_only_a_security_touched_change_gets_the_model_review(self):
+        self.stage(8, risk="low")
+        self.commit("src/list.ts", "sort\n")
+        plain = self.head()
+        self.assertTrue(sdlc_review_gate.decide(self.root, [plain[:7]], set())["skip"])  # no model call
+        self.commit("src/auth/session.ts", "token\n")  # areas.sensitive in the config defaults
+        self.assertFalse(sdlc_review_gate.decide(self.root, [self.head()[:7]], set()).get("skip"))
+        self.stage(8, risk="high")
+        self.commit("src/list.ts", "sort\nagain\n")
+        self.assertFalse(sdlc_review_gate.decide(self.root, [self.head()[:7]], set()).get("skip"))
 
     def test_deferral_is_capped_so_a_stuck_stage_cant_skip_reviews_forever(self):
         # The state file is writable by the agent the review checks: a feature left at Stage 4 stops deferring

@@ -1588,6 +1588,12 @@ def handle_commit_review_posttooluse(input_data):
         debug_log("Commit review: sdlc feature not review-ready yet, deferred")
         emit_metrics({"skipped": True, "skip_reason": 90, **_base})
         sys.exit(0)
+    if _sdlc.get("skip"):
+        # sdlc patch: a feature's change that touches no security area (and isn't Risk: high) gets no model review
+        debug_log("Commit review: sdlc feature change is not security-touched, skipped")
+        _append_reviewed_shas(repo_root, _sdlc["shas"], vulns_found=0)
+        emit_metrics({"skipped": True, "skip_reason": 91, **_base})
+        sys.exit(0)
     shas = _sdlc["shas"]
     if _reflog_shas:
         # Observability: track how often the fallback path is hit so

@@ -64,7 +64,8 @@ Three documents and one approval: `intent.md` (why), `spec.md` (what) and `plan.
     - the design's choice and the rejected alternative, when a design ran;
     - the tasks (or slices) in one line each, and the Public Surface;
     - the acceptance criteria with the test that will prove each, and the `manual` ones listed apart with their reasons;
-    - `Build: <the track's default>`, which the user can change in the reply.
+    - `Build: <the track's default>`, which the user can change in the reply;
+    - on M full and L: `Prove: run`, unless the user says skip (record it with `state.py set <f> Prove skip`). In an autopilot or headless run nobody can answer: it stays `run`.
 
     **Gate:**
     - the user approves;

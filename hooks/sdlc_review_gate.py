@@ -6,7 +6,10 @@ call per task commit and re-reviews code the next commit changes. So, while exac
 its `Base:` is an ancestor of HEAD (a state file from another branch never holds back unrelated work):
   - before Stage 5, a commit is deferred: not reviewed and not recorded as reviewed;
   - from Stage 5 on, the commit is reviewed together with every unreviewed commit since `Base:`, as one net diff
-    from `Base:` (`range`), so every hunk of every commit, side branches included, is in what's reviewed.
+    from `Base:` (`range`), so every hunk of every commit, side branches included, is in what's reviewed;
+  - but only a security-touched change gets that model review (`Risk: high`, or the change since `Base:` touches
+    `areas.sensitive` or `areas.migrations` of .sdlc/config.json, else the plugin's defaults); any other is `skip`:
+    recorded as reviewed with no model call, so a later review doesn't widen over it.
 The state file is writable by the agent the review checks, so deferral is bounded: never for a commit that
 touches the hooks, the agents' instructions or config, or sdlc's state and config (paths read NUL-separated, every
 parent of a merge, both sides of a rename), and not once MAX_DEFER commits are unreviewed, counted from where the
@@ -16,6 +19,7 @@ review then widens. The widened diff starts at
 commits: no widening (the push review still sees them).
 Anything else, or any error: the commits are reviewed exactly as given. The push review is untouched.
 """
+import json
 import os
 import re
 import subprocess
@@ -58,6 +62,57 @@ def _touches_guarded_paths(root, shas):
     return False
 
 
+DEFAULT_AREAS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "templates", "project",
+                             "config.defaults.json")
+
+
+def _glob_re(pattern):
+    """A .gitignore-style glob (`**`, `*`, `?`, `{a,b}`) as a regex over a repo-relative path."""
+    out, i = "", 0
+    while i < len(pattern):
+        c = pattern[i]
+        if pattern.startswith("**/", i):
+            out, i = out + "(?:.*/)?", i + 3
+            continue
+        if pattern.startswith("**", i):
+            out, i = out + ".*", i + 2
+            continue
+        if c == "{":
+            end = pattern.find("}", i)
+            if end > i:
+                out += "(?:" + "|".join(re.escape(p) for p in pattern[i + 1:end].split(",")) + ")"
+                i = end + 1
+                continue
+        out += "[^/]*" if c == "*" else "[^/]" if c == "?" else re.escape(c)
+        i += 1
+    return re.compile(out + r"\Z")
+
+
+def _security_areas(root):
+    """areas.sensitive and areas.migrations: the project's config, else the plugin's defaults."""
+    for path in (os.path.join(root, ".sdlc", "config.json"), DEFAULT_AREAS):
+        try:
+            with open(path, encoding="utf-8") as f:
+                areas = (json.load(f).get("areas") or {})
+        except (OSError, ValueError, AttributeError):
+            continue
+        globs = [g for k in ("sensitive", "migrations") for g in (areas.get(k) or []) if isinstance(g, str)]
+        if globs:
+            return [_glob_re(g) for g in globs]
+    return []
+
+
+def _security_touched(root, text, start, shas):
+    """Risk: high, or the change since Base: (and these commits) touches a sensitive or migration path."""
+    if re.search(r"^Risk:\s*high\b", text, re.M | re.I):
+        return True
+    names = set((_git(root, "diff", "--name-only", start, "HEAD") or "").splitlines())
+    for s in shas:
+        names |= set((_git(root, "diff-tree", "-r", "--no-commit-id", "--name-only", "--root", s) or "").splitlines())
+    areas = _security_areas(root)
+    return any(rx.match(n) for n in names if n for rx in areas)
+
+
 def _branch_point(root):
     """Where HEAD left the default branch, which no file in the repo can move; None on the default branch itself."""
     for ref in ("origin/HEAD", "origin/main", "origin/master", "main", "master"):
@@ -90,6 +145,9 @@ def decide(repo_root, shas, reviewed):
         if (point and int(stage.group(1)) < 5 and len(unreviewed) < MAX_DEFER
                 and not _touches_guarded_paths(repo_root, full)):
             return {"defer": True, "shas": [], "own": [], "range": None, "active": True}
+        if not _touches_guarded_paths(repo_root, full) and not _security_touched(repo_root, text, start, full):
+            # Not security-touched: no model review; marked reviewed so a later review doesn't widen over it
+            return {"defer": False, "skip": True, "shas": full, "own": full, "range": None, "active": True}
         extra = [s for s in unreviewed if s not in full]
         if not extra or len(extra) >= MAX_WIDEN:
             return {"defer": False, "shas": full, "own": full, "range": None, "active": True}

@@ -47,7 +47,7 @@ STAGES = {1: "Define", 2: "Design", 3: "Plan", 4: "Build", 5: "Prove", 6: "Revie
 PHASES = {1: "define", 2: "define", 3: "define", 4: "build", 5: "prove", 6: "prove", 7: "prove",
           8: "ship", 9: "ship", 10: "ship", 11: "ship"}
 FIELDS = ("Status", "Track", "Risk", "Flow", "Build", "Top model", "Base", "Owner", "Tool", "Slice gates",
-          "Intent", "Repro")  # the last two: S's whole Define (no documents on S)
+          "Intent", "Repro", "Prove")  # Intent, Repro: S's whole Define; Prove: run | skip, chosen before Build
 
 
 class Refused(Exception):

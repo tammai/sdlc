@@ -28,25 +28,25 @@ A new feature: `R/start.md` first. A backlog (`<intents>/backlog.md` exists): `R
 
 | Track | Signals | Shape |
 |---|---|---|
-| **S – fix** | bug or tweak, 1–3 files, clear expected behavior | Define records a one-line `Intent:` and the `Repro:` test in the state file, no documents, no approval; the repro test, the fix and one `verify.py`; no reviewers; Ship commits without asking |
-| **M – feature** | a few files to a few days, approach mostly obvious | all four phases; risk low: `Flow: lite` (default), Prove is one fresh ac-checker on Build's `verify.py`; risk high or the user asks: `Flow: full`, with light review |
-| **L – project** | new service/module, unclear approach, or touches auth, payments, data migration, public API | all four, with brainstorming and design in Define; `Flow: full` |
+| **S – fix** | bug or tweak, 1–3 files, clear expected behavior | Define records a one-line `Intent:` and the `Repro:` test in the state file, no documents, no approval; the repro test, the fix and one `verify.py`; no Prove; Ship commits without asking |
+| **M – feature** | a few files to a few days, approach mostly obvious | all four phases; risk low: `Flow: lite` (default), no Prove: Build's passing `verify.py` goes to Ship; risk high or the user asks: `Flow: full`, with Prove (ac-checker and light review) |
+| **L – project** | new service/module, unclear approach, or touches auth, payments, data migration, public API | all four, with brainstorming and design in Define; `Flow: full`, with Prove |
 
 Propose the *smallest* fitting track; size up only for a named signal, written in state. Bigger than one session (more than about 8 tasks, or several distinct parts) → a backlog. Auth, payments, secrets, PII or schema migrations: at least M, full security in Prove. **Risk** is `high` for those, a public API, or untrusted input reaching a shell, terminal, file path or database (S and M lite run no reviewer, so that work needs the full flow's review), else `low`; with the track it sets each dispatch's model tier:
 
-| | Build default | Prove dispatches | Security in Prove |
+| | Build default | Prove dispatches | Security review |
 |---|---|---|---|
-| S | `subagent`, standard | nothing: the repro test's red record and `verify.py`, checked in this session | hooks only |
-| M, `Flow: lite` | `native` (or `subagent`, standard) | one fresh ac-checker, standard (on Build's `verify.py` evidence) | light |
-| M, `Flow: full`, either risk | `native` | ac-checker and one light code-reviewer, both standard | light; full, standard, on auth, payments, secrets, PII, migrations |
-| L | `tasks`, standard implementers | top | full, top |
-| Backlog slice | `native` | standard, top on risk high; Feature close reviewer top | at Feature close |
+| S | `subagent`, standard | no Prove: Build's red record and passing `verify.py` | only when security-touched |
+| M, `Flow: lite` | `native` (or `subagent`, standard) | no Prove: Build's passing `verify.py` | only when security-touched |
+| M, `Flow: full`, either risk | `native` | ac-checker and one light code-reviewer, both standard | only when security-touched: full, standard |
+| L | `tasks`, standard implementers | top | only when security-touched: full, top |
+| Backlog (slices) | `native` | none per slice; one Prove at Feature close on M full and L (reviewer top) | only when security-touched, at Feature close |
 
 Tiers (Model Selection in `sdlc:subagent-driven-development`): cheap and standard are `sonnet`, passed with `effort: high`; top is `opus` (`fable` only when the user asks: `Top model: fable`). Never `haiku`. Every dispatch names its `model`; the model router denies a missing model, `haiku`, `fable` without the opt-in, and reviewers, the verifier or qa-tester below `opus` on `Track: L`.
 
 **`Build: native | subagent | tasks`**, from the table, shown in Define's approval and never asked separately (`state.py set` if the user changes it); `R/build.md` says what each does.
 
-**`Flow: lite | full`** picks Prove's checkers: lite, the ac-checker alone; full, the ac-checker with light review. Fixes are re-verified in this session on both (`verify.py`, and a fresh ac-checker on any AC that failed).
+**`Flow: lite | full`**: lite has no Prove (Build's passing `verify.py` is the evidence); full runs Prove, the ac-checker with light review. **`Prove: run | skip`** (M full and L): asked once in Define's approval, before Build, default `run`; with nobody to ask (autopilot, a headless run) it is `run`. `skip` takes the feature from Build to Ship like lite. **Security-touched** (`Risk: high`, or the diff touches `areas.sensitive` or `areas.migrations`): the only case for a security review, in Prove and at commit; otherwise the always-on pattern hooks only. Prove's high findings go back to Build to be fixed (`R/prove.md`).
 
 ## State: always through `state.py`
 

@@ -12,7 +12,8 @@ check, so this can't prevent a change; it makes one visible. For each active fea
   - `spec.md` changed after the feature entered Stage 5, or, on S (no spec), the state file's `Repro:` line
   - the feature left Stage 5 while code differed from its last full test run, or moved past Stage 5 without it
     (a verifier dispatched in Stage 5 since the last Stop counts, since a turn can run several stages; so does an
-    ac-checker on a passing full run of the current code, and on Track S that passing run alone)
+    ac-checker on a passing full run of the current code, and that passing run alone on S, M with `Flow: lite`
+    or `Prove: skip`, which have no Prove)
   - verify.py's record of its last run differs from the freshness hook's own copy (a hand-edited record)
   - on `Flow: lite`, a Stop outside Stages 4-6 finds code that differs from the last full test run (one notice
     per untested state of the code)
@@ -34,9 +35,9 @@ import verify_freshness as vf  # sibling hook: project root, git, worktree trees
 
 STATE = os.path.join(".sdlc", ".work", "trust-anchor.json")
 # Base: the baseline and commands are compared at it. Flow: the Lite flow drops the top-tier review
-FIELDS = ("Track", "Risk", "Flow", "Top model", "Base")
+FIELDS = ("Track", "Risk", "Flow", "Top model", "Base", "Prove")
 # Ordered weakest first: a move up one of these only adds checks, so it needs no second word from the user
-STRICTER = {"Track": ("s", "m", "l"), "Risk": ("low", "high"), "Flow": ("lite", "full")}
+STRICTER = {"Track": ("s", "m", "l"), "Risk": ("low", "high"), "Flow": ("lite", "full"), "Prove": ("skip", "run")}
 
 
 def field(text, name):
@@ -126,10 +127,14 @@ def check(root, name, text, anchor, shown):
     # Stops are samples: a Lite turn can run Stages 3 to 8 between two of them, so Stage 5 counts as passed when a
     # verifier was dispatched in it since the last Stop (the evidence the Stage 5 gate trusts), or an ac-checker was
     # and the last full run (verify) passed on the current code (ADR 0013)
+    # S and M lite have no Prove (Build's passing verify.py is their evidence), so their passing run counts on its own
     s_track = re.search(r"^Track:\s*s\b", text, re.M | re.I)
+    m_lite = re.search(r"^Track:\s*m\b", text, re.M | re.I) and re.search(r"^Flow:\s*lite\b", text, re.M | re.I)
+    skipped = re.search(r"^Prove:\s*skip\b", text, re.M | re.I)  # the user chose it before Build
     since = anchor.get("stop_time")
     if (prev is not None and prev < 5 < (st or 0) and not dispatched_since(root, since, "sdlc:verifier")
-            and not ((s_track or dispatched_since(root, since, "sdlc:ac-checker")) and suite_passed(root, name))):
+            and not ((s_track or m_lite or skipped or dispatched_since(root, since, "sdlc:ac-checker"))
+                     and suite_passed(root, name))):
         notices.append(f"went from Stage {prev} to Stage {st} without Stage 5")
     # The Lite flow re-verifies fixes in-session, so outside the build-verify-review loop (Stages 4-6) the code must
     # match the last full run: checked at every such Stop, since the move out of the loop may not be seen

@@ -2,10 +2,14 @@
 import json
 import os
 import subprocess
+import sys
 import unittest
 from datetime import datetime, timezone
 
-from helpers import HOOKS, ProjectTestCase, run_hook
+from helpers import HOOKS, PLUGIN_ROOT, ProjectTestCase, run_hook
+
+sys.path.insert(0, HOOKS)
+import verify_freshness as vf  # noqa: E402  (the tree the hook computes)
 
 HOOK = ["python3", os.path.join(HOOKS, "trust_anchor.py")]
 FRESHNESS = ["python3", os.path.join(HOOKS, "verify_freshness.py")]
@@ -33,6 +37,14 @@ class TrustAnchorTest(ProjectTestCase):
     def full_run(self):
         run_hook(FRESHNESS, {"hook_event_name": "PostToolUse", "cwd": self.root, "tool_name": "Bash",
                              "tool_input": {"command": "npm test"}, "tool_response": {}}, self.root)
+
+    def verify_run(self):
+        """A passing verify.py run as Build leaves it: verify.json, then the freshness hook sees the command."""
+        tree = vf.worktree_tree(self.root)
+        self.write(".sdlc/.work/verify.json", json.dumps({"feature": "login", "last": {"tree": tree, "result": "pass"}}))
+        verify = os.path.join(PLUGIN_ROOT, "scripts", "verify.py")
+        run_hook(FRESHNESS, {"hook_event_name": "PostToolUse", "cwd": self.root, "tool_name": "Bash",
+                             "tool_input": {"command": f'python3 "{verify}"'}, "tool_response": {}}, self.root)
 
     def stop(self, hook=HOOK, active=False):
         code, out, raw, err = run_hook(hook, {"hook_event_name": "Stop", "cwd": self.root, "stop_hook_active": active},
@@ -141,6 +153,32 @@ class TrustAnchorTest(ProjectTestCase):
         self.full_run()
         self.dispatch("sdlc:ac-checker")
         self.state(stage=8, risk="low")
+        self.assertIsNone(self.stop())
+
+    def test_m_lite_goes_from_build_to_ship_on_a_passing_verify_but_m_full_needs_prove(self):
+        self.state(stage=4, risk="low", flow="lite")
+        self.stop()
+        self.write("src/login.ts", "export const a = 2\n")
+        self.state(stage=4, risk="low", flow="lite")
+        self.verify_run()  # Build's verify, recorded by the freshness hook
+        self.state(stage=8, risk="low", flow="lite")
+        self.assertIsNone(self.stop())
+        self.prompt()
+        self.state(stage=4, risk="low", flow="full")
+        self.stop()
+        self.prompt()
+        self.verify_run()
+        self.state(stage=8, risk="low", flow="full")
+        self.assertIn("without Stage 5", self.stop()["systemMessage"])
+        self.prompt()
+        # M full or L where the user chose, before Build, to skip Prove: the passing verify is the evidence
+        self.state(stage=4, risk="low", flow="full")
+        self.write(".sdlc/login/state.md", self.read_state() + "Prove: skip\n")
+        self.stop()
+        self.prompt()  # set at Define's approval: the user's reply accepts it
+        self.verify_run()
+        self.state(stage=8, risk="low", flow="full")
+        self.write(".sdlc/login/state.md", self.read_state() + "Prove: skip\n")
         self.assertIsNone(self.stop())
 
     def test_changing_an_s_fixs_repro_in_prove_is_a_notice(self):

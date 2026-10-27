@@ -111,6 +111,12 @@ class StateTest(ProjectTestCase):
         with open(self.md, encoding="utf-8") as f:
             self.assertIn(f"Repro: {repro}\n", f.read())
 
+    def test_the_users_choice_to_skip_prove_is_recorded(self):
+        self.write(".sdlc/state/login.md", STATE)
+        self.assertEqual(self.state("set", "login", "Prove", "skip")[0], 0)
+        with open(self.md, encoding="utf-8") as f:
+            self.assertIn("Prove: skip\n", f.read())
+
     def test_a_deviation_goes_under_deviations(self):
         # The sdlc-invariants CI check looks for a baseline change named under ## Deviations, not the Gate log
         self.write(".sdlc/state/login.md", STATE.replace("## Open questions", "## Deviations\n-\n\n## Open questions"))
