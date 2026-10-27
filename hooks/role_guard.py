@@ -3,7 +3,7 @@
 
 PreToolUse on file tools. Claude Code names the subagent making a call in `agent_type` (`sdlc:<agent>`); calls
 from the main session or other plugins' agents get no output. Denies, with the reason the agent sees:
-  - a reviewer editing any file: reviewers report, they don't fix
+  - a reviewer editing any file but its report under .sdlc/.work/findings/: reviewers report, they don't fix
   - the verifier editing anything but test-report.md (in .sdlc/ or the docs folder), .sdlc/baseline.md (it removes
     items that pass), .sdlc/.work/redgreen/ (its worktree) and .sdlc/.work/probes/ (repro scripts): not source,
     the spec, config, state or the hooks' state
@@ -43,8 +43,10 @@ def problem(agent, tool, rel, root):
                   or bool(docs) and folder.startswith(docs + "/intents/") and "/" not in folder[len(docs + "/intents/"):])
     # Windows short names (WORK~1 for .work) and stream syntax (a:b) reach a folder by another spelling
     in_reports = in_reports and not any(c in rel for c in "~:")
-    if agent in REVIEWERS and tool in WRITES:
-        return f"sdlc: {agent} reports findings; it doesn't edit files. Put the fix in your report instead."
+    findings = rel.startswith(".sdlc/.work/findings/") and not any(c in rel for c in "~:")  # its report, by path
+    if agent in REVIEWERS and tool in WRITES and not findings:
+        return (f"sdlc: {agent} reports findings; it doesn't edit files. Write your report under "
+                ".sdlc/.work/findings/ and put the fix in it.")
     if agent == "verifier" and tool in WRITES and not (
             rel.endswith("/test-report.md") and in_reports or rel == ".sdlc/baseline.md" or rel.startswith((".sdlc/.work/redgreen/", ".sdlc/.work/probes/"))):
         return ("sdlc: the verifier writes only test-report.md, the baseline, its .sdlc/.work/redgreen/ worktree and .sdlc/.work/probes/: it never edits "

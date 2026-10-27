@@ -246,7 +246,8 @@ that have `brainstorm.md`). The orchestrator turns it into `spec.md`
 Otherwise, ask. Your human partner's preferences override both.
 
 **Builder check** (for a project): dispatch a fresh subagent with
-`builder-check-prompt.md` in this directory. When you tell your human
+`builder-check-prompt.md` in this directory (under the sdlc orchestrator,
+point it at `plan.md`'s `## Handoff to Build` too). When you tell your human
 partner you're writing it up, say a reviewer will read it first and you
 may come back once with a few questions. Don't hand over the document
 until the check is back. Sort what the builder asks into three piles:

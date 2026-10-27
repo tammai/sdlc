@@ -11,7 +11,7 @@ You decide the phase, call the right bundled skill, agent or command, keep the s
 
 ## Four phases, one file each
 
-Each phase runs at one stage number, which the hooks read. Read a phase's file when it starts, not before; a read file stays in context.
+Each phase runs at one stage number, which the hooks read. Read a phase's file when it starts, not before; a read file stays in context. **M and L in an interactive Claude Code session: read `R/relay.md` instead and don't read the phase files.** Stage agents do Define, Build and Prove; this session coordinates and runs Ship.
 
 | Phase | `Current:` | Read | A feature started under the old 11 stages, at |
 |---|---|---|---|

@@ -46,6 +46,7 @@ Three documents and one approval: `intent.md` (why), `spec.md` (what) and `plan.
 
    UI design-system additions the user approves go into `<docs>/design-system.md` before Build, logged with `state.py log`.
 7. **`plan.md`: the how.** It holds:
+   - `## Handoff to Build`, first: decisions with their reasons, rejected options, facts found in the code, what must not break, the builder's open calls, and each risk with the check that proves it (the template's shape). Anything the user says that changes what gets built goes under Decisions, or it doesn't count;
    - the tasks in order, each naming its files (backticked: `verify.py` reports a changed file no task or test names as drift), the test it starts with, the command that proves it, and its FR;
    - `## Acceptance tests`: one row per `AC-nnn`, with the test that proves it (`file › name`) and a command that runs only that test; a criterion no automated test can prove (a visual result, a wording change) is `manual`, with its reason in the Run cell. Build records each test red before its code and `verify.py` checks the table;
    - `## Public Surface`, which Prove checks the diff against;
@@ -81,6 +82,6 @@ Three documents and one approval: `intent.md` (why), `spec.md` (what) and `plan.
     - every `AC-nnn` has a row in `## Acceptance tests`;
     - `plan.md` declares the Public Surface;
     - the design criteria hold, when a design ran;
-    - the three files stand alone.
+    - the three files stand alone: a fresh agent could build this from them, starting at `## Handoff to Build`.
 
-    Then update the files and `state.py set` for anything the reply changed, and `state.py advance <f> 4 --gate pass`.
+    Then update the files (every decision the reply settled into `## Handoff to Build`) and `state.py set` for anything the reply changed, and `state.py advance <f> 4 --gate pass`.

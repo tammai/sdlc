@@ -79,6 +79,13 @@ argues from the spec, so the spec travels with it; executors read both]
 **Intent:** [path to intent.md, when there is one: why, and the chosen
 approach the plan carries out]
 
+## Handoff to Build
+
+The first section after the header, in `${CLAUDE_PLUGIN_ROOT}/templates/plan-template.md`'s shape: decisions with
+reasons, rejected options, facts found in the code (file:line), what must not break, the builder's open calls, and
+each risk with the check that proves it. The builder never sees the conversation, so a decision the user made that
+isn't here doesn't count.
+
 ## Global Constraints
 
 [The spec's project-wide requirements — version floors, dependency limits,

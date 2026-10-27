@@ -5,6 +5,18 @@
 <!-- The how, written in Define. A builder with no conversation context must be able to work from intent.md, spec.md
      and this file alone. S: 1–3 tasks. M lite: 3–6. A change confined to 1–2 files: 1–3, whatever the track. A deviation during Build is written back here, with its reason. -->
 
+## Handoff to Build
+
+<!-- The whole handoff: Build works from the files, never from Define's conversation. Anything the user said that
+     changes what gets built goes under Decisions, or it doesn't count. -->
+
+- Decisions: [decision] because [reason] (if [reason] is false: [what changes])
+- Rejected: [option] because [reason]
+- Found in the code: [fact] ([file:line])
+- Must not break: [invariant]
+- Builder's choice: [open call]
+- Careful: [risk] -> proven by [check, with its budget]
+
 ## Tasks
 
 1. **[Task name]** — FR-[n]

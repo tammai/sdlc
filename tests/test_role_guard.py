@@ -25,6 +25,12 @@ class RoleGuardTest(ProjectTestCase):
         self.assertIsNone(self.call("Edit", "src/a.ts"))  # the main session
         self.assertIsNone(self.call("Edit", "src/a.ts", "general-purpose"))
 
+    def test_reviewer_writes_its_findings_file_and_nothing_else(self):
+        # Under the relay the main session passes paths, not findings: a reviewer writes its report here
+        self.assertIsNone(self.call("Write", ".sdlc/.work/findings/code-reviewer-r1.md", "sdlc:code-reviewer"))
+        self.assertEqual(self.call("Write", ".sdlc/.work/findings/../trust-anchor.json", "sdlc:code-reviewer"), "deny")
+        self.assertEqual(self.call("Write", ".sdlc/login/review.md", "sdlc:ac-checker"), "deny")
+
     def test_verifier_writes_only_its_report_baseline_and_scratch(self):
         self.assertIsNone(self.call("Write", ".sdlc/login/test-report.md", "sdlc:verifier"))
         self.assertIsNone(self.call("Write", ".sdlc/.work/probes/kill-mid-write.sh", "sdlc:verifier"))  # a repro to hand back
