@@ -20,6 +20,7 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 - **Faster hooks, about 30% per event** (measured on Windows: an Edit's hooks 414 to 278 ms, a Bash call's 314 to 223 ms). Each hook's command starts the Python the launcher remembered directly, falling back to `sg-python.sh` when none is remembered; the security hook loads its HTTP and TLS modules only when it calls a model.
 
 ### Fixed
+- **Prove's budget lets variables be set before a timed command:** `S=...; F=...; $S round $F 1 fail ...` was denied as too complex, so a round's `state.py round` record could go missing. Bare `VAR=value` steps run nothing and now pass through like `cd`; the command after them is still killed at 120 s.
 - **Relay Prove no longer fails on its own diff facts.** The trust anchor and the main session read VERDICT lines only from the checkers' reports (`code-reviewer`, `ac-checker`, `security`, `ui-reviewer`), not `diff-r<N>.md` or Define's explorer reports in the same folder.
 - **Define's code-explorer and code-architect can write their relay report** (Write tool, held to `.sdlc/.work/findings/` by the role guard; read-only on Cursor).
 - **Hookify prompt rules fire:** `field: user_prompt` reads Claude Code's `prompt` field.

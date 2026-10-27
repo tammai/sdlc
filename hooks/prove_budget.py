@@ -7,7 +7,7 @@ caller (session, verifier, reviewers). A command that isn't one of the project's
 `cd <dir> &&` beside them and a pipe into a filter like `tail` allowed, nothing else chained):
   - Bash: is killed at 120 s. At its own `timeout` Claude Code moves a command to the background instead of killing
     it, which an agent can then poll, so the hook rewrites the command: `timeout -k 5 120 <command>` for one step
-    (each stage of a pipe; leading `cd`, `export` and the like stay as they are), which the user's permission rules
+    (each stage of a pipe; leading `cd`, `export`, bare `VAR=value` steps and the like stay as they are), which the user's permission rules
     still match through the wrapper. The tool `timeout` becomes 130 s, past the kill. Returned as `updatedInput` with
     no permission decision. Without a `timeout` binary (macOS without coreutils) only the tool `timeout` is lowered,
     to 120 s.
@@ -140,8 +140,8 @@ def wrap_step(step):
         words = shlex.split(step)
     except ValueError:
         return None
-    if not words or words[0] in UNTIMED:
-        return step
+    if not words or words[0] in UNTIMED or all(ASSIGNMENT.match(w) for w in words):
+        return step  # bare `S=...` runs nothing: `$(...)` and backticks are refused before this
     if words[0] in COMPOUND or ASSIGNMENT.match(words[0]) or step.lstrip().startswith(("(", "{")):
         return None
     lead = step[:len(step) - len(step.lstrip())]
