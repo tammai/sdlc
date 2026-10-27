@@ -325,18 +325,18 @@ def fresh_scopes(command, scopes, root_tests, root, cwd, configured):
 
 
 def is_plugin_verify(path):
-    """The plugin's own scripts/verify.py, by absolute path (an unexpanded ${CLAUDE_PLUGIN_ROOT} and Git Bash's /c/
-    count): a project script with the same name, or a relative path, isn't it."""
-    if path.startswith("${CLAUDE_PLUGIN_ROOT}/") and os.environ.get("CLAUDE_PLUGIN_ROOT"):
-        path = os.environ["CLAUDE_PLUGIN_ROOT"] + path[len("${CLAUDE_PLUGIN_ROOT}"):]
-    # The shell expands the path before python sees it: `$(…)`, globs or `..` would make the text resolve here to
-    # the plugin's script while the shell runs something else
-    if re.search(r"[`$;&|<>(){}*?\[\]~!]", path) or ".." in re.split(r"[/\\]", path):
-        return False
-    if os.name == "nt" and re.match(r"^/[A-Za-z]/", path):
-        path = f"{path[1]}:{path[2:]}"
-    return os.path.isabs(path) and (os.path.normcase(os.path.realpath(path))
-                                    == os.path.normcase(os.path.realpath(PLUGIN_VERIFY)))
+    """The plugin's own scripts/verify.py, spelled exactly one of the ways it's written: its absolute path (native,
+    with forward slashes, or Git Bash's /c/...) or `${CLAUDE_PLUGIN_ROOT}/scripts/verify.py`. Nothing is resolved:
+    the shell expands the text before python runs, so anything it could reinterpret (`$(…)`, globs, `..`, escapes)
+    simply doesn't match. A project script with the same name, or a relative path, isn't it."""
+    native = os.path.abspath(PLUGIN_VERIFY)
+    slashed = native.replace("\\", "/")
+    forms = {native, slashed, "${CLAUDE_PLUGIN_ROOT}/scripts/verify.py"}
+    if re.match(r"^[A-Za-z]:/", slashed):
+        forms.add(f"/{slashed[0].lower()}{slashed[2:]}")
+    if os.name == "nt":
+        return path.lower() in {f.lower() for f in forms}
+    return path in forms
 
 
 def verify_run(command, root, cwd, feature):
