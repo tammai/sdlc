@@ -11,6 +11,6 @@
    - `/sdlc:commit-push-pr` opens a PR. Its description links `spec.md`, `review.md` and, if a QA round ran, `qa-report.md`.
    - CI must be green before a merge. **Never merge without the user saying so.**
    - `/sdlc:clean_gone` prunes merged branches.
-5. Once committed and reported: `state.py set <f> Status done`. Deploying is a separate request: `/sdlc:deploy`.
+5. Once committed and reported: `state.py set <f> Status done`. It leaves the state file changed after the commit: that is expected, and it rides with the next commit; don't make or offer one for it. Deploying is a separate request: `/sdlc:deploy`.
 
 **Gate:** verified-tree check clean; Learn done; CI green before any merge the user asks for.

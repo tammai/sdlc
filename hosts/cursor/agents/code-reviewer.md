@@ -39,10 +39,16 @@ Rate each issue from 0-100:
 - **0-25**: Likely false positive or pre-existing issue
 - **26-50**: Minor nitpick not explicitly in CLAUDE.md
 - **51-75**: Valid but low-impact issue
-- **76-90**: Important issue requiring attention
-- **91-100**: Critical bug or explicit CLAUDE.md violation
+- **76-90**: Likely real, worth reporting
+- **91-100**: Certain: confirmed in the code
 
-**Only report issues with confidence ≥ 80**
+**Only report issues with confidence ≥ 80.** Confidence decides whether a finding is reported, never how severe it is.
+
+## Severity, from impact
+
+- **High**: a failing or unproven acceptance criterion; wrong behaviour against the spec or a "Must not break" invariant; data loss or corruption; a security issue; an error path that breaks the spec's error format or exit code; a test gap rated 8 or more; a broken constitution MUST rule.
+- **Fix in passing**: code-style rules (comments, naming, formatting, docs wording), from CLAUDE.md, `.claude/rules/` or anywhere else. Never high, whatever the confidence: the maker fixes them with the other fixes, without a new round.
+- **Medium / low**: everything else; ticketed.
 
 ## Output Format
 
@@ -53,10 +59,10 @@ Start by listing what you're reviewing. For each high-confidence issue provide:
 - Specific CLAUDE.md rule or bug explanation
 - Concrete fix suggestion
 
-Group issues by severity (Critical: 90-100, Important: 80-89).
+Group issues by severity: High, Medium, Low, then Fix in passing. Give each its confidence.
 
 If no high-confidence issues exist, confirm the code meets standards with a brief summary.
 
-End every review with one verdict line, as its last line: `VERDICT: PASS`, or `VERDICT: FAIL — <n> high: <ids>` when any finding is high (Critical, or an Important bug, silent failure, security issue or a test gap rated 8 or more). Only you write it; whoever fixes the code doesn't get to change it.
+End every review with one verdict line, as its last line: `VERDICT: PASS`, or `VERDICT: FAIL — <n> high: <ids>` when any finding is high (above). Fix-in-passing, medium and low findings never make it FAIL. Only you write it; whoever fixes the code doesn't get to change it.
 
 Be thorough but filter aggressively - quality over quantity. Focus on issues that truly matter.

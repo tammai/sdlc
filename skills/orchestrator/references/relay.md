@@ -45,7 +45,7 @@ The main session writes each checker's brief itself, from the fixed text below a
 - Build's gate: with Prove, `advance <f> 5 --gate pass` and Prove's round (above); with no Prove (M lite, `Prove: skip`), `verified`, `advance <f> 8 --gate pass`, Ship.
 - Every verdict PASS → `round <f> <N> pass`, `verified`, `advance <f> 8 --gate pass`, Ship.
 - Any FAIL → `round <f> <N> fail "<the VERDICT lines>"`, `advance <f> 4`, then fix every high in the checkers' reports here, each with a failing test first, then `verify.py`. Never downgrade or waive a high: a disagreement goes to the user, whose waiver is recorded with `state.py deviation`. Then `advance <f> 5` and round `<N+1>`: a fresh checker on what changed.
-- The hard stops go to the user (`prove.md`): the round cap and a requirement failing twice.
+- The hard stops go to the user (`prove.md`): the round cap and a requirement failing twice. Then record the round and stay at Stage 5; a waiver goes to Ship as `prove.md` says, never through Stage 4.
 
 **The moves on L:**
 
@@ -56,4 +56,4 @@ The main session writes each checker's brief itself, from the fixed text below a
   - with no Prove (`Prove: skip`): `verified`, `advance <f> 8 --gate pass`, Ship.
 - Every verdict PASS → `round <f> <N> pass`, `verified`, `advance <f> 8 --gate pass`, then Ship in the main session (`ship.md`, at small context).
 - Any FAIL → `round <f> <N> fail "<the VERDICT lines>"`, `advance <f> 4`, then resume the Build agent whose part holds the finding's files: "fix every high in the checkers' `.sdlc/.work/findings/<feature>/*-r<N>.md` reports, each with a failing test first, then `verify.py`". Its next `DONE: build pass` → `advance <f> 5` and round `<N+1>`: fresh checkers on what changed, the ac-checker only on the ACs that failed.
-- The hard stops still go to the user: the round cap and a requirement failing twice come back as `ASK:`.
+- The hard stops still go to the user: the round cap and a requirement failing twice come back as `ASK:`. Then record the round and stay at Stage 5; a waiver goes to Ship as `prove.md` says, never through Stage 4.

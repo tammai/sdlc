@@ -63,7 +63,7 @@ The verdict comes from the latest `verify.py` run on the current code and the la
 
 **Report when done:** the end-of-Prove message lists every drift (what, why, effect) and every `manual` AC, so the user sees them without opening the plan.
 
-**Stop and ask** when the same requirement fails in two rounds, or after round 3 fails (the round cap): bring the user what still fails, what each round changed and a root-cause hypothesis. Don't start another round.
+**Stop and ask** when the same requirement fails in two rounds, or after round 3 fails (the round cap): bring the user what still fails, what each round changed and a root-cause hypothesis. Don't start another round. Record the round (`state.py round <f> <N> fail …`) and stay at Stage 5 while you wait. If the user waives what still fails: `state.py deviation <f> "waived round <N>: <ids> — <their reason>"` (those words exactly: the trust anchor reads them), `verified`, `advance <f> 8 --gate pass --note "round <N> waived"`, then Ship. If they want it fixed: `advance <f> 4` and fix in Build, then a fresh round.
 
 **Gate:**
 - `verify.py` passes on the current code (`$V status` shows `reuse: true`), and an `sdlc:ac-checker` dispatched in Stage 5 (on M, the checker) passed every AC (`.sdlc/.work/dispatches.jsonl` shows it). Old plans: a verifier dispatched in Stage 5 passes on the current commit, as before. PASS means no *new* failures: those in `.sdlc/baseline.md` don't count.

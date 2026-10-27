@@ -153,7 +153,7 @@ def check(root, name, text, anchor, shown):
     # Only a checker judges Prove (ADR 0017): moving past Stage 5 needs its latest round's VERDICT lines to pass
     if prev is not None and st is not None and prev <= 5 < st:
         failed = failed_verdicts(root, name)
-        if failed:
+        if failed and not waived(text, failed):
             notices.append("left Stage 5 while a checker's verdict is FAIL: " + ", ".join(failed))
     disagree = verify_records_disagree(root, name)
     if disagree:
@@ -187,6 +187,12 @@ def failed_verdicts(root, name):
         if not verdicts or verdicts[-1].lower() != "pass":
             failed.append(f)
     return failed
+
+
+def waived(text, failed):
+    """The user waived the round these failed reports belong to: a `waived round <N>` deviation (prove.md)."""
+    n = int(re.search(r"-r(\d+)\.md$", failed[0]).group(1))
+    return bool(re.search(rf"^- .*\bwaived round {n}\b", text, re.M | re.I))
 
 
 def verify_records_disagree(root, name):
@@ -290,8 +296,8 @@ def main():
             features[name] = text
         elif was.get("status") == "active":
             # Leaving active switches the model router and freshness hook off for it, so it's shown; finishing
-            # is the one normal way out, from Stage 8 on
-            if status != "done" or (was.get("stage") or 0) < 8:
+            # is the one normal way out, from Stage 8 on (Ship can reach 8 and finish between two Stops)
+            if status != "done" or max(stage(text) or 0, was.get("stage") or 0) < 8:
                 left.append(f"{name}: Status: active → {status or 'missing'} at Stage {was.get('stage')}")
             was["status"] = status
     for name, was in saved.items():

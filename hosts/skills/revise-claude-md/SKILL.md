@@ -36,7 +36,10 @@ Format: `<command or pattern>` - `<brief description>`
 Avoid:
 - Verbose explanations
 - Obvious information
+- Generic best practices that aren't specific to this project
 - One-off fixes unlikely to recur
+
+Before proposing, check that each command was run and works and each file path exists.
 
 ## Step 4: Show Proposed Changes
 

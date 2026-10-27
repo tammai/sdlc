@@ -11,4 +11,4 @@ Give each reviewer:
 - the recurring defects: `recurring-defects.md` (this folder), plus `<docs>/recurring-defects.md` if the project has one (same shape; how to add is at the top of `recurring-defects.md`); each is checked, and a hit is rated as its entry says;
 - simplifications as findings: needless code, abstraction or dependency, with the smaller version (there is no separate simplifier pass, so its fixes land with the others);
 - scope: behaviour the spec didn't ask for (stricter validation, extra hardening, an option or message nobody requested) is a simplification finding, high when a user can see it;
-- severity: unrequested public surface (an export, file, endpoint, option, config key or dependency not in the plan's Public Surface, with no stated reason) is high.
+- severity: unrequested public surface (an export, file, endpoint, option, config key or dependency not in the plan's Public Surface, with no stated reason) is high. Severity is impact, not confidence: a code-style rule (comments, naming, formatting, docs wording) is never high, only "fix in passing"; a constitution MUST rule stays high.

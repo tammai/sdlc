@@ -188,6 +188,28 @@ class TrustAnchorTest(ProjectTestCase):
         self.state(stage=8, risk="low")
         self.assertIsNone(self.stop())
 
+    def test_a_round_cap_fail_the_user_waived_goes_to_ship_without_a_notice(self):
+        self.state(stage=5, risk="low")
+        self.write(".sdlc/.work/findings/login/code-reviewer-r3.md", "R3-1 comment wording\n\nVERDICT: FAIL — 1 high: R3-1\n")
+        self.stop()
+        self.prompt()
+        self.state(stage=8, risk="low")
+        self.assertIn("checker's verdict is FAIL", self.stop()["systemMessage"])  # no waiver: still a notice
+        self.prompt()
+        self.state(stage=5, risk="low")
+        self.stop()
+        self.write(".sdlc/login/state.md", STATE.format(track="M", risk="low", base=self.base, stage=8)
+                   + "\n## Deviations\n- 2026-10-27 waived round 3: R3-1, the user's call\n")
+        self.assertIsNone(self.stop())
+
+    def test_ships_own_status_done_is_not_a_notice(self):
+        # Ship advances to 8 and sets Status done in one turn: the last Stop saw Stage 5
+        self.state(stage=5, risk="low")
+        self.stop()
+        self.write(".sdlc/login/state.md", STATE.format(track="M", risk="low", base=self.base, stage=8)
+                   .replace("Status: active", "Status: done"))
+        self.assertIsNone(self.stop())
+
     def test_only_checker_reports_carry_a_verdict(self):
         # The relay's diff facts and Define's explorer reports share the folder and have no VERDICT line
         self.state(stage=4, risk="low")
