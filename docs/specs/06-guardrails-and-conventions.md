@@ -2,7 +2,7 @@
 
 Conventions apply while code is written (policy rules), are checked as it happens (hookify guardrails, lint snippets), and repeated corrections become rules.
 
-**Entry points:** setup (installs them), `/sdlc:hookify`, `/sdlc:hookify-list`, `/sdlc:hookify-configure`, `/sdlc:hookify-help` · **Source:** `templates/project/rules/`, `templates/project/hookify/`, `templates/project/lint/`, `core/`, `hooks/pretooluse.py`, `stop.py`, `userpromptsubmit.py`, `skills/writing-hook-rules` · **Decision:** [ADR 0003](../adr/0003-guard-against-over-engineering.md)
+**Entry points:** setup (installs them), `/sdlc:hookify`; with the optional `sdlc-extras` plugin, `/sdlc-extras:hookify-list`, `/sdlc-extras:hookify-configure`, `/sdlc-extras:hookify-help` · **Source:** `templates/project/rules/`, `templates/project/hookify/`, `templates/project/lint/`, `core/`, `hooks/pretooluse.py`, `stop.py`, `userpromptsubmit.py`, `skills/writing-hook-rules`, `commands/hookify.md`, `plugins/sdlc-extras/commands/hookify-*.md`, `plugins/sdlc-extras/agents/conversation-analyzer.md` · **Decision:** [ADR 0003](../adr/0003-guard-against-over-engineering.md)
 
 ## User scenarios
 

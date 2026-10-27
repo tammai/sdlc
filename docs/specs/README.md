@@ -14,7 +14,7 @@ Numbered in the order you meet them: setup first, then the lifecycle and its pha
 | 06 | [Guardrails and conventions](06-guardrails-and-conventions.md) | Policy rules, hookify engine and guardrails, lint snippets | Always on |
 | 07 | [Knowledge](07-knowledge.md) | Three-tier knowledge, promotion, audit | Define; Learn on every feature |
 | 08 | [Health and status](08-health-and-status.md) | `/sdlc:doctor` and `/sdlc:status` | Any time |
-| 09 | [Autonomous loop](09-autonomous-loop.md) | `/sdlc:ralph-loop` | Optional, Build |
+| 09 | [Autonomous loop](09-autonomous-loop.md) | `/sdlc-extras:ralph-loop` (the `sdlc-extras` plugin) | Optional, Build |
 | 10 | [UI and the design system](10-ui-design-system.md) | Design system recorded at setup; UI rule, guardrail and reviewer | Setup; Define and Prove for UI work |
 | 11 | [Claude Code, Codex, Cursor and Antigravity](11-multi-agent.md) | Install per agent, host detection, a second agent joining, one `AGENTS.md` block | Install, setup, upgrade, doctor |
 | 12 | [State changes and the control contract](12-control-contract.md) | `state.py`: one call per state change; `state.json`, `events.jsonl` and the reserved `commands/` inbox | Every phase move |

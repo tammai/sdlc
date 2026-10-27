@@ -10,8 +10,8 @@ Operational procedures: install, check health, fix what breaks, maintain the plu
 |---|---|
 | `git` | worktrees, freshness hook, commit and PR commands |
 | `gh` | `/sdlc:code-review` and PR commands |
-| Python 3.9+, as `python3` | all hooks and `scripts/` (stdlib only; macOS system 3.9 works) |
-| `jq` | the `/sdlc:ralph-loop` stop hook |
+| Python 3.9+ | all hooks (started through `hooks/sg-python.sh`, which finds `python3`, `python` or `py -3`) and `scripts/` (stdlib only; macOS system 3.9 works) |
+| `jq` | the Ralph loop's stop hook (the optional `sdlc-extras` plugin) |
 | Node | brainstorming visual companion |
 | `typescript-language-server`, `typescript` | TypeScript code intelligence (`npm i -g typescript-language-server typescript`) |
 
@@ -27,7 +27,7 @@ Operational procedures: install, check health, fix what breaks, maintain the plu
 | Feature documents (committed) | `docs/sdlc/intents/<feature>/` (`intent.md`, `spec.md`, `plan.md`, `test-report.md`, `review.md`…); the folder is `docs_dir` in the config |
 | Old layout, before 1.7.0 | `.sdlc/<feature>/state.md` and documents beside it; `/sdlc:upgrade` moves them |
 | Scratch (git-ignored) | `.sdlc/.work/`: `verify.json` (written by `scripts/verify.py`), `verify-freshness.json` (with the hook's own copy of verify runs), `trust-anchor.json`, `dispatches.jsonl` |
-| Ralph loop state | `.claude/ralph-loop.local.md` |
+| Ralph loop state (`sdlc-extras`) | `.claude/ralph-loop.local.md` |
 | Personal hookify rules | `.claude/hookify.<name>.local.md` (git-ignored) |
 | Team hookify rules | `.claude/hookify/<name>.md` (committed) |
 | Security hook per-session state, reviewer venv | `$SECURITY_WARNINGS_STATE_DIR`, else `$CLAUDE_CONFIG_DIR/security/`, else `~/.claude/security/` (venv: `agent-sdk-venv` inside it) |
@@ -123,7 +123,9 @@ The verify-freshness hook is active only while an active feature's state says `C
 
 ### R6. Ralph loop won't stop
 
-1. `/sdlc:cancel-ralph`. It reports the iteration it stopped at.
+The Ralph loop comes with the optional `sdlc-extras` plugin.
+
+1. `/sdlc-extras:cancel-ralph`. It reports the iteration it stopped at.
 2. If the command fails, delete `.claude/ralph-loop.local.md` by hand; the stop hook then lets the session end.
 3. Always start loops with `--max-iterations`.
 4. A malformed state file (missing frontmatter field) no longer crashes the hook; delete it if it keeps looping.
@@ -135,7 +137,7 @@ The verify-freshness hook is active only while an active feature's state says `C
 3. Parser limits: never put `---` inside a pattern (write `-{3}`), keep each `pattern:` on its own line, don't quote patterns. Matching is case-insensitive.
 4. Fields: bash rules use `command`; file rules use `file_path`, `new_text` (falls back to `content` on Write), `old_text` or `content`; prompt rules use `user_prompt`. Operators: `regex_match`, `not_regex_match`, `contains`, `not_contains`, `equals`, `starts_with`, `ends_with`.
 5. All conditions in a rule must match for it to trigger. Warnings reach Claude as context; block reasons appear as the permission-denied reason.
-6. `/sdlc:hookify-list` to see what's active; `/sdlc:hookify-configure` to toggle.
+6. With `sdlc-extras` installed, `/sdlc-extras:hookify-list` to see what's active and `/sdlc-extras:hookify-configure` to toggle; otherwise read and edit `enabled:` in the rule files.
 7. Over-firing: narrow the pattern or add a condition; switch `block` to `warn`.
 
 ### R8. `/sdlc:start` picks the wrong feature, or says there are several
@@ -148,14 +150,14 @@ The verify-freshness hook is active only while an active feature's state says `C
 
 The state file is `.sdlc/state/<feature>.md`; beside it, git-ignored, `state.py` writes the control contract (`<feature>.json`, `<feature>.events.jsonl`), derived from it.
 
-1. A wrong field: `state.py set <feature> <Field> <value>` (Status, Track, Risk, Flow, Build, Top model, Base, Owner, Tool, Slice gates). Changing Track, Risk, Flow, Top model or Base raises a trust-anchor notice ([R19](#r19-a-trust-anchor-notice-stops-the-turn)).
+1. A wrong field: `state.py set <feature> <Field> <value>` (Status, Track, Risk, Flow, Build, Top model, Base, Owner, Tool, Slice gates; on S, Intent and Repro). Changing Track, Risk, Flow, Top model or Base raises a trust-anchor notice ([R19](#r19-a-trust-anchor-notice-stops-the-turn)).
 2. A wrong phase: `state.py advance <feature> <n>` without `--gate`, where `<n>` is 1 Define, 4 Build, 5 Prove or 8 Ship (a backlog feature also rests at 6 between slices).
 3. A hand edit, or a missing or damaged `.json`: `state.py sync <feature>` rewrites the contract from the state file. `state.py` refuses a state file without `Status:` and `Current: Stage <n> – <name>`.
 4. A lost state file: the documents (`intent.md`, `spec.md`, `plan.md`, `test-report.md`…) are the real record. Write a new one from the template in `skills/orchestrator/references/start.md`, tick the phases whose documents exist, set `Current:` to the next phase's stage, then `state.py sync <feature>` and `state.py deviation <feature> "state file reconstructed"`.
 
 ### R10. Hooks error on Windows or with an odd Python
 
-`hooks/sg-python.sh` probes `python3`, `python` and `py -3`, skipping the Microsoft Store stub, and forces UTF-8. If the security hook still fails, run `bash hooks/sg-python.sh -c "import sys; print(sys.version)"` to see which interpreter it chose. The hookify, freshness, trust-anchor, role-guard and model-router hooks call `python3` directly, and the ralph hook runs under bash, so `python3` must work for them (doctor's `python3` row; on Windows, copy `python.exe` to `python3.exe`).
+`hooks/sg-python.sh` probes `python3`, `python` and `py -3`, skipping the Microsoft Store stub, and forces UTF-8. If the security hook still fails, run `bash hooks/sg-python.sh -c "import sys; print(sys.version)"` to see which interpreter it chose. Every hook in `hooks/hooks.json` starts through it, so one working Python 3 serves them all. Doctor's "hook python" row runs the launcher; when it fails, install Python 3 from python.org (not the Microsoft Store) and, on Windows, Git Bash. The Ralph loop's hook (`sdlc-extras`) runs under bash.
 
 ### R11. A gate is blocking and you disagree
 
@@ -245,7 +247,7 @@ For changes to the plugin itself, run it from a checkout instead of the marketpl
 ### Release a new version
 
 1. Run the tests and `claude plugin validate .`, and check that CI (`.github/workflows/ci.yml`) is green on the last pushed commit.
-2. Bump `version` in `.claude-plugin/plugin.json`, then run `python3 scripts/hosts.py build` so the Codex, Cursor and Antigravity manifests carry it too (CI's `hosts.py check` fails while they differ). Repos record this number at setup and upgrade, so every release that changes project files needs a new one.
+2. Bump `version` in `.claude-plugin/plugin.json` and, to the same number, in `plugins/sdlc-extras/.claude-plugin/plugin.json`, then run `python3 scripts/hosts.py build` so the Codex, Cursor and Antigravity manifests carry it too (CI's `hosts.py check` fails while they differ). Repos record this number at setup and upgrade, so every release that changes project files needs a new one.
 3. Move the `Unreleased` notes in `CHANGELOG.md` under `## <version> — <date>`, and update the README if commands, phases, configuration or requirements changed.
 4. If the release changes files that live in projects:
    - templates of generated or seeded files: nothing to do, `/sdlc:upgrade` regenerates or replaces them;
@@ -276,7 +278,7 @@ The test suite runs hooks and scripts as subprocesses; this checks the installed
 1. `/sdlc:setup a tiny TypeScript library that adds two numbers`. It asks a few stack questions and **waits for your approval** before generating anything.
 2. It works on a `sdlc/setup` branch with one commit per step; `.sdlc/config.json` has the five commands; it runs them and they pass.
 3. The repo has `.claude/rules/sdlc*.md`, `.claude/hookify/sdlc-*.md`, `.github/workflows/sdlc-verify.yml` and `sdlc-invariants.yml`, `.sdlc/ci/invariants.py`, `docs/sdlc/constitution.md`, `knowledge/index.md`, `.sdlc/scaffold.lock.json`, and `.gitignore` lists `.sdlc/.work/` and the `.sdlc/state/*.json` contract patterns; `CLAUDE.md` untouched.
-4. Context diet (should): after `enable-plugin` it asks whether to trim plugins. Accept. It shows a table of plugins with estimated tokens per call, verdicts and reasons, and writes `.claude/settings.local.json` only after you approve; no commit includes that file.
+4. `enable-plugin` and context diet (should): run from the installed plugin, setup asks, then writes the sdlc marketplace and `enabledPlugins` to `.claude/settings.json`; run with `--plugin-dir`, it writes nothing and the setup report says it was skipped. After that it asks whether to trim plugins. Accept. It shows a table of plugins with estimated tokens per call, verdicts and reasons, and writes `.claude/settings.local.json` only after you approve; no commit includes that file, and it adds no `true`.
 5. It asks PR or local merge; pick local merge. `/sdlc:doctor` now shows the repo checks ✅.
 6. Interrupt test (should): in a second throwaway repo, stop setup midway (Esc), run `/sdlc:setup` again; it resumes after the last finished step.
 
@@ -358,7 +360,7 @@ Every command prints one JSON object. Exit codes: 0 ok, 1 error, 2 refused becau
 | `render <template\|builtin:…> <dest> [--class seeded] [--if-unchanged]` | render a plugin template (`{{config.x.y}}`, `{{plugin_version}}`) or a builtin (`ci`, `ci:<package>`, `contract-check`, `invariants`, `codeowners`), and record its hash |
 | `preview <template\|builtin:…>` | render without writing |
 | `record <generated\|seeded> <paths…> [--template T]` / `forget <paths…>` | track files Claude wrote / hand them over to the user |
-| `allow --add/--remove … [--from-commands]`, `gitignore --add/--remove …`, `enable-plugin` | keyed merges; only ever removes entries the plugin added (`enable-plugin`: the sdlc marketplace and `enabledPlugins` in `.claude/settings.json`) |
+| `allow --add/--remove … [--from-commands]`, `gitignore --add/--remove …`, `enable-plugin` | keyed merges; only ever removes entries the plugin added (`enable-plugin`: the sdlc marketplace and `enabledPlugins` in `.claude/settings.json`; returns `skipped` with the reason, writing nothing, when the running plugin isn't Claude Code's installed copy) |
 | `host` / `add-host <host>` | the coding agent running (from the plugin's install folder, else the environment), the hosts recorded in the lock, and whether this one is joining / record a joining agent |
 | `agents [--check]` | rebuild the sdlc block in `AGENTS.md` for the recorded hosts (removed when Claude Code is the only one) and `.claude/rules/sdlc-agents-md.md`, Claude Code's copy of the team's own `AGENTS.md` text; `--check` exits 1 when either is out of date |
 | `migrations [--revisit]`, `migration <id> --applied\|--skipped REASON` | pending migrations (scaffold < version ≤ plugin, numeric order) / record the outcome |

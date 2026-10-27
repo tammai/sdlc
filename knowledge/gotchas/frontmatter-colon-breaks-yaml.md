@@ -15,7 +15,7 @@ updated: 2026-10-22
 An unquoted `description:` value containing `: ` (colon, space) is invalid YAML. Vendored agents carried example dialogue in the description (`Daisy: "Please review…"`); `agents/silent-failure-hunter.md` shipped that way from 1.2.0 to 1.3.0.
 
 ## Fix
-Keep the description to plain sentences and move examples into a `## When to invoke` section of the body, as `agents/comment-analyzer.md` does. Quote the value if it must contain `: `.
+Keep the description to plain sentences and move examples into a `## When to invoke` section of the body, as `agents/code-reviewer.md` does. Quote the value if it must contain `: `.
 
 ## How to detect early
 `claude plugin validate .` (release step 1) parses every agent, skill and command; run it after touching any frontmatter.

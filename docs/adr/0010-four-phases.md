@@ -1,6 +1,6 @@
 # ADR 0010: Four phases instead of eleven stages
 
-- **Status:** Accepted, 2026-10-26. Amends [ADR 0008](0008-lite-flow-for-low-risk-m.md) and [ADR 0009](0009-cheaper-pipeline-and-control-contract.md): Lite's shape becomes every track's default, and verify, review and security run as one round.
+- **Status:** Accepted, 2026-10-26; amended by [ADR 0011](0011-track-cost.md) and by [ADR 0014](0014-lighter-s-and-a-companion-plugin.md) (S writes no Define files, and Ship doesn't ask on S and `Flow: lite`). Amends [ADR 0008](0008-lite-flow-for-low-risk-m.md) and [ADR 0009](0009-cheaper-pipeline-and-control-contract.md): Lite's shape becomes every track's default, and verify, review and security run as one round.
 - **Deciders:** Tâm Mai.
 
 ## Context
@@ -19,7 +19,7 @@ Two of the touches were avoidable: a trust-anchor confirmation right after the u
 
 - **Four phases, each at one stage number:** Define (1), Build (4), Prove (5), Ship (8). Learn is a small step inside Ship. A new feature never enters 2, 3, 7 or 9–11; a backlog slice rests at 6 once committed, as before, because autopilot and the trust anchor read 8 as feature close having reached Ship.
 - **Stage numbers kept (option a).** The hooks read only the number, so none of them changes, except that the trust anchor no longer blocks a stricter change (Track up, Risk low → high, Flow lite → full); it shows it instead. Features started under the old stages resume in the phase their number maps to. No upgrade migration is needed.
-- **Define:** one approval covers intent, spec, plan (or backlog), design and `Build:`. Every track writes `intent.md` (why), `spec.md` (what) and `plan.md` (how: tasks, Public Surface), so that nothing the build needs lives only in the conversation (amended the same day: the plan first moved into the spec, then came back as its own file on every track, for role agents that hand work over through files).
+- **Define:** one approval covers intent, spec, plan (or backlog), design and `Build:`. Every track writes `intent.md` (why), `spec.md` (what) and `plan.md` (how: tasks, Public Surface), so that nothing the build needs lives only in the conversation (amended the same day: the plan first moved into the spec, then came back as its own file on every track, for role agents that hand work over through files; amended by ADR 0014: S writes none of the three and records `Intent:` and `Repro:` in its state file).
 - **Prove:** verifier, reviewers and security checks run in one parallel round. A failed re-verification gets a fresh verifier round; only the round cap stops.
 - **Ship:** Learn adds Prove's fixed defects to `recurring-defects.md`, which Define and every reviewer read.
 - **Deploy** becomes `/sdlc:deploy`. **Operate** is removed and kept as a reference.

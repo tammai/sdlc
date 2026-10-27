@@ -2,11 +2,11 @@
 
 Let Claude iterate on one well-specified task with a machine-checkable finish, without the user prompting each round.
 
-**Entry points:** `/sdlc:ralph-loop`, `/sdlc:cancel-ralph`, `/sdlc:ralph-help`; optional in Build · **Source:** `scripts/setup-ralph-loop.sh`, `hooks/stop-hook.sh`, `commands/ralph-*.md` (vendored from Anthropic's ralph-loop plugin, patched)
+**Entry points:** `/sdlc-extras:ralph-loop`, `/sdlc-extras:cancel-ralph`, `/sdlc-extras:ralph-help`; optional in Build · **Source:** the optional `sdlc-extras` companion plugin ([ADR 0014](../adr/0014-lighter-s-and-a-companion-plugin.md)): `plugins/sdlc-extras/scripts/setup-ralph-loop.sh`, `plugins/sdlc-extras/hooks/stop-hook.sh` (registered in `plugins/sdlc-extras/hooks/hooks.json`), `plugins/sdlc-extras/commands/ralph-*.md` (vendored from Anthropic's ralph-loop plugin, patched)
 
 ## User scenarios
 
-1. **Loop to done.** Given `/sdlc:ralph-loop "make the parser tests pass" --completion-promise "DONE" --max-iterations 15`, when Claude ends a turn without `<promise>DONE</promise>`, then the same prompt is fed back and the iteration count goes up; when the promise appears, the loop ends.
+1. **Loop to done.** Given `/sdlc-extras:ralph-loop "make the parser tests pass" --completion-promise "DONE" --max-iterations 15`, when Claude ends a turn without `<promise>DONE</promise>`, then the same prompt is fed back and the iteration count goes up; when the promise appears, the loop ends.
 2. **Cap.** Given `--max-iterations 5`, when the fifth iteration ends, then the loop stops.
 
 ## Requirements
@@ -19,8 +19,8 @@ Let Claude iterate on one well-specified task with a machine-checkable finish, w
 | LOOP-FR-004 | The exact completion promise in the last assistant message ends the loop; a different promise doesn't. | `[enforced]` › test_completion_promise_ends_loop, test_wrong_promise_continues |
 | LOOP-FR-005 | Reaching `max_iterations` ends the loop. | `[enforced]` › test_max_iterations_ends_loop |
 | LOOP-FR-006 | A corrupt or incomplete state file stops the loop and removes the file instead of crashing. | `[enforced]` › test_corrupt_state_stops_loop; test_ralph_stop › test_setup_rejects_a_multiline_promise |
-| LOOP-FR-007 | Use only for a single, well-specified task with a machine-checkable finish; always set `--max-iterations`; `/sdlc:cancel-ralph` stops a running loop. | `[instructed]` orchestrator: build, runbook R6 |
+| LOOP-FR-007 | Use only for a single, well-specified task with a machine-checkable finish; always set `--max-iterations`; `/sdlc-extras:cancel-ralph` stops a running loop. The loop runs only with `sdlc-extras` installed; Build mentions it only then. | `[instructed]` orchestrator: build, runbook R6 |
 
 ## Non-goals
 
-- Replacing the phased flow; running several loops in one session.
+- Replacing the phased flow; running several loops in one session; running outside Claude Code (`sdlc-extras` isn't built for other agents).

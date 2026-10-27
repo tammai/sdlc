@@ -1,6 +1,6 @@
 # ADR 0013: Build proves, Prove judges
 
-- **Status:** Accepted, 2026-10-27. Amends [ADR 0011](0011-track-cost.md) and [ADR 0012](0012-enforced-prove-budget.md): the verifier round in Prove, its red-green check on Base and the fresh re-verifier are replaced by Build's recorded evidence, reused in Prove, and a small agent that reads each acceptance test against its criterion.
+- **Status:** Accepted, 2026-10-27. Amends [ADR 0011](0011-track-cost.md) and [ADR 0012](0012-enforced-prove-budget.md): the verifier round in Prove, its red-green check on Base and the fresh re-verifier are replaced by Build's recorded evidence, reused in Prove, and a small agent that reads each acceptance test against its criterion. Amended by [ADR 0014](0014-lighter-s-and-a-companion-plugin.md): the hook copies `verify.json`'s entry for a run it recognises (the command itself, after `cd … &&`, followed only by output filters or `; echo`), so other hosts get a copy too; S's AC-001 is the state file's `Repro:` line.
 - **Deciders:** Tâm Mai.
 
 ## Context
@@ -40,7 +40,7 @@ Anthropic's [AI-native SDLC playbook](https://claude.com/resources/articles/the-
 - Known gaps:
   - a red record shows the test failed at that time; it doesn't prove the AC's code was absent then;
   - both record files are agent-writable, so tampering is evident (a notice), not prevented;
-  - on Codex, Cursor and Antigravity the hook keeps no copy (their payloads append `| cat`, which it doesn't match), so `status` never reuses and Prove reruns `verify.py`;
+  - on Codex and Antigravity the hook keeps no copy (their payloads append `| cat`, which it doesn't match), so `status` never reuses and Prove reruns `verify.py` (amended by ADR 0014: the hook now accepts `| cat` as an output filter, so they get a copy too);
   - `verify.py` doesn't read `.sdlc/baseline.md`: a project with known failures fails verify until the session checks them against the baseline by hand;
   - the prove-budget hook counts the plugin's own `verify.py`, run alone, as a project command, so it isn't killed at 120 s; anything chained after it is;
   - ADR 0012's gap stands: a probe chained after a project command (`npm test; node probe.js`) escapes the 120 s cap.

@@ -11,7 +11,7 @@ Four ideas carry the design:
 1. **Smallest process that fits.** Work is sized S, M or L. The orchestrator picks the smallest track that fits and sizes up only for a named signal, because a bigger track brings brainstorming and design, which invite a bigger solution.
 2. **Gates, not vibes.** Every phase has an exit criterion. A failed gate means stay in the phase or step back one. Most gates the orchestrator checks itself; a few are **hard stops** where you decide.
 3. **Independent checking.** The context that wrote the code never judges or reviews it on M and L: Build produces the evidence with `verify.py` (each acceptance criterion's test recorded failing before its code, then passing), a fresh `ac-checker` subagent reads each test against its criterion, and review uses separate reviewer agents. S, the smallest track, is the exception: it is built and verified in one place, repro test recorded red first, and the session confirms the verify run.
-4. **Nothing stays in the conversation.** Define writes everything the build needs into three files (`intent.md`, `spec.md`, `plan.md`), so a fresh agent can build from them alone.
+4. **Nothing stays in the conversation.** On M and L, Define writes everything the build needs into three files (`intent.md`, `spec.md`, `plan.md`), so a fresh agent can build from them alone. On S the state file's `Intent:` and `Repro:` lines are the whole hand-off ([ADR 0014](adr/0014-lighter-s-and-a-companion-plugin.md)).
 
 ## Project setup
 
@@ -44,13 +44,13 @@ Files named `sdlc-*` belong to the plugin; everything else is yours.
 
 | Track | Use when | Phases |
 |---|---|---|
-| **S · fix** | bug or tweak, 1–3 files, clear expected behavior | Define writes short `intent.md`, `spec.md` and `plan.md` with no approval; Build builds and verifies in one place; Prove dispatches nothing; then Ship |
+| **S · fix** | bug or tweak, 1–3 files, clear expected behavior | Define writes no documents: a one-line `Intent:` and the `Repro:` test in the state file, with no approval; Build builds and verifies in one place; Prove dispatches nothing; Ship commits on a feature branch without asking |
 | **M · feature** | a few files to a few days, approach mostly obvious | all four; risk low: `Flow: lite` (default), Prove is one fresh ac-checker on Build's evidence; risk high or on request: `Flow: full`, with light review |
 | **L · project** | new service or module, unclear approach, or touches auth, payments, data migration, public API | all four, with brainstorming and design in Define; `Flow: full` |
 
 Anything touching auth, payments, secrets, PII or schema migrations is at least M and gets full security in Prove. You can override the size at any time.
 
-**Lite and full.** Every track has the same shape: one approval (none on S), one build, one Prove round (S: the session's check of the verify run), one commit. `Flow: lite` is the default for M with `Risk: low` and for any backlog feature, because evals showed the old full M flow costing several times the tokens and more approvals for the same hidden-test results ([ADR 0008](adr/0008-lite-flow-for-low-risk-m.md)). On Lite the orchestrator writes the spec and plan itself, Prove is one fresh ac-checker with no reviewers, and fixes are re-verified with `verify.py` in the session. On full, `writing-specs` (with a checklist) and `writing-plans` write them, one light, read-only code-reviewer on `sonnet` covers correctness, silent failures and security, and fixes are re-verified in the session as on Lite. There is no qa-tester on M full ([ADR 0012](adr/0012-enforced-prove-budget.md)). A Lite feature sizes up to full when the spec needs a design decision the request doesn't settle, or risk turns out high.
+**Lite and full.** Every track has the same shape: one approval (none on S), one build, one Prove round (S: the session's check of the verify run), one commit. On S and Lite, Ship commits on a feature branch and reports it without asking; full and L ask about merge, PR or keep. `Flow: lite` is the default for M with `Risk: low` and for any backlog feature, because evals showed the old full M flow costing several times the tokens and more approvals for the same hidden-test results ([ADR 0008](adr/0008-lite-flow-for-low-risk-m.md)). On Lite the orchestrator writes the spec and plan itself, Prove is one fresh ac-checker with no reviewers, and fixes are re-verified with `verify.py` in the session. On full, `writing-specs` (with a checklist) and `writing-plans` write them, one light, read-only code-reviewer on `sonnet` covers correctness, silent failures and security, and fixes are re-verified in the session as on Lite. There is no qa-tester on M full ([ADR 0012](adr/0012-enforced-prove-budget.md)). A Lite feature sizes up to full when the spec needs a design decision the request doesn't settle, or risk turns out high.
 
 **Backlog slices.** M or L work bigger than one session (more than about 8 tasks, or several distinct parts) gets a `backlog.md` of vertical slices, approved with the other Define files; S never gets one. `plan.md` then outlines each slice. Each slice writes its `plan-B<n>.md`, builds natively, gets one Prove round on its own diff, and is committed. Slices run back to back without asking until the round cap, a backlog change that adds scope, or a hard stop; per-slice stops are opt-in (`Slice gates: plan, review, commit`). After the last slice, **feature close** runs one Prove round over the whole branch, then Ship. When context runs low it stops at a slice boundary and names the next one; `/clear` then `/sdlc:start` picks it up (`/sdlc:start B<n>` for a named slice). **Autopilot** (`python3 <plugin>/scripts/autopilot.py <feature>` in a terminal, only when you ask) runs each slice and then feature close in a fresh headless Claude Code session, up to your merge decision; it stops on a blocked slice, a run that changed nothing, or a trust-anchor notice you haven't seen.
 
@@ -62,12 +62,12 @@ Anything touching auth, payments, secrets, PII or schema migrations is at least 
 
 | Phase | Produces | Gate |
 |---|---|---|
-| Define | `intent.md`, `spec.md`, `plan.md` on every track; `backlog.md` when sliced; on the full flow `checklists/requirements.md`; `design.md` and its set when a design runs | **You approve once** (not on S). No `[inferred]` tags left, acceptance criteria testable, every requirement has a task, the three files stand alone |
+| Define | `intent.md`, `spec.md`, `plan.md` on M and L (S: `Intent:` and `Repro:` lines in the state file); `backlog.md` when sliced; on the full flow `checklists/requirements.md`; `design.md` and its set when a design runs | **You approve once** (not on S). No `[inferred]` tags left, acceptance criteria testable, every requirement has a task, the three files stand alone |
 | Build | code, tests; each acceptance test's red record and a passing `verify.py` run (`.sdlc/.work/verify.json`); deviations written into `plan.md` | Every task done, `verify.py` passes (every AC's test recorded red and now passing, every drift recorded with what, why and effect), no TODO without a ticket |
 | Prove (max 3 failed rounds) | `test-report.md`, `review.md`, `qa-report.md` (when the qa-tester runs), `security.md` (full security) | `verify.py` passes on the current code (reused from Build or rerun) and a fresh ac-checker passes every AC (features planned before ADR 0013: a fresh verifier PASS; S: the repro test recorded red and `verify.py` passes), every acceptance criterion has a test that failed before its code and passes now, or is `manual` with its reason, no unresolved high finding, no test gap rated 8+ (L), no critical or high security finding, no secrets in the diff |
-| Ship, with Learn | `recurring-defects.md` lines (L: `retro.md`, a knowledge page), one commit, then a PR or merge on your word | Verified-tree check clean, Learn done, CI green. **Never merged without you saying so** |
+| Ship, with Learn | `recurring-defects.md` lines (L: `retro.md`, a knowledge page), one commit on a feature branch; S and Lite report it and stop there, full and L ask: PR, merge or keep | Verified-tree check clean, Learn done, CI green. **Never merged without you saying so** |
 
-**Define's three files.** `intent.md` is the why: the request verbatim, questions and answers, the approaches weighed, the chosen one and why, and how it works at design level (S: 10–20 lines; M: about a page; L: written by `brainstorming`). `spec.md` is the what: requirements and acceptance criteria, no files or tasks. `plan.md` is the how: tasks with their files, first test, command and requirement, plus `## Acceptance tests` (the test that proves each `AC-nnn`, or `manual` with a reason), Public Surface, UI mapping, Review Focus and Deviations. Reviewers read `intent.md` first.
+**Define's three files** (M and L). `intent.md` is the why: the request verbatim, questions and answers, the approaches weighed, the chosen one and why, and how it works at design level (M: about a page; L: written by `brainstorming`). `spec.md` is the what: requirements and acceptance criteria, no files or tasks. `plan.md` is the how: tasks with their files, first test, command and requirement, plus `## Acceptance tests` (the test that proves each `AC-nnn`, or `manual` with a reason), Public Surface, UI mapping, Review Focus and Deviations. Reviewers read `intent.md` first. **S** writes none of them: `state.py set` records `Intent:` (the bug and the expected behaviour, one line) and `Repro: <test file> › <test name> | <command>`, which `verify.py` reads as AC-001; with no plan, drift isn't checked, and Prove writes no `test-report.md`.
 
 **Build** works from `plan.md` (a slice: `plan-B<n>.md`), never from memory, and proves its own work: per acceptance criterion it writes the test, records it failing with `verify.py red AC-nnn`, then writes the code, running only nearby tests; at the end it runs `verify.py` once (the verify plan, every AC's test, and plan drift). Drift never stops Build: each is recorded under `## Deviations` with What:, Why: and Effect:, and the end of Prove lists it. `Build:` is `native` (in the session), `subagent` (one fresh implementer) or `tasks` (subagent-driven development with a review per task), taken from the track (S `subagent`, M `native`, L `tasks`) and shown in Define's approval; change it in your reply.
 
@@ -87,7 +87,7 @@ The whole loop, with hard stops, is in [sdlc_orchestrator_decision_tree.svg](dia
 
 ### Hard stops
 
-The orchestrator always asks you before: Define's approval (not on S), anything that adds scope, the round cap (3 failed rounds), a requirement that fails in two rounds, any merge, production deploys, DB migrations, and anything irreversible. Everything else runs without asking, including failed verify rounds below the cap. Where an advisor is available, the orchestrator consults it at most twice per feature: before Define's approval and before Ship's commit. If you say "skip" or "just ship it", it names the gates being skipped, records them under Deviations in `state.md`, then complies.
+The orchestrator always asks you before: Define's approval (not on S), anything that adds scope, the round cap (3 failed rounds), a requirement that fails in two rounds, Ship's choice of merge, PR or keep on `Flow: full` and L (S and Lite commit on a feature branch and report it), any push, PR or merge, production deploys, DB migrations, and anything irreversible. Everything else runs without asking, including failed verify rounds below the cap. Where an advisor is available, the orchestrator consults it at most twice per feature: before Define's approval and before Ship's commit. If you say "skip" or "just ship it", it names the gates being skipped, records them under Deviations in `state.md`, then complies.
 
 ## Scope tracing
 
@@ -109,7 +109,7 @@ Every phase ties additions back to a request:
 
 The full run is the `test` command from `.sdlc/config.json`, with no extra arguments. In a monorepo freshness is per package: an edit under `services/api/` makes only `api` stale, and `cd services/api && <api's test command>` makes it fresh again; a file outside every package makes all of them stale. A root-level test command (e.g. `turbo run test`) counts for every package.
 
-**Verify's records.** In Build and Prove the hook also keeps its own copy of each `verify.py` run (each AC's red record, a full run's tree and result) beside the script's `.sdlc/.work/verify.json`. `verify.py status` lets Prove reuse the last run only when it passed, both records agree and the code hasn't changed since. A record that differs from the hook's copy is a trust-anchor notice. On Codex, Cursor and Antigravity the hook keeps no copy, so Prove reruns `verify.py`.
+**Verify's records.** In Build and Prove the hook also keeps its own copy of each `verify.py` run (each AC's red record, a full run's tree and result) beside the script's `.sdlc/.work/verify.json`. It recognises the plugin's `verify.py` as the command itself, optionally after `cd <dir> &&`, with redirects ignored and followed only by `| tail`, `| head`, `| grep`, `| cat` or `; echo …`, and copies `verify.json`'s entry for that run only when its tree is the current code; when the exit code is verify.py's own (nothing piped or echoed after it), the entry must agree with it. `verify.py status` lets Prove reuse the last run only when it passed, both records agree and the code hasn't changed since. A record that differs from the hook's copy is a trust-anchor notice. Codex, Cursor and Antigravity get the copy too (Codex and Antigravity commands arrive with `| cat` appended, which counts as a filter).
 
 **The baseline.** Failures listed in `.sdlc/baseline.md` (recorded at brownfield setup) don't fail a round on a feature planned before ADR 0013: the verifier fails only on **new** failures, removes baseline items that now pass, and never adds any. `verify.py` doesn't read the baseline yet, so on newer features a baselined failure in the suite fails it ([spec 04 Known gaps](specs/04-verification.md#known-gaps)). Accepting a new failure into the baseline is your decision, recorded as a Deviation.
 
@@ -137,11 +137,11 @@ The light review is the only code reviewer on M full: its brief covers correctne
 | Group | Skills |
 |---|---|
 | Conductor | `orchestrator` |
-| Set up | `setting-up-projects` (setup, upgrade, eject), `trimming-context` (`/sdlc:context-diet`) |
+| Set up | `setting-up-projects` (setup, upgrade, eject; its `references/trimming-context.md` backs `/sdlc:context-diet`) |
 | Specify and design | `brainstorming`, `writing-specs`, `clarifying-specs`, `designing-solutions`, `project-constitution` |
 | Plan and build | `writing-plans`, `analyzing-consistency`, `using-git-worktrees`, `subagent-driven-development`, `executing-plans`, `dispatching-parallel-agents`, `test-driven-development`, `systematic-debugging` |
-| Check | `verification-before-completion`, `requesting-code-review`, `receiving-code-review` |
-| Ship and learn | `finishing-a-development-branch`, `managing-knowledge`, `claude-md-improver`, `writing-hook-rules`, `todo` |
+| Check | `verification-before-completion`, `receiving-code-review` (requesting a review is a reference in `executing-plans`; the entry points are Prove, `/sdlc:review-pr` and `/sdlc:code-review`) |
+| Ship and learn | `finishing-a-development-branch`, `managing-knowledge` (with the CLAUDE.md quality check that was `claude-md-improver`), `writing-hook-rules`, `todo` |
 
 ### Subagents
 
@@ -155,8 +155,8 @@ The light review is the only code reviewer on M full: its brief covers correctne
 | `silent-failure-hunter`, `pr-test-analyzer` | Prove on L: swallowed errors; test gaps rated 1–10 |
 | `ui-reviewer` | Prove on M full, L and backlog features, when UI files change: design-system conformance, AI-slop styling, states, accessibility; screenshots on request |
 | `feature-reviewer` (with `code-reviewer`) | Prove, on full security: security-only review |
-| `comment-analyzer`, `type-design-analyzer`, `code-simplifier` | `/sdlc:review-pr`, chosen by the diff |
-| `conversation-analyzer` | `/sdlc:hookify`: find behaviors worth preventing with hooks |
+| `sdlc-extras:comment-analyzer`, `sdlc-extras:type-design-analyzer`, `sdlc-extras:code-simplifier` | `/sdlc:review-pr`, chosen by the diff, when the `sdlc-extras` plugin is installed (skipped, and said so, otherwise) |
+| `sdlc-extras:conversation-analyzer` | `/sdlc:hookify`: find behaviors worth preventing with hooks, when `sdlc-extras` is installed (otherwise the session does the analysis) |
 
 ### Commands
 
@@ -171,12 +171,13 @@ The light review is the only code reviewer on M full: its brief covers correctne
 | `/sdlc:deploy [feature] [environment]` | Deploy on request through the project's own deploy path, with your go-ahead before production or a DB migration |
 | `/sdlc:prune [--older-than 45d]` | Delete the working files of merged, finished features; keeps intent, spec, design, retro and state. Asks first, one commit |
 | `/sdlc:context-diet` | Propose turning off plugins and skills this project doesn't need, in `.claude/settings.local.json`, after you approve. Any repo, Claude Code only |
-| `/sdlc:review-pr` | Local pre-PR review with the right agents for the diff |
+| `/sdlc:review-pr` | Local pre-PR review of the diff with the right agents for it |
 | `/sdlc:code-review` | Review a GitHub PR (needs `gh`) |
 | `/sdlc:commit`, `/sdlc:commit-push-pr`, `/sdlc:clean_gone` | Git helpers |
-| `/sdlc:ralph-loop`, `/sdlc:cancel-ralph`, `/sdlc:ralph-help` | Optional self-iterating loop for one well-specified task |
 | `/sdlc:revise-claude-md`, `/sdlc:knowledge-audit` | Promote lessons; keep always-loaded context small |
-| `/sdlc:hookify`, `/sdlc:hookify-list`, `/sdlc:hookify-configure`, `/sdlc:hookify-help` | Turn repeated corrections into rules |
+| `/sdlc:hookify` | Turn repeated corrections into rules |
+| `/sdlc-extras:ralph-loop`, `/sdlc-extras:cancel-ralph`, `/sdlc-extras:ralph-help` | Optional self-iterating loop for one well-specified task (`sdlc-extras` plugin) |
+| `/sdlc-extras:hookify-list`, `/sdlc-extras:hookify-configure`, `/sdlc-extras:hookify-help` | List, toggle and explain hookify rules (`sdlc-extras` plugin) |
 
 ### Hooks
 
@@ -184,13 +185,14 @@ The light review is the only code reviewer on M full: its brief covers correctne
 |---|---|---|
 | hookify | PreToolUse, UserPromptSubmit, Stop | Evaluates rules from `.claude/hookify.*.local.md` (personal, git-ignored) and committed `.claude/hookify/*.md` (team). Rules warn or block |
 | security-guidance | UserPromptSubmit, PostToolUse, Stop | Pattern warnings on edits, a diff review at turn end, an agentic review after `git commit` and `git push`. During a feature, build commits before Prove are reviewed together with the next review-ready commit ([spec 05](specs/05-security.md)) |
-| verify-freshness | PostToolUse, PostToolUseFailure (Bash, PowerShell, edits), Stop | Stage 5 (on `Flow: lite`, also Stage 6): stale/fresh test tracking; Stages 4–5: its own copy of each `verify.py` run, which Prove's reuse checks ([above](#verification)) |
+| verify-freshness | PostToolUse, PostToolUseFailure (Bash, PowerShell, edits), Stop | Stage 5 (on `Flow: lite`, also Stage 6): stale/fresh test tracking; Stages 4–5: its own copy of each `verify.py` run, also inside a chained command, copied from `verify.json` when its tree is the current code, which Prove's reuse checks ([above](#verification)) |
 | prove-budget | PreToolUse (Bash, PowerShell, Monitor) | In Prove (Stage 5): a Bash command other than the project's own (`.sdlc/config.json` commands) is rewritten to run under `timeout -k 5 120`, with the tool timeout at 130 s; one that can't take the prefix (loops, subshells, chained commands) is refused, as are `run_in_background`, Monitor and PowerShell for such commands; the project's own commands are untouched |
 | model-router | PreToolUse (Agent) | While a feature is active: denies a dispatch that names no model or names `haiku`, asks for Fable without `Top model: fable`, or runs a reviewer, the verifier or the qa-tester below Opus on `Track: L`; logs every dispatch to `.sdlc/.work/dispatches.jsonl` |
 | trust-anchor | Stop, UserPromptSubmit | Tells you when what verification trusts changes: Track, Risk, Flow, Top model or Base; new baseline failures; changed commands; the spec after Prove began; untested code leaving Prove (an ac-checker on a passing full run of the current code counts as Stage 5, and on S that passing run alone); a `verify.json` that disagrees with the hook's copy ("verify records disagree"). It blocks once; your next message accepts it. A change that only adds checks (Track up, Risk low → high, Flow lite → full) is shown without blocking, except Flow lite → full on a backlog feature |
-| role-guard | PreToolUse (file tools) | Holds the plugin's agents to their role: reviewers and the ac-checker can't edit files, the verifier writes only its report, the baseline, its red-green worktree and its probe scripts, the qa-tester can't read or search code. Bash stays open to them |
-| ralph-loop | Stop | Only while a `/sdlc:ralph-loop` is running |
+| role-guard | PreToolUse (file tools) | Holds the plugin's agents to their role: reviewers (the `sdlc-extras:` ones too) and the ac-checker can't edit files, the verifier writes only its report, the baseline, its red-green worktree and its probe scripts, the qa-tester can't read or search code. Bash stays open to them |
 | SessionStart | SessionStart | Creates a Python environment for the security reviewer on first run |
+
+Every hook starts through `bash hooks/sg-python.sh`, which finds a working Python 3 and skips the Microsoft Store `python3` stub; `/sdlc:doctor`'s "hook python" check runs it. The `sdlc-extras` plugin adds the Ralph loop's Stop hook, active only while a `/sdlc-extras:ralph-loop` runs.
 
 In Codex, Cursor and the Antigravity CLI, `hosts/hook.py` runs hookify, verify-freshness and trust-anchor on the agent's own hook events (in Codex, once you trust them in `/hooks`; see [spec 11](specs/11-multi-agent.md)).
 
@@ -212,7 +214,7 @@ docs/sdlc/                 docs_dir: the documents people read (default; setup a
   design-system.md         the design system UI work follows (UI projects; yours)
   recurring-defects.md     defects Prove fixed, one line each: Learn adds, Define and reviewers read
   intents/<feature>/
-    intent.md  spec.md  plan.md                       Define, every track
+    intent.md  spec.md  plan.md                       Define, M and L
     backlog.md  plan-B<n>.md                          backlog features
     design.md  research.md  data-model.md  contracts/  quickstart.md  checklists/   design and full flow
     test-report.md  review.md  qa-report.md  security.md                        Prove
@@ -248,6 +250,8 @@ Owner: <git email of whoever advances it>
 Tool: <claude-code | codex | cursor | antigravity>
 Verified: <commit the Prove gate passed on> tree <worktree tree at that gate>
 Slice: B<n>   Slice base: <commit>   Slice gates: none   (backlog features only)
+Intent: <the bug and the expected behaviour, one line>   (S only)
+Repro: <test file> › <test name> | <command>   (S only: AC-001 for verify.py)
 Current: Stage 1 – Define   (then Stage 4 – Build, Stage 5 – Prove, Stage 8 – Ship)
 
 ## Stages            (1 Define, 4 Build, 5 Prove, 8 Ship)

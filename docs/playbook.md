@@ -35,12 +35,12 @@ A feature's documents go in `<docs>/intents/<feature>/` (`<docs>` is `docs/sdlc`
 
 **Type:** `/sdlc:start fix: export button 500s when the report is empty` (or paste a GitHub issue, Linear or Jira link).
 
-1. **Define:** the agent sizes it S (bug, 1–3 files, clear expected behaviour) and writes three short files: `intent.md` (the bug, one or two fix options, the chosen one, assumptions), `spec.md` (1–3 requirements, the repro as an acceptance criterion) and `plan.md` (1–3 tasks). No approval.
+1. **Define:** the agent sizes it S (bug, 1–3 files, clear expected behaviour) and writes no documents. It records two lines in the state file: `Intent:` (the bug and the expected behaviour) and `Repro: <test file> › <test name> | <command>` (the repro test, which `verify.py` treats as AC-001). No approval.
 2. **Build:** one implementer subagent (`sonnet`, high effort) writes a failing test that reproduces the bug and records it failing with `verify.py red AC-001`, then the fix, then runs `verify.py`, and reports both results. The session doesn't write the fix itself.
 3. **Prove:** nothing is dispatched: the fix was built and verified in one place. The session runs `verify.py status` and reuses the passing run (or reruns `verify.py` once), which shows the repro test was recorded red. A FAIL goes back to the implementer.
-4. **Ship:** Learn adds any defect Prove fixed to `recurring-defects.md`, one commit, then your merge, PR or keep.
+4. **Ship:** Learn files a lesson if there is one, then one commit on a feature branch (created off the default branch if needed). Nothing is pushed or merged; the agent reports the branch and commit without asking.
 
-**You decide:** merge, PR or keep. The round cap and a requirement failing twice ([6](#6-verify-keeps-failing)), and anything that adds scope, also stop it.
+**You decide:** whether to push, open a PR or merge; ask for it. The round cap and a requirement failing twice ([6](#6-verify-keeps-failing)), and anything that adds scope, also stop it.
 
 **If the bug is bigger:** the implementer stops with BLOCKED when the fix needs more than 3 files, touches auth, payments, secrets, PII or migrations, or the cause stays unclear. The feature moves to M and goes back to Define, which now needs your approval.
 
@@ -52,9 +52,9 @@ A feature's documents go in `<docs>/intents/<feature>/` (`<docs>` is `docs/sdlc`
 2. **You approve once.** The message lists the three paths, the recommended approach and the alternatives, every `[inferred]` item (each dropped unless you keep it), the tasks, the Public Surface, each acceptance criterion with its test (`manual` ones apart, with their reasons) and `Build: native`. Reply to change any of them: another approach, keep an inferred item, `Build: subagent`.
 3. **Build:** native, from `plan.md`. Per acceptance criterion: the test, `verify.py red AC-nnn` to record it failing, then the code. `verify.py` once at the end runs the checks, every criterion's test and the drift check. Changes from the plan are written under its `## Deviations` with what, why and effect; they never stop the build, and the end of Prove lists them.
 4. **Prove:** on `Flow: lite`, Build's `verify.py` run is reused (or rerun once), one fresh `ac-checker` reads each criterion beside its test, plus light security (dependency audit, hook findings); no reviewers. Findings are fixed together, failing test first, then `verify.py` once more in the session, and a fresh ac-checker on any criterion that failed.
-5. **Ship:** Learn, one commit, then your merge, PR or keep.
+5. **Ship:** Learn, then one commit on a feature branch, reported without asking. Push, PR and merge wait for you to ask.
 
-Low-risk M work runs `Flow: lite`, as above. Say "use the full flow" to get `writing-specs` with its checklist, `writing-plans`, one light code-reviewer on `sonnet` (correctness, silent failures and security in one pass), a ui-reviewer on UI work in Prove, and fixes re-checked in the session the same way. High-risk M work always gets it, and so does a spec that needs a design decision the request doesn't settle.
+Low-risk M work runs `Flow: lite`, as above. Say "use the full flow" to get `writing-specs` with its checklist, `writing-plans`, one light code-reviewer on `sonnet` (correctness, silent failures and security in one pass), a ui-reviewer on UI work in Prove, and fixes re-checked in the session the same way. High-risk M work always gets it, and so does a spec that needs a design decision the request doesn't settle. On the full flow, Ship asks: merge, PR or keep.
 
 **Good habits:** state non-goals up front; answer the questions briefly; challenge any addition you didn't ask for at the approval, not after the code exists. Too big for one session? See [19](#19-a-big-feature-becomes-a-backlog).
 
@@ -124,8 +124,8 @@ Use `sdlc:receiving-code-review`: check each comment against the code before agr
 
 | Source | Command |
 |---|---|
-| Local, before the PR | `/sdlc:review-pr` (picks agents for the diff) |
-| Plan versus implementation | `sdlc:requesting-code-review` |
+| Local, before the PR | `/sdlc:review-pr` (picks agents for the diff; the comment, type and simplifier agents need the `sdlc-extras` plugin) |
+| Plan versus implementation | Prove's code review, from the plan and spec |
 | On the GitHub PR | `/sdlc:code-review` |
 
 Severity rules: unrequested public surface (an export, file, endpoint, option, config key or dependency not in the plan's Public Surface, with no stated reason) is **high**. Comment noise is **medium** and fixed in Prove, not ticketed. Other medium and low findings go to `review.md` as tickets.
@@ -138,11 +138,11 @@ Say `skip` or `just ship it`. The agent will:
 2. record them as a deviation in the state file,
 3. comply.
 
-Hard stops (merge, production deploy, migrations, anything irreversible) still wait for your explicit word. Skipping a gate is allowed; skipping silently is not.
+Hard stops (push, PR, merge, production deploy, migrations, anything irreversible) still wait for your explicit word. Skipping a gate is allowed; skipping silently is not.
 
 ## 10. Merge and deploy
 
-1. **Ship:** Learn and one commit first, then the merge, PR or keep question. `finishing-a-development-branch` handles the choice and cleans up worktrees. `/sdlc:commit-push-pr` opens a PR that links `spec.md`, `test-report.md` and, if the qa-tester ran, `qa-report.md`. `/sdlc:clean_gone` prunes merged local branches afterwards.
+1. **Ship:** Learn and one commit on a feature branch first. On S and `Flow: lite` that's where it stops: ask for a push, PR or merge when you want one. On `Flow: full` and L it asks the merge, PR or keep question. `finishing-a-development-branch` handles the choice and cleans up worktrees. `/sdlc:commit-push-pr` opens a PR that links `spec.md`, `test-report.md` and, if the qa-tester ran, `qa-report.md`. `/sdlc:clean_gone` prunes merged local branches afterwards.
 2. **CI must be green. The agent never merges without you saying so.**
 3. **Deploy** is a separate request: `/sdlc:deploy [feature] [environment]`.
    - It warns if the feature hasn't reached Ship, and continues only on your word.
@@ -155,22 +155,22 @@ Hard stops (merge, production deploy, migrations, anything irreversible) still w
 
 This is the Ralph loop: one task repeated in the current session. For running a backlog's slices in fresh sessions, see autopilot ([20](#20-run-a-backlog-on-autopilot)).
 
-For one well-specified task with a machine-checkable finish:
+It comes with the optional companion plugin: `/plugin install sdlc-extras@sdlc`, then restart. For one well-specified task with a machine-checkable finish:
 
 ```
-/sdlc:ralph-loop "Make all tests in tests/export pass" --completion-promise "DONE" --max-iterations 15
+/sdlc-extras:ralph-loop "Make all tests in tests/export pass" --completion-promise "DONE" --max-iterations 15
 ```
 
-Always set `--max-iterations`. Cancel with `/sdlc:cancel-ralph`. Use it inside Build only; Prove still runs afterwards.
+Always set `--max-iterations`. Cancel with `/sdlc-extras:cancel-ralph`. Use it inside Build only; Prove still runs afterwards.
 
 ## 12. Turn a correction into a rule
 
 If you've corrected the same thing twice **and** a pattern in a command, file edit, prompt or stop can catch it, write a hookify rule instead of more prose.
 
-1. `/sdlc:hookify` with a description, or with no arguments to have `conversation-analyzer` scan the session for candidates.
+1. `/sdlc:hookify` with a description, or with no arguments to scan the session for candidates (with `sdlc-extras` installed, its `conversation-analyzer` agent does the scan).
 2. Rules live in `.claude/hookify/<name>.md` (committed, team) or `.claude/hookify.<name>.local.md` (personal, git-ignored).
 3. A rule has an `event` (`bash`, `file`, `stop`, `prompt`, `all`), an `action` (`warn` or `block`) and conditions. Syntax: `sdlc:writing-hook-rules`.
-4. `/sdlc:hookify-list` shows what's active; `/sdlc:hookify-configure` turns rules on or off.
+4. With `sdlc-extras` installed, `/sdlc-extras:hookify-list` shows what's active and `/sdlc-extras:hookify-configure` turns rules on or off. Without it, edit `enabled:` in the rule file.
 
 Start with `warn`. Move to `block` once the pattern has no false positives.
 
@@ -189,7 +189,7 @@ Start with `warn`. Move to `block` once the pattern has no false positives.
 4. **Baseline:** it runs them and records what already fails in `.sdlc/baseline.md`. Features are judged only on new failures. A failing install or build stops setup.
 5. **Audit:** explorer agents draft conventions, gotchas from git history, decisions and per-area rules. You approve, edit or drop each item.
 6. **Existing AI config** (long `CLAUDE.md`, `AGENTS.md`, Cursor rules, ADRs): one migration diff per source; originals stay unless you say delete.
-7. **The rest:** rules, guardrails, lint snippets (only for a linter you already have), allowlist, constitution, a design system (UI projects only), knowledge. Two steps are asked first: adding the sdlc marketplace and `enabledPlugins` to `.claude/settings.json` so teammates are offered the plugin, and the context diet ([13](#13-keep-always-loaded-context-small)). Existing CI is left alone (it points out steps that differ from the recorded commands); a repo without CI is offered a workflow, and every repo the `sdlc-invariants` check.
+7. **The rest:** rules, guardrails, lint snippets (only for a linter you already have), allowlist, constitution, a design system (UI projects only), knowledge. Two steps are asked first: adding the sdlc marketplace and `enabledPlugins` to `.claude/settings.json` so teammates are offered the plugin (skipped, and said so, when the session runs sdlc from a directory with `--plugin-dir` rather than the installed copy), and the context diet ([13](#13-keep-always-loaded-context-small)). Existing CI is left alone (it points out steps that differ from the recorded commands); a repo without CI is offered a workflow, and every repo the `sdlc-invariants` check.
 8. At the end: PR or local merge, your choice. Then `/sdlc:start` a small S fix to see the loop end to end.
 
 Interrupted? Run `/sdlc:setup` again; it resumes from the last finished step.
@@ -287,7 +287,7 @@ Autopilot won't start a session while a notice is open; its JSON `stopped` reaso
 | Define's approval: approach, spec, plan (and backlog, design), `Build:` (not on S) | You |
 | Anything that adds scope | You |
 | What next after three failed verify rounds, or a requirement failing in two | You |
-| Merge (Ship's merge, PR or keep) | You |
+| Push, PR or merge (Ship asks on `Flow: full` and L; on S and Lite it commits on a branch and you ask) | You |
 | Production deploy | You |
 | DB migration | You |
 | Anything irreversible | You |

@@ -7,30 +7,32 @@ How the plugin is laid out, how to run and test it from a checkout, and how to s
 ```
 sdlc/
 ├── .claude-plugin/
-│   ├── plugin.json          name, version (repos record it at setup and upgrade)
-│   └── marketplace.json     marketplace entry for /plugin install
+│   ├── plugin.json          name, version (repos record it at setup and upgrade), homepage, repository
+│   └── marketplace.json     marketplace entries for /plugin install: sdlc and sdlc-extras
+├── .claude/CLAUDE.md, .claude/rules/   notes for contributors to this repo (a plugin's root CLAUDE.md is never loaded)
 ├── .codex-plugin/, .agents/plugins/, .cursor-plugin/, plugin.json, hooks.json, hosts/
 │                            Codex, Cursor and Antigravity manifests, Cursor agents, hosts/skills (the commands as skills)
 │                            and hosts/<host>/hooks.json, root hooks.json (Antigravity's): built by scripts/hosts.py, never edited;
 │                            `hosts.py dist antigravity` builds Antigravity's install copy. hosts/hook.py (hand-written) runs
 │                            the hooks under Codex, Cursor and Antigravity
-├── agents/                  subagents: ac-checker, verifier, reviewers, code-explorer/architect, simplifier, …
+├── agents/                  subagents: ac-checker, verifier, reviewers, code-explorer/architect, …
 ├── commands/                slash commands (/sdlc:start, setup, upgrade, eject, doctor, status, prune, deploy, context-diet, review-pr, …)
 ├── skills/                  skills; orchestrator/ is the conductor (a short core plus references/ read per phase), setting-up-projects/ runs setup/upgrade/eject
+│                            (references/trimming-context.md: /sdlc:context-diet); executing-plans/references/ holds requesting-code-review.md
+│                            and code-reviewer.md; managing-knowledge/references/ holds claude-md-improver.md and its folder
 ├── hooks/
-│   ├── hooks.json           which script runs on which event
+│   ├── hooks.json           which script runs on which event; every hook starts through sg-python.sh
 │   ├── verify_freshness.py  Prove (Stage 5; old Lite features: 5–6) stale/fresh test tracking, and its own copy of verify.py runs (original)
 │   ├── model_router.py      checks each subagent dispatch's model, logs dispatches (original)
 │   ├── role_guard.py        keeps the plugin's agents to their role's file access (original)
 │   ├── prove_budget.py      kills non-project shell commands at 120 s in Prove, no background runs (original)
 │   ├── trust_anchor.py      shows the user changes to what verification trusts (original)
 │   ├── pretooluse.py, stop.py, userpromptsubmit.py   hookify entry points (vendored)
-│   ├── stop-hook.sh         ralph-loop (vendored)
 │   ├── security_reminder_hook.py + modules, sg-python.sh   security-guidance (vendored; patched to ask sdlc_review_gate.py)
 │   └── sdlc_review_gate.py  one commit security review per review-ready diff while a feature is active (original)
 ├── core/                    hookify rule loader and engine (vendored, patched; see NOTICE.md)
 ├── matchers/, utils/        empty hookify packages (vendored)
-├── knowledge/, .claude/rules/   this repo's own knowledge, same 3-tier spec as projects (sdlc:managing-knowledge)
+├── knowledge/               this repo's own knowledge, same 3-tier spec as projects (sdlc:managing-knowledge)
 ├── scripts/
 │   ├── scaffold.py          setup/upgrade/eject bookkeeping: lock, file classes, commands, CI generator
 │   ├── doctor.py            read-only health check
@@ -40,8 +42,7 @@ sdlc/
 │   ├── backlog.py           the next ready slice of a feature's backlog.md
 │   ├── state.py             every state change in one call: state.md plus the control contract (beside it, git-ignored)
 │   ├── autopilot.py         runs a backlog one fresh headless claude session per slice (opt-in)
-│   ├── context_diet.py      per-source estimate of what Claude Code lists every call (/sdlc:context-diet)
-│   └── setup-ralph-loop.sh  (vendored)
+│   └── context_diet.py      per-source estimate of what Claude Code lists every call (/sdlc:context-diet)
 ├── templates/
 │   ├── spec/design/checklist/constitution-template.md   used by the Define skills
 │   ├── backlog-template.md  a feature's backlog of slices (orchestrator)
@@ -50,6 +51,10 @@ sdlc/
 │   └── project/             what setup places in a repo: config defaults, rules/, hookify/, lint/, agents/ (the AGENTS.md workflow section), baseline.md
 ├── migrations/              <version>-<slug>.md steps that /sdlc:upgrade applies to project-owned files
 ├── examples/hookify/        sample rules
+├── plugins/sdlc-extras/     the optional companion plugin, same marketplace, version bumped with sdlc's (vendored):
+│                            commands/ ralph-loop, cancel-ralph, ralph-help, hookify-list, hookify-configure, hookify-help;
+│                            agents/ conversation-analyzer, type-design-analyzer, comment-analyzer, code-simplifier;
+│                            hooks/stop-hook.sh (the Ralph Stop hook) and scripts/setup-ralph-loop.sh
 ├── tests/                   stdlib unittest suite (helpers.py + one file per hook or script)
 ├── .github/workflows/ci.yml the suite on Linux and Windows, plus `claude plugin validate`, on push and PR
 ├── docs/
@@ -62,7 +67,7 @@ sdlc/
 ├── CHANGELOG.md  NOTICE.md  LICENSE  README.md
 ```
 
-Original to this plugin: the orchestrator and setting-up-projects skills, `managing-knowledge`, `trimming-context`, the `ac-checker`, `verifier`, `qa-tester` and `ui-reviewer` agents, `verify_freshness.py`, `sdlc_review_gate.py`, `model_router.py`, `role_guard.py`, `prove_budget.py`, `trust_anchor.py`, `commands/deploy.md`, everything in `scripts/` except the ralph script, `templates/project/`, `templates/knowledge/`, `templates/design-system-template.md`, `templates/backlog-template.md`, `migrations/`, `tests/`, `docs/`. Everything else is vendored; `NOTICE.md` says what came from where and what was changed.
+Original to this plugin: the orchestrator and setting-up-projects skills (with `setting-up-projects/references/trimming-context.md`), `managing-knowledge`, the `ac-checker`, `verifier`, `qa-tester` and `ui-reviewer` agents, `verify_freshness.py`, `sdlc_review_gate.py`, `model_router.py`, `role_guard.py`, `prove_budget.py`, `trust_anchor.py`, `commands/deploy.md`, everything in `scripts/`, `templates/project/`, `templates/knowledge/`, `templates/design-system-template.md`, `templates/backlog-template.md`, `migrations/`, `tests/`, `docs/`. Everything else is vendored; `NOTICE.md` says what came from where and what was changed.
 
 ## Dev loop
 
