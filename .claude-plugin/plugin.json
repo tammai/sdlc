@@ -7,6 +7,8 @@
     "name": "Tâm Mai",
     "email": "tammai.it@gmail.com"
   },
+  "homepage": "https://github.com/tammai/sdlc",
+  "repository": "https://github.com/tammai/sdlc",
   "license": "MIT",
   "keywords": ["sdlc", "workflow", "orchestrator", "spec-driven", "tdd", "code-review", "security", "monorepo", "claude-code-plugin"]
 }
