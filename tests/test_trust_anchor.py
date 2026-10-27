@@ -120,6 +120,36 @@ class TrustAnchorTest(ProjectTestCase):
         self.state(stage=8, risk="low", track="S")
         self.assertIn("without Stage 5", self.stop()["systemMessage"])
 
+    def dispatch(self, agent):
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        with open(self.path(".sdlc/.work/dispatches.jsonl"), "a", encoding="utf-8") as f:
+            f.write(json.dumps({"time": now, "agent": agent, "stages": ["Stage 5"], "denied": False}) + "\n")
+
+    def test_an_ac_checker_round_on_a_passing_verify_passes_stage_5(self):
+        self.state(stage=4, risk="low")
+        self.stop()
+        self.write("src/login.ts", "export const a = 2\n")
+        self.state(stage=5, risk="low")
+        self.full_run()
+        self.state(stage=8, risk="low")
+        self.assertIn("without Stage 5", self.stop()["systemMessage"])  # a passing suite alone isn't Prove on M
+        self.prompt()
+        self.state(stage=4, risk="low")
+        self.stop()
+        self.write("src/login.ts", "export const a = 3\n")
+        self.state(stage=5, risk="low")
+        self.full_run()
+        self.dispatch("sdlc:ac-checker")
+        self.state(stage=8, risk="low")
+        self.assertIsNone(self.stop())
+
+    def test_hand_edited_verify_record_is_a_notice(self):
+        self.state(stage=5)
+        self.write(".sdlc/.work/verify-freshness.json",
+                   json.dumps({"feature": "login", "verify": {"last": {"tree": "abc", "result": "fail"}}}))
+        self.write(".sdlc/.work/verify.json", json.dumps({"feature": "login", "last": {"tree": "abc", "result": "pass"}}))
+        self.assertIn("verify records disagree", self.stop()["systemMessage"])
+
     def test_lite_flow_review_fix_rerun_in_stage_6_is_not_a_notice(self):
         self.state(stage=5, risk="low", flow="lite")
         self.full_run()

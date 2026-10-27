@@ -11,8 +11,9 @@ check, so this can't prevent a change; it makes one visible. For each active fea
   - the commands in `.sdlc/config.json` differ from those at `Base:`
   - `spec.md` changed after the feature entered Stage 5
   - the feature left Stage 5 while code differed from its last full test run, or moved past Stage 5 without it
-    (a verifier dispatched in Stage 5 since the last Stop counts, since a turn can run several stages; on Track S,
-    which dispatches no verifier, a passing full test run of the current code counts)
+    (a verifier dispatched in Stage 5 since the last Stop counts, since a turn can run several stages; so does an
+    ac-checker on a passing full run of the current code, and on Track S that passing run alone)
+  - verify.py's record of its last run differs from the freshness hook's own copy (a hand-edited record)
   - on `Flow: lite`, a Stop outside Stages 4-6 finds code that differs from the last full test run (one notice
     per untested state of the code)
   - a feature seen active stopped being active, other than by finishing (`Status: done`)
@@ -119,10 +120,12 @@ def check(root, name, text, anchor, shown):
     prev = anchor.get("stage")
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")  # the model router's dispatch-log format
     # Stops are samples: a Lite turn can run Stages 3 to 8 between two of them, so Stage 5 counts as passed when a
-    # verifier was dispatched in it since the last Stop (the evidence the Stage 5 gate trusts)
+    # verifier was dispatched in it since the last Stop (the evidence the Stage 5 gate trusts), or an ac-checker was
+    # and the last full run (verify) passed on the current code (ADR 0013)
     s_track = re.search(r"^Track:\s*s\b", text, re.M | re.I)
-    if (prev is not None and prev < 5 < (st or 0) and not verifier_since(root, anchor.get("stop_time"))
-            and not (s_track and suite_passed(root, name))):
+    since = anchor.get("stop_time")
+    if (prev is not None and prev < 5 < (st or 0) and not dispatched_since(root, since, "sdlc:verifier")
+            and not ((s_track or dispatched_since(root, since, "sdlc:ac-checker")) and suite_passed(root, name))):
         notices.append(f"went from Stage {prev} to Stage {st} without Stage 5")
     # The Lite flow re-verifies fixes in-session, so outside the build-verify-review loop (Stages 4-6) the code must
     # match the last full run: checked at every such Stop, since the move out of the loop may not be seen
@@ -135,12 +138,31 @@ def check(root, name, text, anchor, shown):
         if changed and anchor["untested_seen"] != anchor.get("untested_ok"):
             where = f"left Stage 5 for Stage {st}" if leaving_5 else f"Stage {st}"  # stable text: seen once
             notices.append(f"{where} with code changed since the last full test run: " + ", ".join(changed[:5]))
+    disagree = verify_records_disagree(root, name)
+    if disagree:
+        notices.append(f"verify records disagree: {disagree}")
     anchor["stage"] = st
     anchor["stop_time"] = now
     return notices
 
 
-def verifier_since(root, since):
+def verify_records_disagree(root, name):
+    """verify.py's record of its last run against the freshness hook's own copy: a hand-edited record shows here."""
+    try:
+        with open(os.path.join(root, ".sdlc", ".work", "verify.json"), encoding="utf-8") as f:
+            script = json.load(f)
+    except (OSError, ValueError):
+        return None
+    hook = vf.load(root)
+    if script.get("feature") != name or hook.get("feature") != name:
+        return None
+    a, b = script.get("last") or {}, (hook.get("verify") or {}).get("last") or {}
+    if a and b and (a.get("tree"), a.get("result")) != (b.get("tree"), b.get("result")):
+        return f"verify.json says {a.get('result')}, the hook saw {b.get('result')} (tree {str(b.get('tree'))[:12]})"
+    return None
+
+
+def dispatched_since(root, since, agent):
     try:
         with open(os.path.join(root, ".sdlc", ".work", "dispatches.jsonl"), encoding="utf-8") as f:
             lines = f.read().splitlines()
@@ -151,7 +173,7 @@ def verifier_since(root, since):
             d = json.loads(line)
         except ValueError:
             continue
-        if (isinstance(d, dict) and d.get("agent") == "sdlc:verifier" and not d.get("denied")
+        if (isinstance(d, dict) and d.get("agent") == agent and not d.get("denied")
                 and str(d.get("time", "")) >= (since or "")
                 and any(re.match(r"Stage\s*5\b", str(s)) for s in d.get("stages") or [])):
             return True
