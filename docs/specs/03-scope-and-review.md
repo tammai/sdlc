@@ -60,5 +60,5 @@ Every addition is traced to a request from spec to diff, and review gets measure
 ## Known gaps
 
 - Spec, design and plan tracing are instructions plus user approval. The S track has no plan, so the surface check doesn't apply there.
-- Reviewers can't edit files: five have no Edit or Write tools, and the role-guard hook denies file edits to every `sdlc:` and `sdlc-extras:` reviewer, `ui-reviewer` included. They keep Bash (for `git diff`, tests and browsers), so a shell edit is still only instructed against; the freshness hook's worktree diff catches one during Prove (Stage 5).
+- Reviewers can't edit files: five have no Edit or Write tools, and the role-guard hook denies file edits to every `sdlc:` and `sdlc-extras:` reviewer, `ui-reviewer` included. All but the ac-checker keep Bash (for `git diff`, tests and browsers), so a shell edit is still only instructed against; the freshness hook's worktree diff catches one during Prove (Stage 5).
 - Export detection is regex-based for TS/JS, Python and Go; other languages get comment counts only.

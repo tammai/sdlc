@@ -39,7 +39,7 @@ Propose the *smallest* fitting track; size up only for a named signal, written i
 | S | `subagent`, standard | no Prove: Build's red record and passing `verify.py` | only when security-touched |
 | M, `Flow: lite` | `native` (or `subagent`, standard) | no Prove: Build's passing `verify.py` | only when security-touched |
 | M, `Flow: full`, either risk | `native` | ac-checker and one light code-reviewer, both standard | only when security-touched: full, standard |
-| L | `tasks`, standard implementers | top | only when security-touched: full, top |
+| L | `tasks`, standard implementers | ac-checker standard; code reviewer and the others top | only when security-touched: full, top |
 | Backlog (slices) | `native` | none per slice; one Prove at Feature close, on every backlog (reviewer top) | only when security-touched, at Feature close |
 
 Tiers (Model Selection in `sdlc:subagent-driven-development`): cheap and standard are `sonnet`, passed with `effort: high`; top is `opus` (`fable` only when the user asks: `Top model: fable`). Never `haiku`. Every dispatch names its `model`; the model router denies a missing model, `haiku`, `fable` without the opt-in, and reviewers, the verifier or qa-tester below `opus` on `Track: L`.

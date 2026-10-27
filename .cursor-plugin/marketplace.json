@@ -8,7 +8,7 @@
     {
       "name": "sdlc",
       "source": "./",
-      "description": "One Claude Code plugin for the whole software lifecycle: an orchestrator sizes each piece of work (S/M/L) and walks it through four gated phases (define, build, prove, ship), from spec and design through TDD and one parallel round of a fresh verifier, multi-agent review and security checks to ship and learn, plus guardrail hooks, design-system-aware UI review and setup/upgrade for any stack or monorepo."
+      "description": "One Claude Code plugin for the whole software lifecycle: an orchestrator sizes each piece of work (S/M/L) and walks it through four gated phases (define, build, prove, ship), from spec and design through test-first builds that prove each acceptance criterion with one verify command, a Prove round of an acceptance checker, review and (only where security is touched) security checks on the bigger tracks, to ship and learn, plus guardrail hooks, design-system-aware UI review and setup/upgrade for any stack or monorepo."
     }
   ]
 }

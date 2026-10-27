@@ -22,7 +22,7 @@ sdlc/
 │                            and code-reviewer.md; managing-knowledge/references/ holds claude-md-improver.md and its folder
 ├── hooks/
 │   ├── hooks.json           which script runs on which event; every hook starts through sg-python.sh
-│   ├── verify_freshness.py  Prove (Stage 5; old Lite features: 5–6) stale/fresh test tracking, and its own copy of verify.py runs (original)
+│   ├── verify_freshness.py  Prove (Stage 5; on `Flow: lite` also 6, where a backlog slice rests) stale/fresh test tracking, and its own copy of verify.py runs (original)
 │   ├── model_router.py      checks each subagent dispatch's model, logs dispatches (original)
 │   ├── role_guard.py        keeps the plugin's agents to their role's file access (original)
 │   ├── prove_budget.py      kills non-project shell commands at 120 s in Prove, no background runs (original)
@@ -44,7 +44,7 @@ sdlc/
 │   ├── autopilot.py         runs a backlog one fresh headless claude session per slice (opt-in)
 │   └── context_diet.py      per-source estimate of what Claude Code lists every call (/sdlc:context-diet)
 ├── templates/
-│   ├── spec/design/checklist/constitution-template.md   used by the Define skills
+│   ├── intent/spec/plan/design/checklist/constitution-template.md   used by Define and its skills
 │   ├── backlog-template.md  a feature's backlog of slices (orchestrator)
 │   ├── design-system-template.md   setup's design-system step (UI projects)
 │   ├── knowledge/           OKF templates for tier 2/3 knowledge

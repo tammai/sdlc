@@ -64,7 +64,7 @@ Low-risk M work runs `Flow: lite`, as above. Say "use the full flow" to get `wri
 
 1. **Define**, `Flow: full`: blocking questions first, then `brainstorming` writes `intent.md`, asking you to pick between approaches. It may offer a browser visual companion (needs Node).
 2. The design (`designing-solutions`) dispatches `code-explorer` and `code-architect` and writes `design.md`, `research.md`, `data-model.md`, `contracts/` and `quickstart.md`. Expect options: minimal, minimal plus one named extension, pragmatic. Minimal is recommended unless it fails a named requirement. `writing-plans` writes `plan.md`; `analyzing-consistency` checks every requirement has a task. One approval covers it all, with `Build: tasks`.
-3. **Build:** a git worktree, a fresh implementer per task and a review after each.
+3. **Build:** a git worktree and a fresh implementer per task, with no review per task: Prove is the only review.
 4. **Prove** (unless you chose `Prove: skip` at the approval): Build's `verify.py` run, the ac-checker, a top-tier code-reviewer, silent-failure-hunter, pr-test-analyzer, and full security when the change is security-touched, in one round; high findings go back to Build, then one re-verification.
 5. **Ship:** Learn also writes `retro.md` and a `knowledge/features/` page. Deploy only when you ask ([10](#10-merge-and-deploy)).
 
@@ -108,7 +108,7 @@ Each round judges a `verify.py` run on the current code: Build's, reused when no
 
 **A qa-tester scenario failed but the tests pass:** the tests prove something other than the spec. It's a finding like any other, fixed with a failing test that reproduces the steps. Only one that needs a new requirement comes to you. **"Not run":** the qa-tester lacked something it needed (a tool, a browser) and never installs anything. The reason is in `qa-report.md`: provide it, or check the scenario yourself. A scenario it couldn't work out how to run is a finding instead: the quickstart is missing a step.
 
-**"Doesn't prove the change":** that test also passes on `Base:`, so it can't be a criterion's evidence. Make it assert the new behaviour, or point the criterion at a test that does.
+**"Doesn't prove" a criterion:** the ac-checker read the test and found it wouldn't catch the behaviour missing (it asserts too little, or something else). Make it assert the new behaviour; the change goes under the plan's `## Deviations`. A test that passes before its code exists is refused earlier, by `verify.py red` in Build. (Old plans: the verifier says this when the test also passes on `Base:`.)
 
 **When it stops:** allow more rounds, narrow the scope, or revisit the design. Don't ask it to rerun until green: retried-until-green tests fail the gate.
 
@@ -142,7 +142,7 @@ Hard stops (push, PR, merge, production deploy, migrations, anything irreversibl
 
 ## 10. Merge and deploy
 
-1. **Ship:** Learn and one commit on a feature branch first. On S and `Flow: lite` that's where it stops: ask for a push, PR or merge when you want one. On `Flow: full` and L it asks the merge, PR or keep question. `finishing-a-development-branch` handles the choice and cleans up worktrees. `/sdlc:commit-push-pr` opens a PR that links `spec.md`, `test-report.md` and, if the qa-tester ran, `qa-report.md`. `/sdlc:clean_gone` prunes merged local branches afterwards.
+1. **Ship:** Learn and one commit on a feature branch first. On S and `Flow: lite` that's where it stops: ask for a push, PR or merge when you want one. On `Flow: full`, L and a backlog's feature close it asks the merge, PR or keep question. `finishing-a-development-branch` handles the choice and cleans up worktrees. `/sdlc:commit-push-pr` opens a PR that links `spec.md`, `test-report.md` and, if the qa-tester ran, `qa-report.md`. `/sdlc:clean_gone` prunes merged local branches afterwards.
 2. **CI must be green. The agent never merges without you saying so.**
 3. **Deploy** is a separate request: `/sdlc:deploy [feature] [environment]`.
    - It warns if the feature hasn't reached Ship, and continues only on your word.
@@ -233,7 +233,7 @@ Work bigger than one session (more than about 8 tasks, or several distinct parts
 
 1. **Define** writes `backlog.md` next to the three files: one row per vertical slice (`B1`, `B2`, …) with its requirements, acceptance criteria, dependencies and size. `plan.md` gives each slice an outline. You approve them all at once. The feature runs `Flow: lite` from here, whatever the track. On L or high-risk M, the approval message comes with a `Flow: full → lite` trust-anchor notice; your approval accepts it.
 2. **Each slice:** the agent writes `plan-B<n>.md` (3–6 tasks), builds natively until `verify.py` passes, then commits it. No Prove per slice. Slices run back to back without asking.
-3. **It stops** for a backlog change that adds scope, or at a hard stop (and in feature close's Prove, at the round cap or when a requirement fails in two rounds). To look at each slice, say so: it records `Slice gates: plan, review, commit` (any of them).
+3. **It stops** for a backlog change that adds scope, or at a hard stop (and in feature close's Prove, at the round cap or when a requirement fails in two rounds). To look at each slice, say so: it records `Slice gates: plan, commit` (either or both).
 4. **Low context:** it stops at a slice boundary with `B<n> done (<commit>). Next: B<m> <title>. Run /clear, then /sdlc:start.` `/sdlc:start B<n>` runs a named slice once its dependencies are done.
 5. **Feature close**, after the last slice: on every backlog, whatever its flow, one Prove round over the whole branch (every acceptance criterion, one top-tier code-reviewer, qa-tester, and full security when the branch is security-touched), unless you chose `Prove: skip`; then Ship with Learn and your merge, PR or keep.
 
@@ -274,7 +274,7 @@ It reports, per active feature:
 
 **What to do:** read it. If the change is right, carry on: your next message accepts it. If not, say so and ask the agent to put it back.
 
-A change that only adds checks (Track up, Risk low → high, Flow lite → full) shows `Stricter process: …` and doesn't stop you. On a backlog feature, leaving Lite still stops once.
+A change that only adds checks (Track up, Risk low → high, Flow lite → full, Prove skip → run) shows `Stricter process: …` and doesn't stop you. On a backlog feature, leaving Lite still stops once.
 
 Autopilot won't start a session while a notice is open; its JSON `stopped` reason quotes the notice. Read it, send any message in a normal session to accept it, then run autopilot again.
 
@@ -287,7 +287,7 @@ Autopilot won't start a session while a notice is open; its JSON `stopped` reaso
 | Define's approval: approach, spec, plan (and backlog, design), `Build:` (not on S) | You |
 | Anything that adds scope | You |
 | What next after three failed verify rounds, or a requirement failing in two | You |
-| Push, PR or merge (Ship asks on `Flow: full` and L; on S and Lite it commits on a branch and you ask) | You |
+| Push, PR or merge (Ship asks on `Flow: full`, L and a backlog's feature close; on S and Lite it commits on a branch and you ask) | You |
 | Production deploy | You |
 | DB migration | You |
 | Anything irreversible | You |

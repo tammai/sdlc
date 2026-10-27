@@ -3,7 +3,7 @@
 
 The files the other hooks trust (state.md, spec.md, baseline.md, config.json) are writable by the agent they
 check, so this can't prevent a change; it makes one visible. For each active feature, on Stop:
-  - `Track:`, `Risk:`, `Flow:`, `Top model:` or `Base:` differs from the value first seen, unless the change only
+  - `Track:`, `Risk:`, `Flow:`, `Top model:`, `Base:` or `Prove:` differs from the value first seen, unless the change only
     makes the process stricter (Track up, Risk low → high, Flow lite → full): that becomes the new anchor and is
     shown to the user without blocking, since they approved it already (it can switch off the Lite-only check);
     a backlog feature leaving Lite still blocks

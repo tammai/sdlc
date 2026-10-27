@@ -1,6 +1,6 @@
 <svg width="100%" viewBox="0 0 680 572" role="img" xmlns="http://www.w3.org/2000/svg">
 <title>SDLC tracks and their phases</title>
-<desc>Sizing picks the smallest fitting S, M or L track. Each track runs the four phases Define, Build, Prove and Ship with Learn; M and L write intent.md, spec.md and plan.md; S writes no documents, only Intent: and Repro: lines in its state file, with no approval, and every track's Build records each acceptance criterion's test failing before its code and ends with one passing verify.py run, which goes straight to Ship on S and on M's default Flow lite (no Prove); M full (high risk or on request) and L run Prove, skippable at Define's approval, which reuses that run: a fresh ac-checker reading each test against its criterion plus a light code review on M full, and the top-tier reviewers on L; full security only when the change is security-touched; L adds brainstorming and design in Define. A dot marks phases that end by asking the user (M's Ship only on the full flow). Backlog slices loop Build and a commit, with no Prove per slice, then a feature close with one Prove. Deploy is the on-request command /sdlc:deploy on any track, not a phase.</desc>
+<desc>Sizing picks the smallest fitting S, M or L track. Each track runs the four phases Define, Build, Prove and Ship with Learn; M and L write intent.md, spec.md and plan.md; S writes no documents, only Intent: and Repro: lines in its state file, with no approval, and every track's Build records each acceptance criterion's test failing before its code and ends with one passing verify.py run, which goes straight to Ship on S and on M's default Flow lite (no Prove); M full (high risk or on request) and L run Prove, skippable at Define's approval, which reuses that run: a fresh ac-checker reading each test against its criterion plus a light code review on M full, and the top-tier reviewers on L; full security only when the change is security-touched; L adds brainstorming and design in Define, and its Build (tasks) runs one implementer per task with no per-task review. A dot marks phases that end by asking the user (M's Ship only on the full flow). Backlog slices loop Build and a commit, with no Prove per slice, then a feature close with one Prove. Deploy is the on-request command /sdlc:deploy on any track, not a phase.</desc>
 <style>
 text{font-family:anthropic-sans,-apple-system,"system-ui","Segoe UI",sans-serif;text-anchor:middle;dominant-baseline:central}
 .a{fill:none;stroke:#898781;stroke-width:1.5}
@@ -84,8 +84,8 @@ rect{stroke-width:.5}
 </g>
 <g class="run"><rect x="460" y="252" width="180" height="58" rx="4"/>
 <text class="r" x="550.0" y="266" font-weight="600">Build</text>
-<text class="r" x="550.0" y="283">tasks: implementer and</text>
-<text class="r" x="550.0" y="298">review per task · worktree</text>
+<text class="r" x="550.0" y="283">tasks: one implementer</text>
+<text class="r" x="550.0" y="298">per task, no review · worktree</text>
 </g>
 <g class="run"><rect x="460" y="318" width="180" height="58" rx="4"/>
 <text class="r" x="550.0" y="332" font-weight="600">Prove</text>

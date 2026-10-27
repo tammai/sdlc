@@ -580,7 +580,7 @@ rect{stroke-width:.5}.sep{stroke-width:.5}
 <text class="tx" x="262.0" y="2039.0" font-size="12">docs/guidebook, playbook, runbook, prd</text>
 <rect class="ch" x="541.2" y="2029.0" width="93.1" height="20" rx="4"/>
 <text class="tx" x="549.2" y="2039.0" font-size="12">docs/adr/</text>
-<text class="mu" x="616.2" y="2039.0" font-size="10.5">14</text>
+<text class="mu" x="616.2" y="2039.0" font-size="10.5">15</text>
 <rect class="ch" x="639.3" y="2029.0" width="107.0" height="20" rx="4"/>
 <text class="tx" x="647.3" y="2039.0" font-size="12">docs/specs/</text>
 <text class="mu" x="732.3" y="2039.0" font-size="10.5">12</text>

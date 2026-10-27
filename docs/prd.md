@@ -1,6 +1,6 @@
 # PRD: sdlc, a Claude Code plugin for the whole software lifecycle
 
-- **Status:** describes the plugin as it is (the version in `.claude-plugin/plugin.json` plus the "Unreleased" section of the [changelog](../CHANGELOG.md)), last checked 2026-10-26. Not a wish list; gaps are listed as such.
+- **Status:** describes the plugin as it is (the version in `.claude-plugin/plugin.json` plus the "Unreleased" section of the [changelog](../CHANGELOG.md)), last checked 2026-10-27. Not a wish list; gaps are listed as such.
 - **Owner:** Tâm Mai
 - **Specs:** [docs/specs/](specs/README.md) · **Decisions:** [docs/adr/](adr/README.md)
 
@@ -23,15 +23,15 @@ Teams that try to fix this assemble several plugins and conventions by hand, eac
 
 1. **One install, whole lifecycle:** four phases (Define, Build, Prove, Ship with Learn) plus on-request `/sdlc:deploy`, with no other plugin needed.
 2. **Process sized to the work:** S, M or L, the smallest that fits. Low-risk M runs the Lite flow; work bigger than one session runs as a backlog of slices, optionally unattended (autopilot).
-3. **Everything on file:** Define writes `intent.md` (why), `spec.md` (what) and `plan.md` (how) on every track, so role-based agents can later hand work over through files.
+3. **Everything on file:** Define writes `intent.md` (why), `spec.md` (what) and `plan.md` (how) on M and L (S: the state file's `Intent:` and `Repro:` lines), so role-based agents can later hand work over through files.
 4. **Few human decisions:** one approval in Define (none on S), added scope, the round cap, a requirement that fails in two rounds, merge, production deploy, migrations, anything irreversible. Passing checks and fixable failures don't stop.
 5. **Truthful verification:** Build proves each acceptance criterion with `verify.py` (its test recorded failing before its code, passing now), and on M full and L Prove judges that evidence in one round on one commit (M full: one fresh ac-checker reading each test against its criterion and one light review; L: also the reviewers the track needs; security only on a security-touched change; QA at a backlog's Feature close), findings fixed back in Build, one re-verification. S and M lite have no Prove: Build's passing `verify.py` goes to Ship, and on M full and L the user may skip Prove at Define's approval; no stale test results, and old failures don't block new work. What can't be proven within budget goes to the user, never counted as passed.
 6. **Scope discipline:** every addition traced from request to diff; over-engineering and unrequested behaviour caught while writing and at review.
 7. **Learning that sticks and stays small:** Learn on every feature adds fixed defects to `recurring-defects.md`, which Define and every reviewer read; knowledge in three loading tiers.
 8. **Process that costs at most about twice the plain run:** at most 2x the time and 2.5x the tokens of plain Claude, with hidden-test results and blind-review defects held level. Checkers get time budgets and a probe cap, the cheap model tier is `sonnet` (never `haiku`), and the advisor is consulted at most twice per feature (§8).
-8. **Quality at close to plain cost:** hidden-test and blind-review results held level while agent time, tokens and human touches fall (§8).
-9. **Safe adoption in any supported agent:** setup for new and existing repos (polyglot monorepos too) in Claude Code, Codex, Cursor or Antigravity; upgrades that never overwrite the team's edits; clean removal.
-10. **Machine-readable state:** one call per state change, and a control contract a runner or control app can follow.
+9. **Quality at close to plain cost:** hidden-test and blind-review results held level while agent time, tokens and human touches fall (§8).
+10. **Safe adoption in any supported agent:** setup for new and existing repos (polyglot monorepos too) in Claude Code, Codex, Cursor or Antigravity; upgrades that never overwrite the team's edits; clean removal.
+11. **Machine-readable state:** one call per state change, and a control contract a runner or control app can follow.
 
 ## 4. Non-goals
 
@@ -66,7 +66,7 @@ Teams that try to fix this assemble several plugins and conventions by hand, eac
 2. **New project:** `/sdlc:setup <what you're building>` → approve the stack → skeleton, commands and CI pass on day one → first feature.
 3. **Feature (M):** `/sdlc:start <request>` → intent, spec (`[inferred]` guesses) and plan, approved once → Build from `plan.md`, each criterion's test recorded red, `verify.py` at the end → (full only, unless skipped at the approval) Prove: one fresh ac-checker and a light review, findings fixed in Build, re-verification → Ship: Learn, commit on a feature branch (lite: reported, no question; full: merge / PR / keep on the user's word).
 4. **Fix (S):** no documents: `Intent:` and `Repro:` lines in the state file, no approval → test-first fix, built and verified in one place, no Prove → Ship: a commit on a feature branch, reported without asking.
-5. **Bigger than one session:** spec and `backlog.md` approved once → slices built and committed in turn, no Prove per slice (or under autopilot) → feature close: one ac-checker round over every criterion and one top-tier review; then Ship.
+5. **Bigger than one session:** spec and `backlog.md` approved once → slices built and committed in turn, no Prove per slice (or under autopilot) → feature close: one Prove round (unless `Prove: skip`) with the ac-checker over every criterion, one top-tier review of the whole branch and the qa-tester; then Ship, with the merge, PR or keep question.
 6. **Plugin update:** `/sdlc:status` shows drift → `/sdlc:upgrade --dry-run` → `/sdlc:upgrade` on a branch → PR.
 7. **Something feels off:** `/sdlc:doctor` → [runbook](runbook.md) procedure.
 
@@ -107,14 +107,14 @@ For a team rollout, from repo artifacts: Prove passing within two rounds (`state
 
 ## 10. Release scope
 
-The [changelog](../CHANGELOG.md) is the per-release record. As of 1.8.1 plus Unreleased (2026-10-26): releases through 1.8.1 brought setup, upgrade and eject, doctor and status, scope tracing, the baseline-aware verifier, UI design-system enforcement, the model router, and Codex, Cursor and Antigravity as hosts with hooks and the `sdlc-invariants` CI check. Unreleased adds the four phases with the three Define files, Prove's parallel round, `verify.py` and the ac-checker (Build proves, Prove judges), Learn on every feature, `/sdlc:deploy`, the Lite flow, backlog slices and autopilot, `state.py` with control contract v2, `/sdlc:context-diet`, the commit security review once per review-ready diff, an S track with no documents, Ship committing without asking on S and lite, no Prove on S and M lite (skippable on M full and L), security reviews only on security-touched changes, and the optional `sdlc-extras` companion plugin, with Prove bounded by track, time and probe budgets and the cheap tier moved from `haiku` to `sonnet`.
+The [changelog](../CHANGELOG.md) is the per-release record. As of 1.8.1 plus Unreleased (2026-10-27): releases through 1.8.1 brought setup, upgrade and eject, doctor and status, scope tracing, the baseline-aware verifier, UI design-system enforcement, the model router, and Codex, Cursor and Antigravity as hosts with hooks and the `sdlc-invariants` CI check. Unreleased adds the four phases with the three Define files, Prove's parallel round, `verify.py` and the ac-checker (Build proves, Prove judges), Learn on every feature, `/sdlc:deploy`, the Lite flow, backlog slices and autopilot, `state.py` with control contract v2, `/sdlc:context-diet`, the commit security review once per review-ready diff, an S track with no documents, Ship committing without asking on S and lite, no Prove on S and M lite (skippable on M full and L), one Prove per backlog, no per-task review on L (Prove is the only review), security reviews only on security-touched changes, and the optional `sdlc-extras` companion plugin, with Prove bounded by track, time and probe budgets and the cheap tier moved from `haiku` to `sonnet`.
 
 ## 11. Known gaps and open questions
 
 Current:
 
 - **The phase changes are instructed, not yet evaluated; Prove's per-command cap is enforced (ADR 0012), its 10-minute round budget is not.** A probe hidden behind a project command (`npm test; node probe.js`) escapes the cap. Build's `verify.py` evidence (ADR 0013) is tamper-evident, not tamper-proof ([spec 04](specs/04-verification.md#known-gaps)). Evals 8–10 predate them; whether they close the cost gap in §8 is open, and `Build: subagent` against `native` hasn't been compared ([ADR 0009](adr/0009-cheaper-pipeline-and-control-contract.md)).
-- **Prompt-only guarantees:** apart from the model router, phase and hard-stop rules rest on instructions plus the user's approval. Mechanical are freshness, guardrails, the surface check, file ownership, the model router, the role guard's file-tool limits, the commit review gate and the trust anchor, which makes a change visible rather than preventing it. Each spec marks which is which; their Known gaps sections list the rest. Prove's time limits, probe cap and the two-round stop are instructions to the agents; nothing enforces them.
+- **Prompt-only guarantees:** apart from the model router, phase and hard-stop rules rest on instructions plus the user's approval. Mechanical are `verify.py`'s red records and drift check, freshness, Prove's 120 s command limit, guardrails, the surface check, file ownership, the model router, the role guard's file-tool limits, the commit review gate and the trust anchor, which makes a change visible rather than preventing it. Each spec marks which is which; their Known gaps sections list the rest. Prove's 10-minute agent budget, probe cap, round cap and two-round stop are instructions to the agents; nothing enforces them.
 - **Reviewers and the qa-tester keep Bash,** so a shell edit, a reviewer's own script or reading source is only instructed against ([specs 03](specs/03-scope-and-review.md), [04](specs/04-verification.md)).
 - **Security-guidance hooks** are vendored and untested here; the review gate's limits live in a repo the agent can write ([spec 05](specs/05-security.md)).
 - **Outside Claude Code:** no role guard, model router, security review, `sdlc-extras` (Ralph loop), autopilot or context diet; Codex and Antigravity record `last_result: unknown` ([spec 11](specs/11-multi-agent.md)).
