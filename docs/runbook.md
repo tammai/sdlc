@@ -229,7 +229,7 @@ The state, spec, baseline and config the hooks trust are writable by the agent t
 ### Run the tests
 
 ```bash
-python3 -m unittest discover -s tests -t tests
+py -3.10 -m unittest discover -s tests -t tests   # once, on Python 3.10 only (macOS/Linux: python3.10)
 ```
 
 Stdlib only; they must pass on Python 3.9. Each test runs a hook or script as a subprocess against a throwaway project. Run after any hook change and after updating vendored code. `claude plugin test` doesn't apply: it only runs TypeScript hook modules.

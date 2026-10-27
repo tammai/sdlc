@@ -74,7 +74,7 @@ Original to this plugin: the orchestrator and setting-up-projects skills (with `
 ```bash
 claude plugin validate .                          # manifest and components parse
 claude --plugin-dir .                             # load this checkout for one session
-python3 -m unittest discover -s tests -t tests    # full suite, stdlib only
+py -3.10 -m unittest discover -s tests -t tests  # full suite, stdlib only, once, on Python 3.10 (macOS/Linux: python3.10)
 python3 scripts/doctor.py --format md             # health check against the current repo
 ```
 
