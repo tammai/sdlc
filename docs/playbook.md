@@ -20,7 +20,7 @@ A feature's documents go in `<docs>/intents/<feature>/` (`<docs>` is `docs/sdlc`
 | Change auth, payments, secrets, PII or migrations | [4](#4-change-something-risky) |
 | Pick up where you left off, or pause | [5](#5-resume-or-check-status) |
 | Something feels broken | `/sdlc:doctor`, then the [runbook](runbook.md#health-check) procedure it names |
-| Get out of failing verify rounds | [6](#6-verify-keeps-failing) |
+| Choose the reviews, or act on their findings | [6](#6-choose-the-reviews-and-act-on-findings) |
 | Get unblocked when a turn won't finish | [7](#7-the-stop-hook-says-re-run-tests) |
 | Understand a "Verification anchors changed" stop | [21](#21-the-trust-anchor-stopped-me) |
 | Answer review comments | [8](#8-handle-review-feedback) |
@@ -35,50 +35,46 @@ A feature's documents go in `<docs>/intents/<feature>/` (`<docs>` is `docs/sdlc`
 
 **Type:** `/sdlc:start fix: export button 500s when the report is empty` (or paste a GitHub issue, Linear or Jira link).
 
-1. **Define:** the agent sizes it S (bug, 1–3 files, clear expected behaviour) and writes no documents. It records two lines in the state file: `Intent:` (the bug and the expected behaviour) and `Repro: <test file> › <test name> | <command>` (the repro test, which `verify.py` treats as AC-001). No approval.
-2. **Build:** one implementer subagent (`sonnet`, high effort) writes a failing test that reproduces the bug and records it failing with `verify.py red AC-001`, then the fix, then runs `verify.py`, and reports both results. The session doesn't write the fix itself.
-3. **No Prove:** the fix was built and verified in one place. The passing `verify.py` run, with the repro test recorded red, is recorded as `Verified:` and the feature goes to Ship. A FAIL goes back to the implementer.
-4. **Ship:** Learn files a lesson only if it isn't obvious from the code or the commit, then one commit on a feature branch (created off the default branch if needed). Nothing is pushed or merged; the agent reports the branch and commit without asking.
+1. **Define:** the agent sizes it S (a fix or tweak, 1–2 files, clear expected behaviour). If what, why or how isn't clear, it asks first, one question at a time. It proves the bug before proposing a fix (a failing test, or exact steps and what they show), then finds the root cause. It writes `intent.md` (the proof and the cause), `spec.md` (the proving test is AC-001) and `plan.md`, a few lines each. No stop: it says in a line or two what it will do and why.
+2. **Build:** in the session, like plain Claude. `verify.py red AC-001` records the proving test failing, then the fix, then `verify.py` once at the end.
+3. **Review:** the agent recommends the reviews the change needs (often none for a small, covered fix) and runs them without stopping, telling you what ran and why ([6](#6-choose-the-reviews-and-act-on-findings)).
+4. **Ship:** Learn files a lesson only if it isn't obvious from the code or the commit, then the final commit on a feature branch, push, PR and CI. It stops with the PR open.
 
-**You decide:** whether to push, open a PR or merge; ask for it. Anything that adds scope also stops it.
+**You decide:** the merge. Anything that adds scope also stops it.
 
-**If the bug is bigger:** the implementer stops with BLOCKED when the fix needs more than 3 files, touches auth, payments, secrets, PII or migrations, or the cause stays unclear. The feature moves to M and goes back to Define, which now needs your approval.
+**If the bug is bigger:** when the fix needs more files than expected or the approach is unclear, the agent says so and sizes up to M, which needs your approval before the build.
 
 ## 2. Add a feature (M track)
 
 **Type:** `/sdlc:start add CSV export to the reports page`
 
-1. **Define:** one exchange. `intent.md` (why, 2–3 approaches, the recommended one), `spec.md` (requirements, about 10 or fewer acceptance criteria numbered `AC-001` onward, non-goals, failure modes) and `plan.md` (it starts with `## Handoff to Build`: your decisions with their reasons, what was rejected, what was found in the code, what must not break; then 3–6 tasks, each with its files, first test, command and requirement, an `## Acceptance tests` table naming the test that proves each criterion, plus a Public Surface section listing everything new others can see). If the approach isn't obvious, `design.md` and its set come too.
-2. **You approve once.** The message lists the three paths, each question that changes the build with its recommended answer already filled in, the recommended approach and the alternatives, every `[inferred]` item (each dropped unless you keep it), the tasks, the Public Surface, each acceptance criterion with its test (`manual` ones apart, with their reasons) and `Build: native`. Reply to change any of them: another approach, keep an inferred item, `Build: subagent`.
-3. **Build:** native, from `plan.md`. Per acceptance criterion: the test, `verify.py red AC-nnn` to record it failing, then the code. `verify.py` once at the end runs the checks, every criterion's test and the drift check. Changes from the plan are written under its `## Deviations` with what, why and effect; they never stop the build, and the end of Prove lists them.
-4. **No Prove** on `Flow: lite`: Build's passing `verify.py` is the evidence, recorded as `Verified:`, and the feature goes to Ship. No checker or reviewer runs; the security hooks still warn on risky edits.
-5. **Ship:** Learn, then one commit on a feature branch, reported without asking. Push, PR and merge wait for you to ask.
+1. **Define:** if anything that would change what gets built is unclear, the agent asks first, one question at a time, each built on your last answer. Then it writes three files, once: `intent.md` (what it's for, why now, the decisions with what was ruled out and why), `spec.md` (about 10 or fewer acceptance criteria numbered `AC-001` onward, each with its test in `## Acceptance tests`; out of scope; must-never-break lines and failure modes) and `plan.md` (how the build runs, the tasks with their files, the Public Surface listing everything new others can see).
+2. **You read and approve.** One message with the three paths, the approach and what was ruled out, each acceptance criterion with its test (`manual` ones apart, with their reasons), how the build runs (inline, parts in fresh sessions, or parallel subagents) and any extras the agent would drop unless you keep them. Reply "approved", or change anything.
+3. **Build:** from the files, in the session by default. Per acceptance criterion: the test, `verify.py red AC-nnn` to record it failing, then the code. `verify.py` once at the end runs the checks, every criterion's test and the drift check. Changes from the plan go under `## Deviations` with what, why and effect; they never stop the build.
+4. **Review:** the agent recommends reviews from what actually changed (security, code at low, default or high depth, UI, advisor, or none), each with a reason, and **stops for you to choose**. Each chosen review runs once, fresh, on `opus` ([6](#6-choose-the-reviews-and-act-on-findings)).
+5. **Ship:** Learn, then the final commit, push, PR and CI. It stops with the PR open; the merge waits for your word.
 
-Low-risk M work runs `Flow: lite`, as above. Say "use the full flow" to get `writing-specs` with its checklist, `writing-plans`, and a Prove round: one fresh code-reviewer on `opus` that reads each criterion beside its test and reviews with a one-pass brief (correctness, silent failures, test gaps and security basics) and a ui-reviewer on UI work. High findings go back to Build, fixed failing test first, then one re-verification (`verify.py`, and a fresh checker on any criterion that failed). At the approval you can answer "skip Prove" (`Prove: skip`): the feature then goes from Build to Ship like Lite (a security-touched change still gets Prove's security pass alone). High-risk M work always gets it, and so does a spec that needs a design decision the request doesn't settle. A change confined to 1–2 files with a settled approach stays M, with `Risk: high` and `Flow: full` if an L signal applies, and is built as one piece (1–3 tasks), never sliced; Define then writes the three files short, with no design or consistency check.
-
-**What you see in Claude Code.** On M and L the main session stays thin and shows you what a kept-alive Define agent and Build agent hand it (their questions, status lines, the approval message verbatim); it writes Prove's checker briefs and spawns the checkers (on `opus`) itself, and goes by their VERDICT lines alone. Your reply goes to the agent, and a decision it settles lands under `## Handoff to Build` in `plan.md`, because the Build agent knows only what is written. S, autopilot and the other agents run in the session as before.
-
-**Good habits:** state non-goals up front; answer the questions briefly; challenge any addition you didn't ask for at the approval, not after the code exists. Too big for one session? See [19](#19-a-big-feature-becomes-a-backlog).
+**Good habits:** state what's out of scope up front; answer the questions briefly; challenge any addition you didn't ask for at the approval, not after the code exists. Too big for one session? See [19](#19-a-big-feature-becomes-a-backlog).
 
 ## 3. Build a new service or module (L track)
 
 **Type:** `/sdlc:start build an invoicing service with PDF output`
 
-1. **Define**, `Flow: full`: `brainstorming` writes `intent.md` and asks you nothing: it recommends an approach with the alternatives beside it, and you pick in the approval. It may offer a browser visual companion (needs Node).
-2. The design (`designing-solutions`) dispatches `code-explorer` and `code-architect` and writes `design.md`, `research.md`, `data-model.md`, `contracts/` and `quickstart.md`. Expect options: minimal, minimal plus one named extension, pragmatic. Minimal is recommended unless it fails a named requirement. `writing-plans` writes `plan.md`; `analyzing-consistency` checks every requirement has a task. One approval covers it all, with `Build: tasks`.
-3. **Build:** a git worktree and a fresh implementer per task, with no review per task: Prove is the only review.
-4. **Prove** (unless you chose `Prove: skip` at the approval): Build's `verify.py` run, the ac-checker, one top-tier code-reviewer with a one-pass brief (it covers silent failures and test gaps too), and full security when the change is security-touched, in one round; high findings go back to Build, then one re-verification.
-5. **Ship:** Learn also writes `retro.md`. Deploy only when you ask ([10](#10-merge-and-deploy)).
+1. **Define:** `brainstorming` runs the interview, one question at a time, and its design becomes `intent.md`. It may offer a browser visual companion (needs Node). The design decisions go in `intent.md`'s decisions section; there is no separate design document. `spec.md` and `plan.md` follow, full.
+2. **You read and approve** the three files (and `backlog.md` if the work is split into parts, [19](#19-a-big-feature-becomes-a-backlog)), with how the build runs.
+3. **Build:** as `plan.md` says: inline, one part per fresh session, or parallel subagents for truly independent parts. No review agents during the build.
+4. **Review:** the recommendation, then your choice; each chosen review runs once on `opus`; high findings go back to Build, each fixed with a failing test first.
+5. **Ship:** Learn, the final commit, push, PR and CI. Deploy only when you ask ([10](#10-merge-and-deploy)).
 
-**You decide:** Define's approval, merge, deploy, migrations.
+**You decide:** Define's approval, the reviews, merge, deploy, migrations.
 
 ## 4. Change something risky
 
-Auth, payments, secrets, PII, schema migrations: the work is **at least M**, `Risk: high`, so it runs the full flow, and Prove runs **full security**. A security review runs only on such a **security-touched** change: `Risk: high`, or a diff touching `areas.sensitive` or `areas.migrations` in `.sdlc/config.json`. Keep those lists right: a sensitive path they miss gets no security review. On L the reviewers run on the top tier, and the model-router hook denies a cheaper one; on M they run on `sonnet`, and full security is a standard-tier pass.
+Auth, payments, secrets, PII, schema migrations, a public API: the work gets `Risk: high`. Risk doesn't change the track; it feeds the review recommendation. A change is **security-touched** when `Risk: high`, or the diff touches `areas.sensitive` or `areas.migrations` in `.sdlc/config.json`. Keep those lists right: a sensitive path they miss gets no security review. Every review runs on `opus`, at every size; the model-router hook denies a cheaper one.
 
-1. While you build, the security hooks warn on risky edits and review the diff at turn end. The commit review runs after `git commit`: on a feature branch, build commits wait and are reviewed together once Prove starts. A feature's change that isn't security-touched gets no model review; it is recorded as reviewed. Address each finding, or acknowledge it with a reason.
-2. Prove adds one more `code-reviewer` with a security-only brief (injection, authz, secrets, SSRF, XSS, unsafe deserialization, dependency risk), in the same round, plus the dependency audit. On a backlog this runs once, at feature close. If you chose `Prove: skip`, a security-touched change still gets this pass in Prove, alone.
-3. Gate: no critical or high finding open, no secrets in the diff; written to `review.md`'s `## Security` section.
+1. While you build, the security hooks warn on risky edits and review the diff at turn end. The commit review runs after `git commit`: on a feature branch, build commits wait and are reviewed together with the next review-ready commit. A feature's change that isn't security-touched gets no model review; it is recorded as reviewed. Address each finding, or acknowledge it with a reason.
+2. After the build, the agent recommends a **security review** for a security-touched change: a `code-reviewer` with the security-only brief (injection, authz, secrets, SSRF, XSS, unsafe deserialization, dependency risk), plus the dependency audit. On M and L you can still decline it; on S it runs. On a backlog it runs once, at feature close.
+3. Gate: no critical or high finding open, no secrets in the diff; recorded in `review.md`.
 4. DB migrations and production deploys are hard stops. Say go explicitly.
 
 Deeper scanners (Claude Security, Semgrep and others, not bundled): `skills/orchestrator/references/integrations.md`.
@@ -88,35 +84,45 @@ Deeper scanners (Claude Security, Semgrep and others, not bundled): `skills/orch
 - `/sdlc:status`: one line per feature (track · phase · last gate), open questions and deviations, and whether the repo's scaffold is behind the plugin. Changes nothing.
 - `/sdlc:start` with no argument resumes the one feature with `Status: active`, in its phase. Several active: it asks which.
 
-A new session needs no re-explaining: the state file and the three documents carry everything.
+A new session needs no re-explaining: the state file and the record (`intent.md`, `spec.md`, `plan.md`) carry everything.
+
+**A feature started under sdlc 1.x** (its state file has no `Process: 2`) can't run on 2.0: `/sdlc:start` says so. Finish it with sdlc 1.8.1, or archive it (`Status: done`).
 
 **Someone else's feature:** the state file names its `Owner:` and `Tool:`. Before advancing a feature you don't own, the agent asks, then records the handover as a deviation.
 
 **Pause a feature:** tell the agent to pause it. It runs `state.py set <feature> Status paused`, so `/sdlc:start` stops picking it up. The trust anchor reports the change once ([21](#21-the-trust-anchor-stopped-me)). Ask it to set `active` again to resume. Don't edit the state file by hand.
 
-## 6. Verify keeps failing
+## 6. Choose the reviews and act on findings
 
-Each round judges a `verify.py` run on the current code: Build's, reused when nothing changed since, or a new one. A **new** checker (M: the code reviewer; L: an ac-checker) reads the tests each round. Rounds happen only in Prove, on M full, L and a backlog's feature close (S and M lite have none: a failing `verify.py` stays in Build). A feature planned before ADR 0013, with no `## Acceptance tests`, still gets a new verifier each round.
+After Build's passing `verify.py`, the agent looks at what actually changed and recommends, each with a one-line reason:
 
-| Round | What happens |
+| Review | Recommended when |
 |---|---|
-| Fails | Back to Build: the agent fixes the listed failures, failing test first, `systematic-debugging` for anything unexplained, runs `verify.py`, then re-verifies in Prove without asking: a fresh checker on the criteria that failed |
-| The same requirement fails in two rounds | It stops and brings you what still fails, what each round changed and a root-cause hypothesis |
-| Round 3 fails | The same stop |
+| Security | `Risk: high`, or the diff touches `areas.sensitive` or `areas.migrations`, or untrusted input reaches a shell, file path or database |
+| Code, high | the spec has must-never-break lines or failure modes, a public interface changed, or the diff is large |
+| Code, default | a typical M or L change |
+| Code, low | a small, contained change whose tests cover it, when a second look is still worth it |
+| UI | the diff touches `areas.ui`: always recommended |
+| Advisor | only where the agent has one, for a real open judgment call |
+| None | a small, contained, fully tested change touching nothing above |
 
-**A failure that existed before your change:** if `.sdlc/baseline.md` lists it, it doesn't fail a verifier round (features planned before ADR 0013); `verify.py` doesn't read the baseline yet, so on newer features it fails verify. If not, it's reported as new and the agent may ask to baseline it; that's your call, recorded as a deviation. Baseline items that now pass are removed automatically.
+**S:** it runs the recommendation and tells you. **M and L:** it stops and you pick (take it, add, drop). **Autopilot or headless:** it takes the recommendation and logs that it did.
 
-**"Could not verify within budget":** the verifier (old plans) and the qa-tester run every command that isn't the project's own with a 2-minute limit (a hook enforces it in Claude Code), and get 10 minutes per round. A criterion or scenario they couldn't settle in that time comes to you; it is never counted as passed. Run it yourself, or say how to make it quicker.
+Each chosen review runs **once**, as a fresh agent on `opus`, and ends its report with `VERDICT: PASS` or `VERDICT: FAIL — <ids>`.
 
-**A qa-tester scenario failed but the tests pass:** the tests prove something other than the spec. It's a finding like any other, fixed with a failing test that reproduces the steps. Only one that needs a new requirement comes to you. **"Not run":** the qa-tester lacked something it needed (a tool, a browser) and never installs anything. The reason is in `qa-report.md`: provide it, or check the scenario yourself. A scenario it couldn't work out how to run is a finding instead: the quickstart is missing a step.
+- **High findings** go back to Build, each fixed with a failing test first, then `verify.py` again. The review isn't rerun: the fixes are proven by their tests and the full suite.
+- **You disagree, or the agent does:** a high finding the agent thinks is wrong comes to you with its case. Only you can waive one, recorded as a deviation.
+- **Medium and low** findings are ticketed in `review.md`.
 
-**"Doesn't prove" a criterion:** the checker (on M the code reviewer) read the test and found it wouldn't catch the behaviour missing (it asserts too little, or something else). Make it assert the new behaviour; the change goes under the plan's `## Deviations`. A test that passes before its code exists is refused earlier, by `verify.py red` in Build. (Old plans: the verifier says this when the test also passes on `Base:`.)
+**A failure that existed before your change:** `verify.py` doesn't read `.sdlc/baseline.md`. When only the test step fails and every failure is listed there, the agent logs it and passes the gate. A new failure is reported; baselining it is your call, recorded as a deviation.
 
-**When it stops:** allow more rounds, narrow the scope, or revisit the design. Don't ask it to rerun until green: retried-until-green tests fail the gate.
+**`verify.py` keeps failing in Build:** the agent debugs it (`systematic-debugging`) and fixes the code or the test. A test that passes before its code exists is refused by `verify.py red`; make it assert the new behaviour, and the change goes under the plan's `## Deviations`. Don't ask it to rerun until green.
+
+**A QA round** (`qa-tester`, runs the feature as a user would, without reading the code) is available on request; its report is `qa-report.md`.
 
 ## 7. The stop hook says "re-run tests"
 
-Cause: you are in Prove (`Current: Stage 5`, or Stage 6 on `Flow: lite`) and code changed after the last full test run, or there hasn't been one. Fix: run the **full** suite: the `test` command from `.sdlc/config.json` (in a monorepo, the stale package's own, from its directory; the message names it), or the `test:` command in the state file. A filtered run, a single file or a single package doesn't count.
+Cause: you are in Review (`Current: Stage 5`) and code changed after the last full test run, or there hasn't been one. Fix: run the **full** suite: the `test` command from `.sdlc/config.json` (in a monorepo, the stale package's own, from its directory; the message names it), or the `test:` command in the state file. A filtered run, a single file or a single package doesn't count.
 
 Changes under `.sdlc/`, `knowledge/`, `.claude/`, `docs/` or the sdlc docs folder, and `.md`, `.mdx`, `.txt` or `.rst` files, don't make results stale. A misbehaving hook: [runbook R4](runbook.md#r4-blocked-at-stop-with-re-run-tests).
 
@@ -127,10 +133,10 @@ Use `sdlc:receiving-code-review`: check each comment against the code before agr
 | Source | Command |
 |---|---|
 | Local, before the PR | `/sdlc:review-pr` (picks agents for the diff; the comment, type and simplifier agents need the `sdlc-extras` plugin) |
-| Plan versus implementation | Prove's code review, from the plan and spec |
+| Spec versus implementation | Review's code review, from the intent, spec and plan |
 | On the GitHub PR | `/sdlc:code-review` |
 
-Severity rules: unrequested public surface (an export, file, endpoint, option, config key or dependency not in the plan's Public Surface, with no stated reason) is **high**. Comment noise is **medium** and fixed in Prove, not ticketed. Other medium and low findings go to `review.md` as tickets.
+Severity rules: unrequested public surface (an export, file, endpoint, option, config key or dependency not in the plan's Public Surface, with no stated reason) is **high**. Code-style issues (comments, naming, formatting) are fixed in passing, never high. Other medium and low findings go to `review.md` as tickets.
 
 ## 9. Skip a gate deliberately
 
@@ -140,12 +146,12 @@ Say `skip` or `just ship it`. The agent will:
 2. record them as a deviation in the state file,
 3. comply.
 
-Hard stops (push, PR, merge, production deploy, migrations, anything irreversible) still wait for your explicit word. Skipping a gate is allowed; skipping silently is not.
+Hard stops (merge, production deploy, migrations, anything irreversible) still wait for your explicit word. Skipping a gate is allowed; skipping silently is not.
 
 ## 10. Merge and deploy
 
-1. **Ship:** Learn and one commit on a feature branch first. On every track that's where it stops, with `Branch <name> kept (<commit>); say "merge" or "PR" to go further.`: ask for a push, PR or merge when you want one. The `finishing-a-development-branch.md` reference handles it and cleans up worktrees. `/sdlc:commit-push-pr` opens a PR that links `spec.md`, `review.md` and, if the qa-tester ran, `qa-report.md`. `/sdlc:clean_gone` prunes merged local branches afterwards.
-2. **CI must be green. The agent never merges without you saying so.**
+1. **Ship:** Learn and the final commit on a feature branch, then `/sdlc:commit-push-pr` pushes and opens a PR that links `intent.md`, `spec.md` and `review.md`. The agent watches CI: red because of the code, it fixes it once (failing test first) and pushes again; still red, or red for a CI reason (a missing secret, a runner problem, a flaky test), it stops and tells you. Without a remote, it stops with the branch ready.
+2. **It stops at the PR:** `PR <url> open, local and CI green; say "merge" to merge.` **The agent never merges without you saying so.** On "merge", the `finishing-a-development-branch.md` reference merges and cleans up worktrees; `/sdlc:clean_gone` prunes merged local branches when asked.
 3. **Deploy** is a separate request: `/sdlc:deploy [feature] [environment]`.
    - It warns if the feature hasn't reached Ship, and continues only on your word.
    - It uses the project's existing deploy path (scripts, a CI job, the platform CLI). None: it says so and stops.
@@ -163,7 +169,7 @@ It comes with the optional companion plugin: `/plugin install sdlc-extras@sdlc`,
 /sdlc-extras:ralph-loop "Make all tests in tests/export pass" --completion-promise "DONE" --max-iterations 15
 ```
 
-Always set `--max-iterations`. Cancel with `/sdlc-extras:cancel-ralph`. Use it inside Build only; Prove, where the track has one, still runs afterwards.
+Always set `--max-iterations`. Cancel with `/sdlc-extras:cancel-ralph`. Use it inside Build only; Review still runs afterwards.
 
 ## 12. Turn a correction into a rule
 
@@ -211,7 +217,7 @@ Interrupted? Run `/sdlc:setup` again; it resumes from the last finished step.
 
 `/sdlc:start` and `/sdlc:status` tell you when the repo's scaffold is behind the installed plugin. Nothing breaks if you wait; you miss the new rules and fixes.
 
-1. Finish or pause in-flight features if you can; the upgrade warns if one is in Build or later.
+1. Finish or pause in-flight features if you can. **Upgrading to 2.0:** a feature started under 1.x must be finished with sdlc 1.8.1, or archived (`Status: done`), first; the upgrade names each one and refuses until none is left ([ADR 0020](adr/0020-sdlc-2-slim-process-core.md), [runbook R20](runbook.md#r20-upgrade-to-20-with-a-1x-feature-in-progress)).
 2. `/sdlc:upgrade --dry-run` shows the plan: files added, regenerated, replaced, edited by you, deleted by you, no longer shipped, and migrations.
 3. `/sdlc:upgrade` runs it on a `sdlc/upgrade-<from>-<to>` branch. A new CI workflow is asked about first. For each plugin file you edited you choose: **apply** the proposed merge, **skip** this time, or **keep mine** (the plugin stops managing it). An edited guardrail (`.claude/hookify/sdlc-*.md`) you apply yourself: Claude is blocked from editing the rules that constrain it.
 4. Each migration is shown as a diff. Declined ones aren't asked again; `/sdlc:upgrade --revisit` brings them back.
@@ -225,19 +231,19 @@ Interrupted? Run `/sdlc:setup` again; it resumes from the last finished step.
 
 Every feature keeps its documents folder. Old plans and reports describe code that has since changed, and agents searching the repo can be misled by them.
 
-1. `/sdlc:prune` lists features marked done on the main branch 45+ days ago (`--older-than 90d` to change that), with the files that would go: `plan.md`, the slices' `plan-B<n>.md`, `test-report.md` (older features), `qa-report.md`, `review.md`, `checklists/`.
-2. Pick which to prune. Intent, spec, design, retro and state stay, and so do `review.md` (its `## Security` section) and an older `security.md` on high-risk features.
+1. `/sdlc:prune` lists features marked done on the main branch 45+ days ago (`--older-than 90d` to change that), with the files that would go: `plan.md`, the parts' `plan-B<n>.md`, `qa-report.md`, and older features' reports and checklists.
+2. Pick which to prune. Intent, spec, `review.md` and state stay (older features also keep their design and retro, and `review.md` only on high risk).
 3. It commits the deletions in one commit. Git history keeps everything.
 
 ## 19. A big feature becomes a backlog
 
 Work with several distinct parts that won't fit one session, on M or L. Never on S, and never a change confined to 1–2 files.
 
-1. **Define** writes `backlog.md` next to the three files: one row per vertical slice (`B1`, `B2`, …) with its requirements, acceptance criteria, dependencies and size. `plan.md` gives each slice an outline. You approve them all at once. The feature runs `Flow: lite` from here, whatever the track. On L or high-risk M, the approval message comes with a `Flow: full → lite` trust-anchor notice; your approval accepts it.
-2. **Each slice:** the agent writes `plan-B<n>.md` (3–6 tasks), builds natively until `verify.py` passes, then commits it. No Prove per slice. Slices run back to back without asking.
-3. **It stops** for a backlog change that adds scope, or at a hard stop (and in feature close's Prove, at the round cap or when a requirement fails in two rounds). To look at each slice, say so: it records `Slice gates: plan, commit` (either or both).
-4. **Low context:** it stops at a slice boundary with `B<n> done (<commit>). Next: B<m> <title>. Run /clear, then /sdlc:start.` `/sdlc:start B<n>` runs a named slice once its dependencies are done.
-5. **Feature close**, after the last slice: on every backlog, whatever its flow, one Prove round over the whole branch (every acceptance criterion, one top-tier code-reviewer, qa-tester, and full security when the branch is security-touched), unless you chose `Prove: skip`; then Ship with Learn, which keeps the branch until you say merge or PR.
+1. **Define** writes `backlog.md` next to the three files: one row per part (`B1`, `B2`, …, each something a test can see working) with its acceptance criteria, dependencies and size. `plan.md` gives each part an outline. You approve them all at once.
+2. **Each part:** the agent writes `plan-B<n>.md`, builds until `verify.py` passes, commits it, and updates `plan.md`'s handoff so a fresh session can pick up from the files. No review per part. Parts run back to back without asking.
+3. **It stops** for a backlog change that adds scope, or at a hard stop. To look at each part, say so: it records `Slice gates: plan, commit` (either or both).
+4. **Low context:** it stops at a part boundary with `B<n> done (<commit>). Next: B<m> <title>. Run /clear, then /sdlc:start.` `/sdlc:start B<n>` runs a named part once its dependencies are done.
+5. **Feature close**, after the last part: all parts land together. One Review over the whole branch (the recommendation and your choice, as in [6](#6-choose-the-reviews-and-act-on-findings)), then Ship with Learn, which stops at the PR.
 
 Long backlog and you'd rather not `/clear` by hand: [20](#20-run-a-backlog-on-autopilot).
 
@@ -253,11 +259,11 @@ python3 <plugin>/scripts/autopilot.py [--permission-mode <mode>] <feature>
 
 The headless sessions need permission to edit files and run git, the project's commands and the plugin's scripts (`state.py`, `backlog.py`). Setup's allowlist covers only the project's own commands, so pass a `--permission-mode` or widen the allowlist. A session that is denied leaves its slice unchanged, and autopilot stops with `B<n> is still todo after its run`. The mode is handed to `claude` as given; autopilot never adds a permission-bypass flag.
 
-Each session runs `/sdlc:start B<n> --autopilot`: it does one slice and ends, never asking. Anything that would ask (the round cap, a requirement failing twice, a scope change, a hard stop) marks the slice `blocked: <reason>` in `backlog.md` and adds an open question.
+Each session runs `/sdlc:start B<n> --autopilot`: it does one slice and ends, never asking. Anything that would ask (a scope change, a hard stop) marks the slice `blocked: <reason>` in `backlog.md` and adds an open question. Feature close's Review takes the agent's own recommendation and records that it did.
 
 **It stops** on an open trust-anchor notice, a feature that isn't active, a blocked slice, nothing ready, a session that fails, a run that leaves its slice unchanged, or a feature close that doesn't reach Ship. It prints one JSON object naming the reason and the slices it ran. Fix the cause in a normal session (for a blocked slice, `/sdlc:start B<n>` and answer its question), then run the same command again.
 
-**When it finishes,** feature close has run and kept the branch. To go further, say merge or PR in a normal session: `/sdlc:start`.
+**When it finishes,** feature close has run Review and Ship. The merge still waits for you: say merge in a normal session (`/sdlc:start`).
 
 ## 21. The trust anchor stopped me
 
@@ -265,18 +271,20 @@ The trust anchor watches what verification relies on. When something weakens it,
 
 It reports, per active feature:
 
-- `Track:` down, `Risk:` high → low, `Flow:` full → lite, `Prove:` run → skip, `Top model:` or `Base:` changed;
+- `Track:` down, `Risk:` high → low, `Top model:`, `Base:` or `Process:` changed;
 - a failing test added to `.sdlc/baseline.md`, or commands in `.sdlc/config.json` changed since `Base:`;
-- `spec.md` edited after Prove started;
-- skipping Prove, or leaving it with code changed since the last full test run (a checker, an ac-checker or on M the code reviewer, on a passing full run of the current code counts as Prove; on S, M lite and `Prove: skip`, that passing run alone);
+- `spec.md` edited after Review started;
+- leaving Review without a passing full run of the current code, at every size, or with code changed since that run;
+- leaving Review while a review's latest report says `VERDICT: FAIL`, unless you waived it;
 - `verify records disagree`: `.sdlc/.work/verify.json` differs from the freshness hook's copy of the run, or is missing or damaged while the hook holds one;
-- on `Flow: lite`, stopping outside Build and Prove with untested code;
 - a feature stopping being active other than by finishing (a pause, a deleted state file);
 - a damaged trust-anchor record.
 
+Only 2.0 features (`Process: 2`) are watched; a 1.x feature is finished on 1.8.1.
+
 **What to do:** read it. If the change is right, carry on: your next message accepts it. If not, say so and ask the agent to put it back.
 
-A change that only adds checks (Track up, Risk low → high, Flow lite → full, Prove skip → run) shows `Stricter process: …` and doesn't stop you. On a backlog feature, leaving Lite still stops once.
+A change that only adds checks (Track up, Risk low → high) shows `Stricter process: …` and doesn't stop you.
 
 Autopilot won't start a session while a notice is open; its JSON `stopped` reason quotes the notice. Read it, send any message in a normal session to accept it, then run autopilot again.
 
@@ -286,10 +294,12 @@ Autopilot won't start a session while a notice is open; its JSON `stopped` reaso
 
 | Decision | Owner |
 |---|---|
-| Define's approval: approach, spec, plan (and backlog, design), `Build:` (not on S) | You |
+| Define's approval on M and L: intent, spec, plan (and backlog), how the build runs | You |
+| Which reviews run after the build, on M and L | You |
 | Anything that adds scope | You |
-| What next after three failed verify rounds, or a requirement failing in two | You |
-| Push, PR or merge (Ship asks on `Flow: full`, L and a backlog's feature close; on S and Lite it commits on a branch and you ask) | You |
+| A reviewer and the agent disagreeing on a high finding | You |
+| CI still red after one fix | You |
+| Merge (Ship stops with the PR open) | You |
 | Production deploy | You |
 | DB migration | You |
 | Anything irreversible | You |
@@ -313,5 +323,8 @@ Autopilot won't start a session while a notice is open; its JSON `stopped` reaso
 | Decision | Owner |
 |---|---|
 | Track and risk | The agent proposes; you can override |
-| Verify verdict | The latest `verify.py` run on the current code and the latest fresh checker (on S, M lite and `Prove: skip`, `verify.py` alone; old plans: the latest fresh verifier) |
-| Fixing findings and re-running verify below the round cap | The agent, without asking |
+| Whether to ask before writing the record | The agent judges; it asks when what, why or how isn't clear |
+| How the build runs (inline, parts, parallel) | The agent, written in `plan.md`; on M and L shown at the approval |
+| Which reviews to run on S, autopilot and headless runs | The agent's recommendation |
+| Verify verdict | The latest `verify.py` run on the current code |
+| Fixing high findings, and one CI fix | The agent, without asking |

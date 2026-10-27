@@ -24,9 +24,9 @@ Operational procedures: install, check health, fix what breaks, maintain the plu
 | Known failures from before setup | `.sdlc/baseline.md` |
 | Feature state (committed; written by `scripts/state.py`) | `.sdlc/state/<feature>.md` |
 | Control contract, derived from the state file (git-ignored) | `.sdlc/state/<feature>.json`, `<feature>.events.jsonl`, `<feature>.commands/` |
-| Feature documents (committed) | `docs/sdlc/intents/<feature>/` (`intent.md`, `spec.md`, `plan.md`, `review.md`…; older features also `test-report.md`, `security.md`); the folder is `docs_dir` in the config |
+| Feature documents (committed) | `docs/sdlc/intents/<feature>/` (`intent.md`, `spec.md`, `plan.md`, `review.md`; older features may hold other files); the folder is `docs_dir` in the config |
 | Old layout, before 1.7.0 | `.sdlc/<feature>/state.md` and documents beside it; `/sdlc:upgrade` moves them |
-| Scratch (git-ignored) | `.sdlc/.work/`: `verify.json` (written by `scripts/verify.py`), `verify-freshness.json` (the freshness hook's copy of verify runs, written by the hook and by `verify.py` itself), `trust-anchor.json`, `dispatches.jsonl`, `findings/<feature>/` (Prove checkers' reports and the maker's `changed-r<N>.txt`, M and L in Claude Code) |
+| Scratch (git-ignored) | `.sdlc/.work/`: `verify.json` (written by `scripts/verify.py`), `verify-freshness.json` (the freshness hook's copy of verify runs, written by the hook and by `verify.py` itself), `trust-anchor.json`, `dispatches.jsonl`, `findings/<feature>/` (each review's report, ending in its `VERDICT:` line) |
 | Ralph loop state (`sdlc-extras`) | `.claude/ralph-loop.local.md` |
 | Personal hookify rules | `.claude/hookify.<name>.local.md` (git-ignored) |
 | Team hookify rules | `.claude/hookify/<name>.md` (committed) |
@@ -64,7 +64,7 @@ Check it in a scratch repo:
 
 1. `/sdlc:doctor`: no ❌. Expected warnings: the repo isn't set up yet, and (before the first session finishes) the reviewer environment.
 2. `/sdlc:setup` with a one-line description: it proposes a stack, and after your OK writes `.sdlc/config.json` and the rest on a `sdlc/setup` branch. `/sdlc:doctor` again: the repo checks are ✅.
-3. `/sdlc:start` with a tiny request creates `.sdlc/state/<feature>.md` and announces the track, risk, flow and `Build:`.
+3. `/sdlc:start` with a tiny request creates `.sdlc/state/<feature>.md` and announces the track, risk and top model tier.
 
 ## Health check
 
@@ -100,14 +100,14 @@ Cause: the SessionStart hook builds a venv with the Claude Agent SDK in the back
 
 ### R3. Security hook is too noisy or too slow
 
-1. Identify which part is firing: edit pattern warnings, turn-end review, or commit/push review. The turn-end and commit reviews run only while a security-touched feature is active (ADR 0019). While a feature is active, the commit review runs once per review-ready diff (from Prove on, or at Ship on a track without Prove), not on every build commit, and only on a security-touched change (`Risk: high`, or a diff touching `areas.sensitive` or `areas.migrations`); any other is recorded as reviewed with no model call. If a sensitive path gets no review, add it to `areas.sensitive` in `.sdlc/config.json`.
+1. Identify which part is firing: edit pattern warnings, turn-end review, or commit/push review. The turn-end and commit reviews run only while a security-touched feature is active (ADR 0019). While a feature is active, the commit review runs once per review-ready diff (from Review on), not on every build commit, and only on a security-touched change (`Risk: high`, or a diff touching `areas.sensitive` or `areas.migrations`); any other is recorded as reviewed with no model call. If a sensitive path gets no review, add it to `areas.sensitive` in `.sdlc/config.json`.
 2. Turn off only that part with the matching variable from the table above.
 3. Prefer fixing the finding. If it's a false positive you'll see again, tell the reviewer why in the response (acknowledged findings are fine) rather than disabling the hook.
 4. `SECURITY_GUIDANCE_DISABLE=1` is a last resort; record it with `state.py deviation`.
 
 ### R4. Blocked at Stop with "re-run tests"
 
-The verify-freshness hook is active only while an active feature's state says `Current: Stage 5 – Prove`, or, on `Flow: lite` (every backlog feature, and Lite features started before the four phases), Stage 5 or 6. S and M lite features started since ADR 0015 never enter Stage 5.
+The verify-freshness hook is active only while an active 2.0 feature (`Process: 2`) says `Current: Stage 5 – Review`, at every size.
 
 1. Run the **full** test command: `commands.test` from `.sdlc/config.json` (monorepo: the stale package's own, from its `path`; the block message names it), or the `test:` command in the state file's `Commands:` line. A filtered run, single test file, pytest node id or single Go package doesn't count.
 2. Make sure no code changed after that run. Formatters, `sed -i` and subagents count as changes; the hook compares the worktree against the tree recorded at the last full run.
@@ -116,10 +116,10 @@ The verify-freshness hook is active only while an active feature's state says `C
 5. If the freshness state itself is wrong, delete `.sdlc/.work/verify-freshness.json`; the next full run recreates it.
 6. The hook never fails the session on its own error: it writes `.sdlc/.work/verify-freshness.error`, which doctor reports and the next clean run removes. If it blocks wrongly, run the hook tests (below) and open an issue with the transcript and that file.
 
-### R5. A verify round gives different answers each time
+### R5. `verify.py` gives different answers each time
 
-1. Don't retry until green. A test that passes after failing is flaky, and Prove's gate fails on a retried-until-green test.
-2. Run the failing test a few times in isolation (at most 5 repeats; its row's Run command in `plan.md`'s `## Acceptance tests` runs just that test) and record the results in `review.md` (`test-report.md` on an older feature).
+1. Don't retry until green. A test that passes after failing is flaky, and a retried-until-green test doesn't pass the gate.
+2. Run the failing test a few times in isolation (at most 5 repeats; its row's command in `spec.md`'s `## Acceptance tests` runs just that test) and record the results in `review.md`.
 3. Fix or quarantine the flaky test with your approval, and record it with `state.py deviation`.
 
 ### R6. Ralph loop won't stop
@@ -146,14 +146,15 @@ The Ralph loop comes with the optional `sdlc-extras` plugin.
 1. `/sdlc:status` shows every feature, its phase and status.
 2. A finished feature: `state.py set <feature> Status done`. One you're not working on now: `state.py set <feature> Status paused`. Pausing raises a trust-anchor notice once ([R19](#r19-a-trust-anchor-notice-stops-the-turn)).
 3. Answer the "which one" prompt if it still asks.
+4. It says a feature was started under sdlc 1.x: see [R20](#r20-upgrade-to-20-with-a-1x-feature-in-progress).
 
 ### R9. A state file is missing, stale or wrong
 
 The state file is `.sdlc/state/<feature>.md`; beside it, git-ignored, `state.py` writes the control contract (`<feature>.json`, `<feature>.events.jsonl`), derived from it.
 
-1. A wrong field: `state.py set <feature> <Field> <value>` (Status, Track, Risk, Flow, Prove, Build, Top model, Base, Owner, Tool, Slice gates; on S, Intent and Repro). Changing Track, Risk, Flow, Prove, Top model or Base raises a trust-anchor notice ([R19](#r19-a-trust-anchor-notice-stops-the-turn)).
-2. A wrong phase: `state.py advance <feature> <n>` without `--gate`, where `<n>` is 1 Define, 4 Build, 5 Prove or 8 Ship (a backlog feature also rests at 6 between slices).
-3. A hand edit, or a missing or damaged `.json`: `state.py sync <feature>` rewrites the contract from the state file. `state.py` refuses a state file without `Status:` and `Current: Stage <n> – <name>`.
+1. A wrong field: `state.py set <feature> <Field> <value>` (Status, Track, Risk, Top model, Base, Owner, Tool, Slice gates, Process). Changing Track, Risk, Top model, Base or Process raises a trust-anchor notice ([R19](#r19-a-trust-anchor-notice-stops-the-turn)).
+2. A wrong phase: `state.py advance <feature> <n>` without `--gate`, where `<n>` is 1 Define, 4 Build, 5 Review or 8 Ship (a backlog feature stays at 4 between parts).
+3. A hand edit, or a missing or damaged `.json`: `state.py sync <feature>` rewrites the contract from the state file. `state.py` refuses a state file without `Status:` and `Current: Stage <n> – <name>`, and one without `Process: 2` (a 1.x feature: [R20](#r20-upgrade-to-20-with-a-1x-feature-in-progress)).
 4. A lost state file: the documents (`intent.md`, `spec.md`, `plan.md`, `review.md`…) are the real record. Write a new one from the template in `skills/orchestrator/references/start.md`, tick the phases whose documents exist, set `Current:` to the next phase's stage, then `state.py sync <feature>` and `state.py deviation <feature> "state file reconstructed"`.
 
 ### R10. Hooks error on Windows or with an odd Python
@@ -168,7 +169,7 @@ Set `SDLC_HOOK_TIMES=1` in the session's environment (for one project: `"env": {
 
 A gate is a phase's exit check; it is a decision, not a fault. Say `skip` or `just ship it`: the orchestrator names the skipped gates, records them with `state.py deviation`, and continues. See [playbook 9](playbook.md#9-skip-a-gate-deliberately).
 
-Hard stops are different: they always wait for your answer and aren't skipped. They are Define's approval (not on S), anything that adds scope, the round cap (verify round 3 failed), the same requirement failing in two rounds, merge, production deploy, DB migrations, and anything irreversible.
+Hard stops are different: they always wait for your answer and aren't skipped. They are the M and L approval before the build, the M and L review choice after it, anything that adds scope, a reviewer and the builder disagreeing on a high finding, CI still red after one fix, merge, production deploy, DB migrations, and anything irreversible.
 
 ### R12. Setup stopped halfway
 
@@ -194,13 +195,12 @@ Hard stops are different: they always wait for your answer and aren't skipped. T
 
 `/sdlc:upgrade --revisit` lists skipped migrations with the reason you gave and offers each again. `scaffold.py migrations --revisit` shows the same list without changing anything.
 
-### R16. Prove blames the feature for an old failure, or the baseline looks wrong
+### R16. `verify.py` blames the feature for an old failure, or the baseline looks wrong
 
 1. Check `.sdlc/baseline.md`: failing tests by file › name, lint/type errors as counts per rule and file. A count that went **up** counts as new.
 2. No baseline in a brownfield repo: rerun `/sdlc:setup`'s baseline step.
 3. A pre-existing failure missing from the baseline: adding it is your decision. Add it with a note and record it with `state.py deviation` naming the test; nothing adds items on its own. A baseline that gains a failure during a feature raises a trust-anchor notice ([R19](#r19-a-trust-anchor-notice-stops-the-turn)).
-4. Items disappearing: on features planned before ADR 0013, the verifier removes items that now pass. That's expected; the test report lists them.
-5. `verify.py` doesn't read the baseline: a baselined failure fails it. In Prove the session checks the failures against the baseline by hand and logs it; in Build (and so on S, M lite and `Prove: skip`, which have no Prove) nothing does yet ([spec 04 Known gaps](specs/04-verification.md#known-gaps)).
+4. `verify.py` doesn't read the baseline: a baselined failure fails it. When only the test step fails and every failure is listed there, Build logs it with `state.py log` and passes the gate; nothing checks that mechanically yet ([spec 04 Known gaps](specs/04-verification.md#known-gaps)).
 
 ### R17. Eject left something behind or broke the build
 
@@ -209,21 +209,31 @@ Hard stops are different: they always wait for your answer and aren't skipped. T
 
 ### R18. A subagent dispatch is denied by the model router
 
-The hook checks Agent/Task dispatches only while a feature has `Status: active`; the deny reason says which check failed. Every dispatch, denied or not, is logged to `.sdlc/.work/dispatches.jsonl`, which Prove's gate reads to confirm an ac-checker (on M, the code-reviewer; features planned before ADR 0013: a verifier) ran in Stage 5.
+The hook checks Agent/Task dispatches only while a 2.0 feature (`Process: 2`) has `Status: active`; the deny reason says which check failed. Every dispatch, denied or not, is logged to `.sdlc/.work/dispatches.jsonl`.
 
-1. **No model:** the dispatch must name `sonnet` or `opus` (Model Selection in `sdlc:subagent-driven-development`). Commands that launch agents, such as `/sdlc:review-pr`, name one too.
+1. **No model:** the dispatch must name `sonnet` or `opus` (Model selection in `sdlc:orchestrator`). Commands that launch agents, such as `/sdlc:review-pr`, name one too.
 2. **Fable:** used only on your request. `state.py set <feature> "Top model" fable` on every active feature (one active feature without it keeps Fable denied). This raises a trust-anchor notice ([R19](#r19-a-trust-anchor-notice-stops-the-turn)).
 3. **Haiku:** denied everywhere; the cheap tier is `sonnet`. Pass `effort: high` with it.
-4. **Reviewer below Opus:** code-reviewer and feature-reviewer need `opus` (or `fable`) on every track and risk (M's checker and the security reviewer are code-reviewers); ui-reviewer, verifier and qa-tester need it while any active feature says `Track: L`, and on S and M they run on `sonnet` at either risk. If the track was misjudged, `state.py set <feature> Track M` (a notice too) and say why with `state.py log`.
+4. **Reviewer below Opus:** every review agent (code-reviewer, feature-reviewer, ui-reviewer, qa-tester, pr-test-analyzer, silent-failure-hunter; the security review is a code-reviewer) needs `opus` (or `fable`), on every track and risk. Name `opus` in the dispatch.
 5. Forks are never checked: they always run on the session model. To keep Fable out of forks, don't run the session on Fable.
 
 ### R19. A trust-anchor notice stops the turn
 
-The state, spec, baseline and config the hooks trust are writable by the agent they check, so `hooks/trust_anchor.py` can't prevent a change; at Stop it shows you one. A notice reads "Verification anchors changed: …" and names what moved: `Track:`, `Risk:`, `Flow:`, `Prove:`, `Top model:` or `Base:`; a failing test added to `.sdlc/baseline.md` or changed commands in `.sdlc/config.json` since `Base:`; `spec.md` edited during Prove; leaving or skipping Prove with untested code (an ac-checker, or on M the code-reviewer, on a passing full run of the current code counts, and on S, M lite and `Prove: skip` that passing run alone; on `Flow: lite`, any Stop outside Stages 4–6 with untested code); an active feature no longer active other than by `Status: done`; "verify records disagree" (`.sdlc/.work/verify.json` differs from the freshness hook's copy of the run, or is missing or damaged while the hook holds one: rerun `verify.py` and say why the record changed); or its own record (`.sdlc/.work/trust-anchor.json`) damaged.
+The state, spec, baseline and config the hooks trust are writable by the agent they check, so `hooks/trust_anchor.py` can't prevent a change; at Stop it shows you one. A notice reads "Verification anchors changed: …" and names what moved: `Track:`, `Risk:`, `Top model:`, `Base:` or `Process:`; a failing test added to `.sdlc/baseline.md` or changed commands in `.sdlc/config.json` since `Base:`; `spec.md` edited during Review; leaving Review without a passing full run of the current code (at every size), or with code changed since it; leaving Review while a review's latest report says `VERDICT: FAIL` and no `waived round <N>` deviation covers it; an active feature no longer active other than by `Status: done`; "verify records disagree" (`.sdlc/.work/verify.json` differs from the freshness hook's copy of the run, or is missing or damaged while the hook holds one: rerun `verify.py` and say why the record changed); or its own record (`.sdlc/.work/trust-anchor.json`) damaged.
 
-1. **Stricter changes** (Track up, Risk low → high, Flow lite → full, Prove skip → run) only add checks: "Stricter process: …", no block. Exception: a backlog feature leaving `Flow: lite` blocks.
+1. **Stricter changes** (Track up, Risk low → high) only add checks: "Stricter process: …", no block. Only 2.0 features (`Process: 2`) are anchored.
 2. **Every other change** blocks the stop once. Claude must tell you what changed and why, without undoing it on its own. Your next message accepts it: the current values become the anchor, and the notice doesn't block again. Autopilot stops at a notice you haven't seen.
 3. If the change was wrong, say so in that message and have it reverted (`state.py set`, or restore the file from git); moving a value back is itself a notice.
+
+### R20. Upgrade to 2.0 with a 1.x feature in progress
+
+sdlc 2.0 carries no copy of the 1.x flow ([ADR 0020](adr/0020-sdlc-2-slim-process-core.md)). A feature whose state file has no `Process: 2` was started under 1.x: `/sdlc:start` won't run it, `state.py` refuses to change it, the hooks ignore it, and `/sdlc:upgrade` names it and stops (`scaffold.py set-version` refuses while one is active).
+
+1. `/sdlc:status` lists the active features; the ones without `Process: 2` are 1.x.
+2. For each: install sdlc 1.8.1 (`/plugin install sdlc@sdlc` at 1.8.1), restart, and finish it there. Or, if you'll drop or redo it, archive it: set `Status: done` in its state file.
+3. Install 2.0 again, restart, and run `/sdlc:upgrade`.
+
+Best done before installing 2.0: the plugin is installed per machine, so finish in-progress 1.x features first.
 
 ## Maintenance
 
@@ -293,13 +303,13 @@ The test suite runs hooks and scripts as subprocesses; this checks the installed
 2. Ask: "run `git push --force origin main`". It's blocked, and Claude can say why.
 3. Ask Claude to write `const k = "sk-ant-api03-…"` with 30+ characters after the prefix: blocked.
 
-**E. An S fix: Define, Build, Ship (must)**
-1. `/sdlc:start fix: add returns a string when given numeric strings`. It proposes track S and creates `.sdlc/state/<yyyy-mm-dd>-s-<slug>.md`; the announcement shows `Build: subagent`.
-2. Define writes no documents: it records `Intent:` and `Repro:` in the state file and goes on to Build **without asking for approval**.
-3. Build dispatches one implementer subagent with `model: sonnet`, which writes a failing test first and records it with `verify.py red AC-001`, then the fix, runs `verify.py` and doesn't commit. `.sdlc/.work/verify.json` holds the red record and a passing run.
-4. **No Prove:** the state goes from Stage 4 to Stage 8 with `Verified:` set from `verify.py status`; `.sdlc/.work/dispatches.jsonl` shows no checker or reviewer, and the trust anchor accepts the passing run without Stage 5.
-5. In an M feature on the full flow, while in Prove, ask Claude to change a source file **with a shell command** (e.g. `sed -i`), then end the turn: it's **blocked**, and the message names the test command. Run it; the turn then ends normally.
-6. Ship runs the verified-tree check and Learn, makes one commit on a feature branch and reports it **without asking**. Its security review is skipped (not security-touched): it is recorded as reviewed with no model call, though the commit carries the state file. `git status` never shows `.sdlc/state/*.json`.
+**E. An S fix: Define, Build, Review, Ship (must)**
+1. `/sdlc:start fix: add returns a string when given numeric strings`. It proposes track S and creates `.sdlc/state/<yyyy-mm-dd>-s-<slug>.md` with `Process: 2`.
+2. Define proves the bug with a failing test, names the root cause, writes `intent.md`, `spec.md` (the proving test as AC-001 in `## Acceptance tests`) and `plan.md`, a few lines each, and goes on to Build **without asking for approval**.
+3. Build, in the session, records the test failing with `verify.py red AC-001`, then the fix, then `verify.py`. `.sdlc/.work/verify.json` holds the red record and a passing run.
+4. Review recommends reviews (likely none or a low code review) and runs them **without stopping**, saying what ran and why; any review agent in `.sdlc/.work/dispatches.jsonl` has `model: opus`. `review.md` records it.
+5. While in Review (Stage 5), ask Claude to change a source file **with a shell command** (e.g. `sed -i`), then end the turn: it's **blocked**, and the message names the test command. Run it; the turn then ends normally.
+6. Ship runs the verified-tree check and Learn, makes the final commit on a feature branch and, with a remote, pushes and opens a PR, then stops; without a remote it stops with the branch ready. It never merges. Its security review is skipped (not security-touched): it is recorded as reviewed with no model call. `git status` never shows `.sdlc/state/*.json`.
 7. Trust anchor (should): in a new S feature, ask Claude to run `state.py set <feature> Risk high`: a "Stricter process" message, no block. Then `Risk low`: the stop is blocked once, and your next message clears it.
 
 **F. Security hooks (should)**
@@ -309,20 +319,21 @@ The test suite runs hooks and scripts as subprocesses; this checks the installed
 **G. Brownfield setup (must)**
 1. Copy a small real repo (or a sample with two packages in different languages) into `/tmp/sdlc-smoke-brown`, add one deliberately failing test, commit.
 2. `/sdlc:setup`: it records the existing commands per package and **asks you to approve** them; it writes `.sdlc/baseline.md` listing the failing test; audit drafts are shown in batches and nothing is written before you approve.
-3. `/sdlc:start` a small change on the full flow; in Prove the known failure doesn't fail the round, and a new failure would.
-4. Monorepo (should): edit a file in one package during Prove; the block names only that package and its command.
+3. `/sdlc:start` a small M change; at Build's gate the known failure is logged against the baseline, and a new failure would fail it.
+4. Monorepo (should): edit a file in one package during Review; the block names only that package and its command.
 
 **H. Upgrade and eject (must)**
 1. In the greenfield repo, edit one guardrail file in `.claude/hookify/` and simulate an older scaffold: set `scaffold_version` in `.sdlc/scaffold.lock.json` to `1.2.9` (the only time to edit the lock by hand).
 2. `/sdlc:status` reports the repo as behind and suggests `/sdlc:upgrade`.
 3. `/sdlc:upgrade --dry-run` shows the plan and changes nothing (`git status` clean).
 4. `/sdlc:upgrade` works on its own branch, asks about the guardrail you edited (apply / skip / keep mine), and ends asking PR or local merge.
-5. `/sdlc:eject` shows a dry run first; applied on a branch, it removes the plugin's files, keeps `.sdlc/config.json`, the constitution, knowledge and specs.
+5. 1.x feature (must, for 2.0): in a repo with an active feature whose state has no `Process: 2`, `/sdlc:upgrade` names it and stops; after `Status: done` it goes ahead ([R20](#r20-upgrade-to-20-with-a-1x-feature-in-progress)).
+6. `/sdlc:eject` shows a dry run first; applied on a branch, it removes the plugin's files, keeps `.sdlc/config.json`, the constitution, knowledge and specs.
 
 **I. Windows (should, if the team uses it).** A teammate runs B–E on Windows in Git Bash.
 
 **J. Other agents (should, one per agent the release claims; must once each before calling an agent supported)**
-1. Install from the checkout: Codex `codex plugin marketplace add <checkout>` and `codex plugin add sdlc@sdlc` (note which manifest it used, whether `start` appears as a skill, and whether the Claude-format hooks run; on Windows, whether the skills' bash commands work from its PowerShell); Cursor, a copy in `~/.cursor/plugins/local`; Antigravity, `python3 scripts/hosts.py dist antigravity <folder>` then `agy plugin install <folder>`. The agent lists the sdlc skills, including `start`, `setup` and `upgrade` (Codex: `sdlc:start`, and no `sdlc:source-command-*` duplicates), and Antigravity's `agy agents` lists the 10 core agents.
+1. Install from the checkout: Codex `codex plugin marketplace add <checkout>` and `codex plugin add sdlc@sdlc` (note which manifest it used, whether `start` appears as a skill, and whether the Claude-format hooks run; on Windows, whether the skills' bash commands work from its PowerShell); Cursor, a copy in `~/.cursor/plugins/local`; Antigravity, `python3 scripts/hosts.py dist antigravity <folder>` then `agy plugin install <folder>`. The agent lists the sdlc skills, including `start`, `setup` and `upgrade` (Codex: `sdlc:start`, and no `sdlc:source-command-*` duplicates), and Antigravity's `agy agents` lists the 6 core agents.
 2. In a new repo, ask the agent to set up sdlc. It doesn't ask which agent it is, finds `scaffold.py` through the plugin folder note, and records only that host (`.sdlc/scaffold.lock.json` → `hosts`). `AGENTS.md` has the sdlc block. Under `.claude/` there are at most the knowledge step's area rules (`.claude/rules/<area>.md`, which the block copies), and no `sdlc*` rules, hookify or settings. Codex asks to approve each commit unless you give it full access; that's its sandbox, not a failure.
 3. Open the same repo in Claude Code and run `/sdlc:setup`: it joins (`hosts` gains `claude-code`), writes the Claude Code rules and guardrails, doesn't redo the commands or baseline, and `/sdlc:doctor` has no fails.
 4. Antigravity only: its agent list shows the sdlc agents, or the load error, which goes in the notes.
@@ -331,19 +342,19 @@ When every must item passes, record the date and commit in the changelog entry's
 
 ### Add or change a phase rule
 
-Phase behavior lives in `skills/orchestrator/`: the core `SKILL.md` (the phase → stage number → file map, tracks, risk and model tiers, state, what several phases share, the rules and hard stops) and `references/` (`define.md`, `build.md`, `prove.md`, `ship.md`, plus `start.md`, `backlog-slices.md`, `review-brief.md`, and `relay.md`, which M and L read in an interactive Claude Code session instead of the phase files). Anything two phases use goes in the core. The hooks and `state.py` key on the stage numbers (1, 4, 5, 8; 6 for a backlog between slices), not the names. After editing, keep these in step:
+Phase behavior lives in `skills/orchestrator/`: the core `SKILL.md` (the phase → stage number → file map, tracks, risk and model tiers, state, context rules, the shared rules and hard stops) and `references/` (`start.md`, `define.md`, `build.md`, `review.md`, `review-brief.md`, `ship.md`, plus `backlog-slices.md` for work split into parts and `ui-work.md` for UI work). Anything two phases use goes in the core. The hooks and `state.py` key on the stage numbers (1 Define, 4 Build, 5 Review, 8 Ship) and act only on features with `Process: 2`, not on the names. After editing, keep these in step:
 
 | If you change… | Also check |
 |---|---|
-| The relay (`relay.md`: the agent protocol, who runs which `state.py` move) | `skills/orchestrator/SKILL.md` and `start.md`, `hooks/role_guard.py` (reviewers write `.sdlc/.work/findings/`), `tests/test_role_guard.py`, `docs/guidebook.md`, `docs/specs/02-orchestration.md` |
-| Phase gates or tracks | `docs/diagrams/*.svg`, `docs/guidebook.md`, README phase table, the gate table in `docs/sdlc/intents/2026-10-26-four-phases/spec.md` |
-| A hard stop | the Rules section of the orchestrator, `docs/playbook.md`, R11 above |
-| Prove's record (`review.md`) | `templates/project/ci/invariants.py` (reads its rounds, falls back to `test-report.md`), `tests/test_invariants.py`, `scripts/prune.py` and `tests/test_prune.py` (what it keeps), `docs/specs/04-verification.md`, `08-health-and-status.md`, `11-multi-agent.md` |
-| Verify behavior | `scripts/verify.py`, `tests/test_verify.py`, `agents/ac-checker.md`, `agents/verifier.md`, `agents/qa-tester.md`, `hooks/verify_freshness.py` (its own copy of verify runs), `hooks/prove_budget.py` (the 120 s kill), `tests/test_verify_freshness.py`, `hooks/trust_anchor.py` (what it watches), `hooks/role_guard.py` (what the verifier may write) |
-| State fields or stage numbers | `scripts/state.py`, `tests/test_state.py`, `docs/specs/12-control-contract.md`, the template in `references/start.md`, every hook that reads the field (`verify_freshness`, `trust_anchor`, `model_router`, `sdlc_review_gate`) |
+| Phase gates or tracks | `docs/diagrams/*.svg`, `docs/guidebook.md`, README phase table, `docs/specs/02-orchestration.md` |
+| A hard stop | the Shared rules in the orchestrator's `SKILL.md`, `docs/playbook.md`, R11 above |
+| The record (`intent.md`, `spec.md`, `plan.md`, `review.md`) | `templates/*-template.md`, `define.md` and `review.md`, `scripts/verify.py` (reads `spec.md`'s `## Acceptance tests`), `scripts/prune.py` and `tests/test_prune.py` (what it keeps), `templates/project/ci/invariants.py` and `tests/test_invariants.py`, `docs/specs/04-verification.md`, `08-health-and-status.md` |
+| The review recommendation or brief (`review.md`, `review-brief.md`) | `agents/code-reviewer.md`, `agents/ui-reviewer.md`, `hooks/trust_anchor.py` (reads each report's `VERDICT:` line), `hooks/model_router.py` (reviews on opus), `docs/specs/03-scope-and-review.md`, `05-security.md` |
+| Verify behavior | `scripts/verify.py`, `tests/test_verify.py`, `hooks/verify_freshness.py` (its own copy of verify runs), `hooks/prove_budget.py` (Review's 120 s kill), `tests/test_verify_freshness.py`, `hooks/trust_anchor.py` (what it watches) |
+| State fields or stage numbers | `scripts/state.py`, `tests/test_state.py`, `docs/specs/12-control-contract.md`, the template in `references/start.md`, every hook that reads the field (`verify_freshness`, `trust_anchor`, `model_router`, `sdlc_review_gate`, `sdlc_layout`) |
 | An agent's role or file access | the agent's `tools:` frontmatter, `hooks/role_guard.py`, `tests/test_role_guard.py`, `docs/specs/03-scope-and-review.md` and `04-verification.md` |
-| Model tiers, track or risk | Model Selection in `skills/subagent-driven-development/SKILL.md`, `hooks/model_router.py`, `tests/test_model_router.py`, `hooks/trust_anchor.py` (it anchors `Risk:`), `docs/specs/02-orchestration.md` |
-| Scope-tracing rules | `skills/writing-specs`, `designing-solutions`, `writing-plans`, `analyzing-consistency`, `scripts/diff_stats.py` |
+| Model tiers, track or risk | Model selection in `skills/orchestrator/SKILL.md`, `hooks/model_router.py`, `tests/test_model_router.py`, `hooks/trust_anchor.py` (it anchors `Risk:`), `docs/specs/02-orchestration.md` |
+| Scope-tracing rules | `define.md`, `templates/spec-template.md` and `plan-template.md` (Public Surface), `review-brief.md`, `scripts/diff_stats.py` |
 | Setup, upgrade or eject | `skills/setting-up-projects/`, `scripts/scaffold.py`, `templates/project/`, `tests/test_scaffold.py`, `tests/test_project_templates.py`, `docs/diagrams/sdlc_setup_phase.svg`; a changed decision gets a new ADR in `docs/adr/` |
 
 Then run the stale-docs audit in `CONTRIBUTING.md`.

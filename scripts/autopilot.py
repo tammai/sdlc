@@ -2,7 +2,7 @@
 """sdlc autopilot: run a feature's backlog one fresh headless Claude Code session per slice.
 
 For a backlog too long for one session. Each slice runs as `claude -p "/sdlc:start B<n> --autopilot"`; after the last
-slice, one more session runs feature close, which ends at Ship (Stage 8) with the branch kept. State is read
+slice, one more session runs feature close, which ends at Ship (Stage 8): the PR open, or the branch ready without a remote. State is read
 from backlog.md, the feature's state file and the trust anchor between runs, never from the sessions' output.
 Stops when:
   - a trust-anchor notice is open (a new -p prompt would accept it without the user seeing it)

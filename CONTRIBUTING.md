@@ -15,17 +15,18 @@ sdlc/
 │                            and hosts/<host>/hooks.json, root hooks.json (Antigravity's): built by scripts/hosts.py, never edited;
 │                            `hosts.py dist antigravity` builds Antigravity's install copy. hosts/hook.py (hand-written) runs
 │                            the hooks under Codex, Cursor and Antigravity
-├── agents/                  subagents: ac-checker, verifier, reviewers, code-explorer/architect, …
+├── agents/                  subagents: code-reviewer, ui-reviewer, qa-tester, code-explorer, pr-test-analyzer, silent-failure-hunter
 ├── commands/                slash commands (/sdlc:start, setup, upgrade, eject, doctor, status, prune, deploy, context-diet, review-pr, …)
-├── skills/                  skills; orchestrator/ is the conductor (a short core plus references/ read per phase; references/relay.md replaces the phase files for L and sets Prove's brief and moves for M in an interactive Claude Code session), setting-up-projects/ runs setup/upgrade/eject
-│                            (references/trimming-context.md: /sdlc:context-diet); executing-plans/references/ holds requesting-code-review.md
-│                            and code-reviewer.md; managing-knowledge/references/ holds claude-md-improver.md and its folder
+├── skills/                  skills; orchestrator/ is the conductor (a short core plus references/ read per phase: start, define, build,
+│                            review, review-brief, ship, backlog-slices, ui-work), setting-up-projects/ runs setup/upgrade/eject
+│                            (references/trimming-context.md: /sdlc:context-diet); managing-knowledge/references/ holds
+│                            claude-md-improver.md and its folder
 ├── hooks/
 │   ├── hooks.json           which script runs on which event; every hook starts the Python sg-python.sh remembered, else sg-python.sh
-│   ├── verify_freshness.py  Prove (Stage 5; on `Flow: lite` also 6, where a backlog slice rests) stale/fresh test tracking, and its own copy of verify.py runs (original)
-│   ├── model_router.py      checks each subagent dispatch's model, logs dispatches (original)
+│   ├── verify_freshness.py  Review (Stage 5) stale/fresh test tracking, and its own copy of verify.py runs (original)
+│   ├── model_router.py      checks each subagent dispatch's model (every review on opus), logs dispatches (original)
 │   ├── role_guard.py        keeps the plugin's agents to their role's file access; reviewers write only .sdlc/.work/findings/ (original)
-│   ├── prove_budget.py      kills non-project shell commands at 120 s in Prove, no background runs (original)
+│   ├── prove_budget.py      kills non-project shell commands at 120 s in Review (Stage 5), no background runs; the file keeps its 1.x name (original)
 │   ├── trust_anchor.py      shows the user changes to what verification trusts (original)
 │   ├── pretooluse.py, stop.py, userpromptsubmit.py   hookify entry points (vendored)
 │   ├── security_reminder_hook.py + modules, sg-python.sh   security-guidance (vendored; patched to ask sdlc_review_gate.py)
@@ -36,16 +37,17 @@ sdlc/
 ├── scripts/
 │   ├── scaffold.py          setup/upgrade/eject bookkeeping: lock, file classes, commands, CI generator
 │   ├── doctor.py            read-only health check
-│   ├── diff_stats.py        review facts for Prove, Public Surface check
-│   ├── verify.py            Build's one proof command: verify plan, each AC's red record and test, plan drift; `red`, `status`
+│   ├── diff_stats.py        review facts for Review, Public Surface check
+│   ├── verify.py            Build's one proof command: verify plan, each AC's red record and test (from spec.md), plan drift; `red`, `status`
 │   ├── hosts.py             builds the other agents' manifests from .claude-plugin/ and agents/ (CI checks them)
-│   ├── backlog.py           the next ready slice of a feature's backlog.md
+│   ├── backlog.py           the next ready part of a feature's backlog.md
 │   ├── state.py             every state change in one call: state.md plus the control contract (beside it, git-ignored)
-│   ├── autopilot.py         runs a backlog one fresh headless claude session per slice (opt-in)
+│   ├── autopilot.py         runs a backlog one fresh headless claude session per part (opt-in)
+│   ├── prune.py             lists and deletes merged features' working files (/sdlc:prune)
 │   └── context_diet.py      per-source estimate of what Claude Code lists every call (/sdlc:context-diet)
 ├── templates/
-│   ├── intent/spec/plan/design/constitution-template.md   used by Define and its skills
-│   ├── backlog-template.md  a feature's backlog of slices (orchestrator)
+│   ├── intent/spec/plan/review/constitution-template.md   the feature record (Define, Review) and the constitution
+│   ├── backlog-template.md  a feature's backlog of parts (orchestrator)
 │   ├── design-system-template.md   setup's design-system step (UI projects)
 │   ├── knowledge/           OKF templates for tier 2/3 knowledge
 │   └── project/             what setup places in a repo: config defaults, rules/, hookify/, lint/, agents/ (the AGENTS.md workflow section), baseline.md
@@ -67,7 +69,7 @@ sdlc/
 ├── CHANGELOG.md  NOTICE.md  LICENSE  README.md
 ```
 
-Original to this plugin: the orchestrator and setting-up-projects skills (with `setting-up-projects/references/trimming-context.md`), `managing-knowledge`, the `ac-checker`, `verifier`, `qa-tester` and `ui-reviewer` agents, `verify_freshness.py`, `sdlc_review_gate.py`, `model_router.py`, `role_guard.py`, `prove_budget.py`, `trust_anchor.py`, `commands/deploy.md`, everything in `scripts/`, `templates/project/`, `templates/knowledge/`, `templates/design-system-template.md`, `templates/backlog-template.md`, `migrations/`, `tests/`, `docs/`. Everything else is vendored; `NOTICE.md` says what came from where and what was changed.
+Original to this plugin: the orchestrator and setting-up-projects skills (with `setting-up-projects/references/trimming-context.md`), `managing-knowledge`, the `qa-tester` and `ui-reviewer` agents, `verify_freshness.py`, `sdlc_review_gate.py`, `model_router.py`, `role_guard.py`, `prove_budget.py`, `trust_anchor.py`, `commands/deploy.md`, everything in `scripts/`, `templates/project/`, `templates/knowledge/`, `templates/design-system-template.md`, `templates/backlog-template.md`, `migrations/`, `tests/`, `docs/`. Everything else is vendored; `NOTICE.md` says what came from where and what was changed.
 
 ## Dev loop
 
