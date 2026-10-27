@@ -28,8 +28,8 @@ A new feature: `R/start.md` first. A backlog (`<intents>/backlog.md` exists): `R
 
 | Track | Signals | Shape |
 |---|---|---|
-| **S – fix** | bug or tweak, 1–3 files, clear expected behavior | Define writes short `intent.md`, `spec.md` and `plan.md`, no approval; built and verified in one place, no reviewers; Ship |
-| **M – feature** | a few files to a few days, approach mostly obvious | all four phases; risk low: `Flow: lite` (default), Prove is one fresh verifier; risk high or the user asks: `Flow: full`, with light review |
+| **S – fix** | bug or tweak, 1–3 files, clear expected behavior | Define records a one-line `Intent:` and the `Repro:` test in the state file, no documents, no approval; the repro test, the fix and one `verify.py`; no reviewers; Ship commits without asking |
+| **M – feature** | a few files to a few days, approach mostly obvious | all four phases; risk low: `Flow: lite` (default), Prove is one fresh ac-checker on Build's `verify.py`; risk high or the user asks: `Flow: full`, with light review |
 | **L – project** | new service/module, unclear approach, or touches auth, payments, data migration, public API | all four, with brainstorming and design in Define; `Flow: full` |
 
 Propose the *smallest* fitting track; size up only for a named signal, written in state. Bigger than one session (more than about 8 tasks, or several distinct parts) → a backlog. Auth, payments, secrets, PII or schema migrations: at least M, full security in Prove. **Risk** is `high` for those, a public API, or untrusted input reaching a shell, terminal, file path or database (S and M lite run no reviewer, so that work needs the full flow's review), else `low`; with the track it sets each dispatch's model tier:

@@ -6,7 +6,8 @@ Usage: verify.py [--root DIR] [--feature NAME] [--timeout S] [red AC-nnn | statu
   Runs the verify plan (lint, typecheck, build, test from .sdlc/config.json, per package), then, for every `AC-nnn`
   in spec.md: a row in plan.md's `## Acceptance tests` table, a `manual` row's reason, the test file, a recorded red
   run, and the row's Run command passing. Writes the result to .sdlc/.work/verify.json and exits 0 on pass, 1 on a
-  failure, 2 when there's no feature to verify. A plan without the table is an old plan: the AC checks are skipped
+  failure, 2 when there's no feature to verify. On S (no plan.md), the state file's `Repro: <test file> › <name> |
+  <command>` line is AC-001. A plan without the table, and no Repro line, is an old plan: the AC checks are skipped
   and Prove uses the verifier. Then drift from plan.md: a changed file no task or acceptance test names, a task
   whose files didn't change, an export or dependency the Public Surface doesn't list; each needs a `## Deviations`
   line naming it, with What:, Why: and Effect:.
@@ -107,13 +108,33 @@ def docs(root, feature):
     return read(os.path.join(folder, "spec.md")) or "", read(os.path.join(folder, "plan.md")) or ""
 
 
+REPRO = re.compile(r"^Repro:\s*(.+?)\s*\|\s*(.+?)\s*$", re.M)
+
+
+def acceptance(root, feature):
+    """(AC ids, rows): from spec.md and plan.md's table, or, on S (no plan), from the state file's
+    `Repro: <test file> › <name> | <command>` line as AC-001. Rows are None for an old plan with neither."""
+    spec_text, plan_text = docs(root, feature)
+    rows = acceptance_map(plan_text)
+    if rows is not None:
+        return spec_acs(spec_text), rows
+    m = REPRO.search(read(os.path.join(root, sdlc_layout.paths(root, feature)["state"])) or "")
+    if not m:
+        return [], None
+    row = acceptance_map(f"## Acceptance tests\n| AC-001 | {m.group(1)} | {m.group(2)} |\n")
+    return ["AC-001"], row
+
+
 def covered(item, deviations):
     return any(item in line and all(re.search(rf"{part}:\s*[^·\s]", line) for part in ("What", "Why", "Effect"))
                for line in deviations.splitlines())
 
 
 def drift(root, feature, plan_text):
-    """[{item, kind, covered}] for what the change did that plan.md didn't say, or None without a Base."""
+    """[{item, kind, covered}] for what the change did that plan.md didn't say, or None without a Base or a plan
+    (S writes none)."""
+    if not plan_text.strip():
+        return None
     state = read(os.path.join(root, sdlc_layout.paths(root, feature)["state"])) or ""
     m = re.search(r"^Base:\s*`?([0-9a-f]{7,40})\b", state, re.M)
     if not m:
@@ -152,14 +173,14 @@ def full(root, feature, timeout=1800):
         code, out = run(step["run"], os.path.join(root, step["cwd"]), timeout)
         if code:
             failures.append(f"{step['scope'] or scaffold.ROOT_SCOPE} {step['step']}: exit {code}\n{out[-500:]}")
-    spec_text, plan_text = docs(root, feature)
-    rows = acceptance_map(plan_text)
+    _, plan_text = docs(root, feature)
+    acs, rows = acceptance(root, feature)
     manual = []
     if rows is None:
         notes.append("no acceptance tests section: old plan, Prove uses the verifier")
     else:
         by_ac = {r["ac"]: r for r in rows}
-        for ac in spec_acs(spec_text):
+        for ac in acs:
             row = by_ac.get(ac)
             if not row:
                 failures.append(f"{ac}: no row in ## Acceptance tests")
@@ -178,7 +199,7 @@ def full(root, feature, timeout=1800):
                     failures.append(f"{ac}: its test fails (exit {code})\n{out[-500:]}")
     drifted = drift(root, feature, plan_text)
     if drifted is None:
-        notes.append("no Base: in state.md, so drift wasn't checked")
+        notes.append("no plan.md (S) or no Base: in state.md, so drift wasn't checked")
     for d in drifted or []:
         if not d["covered"]:
             failures.append(f"drift: {d['item']} has no Deviations entry with What:, Why: and Effect:")
@@ -200,8 +221,7 @@ NOT_FOUND = re.compile(r"no tests ran|collected 0 items|No tests found|no tests 
 
 def red(root, feature, ac, timeout=1800):
     """(entry, None) when the AC's test fails as it should before its code exists, else (None, reason)."""
-    _, plan_text = docs(root, feature)
-    row = next((r for r in acceptance_map(plan_text) or [] if r["ac"] == ac), None)
+    row = next((r for r in acceptance(root, feature)[1] or [] if r["ac"] == ac), None)
     if not row:
         return None, f"{ac}: no row in ## Acceptance tests"
     if row["manual"]:

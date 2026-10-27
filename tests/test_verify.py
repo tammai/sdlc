@@ -129,6 +129,25 @@ class VerifyTest(ProjectTestCase):
         self.write(".sdlc/.work/trust-anchor.json", '{"changed": 1}')
         self.assertEqual(self.status()["tree"], tree)
 
+    def test_an_s_fix_is_proven_from_the_repro_line_in_its_state(self):
+        # S writes no spec.md or plan.md: the state file's Repro line is its one acceptance test (AC-001)
+        state = self.path(".sdlc/login/state.md")
+        with open(state, encoding="utf-8") as f:
+            text = f.read()
+        self.write(".sdlc/login/state.md", text.replace("Status: active", "Status: active\nTrack: S") +
+                   'Repro: `tests/t.py` › cascade removes done | `python3 -c "import sys; sys.exit(1)"`\n')
+        self.write("tests/t.py", "")
+        self.write("src/fix.py", "x = 1\n")  # no plan, so no drift check
+        code, out, _ = self.verify()
+        self.assertEqual(code, 1)
+        self.assertIn("AC-001: no red run recorded", out)
+        code, out, _ = self.verify("red", "AC-001")
+        self.assertEqual(code, 0, out)
+        self.write(".sdlc/login/state.md", text.replace("Status: active", "Status: active\nTrack: S") +
+                   'Repro: `tests/t.py` › cascade removes done | `python3 -c "pass"`\n')  # the fix makes it pass
+        code, out, rec = self.verify()
+        self.assertEqual(code, 0, out)
+
     def test_an_ac_without_a_row_fails(self):
         self.spec("AC-001", "AC-002")
         self.plan([("AC-001", "tests/t.py › ok", 'python3 -c "pass"')])
