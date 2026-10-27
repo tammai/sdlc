@@ -131,6 +131,7 @@ Intent before code, with the agent judging when to ask; questions one at a time.
 
 ## Decided after the builder check
 
+- **How the build runs is the agent's call, made before the build (user):** at the end of Define the agent picks inline (default: the main session builds, like plain Claude), parts in fresh sessions (the work won't fit one context; `/clear` + `/sdlc:start`, or autopilot), or parallel subagents (only for truly independent parts: different files, no shared interfaces, real time saved). The choice and its reason go in `plan.md`; on M and L it is in the approval message; on S it just goes ahead.
 - **In-progress changes at upgrade:** finish them on 1.8.1 before installing 2.0; 2.0 stops on an old-stage change and says so (see Constraints).
 - **Design system stays as it works today (user):**
   - Setup writes `design-system.md`, pointing at the theme, components and tokens.

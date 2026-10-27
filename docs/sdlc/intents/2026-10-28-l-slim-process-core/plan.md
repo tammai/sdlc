@@ -199,7 +199,7 @@
   - `skills/orchestrator/SKILL.md` (≤ 70 lines; a sizing table; model selection);
   - `references/start.md` (state template with `Process: 2`; 1.x refusal text);
   - `define.md` (intent before code, agent judges, one question at a time via `sdlc:brainstorming`, bug proven first with root cause, S writes all three files without stopping, M/L approval of intent + spec + plan);
-  - `build.md` (builder like plain Claude, red-first via `verify.py`, must-never-break and failure modes, crash windows must-fix, parts via the backlog, one commit per part naming the record);
+  - `build.md` (how the build runs, decided before it and written in plan.md with its reason: inline by default, parts in fresh sessions when it won't fit one context, parallel subagents only for independent parts; builder like plain Claude, red-first via `verify.py`, must-never-break and failure modes, crash windows must-fix, parts via the backlog, one commit per part naming the record);
   - `ship.md` (learn before the final commit, local green, push, watch CI, one fix then ask, stop at the PR);
   - `backlog-slices.md` (parts land together; feature close → Review);
   - `ui-work.md` (unchanged rules; Prove → Review; S writes `## UI mapping` in plan.md).
