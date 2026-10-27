@@ -131,6 +131,7 @@ Intent before code, with the agent judging when to ask; questions one at a time.
 
 ## Decided after the builder check
 
+- **Trivial changes skip the workflow (user, after the smoke run):** start, implement, build, fix and brainstorm requests in a repo set up for sdlc trigger the workflow, but when the agent judges a change trivial (a typo, a one-line fix with an obvious cause, a rename, a config value; nothing another feature's spec relies on, nothing security-sensitive) it works like plain Claude: the change, a test when behaviour changes, the project's tests, a clear commit. No record files, no state file, no note: the commit is enough. "Full record", or the change turning out not to be trivial, sends it to S. Scoping the trigger to repos set up for sdlc is the agent's call.
 - **The record is four files, split by lifetime (user, option B, during the build):**
 
   | File | Holds | Lifetime |

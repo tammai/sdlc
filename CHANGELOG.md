@@ -12,6 +12,7 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 - **The builder works like plain Claude:** no review agents during the build; tests still recorded failing first (`verify.py red`). The agent decides before the build whether it runs inline, in parts across fresh sessions, or with parallel subagents.
 - **Reviews are recommended after the build** (security; code at low, default or high depth; UI; advisor where available; or none). S runs the recommendation, M and L ask you. Each review runs once, on opus.
 - **Learn before merge:** lessons land in the project's knowledge in the same change. Then green locally and on CI (one CI fix, then it asks), and it stops at the PR.
+- **Trivial changes skip the workflow.** Start, implement, fix and brainstorm requests trigger it in a repo set up for sdlc, but a typo or a one-line fix with an obvious cause is just done and committed, with no record.
 - **Phases are Define, Build, Review, Ship** (stages 1, 4, 5, 8); a 2.0 feature's state carries `Process: 2`.
 - **Removed:** Prove and its rounds, Lite/Full, `Prove: run|skip`, the verifier, ac-checker and code-architect agents, the relay, and the skills writing-specs, clarifying-specs, designing-solutions, analyzing-consistency, executing-plans, subagent-driven-development and writing-plans. Every command you type keeps its name.
 

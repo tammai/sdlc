@@ -1,13 +1,13 @@
 ---
 name: orchestrator
-description: Takes a feature, fix or project through define, build, review and ship, leaving the same intent, spec and plan record at every size. Use when the user wants work taken through that flow or asks where it stands, or when the message is or opens with a GitHub, Linear, Jira or other tracker ticket link.
+description: Takes a feature, fix or project through define, build, review and ship, leaving an intent, spec, plan and review record, and does trivial changes directly. Use when the user asks to start, implement, build, fix or brainstorm a change in a repo set up for sdlc, asks where work stands, or opens with a GitHub, Linear, Jira or other tracker ticket link.
 ---
 
 `${CLAUDE_PLUGIN_ROOT}` is the sdlc plugin's folder (other agents: the installed plugin folder above this file). `R` is this skill's `references/` folder.
 
 # SDLC Orchestrator (sdlc 2.0)
 
-You decide the phase, keep the state current, and stop only where this file says. Every change leaves the same record, committed with the code: `intent.md` (why), `spec.md` (what must be true, each criterion with its test) and `review.md` (what was checked after the build), kept for good; and `plan.md` (how), a working file `/sdlc:prune` may delete once merged. Paths: `<intents>` is the feature's documents folder, `<state>` its state file, `<docs>` the sdlc docs folder (`scaffold.py paths <feature>` prints them).
+You decide the phase, keep the state current, and stop only where this file says. Every change but a trivial one leaves the same record, committed with the code: `intent.md` (why), `spec.md` (what must be true, each criterion with its test) and `review.md` (what was checked after the build), kept for good; and `plan.md` (how), a working file `/sdlc:prune` may delete once merged. Paths: `<intents>` is the feature's documents folder, `<state>` its state file, `<docs>` the sdlc docs folder (`scaffold.py paths <feature>` prints them).
 
 ## Four phases
 
@@ -20,15 +20,18 @@ You decide the phase, keep the state current, and stop only where this file says
 
 Moves: Define → `advance 4`, Build → `5`, Review → `8`. A new feature: `R/start.md` first. Work split into parts (`<intents>/backlog.md`): `R/backlog-slices.md` leads. Deploy only when asked: `/sdlc:deploy`.
 
-**Start or resume.** Look for a state file with `Status: active` (`.sdlc/state/*.md`; old layout `.sdlc/*/state.md`). One with `Process: 2` → say the feature, phase and open items in 2–3 lines and continue in its phase (a backlog: `backlog.py next` names the part; the request `B<n>` → that part). One without `Process: 2` was started under sdlc 1.x: say so, and that it must be finished with sdlc 1.8.1 or archived (`Status: done`); 2.0 can't run it. Several → ask which (a request ending `--autopilot` never asks). None → `R/start.md`.
+**Start or resume.** Look for a state file with `Status: active` (`.sdlc/state/*.md`; old layout `.sdlc/*/state.md`). One with `Process: 2` → say the feature, phase and open items in 2–3 lines and continue in its phase (a backlog: `backlog.py next` names the part; the request `B<n>` → that part). One without `Process: 2` was started under sdlc 1.x: say so, and that it must be finished with sdlc 1.8.1 or archived (`Status: done`); 2.0 can't run it. Several → ask which (a request ending `--autopilot` never asks). None → size the request (below): trivial → do it directly; otherwise `R/start.md`.
 
 ## Size and approval
 
 | Track | Signals | Before the build |
 |---|---|---|
+| **Trivial** | a typo, a one-line fix with an obvious cause, a rename, a config value; no behaviour another feature's spec relies on, nothing security-sensitive | none: no workflow, no record, no state file (below) |
 | **S** | a fix or tweak, 1–2 files, clear expected behaviour | intent, spec and plan, a few lines each; no stop |
 | **M** | a few files to a few days, approach mostly clear | intent, spec and plan in full; the user reads and approves |
 | **L** | several distinct parts, or an approach still unclear | intent, spec and plan in full, the interview via `sdlc:brainstorming`; the user reads and approves |
+
+**Trivial is your call.** Say in one line "Trivial, so I'm doing it directly", then work like plain Claude: make the change, add a test when it changes behaviour, run the project's tests, and commit with a clear message. The commit is the whole record. If the user says "full record", or the change turns out not to be trivial (a second file, an unclear cause, a failing test you didn't expect), stop and go to `R/start.md` as S.
 
 Propose the smallest fitting track; size up only for a named signal, recorded in state with the footprint (files touched). Size by footprint, not risk words. **Risk** is `high` for auth, payments, secrets, PII, schema migrations, a public API, or untrusted input reaching a shell, file path or database; else `low`. Risk doesn't change the track: it feeds the review recommendation (`R/review.md`).
 
