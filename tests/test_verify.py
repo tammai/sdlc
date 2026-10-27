@@ -67,6 +67,22 @@ class VerifyTest(ProjectTestCase):
         self.assertEqual(rec["last"]["result"], "pass")
         self.assertEqual(rec["last"]["manual"], ["AC-002"])
 
+    def test_red_records_a_failing_test_and_refuses_a_passing_or_missing_one(self):
+        self.spec("AC-001")
+        self.plan([("AC-001", "tests/t.py › ok", 'python3 -c "import sys; sys.exit(1)"')])
+        self.write("tests/t.py", "")
+        code, out, rec = self.verify("red", "AC-001")
+        self.assertEqual(code, 0, out)
+        self.assertIn("AC-001", rec["red"])
+        self.plan([("AC-001", "tests/t.py › ok", 'python3 -c "pass"')])
+        code, out, _ = self.verify("red", "AC-001")
+        self.assertEqual(code, 1)
+        self.assertIn("passes before its code exists", out)
+        self.plan([("AC-001", "tests/missing.py › ok", 'python3 -c "import sys; sys.exit(1)"')])
+        code, out, _ = self.verify("red", "AC-001")
+        self.assertEqual(code, 1)
+        self.assertIn("tests/missing.py not found", out)
+
     def test_an_ac_without_a_row_fails(self):
         self.spec("AC-001", "AC-002")
         self.plan([("AC-001", "tests/t.py › ok", 'python3 -c "pass"')])

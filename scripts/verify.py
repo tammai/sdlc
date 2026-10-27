@@ -2,12 +2,14 @@
 """One command that proves a feature: the project's verify plan, then every acceptance criterion against the test
 plan.md names for it (ADR 0013).
 
-Usage: verify.py [--root DIR] [--feature NAME] [--timeout S]
+Usage: verify.py [--root DIR] [--feature NAME] [--timeout S] [red AC-nnn]
   Runs the verify plan (lint, typecheck, build, test from .sdlc/config.json, per package), then, for every `AC-nnn`
   in spec.md: a row in plan.md's `## Acceptance tests` table, a `manual` row's reason, the test file, a recorded red
   run, and the row's Run command passing. Writes the result to .sdlc/.work/verify.json and exits 0 on pass, 1 on a
   failure, 2 when there's no feature to verify. A plan without the table is an old plan: the AC checks are skipped
   and Prove uses the verifier.
+`red AC-nnn`, run before the AC's code is written: runs that AC's test and records it failing (exit 0). A test that
+  passes, can't be found or can't run is refused (exit 1, nothing recorded): it would prove nothing.
 Stdlib only, Python 3.9+.
 """
 import argparse
@@ -140,6 +142,33 @@ def full(root, feature, timeout=1800):
     return rec["last"], notes
 
 
+NOT_RUNNABLE = {126, 127, 5}  # shell: can't execute / not found; pytest: no tests collected
+
+
+def red(root, feature, ac, timeout=1800):
+    """(entry, None) when the AC's test fails as it should before its code exists, else (None, reason)."""
+    _, plan_text = docs(root, feature)
+    row = next((r for r in acceptance_map(plan_text) or [] if r["ac"] == ac), None)
+    if not row:
+        return None, f"{ac}: no row in ## Acceptance tests"
+    if row["manual"]:
+        return None, f"{ac}: a manual row has no test to run"
+    if not os.path.exists(os.path.join(root, row["file"])):
+        return None, f"{ac}: {row['file']} not found"
+    code, out = run(row["run"], root, timeout)
+    if code == 0:
+        return None, f"{ac}: its test passes before its code exists, so it proves nothing"
+    if code in NOT_RUNNABLE:
+        return None, f"{ac}: test not found or not runnable (exit {code})\n{out[-500:]}"
+    rec = load_record(root)
+    if rec.get("feature") != feature:
+        rec = {"feature": feature}
+    entry = {"at": now(), "tree": vf.worktree_tree(root), "exit": code}
+    rec.setdefault("red", {})[ac] = entry
+    save_record(root, rec)
+    return entry, None
+
+
 def active_feature(root):
     for name, f in sdlc_layout.features(root).items():
         text = read(os.path.join(root, f["state"])) or ""
@@ -153,12 +182,21 @@ def main(argv=None):
     ap.add_argument("--root", default=".")
     ap.add_argument("--feature")
     ap.add_argument("--timeout", type=int, default=1800)
+    ap.add_argument("action", nargs="?", choices=["red"])
+    ap.add_argument("ac", nargs="?")
     a = ap.parse_args(argv)
     root = os.path.abspath(a.root)
     feature = a.feature or active_feature(root)
     if not feature:
         print("verify: no active feature (pass --feature)")
         return 2
+    if a.action == "red":
+        if not a.ac or not AC_ID.fullmatch(a.ac):
+            print("verify red: name one acceptance criterion, e.g. AC-001")
+            return 2
+        entry, reason = red(root, feature, a.ac, a.timeout)
+        print(reason or f"{a.ac}: red recorded (exit {entry['exit']}); now write its code")
+        return 1 if reason else 0
     last, notes = full(root, feature, a.timeout)
     for line in notes + last["failures"]:
         print(line)
