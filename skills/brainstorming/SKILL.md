@@ -49,9 +49,13 @@ connects to, and keep reading until you can explain how the relevant
 parts work today and what this change would touch. Never ask what the
 project or their context already answers.
 
-Under the sdlc orchestrator, Define has already asked the user its blocking
-questions in one message. Treat those answers as known and don't ask them
-again; spend your questions on what they leave open and on the approaches.
+Under the sdlc orchestrator, ask the user nothing: Define puts every
+question, and the choice of approach, in its one approval message. Settle
+open points with your recommended answer (recorded as `[recommended]` in
+`intent.md`), lay out the approaches in `intent.md` with your
+recommendation, write the doc on it, and return to the orchestrator.
+Steps 1 and 3 below are then the orchestrator's approval, not messages of
+your own.
 
 ## Your First Message
 
