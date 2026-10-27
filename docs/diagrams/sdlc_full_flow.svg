@@ -1,4 +1,4 @@
-<svg width="100%" viewBox="0 0 1000 1485" role="img" xmlns="http://www.w3.org/2000/svg">
+<svg width="100%" viewBox="0 0 1000 1595" role="img" xmlns="http://www.w3.org/2000/svg">
 <title>SDLC tracks by phase</title>
 <desc>The orchestrator's four tracks side by side, by phase (Define, Build, Prove, Ship with Learn). S, a fix: Define writes no documents and asks no approval, only Intent: and Repro: lines in the state file; one sonnet implementer makes the repro test fail first, then fixes it, and verify.py passes; no Prove; Ship learns a lesson only if there is one, asks the advisor once and commits on a branch without asking. M lite (risk low, the default): the session writes intent.md, a Lite spec.md and plan.md, with a design only when the approach isn't obvious, and you approve once; Build runs natively or with one subagent, each acceptance criterion's test red first; no Prove; Ship learns, asks the advisor once and commits. M full (risk high, or on request): writing-specs and writing-plans write the spec and plan, and the approval also sets Prove run or skip; the session builds as the maker; Prove dispatches one fresh opus code-reviewer that checks each criterion's test and reviews the diff in one pass, plus a security reviewer when security-touched and a ui-reviewer on UI; a FAIL goes back to Build and a fresh checker re-checks; Prove skip goes to Ship. L, a project: an opus Define agent runs brainstorming, specs, design, plans and consistency while the main session only coordinates; one sonnet Build agent per part; Prove runs a fresh ac-checker and opus code-reviewer in parallel each round, plus security, ui and, at a backlog close, qa-tester; round 3 failing or one criterion failing twice goes to you; Ship adds retro.md. Every track ends in one commit on a feature branch; merge or PR waits for the user. hookify, security-guidance, model-router, role-guard and trust-anchor run on every track; verify-freshness and prove-budget only in Prove. Backlog slices skip Prove until the feature close. Deploy is the on-request /sdlc:deploy, not a phase.</desc>
 <style>
@@ -78,389 +78,389 @@ rect{stroke-width:.6}
 <text class="s m" x="875.0" y="220">several parts, or approach</text>
 <text class="s m" x="875.0" y="234">unclear after Define</text>
 </g>
-<rect class="bound p1" x="12" y="268" width="976" height="285" rx="10"/>
+<rect class="bound p1" x="12" y="282" width="976" height="301" rx="10"/>
 <g class="phase p1">
-<rect x="20" y="278" width="92" height="265" rx="6"/>
-<text class="t m" x="66.0" y="410.5">Define</text>
+<rect x="20" y="300" width="92" height="265" rx="6"/>
+<text class="t m" x="66.0" y="432.5">Define</text>
 </g>
-<line class="a" x1="224.0" y1="244" x2="224.0" y2="275" marker-end="url(#ar)"/>
+<line class="a" x1="224.0" y1="244" x2="224.0" y2="297" marker-end="url(#ar)"/>
 <g class="neutral">
-<rect x="120" y="278" width="208" height="58" rx="6"/>
-<text class="s" x="129" y="292">No documents, no approval: two</text>
-<text class="s" x="129" y="307">lines in the state file, Intent:</text>
-<text class="s" x="129" y="322">and Repro:</text>
+<rect x="120" y="300" width="208" height="58" rx="6"/>
+<text class="s" x="129" y="314">No documents, no approval: two</text>
+<text class="s" x="129" y="329">lines in the state file, Intent:</text>
+<text class="s" x="129" y="344">and Repro:</text>
 </g>
 <g class="gate">
-<rect x="120" y="341" width="208" height="28" rx="6"/>
-<text class="s" x="129" y="355">Checked: straight on to Build</text>
+<rect x="120" y="363" width="208" height="28" rx="6"/>
+<text class="s" x="129" y="377">Checked: straight on to Build</text>
 </g>
-<line class="a" x1="224.0" y1="369" x2="224.0" y2="543"/>
-<line class="a" x1="441.0" y1="244" x2="441.0" y2="275" marker-end="url(#ar)"/>
+<line class="a" x1="224.0" y1="391" x2="224.0" y2="565"/>
+<line class="a" x1="441.0" y1="244" x2="441.0" y2="297" marker-end="url(#ar)"/>
 <g class="neutral">
-<rect x="337" y="278" width="208" height="73" rx="6"/>
-<text class="s" x="346" y="292">The session writes intent.md (2–3</text>
-<text class="s" x="346" y="307">approaches, one recommended), a</text>
-<text class="s" x="346" y="322">Lite spec.md and plan.md (3–6</text>
-<text class="s" x="346" y="337">tasks)</text>
+<rect x="337" y="300" width="208" height="73" rx="6"/>
+<text class="s" x="346" y="314">The session writes intent.md (2–3</text>
+<text class="s" x="346" y="329">approaches, one recommended), a</text>
+<text class="s" x="346" y="344">Lite spec.md and plan.md (3–6</text>
+<text class="s" x="346" y="359">tasks)</text>
 </g>
 <g class="skill">
-<rect x="337" y="356" width="208" height="43" rx="6"/>
-<text class="s" x="346" y="370">designing-solutions only when the</text>
-<text class="s" x="346" y="385">approach isn't obvious</text>
+<rect x="337" y="378" width="208" height="43" rx="6"/>
+<text class="s" x="346" y="392">designing-solutions only when the</text>
+<text class="s" x="346" y="407">approach isn't obvious</text>
 </g>
 <g class="agent">
-<rect x="337" y="404" width="208" height="43" rx="6"/>
-<text class="s" x="346" y="418">code-explorer · code-architect</text>
-<text class="s" x="346" y="433">(with a design)</text>
+<rect x="337" y="426" width="208" height="43" rx="6"/>
+<text class="s" x="346" y="440">code-explorer · code-architect</text>
+<text class="s" x="346" y="455">(with a design)</text>
 </g>
 <g class="approval">
-<rect x="337" y="452" width="208" height="43" rx="6"/>
-<text class="s" x="346" y="466">You approve once: documents,</text>
-<text class="s" x="346" y="481">approach, Build: method</text>
+<rect x="337" y="474" width="208" height="43" rx="6"/>
+<text class="s" x="346" y="488">You approve once: documents,</text>
+<text class="s" x="346" y="503">approach, Build: method</text>
 </g>
-<line class="a" x1="441.0" y1="495" x2="441.0" y2="543"/>
-<line class="a" x1="658.0" y1="244" x2="658.0" y2="275" marker-end="url(#ar)"/>
+<line class="a" x1="441.0" y1="517" x2="441.0" y2="565"/>
+<line class="a" x1="658.0" y1="244" x2="658.0" y2="297" marker-end="url(#ar)"/>
 <g class="neutral">
-<rect x="554" y="278" width="208" height="28" rx="6"/>
-<text class="s" x="563" y="292">The session writes intent.md</text>
+<rect x="554" y="300" width="208" height="28" rx="6"/>
+<text class="s" x="563" y="314">The session writes intent.md</text>
 </g>
 <g class="skill">
-<rect x="554" y="311" width="208" height="58" rx="6"/>
-<text class="s" x="563" y="325">writing-specs (spec + checklist) ·</text>
-<text class="s" x="563" y="340">writing-plans · designing-</text>
-<text class="s" x="563" y="355">solutions when not obvious</text>
+<rect x="554" y="333" width="208" height="58" rx="6"/>
+<text class="s" x="563" y="347">writing-specs (spec + checklist) ·</text>
+<text class="s" x="563" y="362">writing-plans · designing-</text>
+<text class="s" x="563" y="377">solutions when not obvious</text>
 </g>
 <g class="agent">
-<rect x="554" y="374" width="208" height="43" rx="6"/>
-<text class="s" x="563" y="388">code-explorer · code-architect</text>
-<text class="s" x="563" y="403">(with a design)</text>
+<rect x="554" y="396" width="208" height="43" rx="6"/>
+<text class="s" x="563" y="410">code-explorer · code-architect</text>
+<text class="s" x="563" y="425">(with a design)</text>
 </g>
 <g class="approval">
-<rect x="554" y="422" width="208" height="43" rx="6"/>
-<text class="s" x="563" y="436">You approve once, and choose</text>
-<text class="s" x="563" y="451">Prove: run (default) or skip</text>
+<rect x="554" y="444" width="208" height="43" rx="6"/>
+<text class="s" x="563" y="458">You approve once, and choose</text>
+<text class="s" x="563" y="473">Prove: run (default) or skip</text>
 </g>
-<line class="a" x1="658.0" y1="465" x2="658.0" y2="543"/>
-<line class="a" x1="875.0" y1="244" x2="875.0" y2="275" marker-end="url(#ar)"/>
+<line class="a" x1="658.0" y1="487" x2="658.0" y2="565"/>
+<line class="a" x1="875.0" y1="244" x2="875.0" y2="297" marker-end="url(#ar)"/>
 <g class="agent">
-<rect x="771" y="278" width="208" height="43" rx="6"/>
-<text class="s" x="780" y="292">Define agent (opus); the main</text>
-<text class="s" x="780" y="307">session only coordinates (relay)</text>
+<rect x="771" y="300" width="208" height="43" rx="6"/>
+<text class="s" x="780" y="314">Define agent (opus); the main</text>
+<text class="s" x="780" y="329">session only coordinates (relay)</text>
 </g>
 <g class="skill">
-<rect x="771" y="326" width="208" height="73" rx="6"/>
-<text class="s" x="780" y="340">brainstorming → intent.md ·</text>
-<text class="s" x="780" y="355">writing-specs · designing-</text>
-<text class="s" x="780" y="370">solutions · writing-plans ·</text>
-<text class="s" x="780" y="385">analyzing-consistency</text>
+<rect x="771" y="348" width="208" height="73" rx="6"/>
+<text class="s" x="780" y="362">brainstorming → intent.md ·</text>
+<text class="s" x="780" y="377">writing-specs · designing-</text>
+<text class="s" x="780" y="392">solutions · writing-plans ·</text>
+<text class="s" x="780" y="407">analyzing-consistency</text>
 </g>
 <g class="agent">
-<rect x="771" y="404" width="208" height="43" rx="6"/>
-<text class="s" x="780" y="418">code-explorer · code-architect,</text>
-<text class="s" x="780" y="433">via DISPATCH:</text>
+<rect x="771" y="426" width="208" height="43" rx="6"/>
+<text class="s" x="780" y="440">code-explorer · code-architect,</text>
+<text class="s" x="780" y="455">via DISPATCH:</text>
 </g>
 <g class="neutral">
-<rect x="771" y="452" width="208" height="43" rx="6"/>
-<text class="s" x="780" y="466">backlog.md when it won't fit one</text>
-<text class="s" x="780" y="481">session</text>
+<rect x="771" y="474" width="208" height="43" rx="6"/>
+<text class="s" x="780" y="488">backlog.md when it won't fit one</text>
+<text class="s" x="780" y="503">session</text>
 </g>
 <g class="approval">
-<rect x="771" y="500" width="208" height="43" rx="6"/>
-<text class="s" x="780" y="514">You approve once, and choose</text>
-<text class="s" x="780" y="529">Prove: run (default) or skip</text>
+<rect x="771" y="522" width="208" height="43" rx="6"/>
+<text class="s" x="780" y="536">You approve once, and choose</text>
+<text class="s" x="780" y="551">Prove: run (default) or skip</text>
 </g>
-<rect class="bound p2" x="12" y="567" width="976" height="207" rx="10"/>
+<rect class="bound p2" x="12" y="603" width="976" height="223" rx="10"/>
 <g class="phase p2">
-<rect x="20" y="577" width="92" height="187" rx="6"/>
-<text class="t m" x="66.0" y="670.5">Build</text>
+<rect x="20" y="621" width="92" height="187" rx="6"/>
+<text class="t m" x="66.0" y="714.5">Build</text>
 </g>
-<line class="a" x1="224.0" y1="543" x2="224.0" y2="574" marker-end="url(#ar)"/>
+<line class="a" x1="224.0" y1="565" x2="224.0" y2="618" marker-end="url(#ar)"/>
 <g class="agent">
-<rect x="120" y="577" width="208" height="28" rx="6"/>
-<text class="s" x="129" y="591">One implementer subagent (sonnet)</text>
+<rect x="120" y="621" width="208" height="28" rx="6"/>
+<text class="s" x="129" y="635">One implementer subagent (sonnet)</text>
 </g>
 <g class="skill">
-<rect x="120" y="610" width="208" height="43" rx="6"/>
-<text class="s" x="129" y="624">test-driven-development ·</text>
-<text class="s" x="129" y="639">systematic-debugging on failure</text>
+<rect x="120" y="654" width="208" height="43" rx="6"/>
+<text class="s" x="129" y="668">test-driven-development ·</text>
+<text class="s" x="129" y="683">systematic-debugging on failure</text>
 </g>
 <g class="neutral">
-<rect x="120" y="658" width="208" height="43" rx="6"/>
-<text class="s" x="129" y="672">Repro test fails first (verify.py</text>
-<text class="s" x="129" y="687">red AC-001), then the fix</text>
+<rect x="120" y="702" width="208" height="43" rx="6"/>
+<text class="s" x="129" y="716">Repro test fails first (verify.py</text>
+<text class="s" x="129" y="731">red AC-001), then the fix</text>
 </g>
 <g class="gate">
-<rect x="120" y="706" width="208" height="28" rx="6"/>
-<text class="s" x="129" y="720">Checked: verify.py passes</text>
+<rect x="120" y="750" width="208" height="28" rx="6"/>
+<text class="s" x="129" y="764">Checked: verify.py passes</text>
 </g>
-<line class="a" x1="224.0" y1="734" x2="224.0" y2="764"/>
-<line class="a" x1="441.0" y1="543" x2="441.0" y2="574" marker-end="url(#ar)"/>
+<line class="a" x1="224.0" y1="778" x2="224.0" y2="808"/>
+<line class="a" x1="441.0" y1="565" x2="441.0" y2="618" marker-end="url(#ar)"/>
 <g class="neutral">
-<rect x="337" y="577" width="208" height="43" rx="6"/>
-<text class="s" x="346" y="591">Build: native (this session), or</text>
-<text class="s" x="346" y="606">one subagent (sonnet)</text>
+<rect x="337" y="621" width="208" height="43" rx="6"/>
+<text class="s" x="346" y="635">Build: native (this session), or</text>
+<text class="s" x="346" y="650">one subagent (sonnet)</text>
 </g>
 <g class="skill">
-<rect x="337" y="625" width="208" height="43" rx="6"/>
-<text class="s" x="346" y="639">test-driven-development ·</text>
-<text class="s" x="346" y="654">systematic-debugging on failure</text>
+<rect x="337" y="669" width="208" height="43" rx="6"/>
+<text class="s" x="346" y="683">test-driven-development ·</text>
+<text class="s" x="346" y="698">systematic-debugging on failure</text>
 </g>
 <g class="neutral">
-<rect x="337" y="673" width="208" height="43" rx="6"/>
-<text class="s" x="346" y="687">Each AC's test red first, then</text>
-<text class="s" x="346" y="702">green</text>
+<rect x="337" y="717" width="208" height="43" rx="6"/>
+<text class="s" x="346" y="731">Each AC's test red first, then</text>
+<text class="s" x="346" y="746">green</text>
 </g>
 <g class="gate">
-<rect x="337" y="721" width="208" height="28" rx="6"/>
-<text class="s" x="346" y="735">Checked: verify.py passes</text>
+<rect x="337" y="765" width="208" height="28" rx="6"/>
+<text class="s" x="346" y="779">Checked: verify.py passes</text>
 </g>
-<line class="a" x1="441.0" y1="749" x2="441.0" y2="764"/>
-<line class="a" x1="658.0" y1="543" x2="658.0" y2="574" marker-end="url(#ar)"/>
+<line class="a" x1="441.0" y1="793" x2="441.0" y2="808"/>
+<line class="a" x1="658.0" y1="565" x2="658.0" y2="618" marker-end="url(#ar)"/>
 <g class="neutral">
-<rect x="554" y="577" width="208" height="43" rx="6"/>
-<text class="s" x="563" y="591">Build: native, the session is the</text>
-<text class="s" x="563" y="606">maker</text>
+<rect x="554" y="621" width="208" height="43" rx="6"/>
+<text class="s" x="563" y="635">Build: native, the session is the</text>
+<text class="s" x="563" y="650">maker</text>
 </g>
 <g class="skill">
-<rect x="554" y="625" width="208" height="43" rx="6"/>
-<text class="s" x="563" y="639">test-driven-development ·</text>
-<text class="s" x="563" y="654">systematic-debugging on failure</text>
+<rect x="554" y="669" width="208" height="43" rx="6"/>
+<text class="s" x="563" y="683">test-driven-development ·</text>
+<text class="s" x="563" y="698">systematic-debugging on failure</text>
 </g>
 <g class="neutral">
-<rect x="554" y="673" width="208" height="43" rx="6"/>
-<text class="s" x="563" y="687">Each AC's test red first, then</text>
-<text class="s" x="563" y="702">green</text>
+<rect x="554" y="717" width="208" height="43" rx="6"/>
+<text class="s" x="563" y="731">Each AC's test red first, then</text>
+<text class="s" x="563" y="746">green</text>
 </g>
 <g class="gate">
-<rect x="554" y="721" width="208" height="28" rx="6"/>
-<text class="s" x="563" y="735">Checked: verify.py passes</text>
+<rect x="554" y="765" width="208" height="28" rx="6"/>
+<text class="s" x="563" y="779">Checked: verify.py passes</text>
 </g>
-<line class="a" x1="658.0" y1="749" x2="658.0" y2="764"/>
-<line class="a" x1="875.0" y1="543" x2="875.0" y2="574" marker-end="url(#ar)"/>
+<line class="a" x1="658.0" y1="793" x2="658.0" y2="808"/>
+<line class="a" x1="875.0" y1="565" x2="875.0" y2="618" marker-end="url(#ar)"/>
 <g class="agent">
-<rect x="771" y="577" width="208" height="43" rx="6"/>
-<text class="s" x="780" y="591">One Build agent per part (sonnet),</text>
-<text class="s" x="780" y="606">resumed with SendMessage</text>
+<rect x="771" y="621" width="208" height="43" rx="6"/>
+<text class="s" x="780" y="635">One Build agent per part (sonnet),</text>
+<text class="s" x="780" y="650">resumed with SendMessage</text>
 </g>
 <g class="skill">
-<rect x="771" y="625" width="208" height="43" rx="6"/>
-<text class="s" x="780" y="639">test-driven-development · using-</text>
-<text class="s" x="780" y="654">git-worktrees (dirty tree)</text>
+<rect x="771" y="669" width="208" height="43" rx="6"/>
+<text class="s" x="780" y="683">test-driven-development · using-</text>
+<text class="s" x="780" y="698">git-worktrees (dirty tree)</text>
 </g>
 <g class="neutral">
-<rect x="771" y="673" width="208" height="43" rx="6"/>
-<text class="s" x="780" y="687">verify.py red per AC, once at the</text>
-<text class="s" x="780" y="702">end; writes its changed-files list</text>
+<rect x="771" y="717" width="208" height="43" rx="6"/>
+<text class="s" x="780" y="731">verify.py red per AC, once at the</text>
+<text class="s" x="780" y="746">end; writes its changed-files list</text>
 </g>
 <g class="gate">
-<rect x="771" y="721" width="208" height="43" rx="6"/>
-<text class="s" x="780" y="735">Checked: verify.py passes, DONE:</text>
-<text class="s" x="780" y="750">build pass</text>
+<rect x="771" y="765" width="208" height="43" rx="6"/>
+<text class="s" x="780" y="779">Checked: verify.py passes, DONE:</text>
+<text class="s" x="780" y="794">build pass</text>
 </g>
-<rect class="bound p3" x="12" y="788" width="976" height="315" rx="10"/>
+<rect class="bound p3" x="12" y="846" width="976" height="331" rx="10"/>
 <g class="phase p3">
-<rect x="20" y="798" width="92" height="295" rx="6"/>
-<text class="t m" x="66.0" y="945.5">Prove</text>
+<rect x="20" y="864" width="92" height="295" rx="6"/>
+<text class="t m" x="66.0" y="1011.5">Prove</text>
 </g>
-<line class="a" x1="224.0" y1="764" x2="224.0" y2="795" marker-end="url(#ar)"/>
+<line class="a" x1="224.0" y1="808" x2="224.0" y2="861" marker-end="url(#ar)"/>
 <g class="skip">
-<rect x="120" y="798" width="208" height="58" rx="6" stroke-dasharray="4 3"/>
-<text class="t2" x="129" y="812">No Prove</text>
-<text class="s" x="129" y="827">The red record and the passing</text>
-<text class="s" x="129" y="842">verify.py are the evidence</text>
+<rect x="120" y="864" width="208" height="58" rx="6" stroke-dasharray="4 3"/>
+<text class="t2" x="129" y="878">No Prove</text>
+<text class="s" x="129" y="893">The red record and the passing</text>
+<text class="s" x="129" y="908">verify.py are the evidence</text>
 </g>
-<line class="a" x1="224.0" y1="856" x2="224.0" y2="1093"/>
-<line class="a" x1="441.0" y1="764" x2="441.0" y2="795" marker-end="url(#ar)"/>
+<line class="a" x1="224.0" y1="922" x2="224.0" y2="1159"/>
+<line class="a" x1="441.0" y1="808" x2="441.0" y2="861" marker-end="url(#ar)"/>
 <g class="skip">
-<rect x="337" y="798" width="208" height="58" rx="6" stroke-dasharray="4 3"/>
-<text class="t2" x="346" y="812">No Prove (risk low)</text>
-<text class="s" x="346" y="827">Build's passing verify.py goes to</text>
-<text class="s" x="346" y="842">Ship</text>
+<rect x="337" y="864" width="208" height="58" rx="6" stroke-dasharray="4 3"/>
+<text class="t2" x="346" y="878">No Prove (risk low)</text>
+<text class="s" x="346" y="893">Build's passing verify.py goes to</text>
+<text class="s" x="346" y="908">Ship</text>
 </g>
-<line class="a" x1="441.0" y1="856" x2="441.0" y2="1093"/>
-<line class="a" x1="658.0" y1="764" x2="658.0" y2="795" marker-end="url(#ar)"/>
+<line class="a" x1="441.0" y1="922" x2="441.0" y2="1159"/>
+<line class="a" x1="658.0" y1="808" x2="658.0" y2="861" marker-end="url(#ar)"/>
 <g class="agent">
-<rect x="554" y="798" width="208" height="58" rx="6"/>
-<text class="s" x="563" y="812">One fresh checker: code-reviewer</text>
-<text class="s" x="563" y="827">(opus) reads each AC's test, then</text>
-<text class="s" x="563" y="842">reviews the diff in one pass</text>
+<rect x="554" y="864" width="208" height="58" rx="6"/>
+<text class="s" x="563" y="878">One fresh checker: code-reviewer</text>
+<text class="s" x="563" y="893">(opus) reads each AC's test, then</text>
+<text class="s" x="563" y="908">reviews the diff in one pass</text>
 </g>
 <g class="agent">
-<rect x="554" y="861" width="208" height="58" rx="6"/>
-<text class="s" x="563" y="875">+ security code-reviewer (opus)</text>
-<text class="s" x="563" y="890">when security-touched · ui-</text>
-<text class="s" x="563" y="905">reviewer (sonnet) on UI</text>
+<rect x="554" y="927" width="208" height="58" rx="6"/>
+<text class="s" x="563" y="941">+ security code-reviewer (opus)</text>
+<text class="s" x="563" y="956">when security-touched · ui-</text>
+<text class="s" x="563" y="971">reviewer (sonnet) on UI</text>
 </g>
 <g class="hook">
-<rect x="554" y="924" width="208" height="43" rx="6"/>
-<text class="s" x="563" y="938">verify-freshness · prove-budget</text>
-<text class="s" x="563" y="953">(kills slow commands at 120 s)</text>
+<rect x="554" y="990" width="208" height="43" rx="6"/>
+<text class="s" x="563" y="1004">verify-freshness · prove-budget</text>
+<text class="s" x="563" y="1019">(kills slow commands at 120 s)</text>
 </g>
 <g class="gate">
-<rect x="554" y="972" width="208" height="58" rx="6"/>
-<text class="s" x="563" y="986">Checked: every VERDICT PASS. FAIL</text>
-<text class="s" x="563" y="1001">→ fix in Build, test first, then a</text>
-<text class="s" x="563" y="1016">fresh checker</text>
+<rect x="554" y="1038" width="208" height="58" rx="6"/>
+<text class="s" x="563" y="1052">Checked: every VERDICT PASS. FAIL</text>
+<text class="s" x="563" y="1067">→ fix in Build, test first, then a</text>
+<text class="s" x="563" y="1082">fresh checker</text>
 </g>
 <g class="skip">
-<rect x="554" y="1035" width="208" height="58" rx="6" stroke-dasharray="4 3"/>
-<text class="s" x="563" y="1049">Prove: skip → Ship (a security-</text>
-<text class="s" x="563" y="1064">touched change still gets its</text>
-<text class="s" x="563" y="1079">security review)</text>
+<rect x="554" y="1101" width="208" height="58" rx="6" stroke-dasharray="4 3"/>
+<text class="s" x="563" y="1115">Prove: skip → Ship (a security-</text>
+<text class="s" x="563" y="1130">touched change still gets its</text>
+<text class="s" x="563" y="1145">security review)</text>
 </g>
-<line class="a" x1="875.0" y1="764" x2="875.0" y2="795" marker-end="url(#ar)"/>
+<line class="a" x1="875.0" y1="808" x2="875.0" y2="861" marker-end="url(#ar)"/>
 <g class="agent">
-<rect x="771" y="798" width="208" height="58" rx="6"/>
-<text class="s" x="780" y="812">Fresh each round, in parallel: ac-</text>
-<text class="s" x="780" y="827">checker (sonnet) ∥ code-reviewer</text>
-<text class="s" x="780" y="842">(opus)</text>
+<rect x="771" y="864" width="208" height="58" rx="6"/>
+<text class="s" x="780" y="878">Fresh each round, in parallel: ac-</text>
+<text class="s" x="780" y="893">checker (sonnet) ∥ code-reviewer</text>
+<text class="s" x="780" y="908">(opus)</text>
 </g>
 <g class="agent">
-<rect x="771" y="861" width="208" height="58" rx="6"/>
-<text class="s" x="780" y="875">+ security reviewer when touched ·</text>
-<text class="s" x="780" y="890">ui-reviewer (opus) on UI · qa-</text>
-<text class="s" x="780" y="905">tester at backlog close</text>
+<rect x="771" y="927" width="208" height="58" rx="6"/>
+<text class="s" x="780" y="941">+ security reviewer when touched ·</text>
+<text class="s" x="780" y="956">ui-reviewer (opus) on UI · qa-</text>
+<text class="s" x="780" y="971">tester at backlog close</text>
 </g>
 <g class="hook">
-<rect x="771" y="924" width="208" height="43" rx="6"/>
-<text class="s" x="780" y="938">verify-freshness · prove-budget</text>
-<text class="s" x="780" y="953">(kills slow commands at 120 s)</text>
+<rect x="771" y="990" width="208" height="43" rx="6"/>
+<text class="s" x="780" y="1004">verify-freshness · prove-budget</text>
+<text class="s" x="780" y="1019">(kills slow commands at 120 s)</text>
 </g>
 <g class="gate">
-<rect x="771" y="972" width="208" height="58" rx="6"/>
-<text class="s" x="780" y="986">Checked: every VERDICT PASS. FAIL</text>
-<text class="s" x="780" y="1001">→ the Build agent fixes; ac-</text>
-<text class="s" x="780" y="1016">checker re-checks failed ACs</text>
+<rect x="771" y="1038" width="208" height="58" rx="6"/>
+<text class="s" x="780" y="1052">Checked: every VERDICT PASS. FAIL</text>
+<text class="s" x="780" y="1067">→ the Build agent fixes; ac-</text>
+<text class="s" x="780" y="1082">checker re-checks failed ACs</text>
 </g>
 <g class="approval">
-<rect x="771" y="1035" width="208" height="43" rx="6"/>
-<text class="s" x="780" y="1049">Round 3 fails, or one AC fails</text>
-<text class="s" x="780" y="1064">twice: you decide</text>
+<rect x="771" y="1101" width="208" height="43" rx="6"/>
+<text class="s" x="780" y="1115">Round 3 fails, or one AC fails</text>
+<text class="s" x="780" y="1130">twice: you decide</text>
 </g>
-<line class="a" x1="875.0" y1="1078" x2="875.0" y2="1093"/>
-<rect class="bound p4" x="12" y="1117" width="976" height="192" rx="10"/>
+<line class="a" x1="875.0" y1="1144" x2="875.0" y2="1159"/>
+<rect class="bound p4" x="12" y="1197" width="976" height="208" rx="10"/>
 <g class="phase p4">
-<rect x="20" y="1127" width="92" height="172" rx="6"/>
-<text class="t m" x="66.0" y="1204.0">Ship</text>
-<text class="t m" x="66.0" y="1222.0">+ Learn</text>
+<rect x="20" y="1215" width="92" height="172" rx="6"/>
+<text class="t m" x="66.0" y="1292.0">Ship</text>
+<text class="t m" x="66.0" y="1310.0">+ Learn</text>
 </g>
-<line class="a" x1="224.0" y1="1093" x2="224.0" y2="1124" marker-end="url(#ar)"/>
+<line class="a" x1="224.0" y1="1159" x2="224.0" y2="1212" marker-end="url(#ar)"/>
 <g class="neutral">
-<rect x="120" y="1127" width="208" height="43" rx="6"/>
-<text class="s" x="129" y="1141">Learn: a lesson only, when there</text>
-<text class="s" x="129" y="1156">is one</text>
+<rect x="120" y="1215" width="208" height="43" rx="6"/>
+<text class="s" x="129" y="1229">Learn: a lesson only, when there</text>
+<text class="s" x="129" y="1244">is one</text>
 </g>
 <g class="neutral">
-<rect x="120" y="1175" width="208" height="28" rx="6"/>
-<text class="s" x="129" y="1189">Advisor once, before the commit</text>
+<rect x="120" y="1263" width="208" height="28" rx="6"/>
+<text class="s" x="129" y="1277">Advisor once, before the commit</text>
 </g>
 <g class="skill">
-<rect x="120" y="1208" width="208" height="43" rx="6"/>
-<text class="s" x="129" y="1222">/sdlc:commit: one commit on a</text>
-<text class="s" x="129" y="1237">branch</text>
+<rect x="120" y="1296" width="208" height="43" rx="6"/>
+<text class="s" x="129" y="1310">/sdlc:commit: one commit on a</text>
+<text class="s" x="129" y="1325">branch</text>
 </g>
 <g class="gate">
-<rect x="120" y="1256" width="208" height="43" rx="6"/>
-<text class="s" x="129" y="1270">Checked: verified tree clean;</text>
-<text class="s" x="129" y="1285">reported, not asked</text>
+<rect x="120" y="1344" width="208" height="43" rx="6"/>
+<text class="s" x="129" y="1358">Checked: verified tree clean;</text>
+<text class="s" x="129" y="1373">reported, not asked</text>
 </g>
-<line class="a" x1="441.0" y1="1093" x2="441.0" y2="1124" marker-end="url(#ar)"/>
+<line class="a" x1="441.0" y1="1159" x2="441.0" y2="1212" marker-end="url(#ar)"/>
 <g class="neutral">
-<rect x="337" y="1127" width="208" height="43" rx="6"/>
-<text class="s" x="346" y="1141">Learn: recurring-defects.md,</text>
-<text class="s" x="346" y="1156">managing-knowledge</text>
+<rect x="337" y="1215" width="208" height="43" rx="6"/>
+<text class="s" x="346" y="1229">Learn: recurring-defects.md,</text>
+<text class="s" x="346" y="1244">managing-knowledge</text>
 </g>
 <g class="neutral">
-<rect x="337" y="1175" width="208" height="28" rx="6"/>
-<text class="s" x="346" y="1189">Advisor once, before the commit</text>
+<rect x="337" y="1263" width="208" height="28" rx="6"/>
+<text class="s" x="346" y="1277">Advisor once, before the commit</text>
 </g>
 <g class="skill">
-<rect x="337" y="1208" width="208" height="43" rx="6"/>
-<text class="s" x="346" y="1222">/sdlc:commit: one commit on a</text>
-<text class="s" x="346" y="1237">branch</text>
+<rect x="337" y="1296" width="208" height="43" rx="6"/>
+<text class="s" x="346" y="1310">/sdlc:commit: one commit on a</text>
+<text class="s" x="346" y="1325">branch</text>
 </g>
 <g class="gate">
-<rect x="337" y="1256" width="208" height="43" rx="6"/>
-<text class="s" x="346" y="1270">Checked: verified tree clean;</text>
-<text class="s" x="346" y="1285">reported, not asked</text>
+<rect x="337" y="1344" width="208" height="43" rx="6"/>
+<text class="s" x="346" y="1358">Checked: verified tree clean;</text>
+<text class="s" x="346" y="1373">reported, not asked</text>
 </g>
-<line class="a" x1="658.0" y1="1093" x2="658.0" y2="1124" marker-end="url(#ar)"/>
+<line class="a" x1="658.0" y1="1159" x2="658.0" y2="1212" marker-end="url(#ar)"/>
 <g class="neutral">
-<rect x="554" y="1127" width="208" height="43" rx="6"/>
-<text class="s" x="563" y="1141">Learn: recurring-defects.md from</text>
-<text class="s" x="563" y="1156">review.md, managing-knowledge</text>
+<rect x="554" y="1215" width="208" height="43" rx="6"/>
+<text class="s" x="563" y="1229">Learn: recurring-defects.md from</text>
+<text class="s" x="563" y="1244">review.md, managing-knowledge</text>
 </g>
 <g class="skill">
-<rect x="554" y="1175" width="208" height="43" rx="6"/>
-<text class="s" x="563" y="1189">/sdlc:commit: one commit on a</text>
-<text class="s" x="563" y="1204">branch</text>
+<rect x="554" y="1263" width="208" height="43" rx="6"/>
+<text class="s" x="563" y="1277">/sdlc:commit: one commit on a</text>
+<text class="s" x="563" y="1292">branch</text>
 </g>
 <g class="gate">
-<rect x="554" y="1223" width="208" height="43" rx="6"/>
-<text class="s" x="563" y="1237">Checked: verified tree clean;</text>
-<text class="s" x="563" y="1252">reported, not asked</text>
+<rect x="554" y="1311" width="208" height="43" rx="6"/>
+<text class="s" x="563" y="1325">Checked: verified tree clean;</text>
+<text class="s" x="563" y="1340">reported, not asked</text>
 </g>
-<line class="a" x1="658.0" y1="1266" x2="658.0" y2="1299"/>
-<line class="a" x1="875.0" y1="1093" x2="875.0" y2="1124" marker-end="url(#ar)"/>
+<line class="a" x1="658.0" y1="1354" x2="658.0" y2="1387"/>
+<line class="a" x1="875.0" y1="1159" x2="875.0" y2="1212" marker-end="url(#ar)"/>
 <g class="neutral">
-<rect x="771" y="1127" width="208" height="43" rx="6"/>
-<text class="s" x="780" y="1141">Learn: recurring-defects.md,</text>
-<text class="s" x="780" y="1156">managing-knowledge, retro.md</text>
+<rect x="771" y="1215" width="208" height="43" rx="6"/>
+<text class="s" x="780" y="1229">Learn: recurring-defects.md,</text>
+<text class="s" x="780" y="1244">managing-knowledge, retro.md</text>
 </g>
 <g class="neutral">
-<rect x="771" y="1175" width="208" height="28" rx="6"/>
-<text class="s" x="780" y="1189">The main session runs Ship</text>
+<rect x="771" y="1263" width="208" height="28" rx="6"/>
+<text class="s" x="780" y="1277">The main session runs Ship</text>
 </g>
 <g class="skill">
-<rect x="771" y="1208" width="208" height="43" rx="6"/>
-<text class="s" x="780" y="1222">/sdlc:commit: one commit on a</text>
-<text class="s" x="780" y="1237">branch</text>
+<rect x="771" y="1296" width="208" height="43" rx="6"/>
+<text class="s" x="780" y="1310">/sdlc:commit: one commit on a</text>
+<text class="s" x="780" y="1325">branch</text>
 </g>
 <g class="gate">
-<rect x="771" y="1256" width="208" height="43" rx="6"/>
-<text class="s" x="780" y="1270">Checked: verified tree clean;</text>
-<text class="s" x="780" y="1285">reported, not asked</text>
+<rect x="771" y="1344" width="208" height="43" rx="6"/>
+<text class="s" x="780" y="1358">Checked: verified tree clean;</text>
+<text class="s" x="780" y="1373">reported, not asked</text>
 </g>
-<line class="a" x1="224.0" y1="1299" x2="224.0" y2="1330" marker-end="url(#ar)"/>
-<line class="a" x1="441.0" y1="1299" x2="441.0" y2="1330" marker-end="url(#ar)"/>
-<line class="a" x1="658.0" y1="1299" x2="658.0" y2="1330" marker-end="url(#ar)"/>
-<line class="a" x1="875.0" y1="1299" x2="875.0" y2="1330" marker-end="url(#ar)"/>
+<line class="a" x1="224.0" y1="1387" x2="224.0" y2="1440" marker-end="url(#ar)"/>
+<line class="a" x1="441.0" y1="1387" x2="441.0" y2="1440" marker-end="url(#ar)"/>
+<line class="a" x1="658.0" y1="1387" x2="658.0" y2="1440" marker-end="url(#ar)"/>
+<line class="a" x1="875.0" y1="1387" x2="875.0" y2="1440" marker-end="url(#ar)"/>
 <g class="neutral">
-<rect x="120" y="1333" width="859" height="30" rx="6"/>
-<text class="s m" x="549.5" y="1348">A commit on a feature branch, reported. Merge or PR waits for your word; CI green before any merge.</text>
+<rect x="120" y="1443" width="859" height="30" rx="6"/>
+<text class="s m" x="549.5" y="1458">A commit on a feature branch, reported. Merge or PR waits for your word; CI green before any merge.</text>
 </g>
 <g class="neutral">
-<rect x="20" y="1375" width="960" height="66" rx="6"/>
-<text class="s" x="32" y="1391">Backlog (M or L, bigger than one session): each slice runs Build → one commit, no Prove; feature close runs Prove on the whole branch, then Ship.</text>
-<text class="s" x="32" y="1408">Any code change after Build's gate goes back to Build: rerun verify.py; with Prove, through Prove again. Autopilot and other agents run M and L in one session.</text>
-<text class="s" x="32" y="1425">/sdlc:deploy is on request, not a phase: the project's own deploy path, your go-ahead before production or a DB migration, smoke test, release.md.</text>
+<rect x="20" y="1485" width="960" height="66" rx="6"/>
+<text class="s" x="32" y="1501">Backlog (M or L, bigger than one session): each slice runs Build → one commit, no Prove; feature close runs Prove on the whole branch, then Ship.</text>
+<text class="s" x="32" y="1518">Any code change after Build's gate goes back to Build: rerun verify.py; with Prove, through Prove again. Autopilot and other agents run M and L in one session.</text>
+<text class="s" x="32" y="1535">/sdlc:deploy is on request, not a phase: the project's own deploy path, your go-ahead before production or a DB migration, smoke test, release.md.</text>
 </g>
 <g class="stage">
-<rect x="20" y="1455" width="14" height="14" rx="6"/>
+<rect x="20" y="1565" width="14" height="14" rx="6"/>
 </g>
-<text class="l" x="40" y="1462">Track</text>
+<text class="l" x="40" y="1572">Track</text>
 <g class="skill">
-<rect x="103" y="1455" width="14" height="14" rx="6"/>
+<rect x="103" y="1565" width="14" height="14" rx="6"/>
 </g>
-<text class="l" x="123" y="1462">Skill</text>
+<text class="l" x="123" y="1572">Skill</text>
 <g class="agent">
-<rect x="186" y="1455" width="14" height="14" rx="6"/>
+<rect x="186" y="1565" width="14" height="14" rx="6"/>
 </g>
-<text class="l" x="206" y="1462">Subagent</text>
+<text class="l" x="206" y="1572">Subagent</text>
 <g class="hook">
-<rect x="290" y="1455" width="14" height="14" rx="6"/>
+<rect x="290" y="1565" width="14" height="14" rx="6"/>
 </g>
-<text class="l" x="310" y="1462">Hook</text>
+<text class="l" x="310" y="1572">Hook</text>
 <g class="gate">
-<rect x="366" y="1455" width="14" height="14" rx="6"/>
+<rect x="366" y="1565" width="14" height="14" rx="6"/>
 </g>
-<text class="l" x="386" y="1462">Gate, checked</text>
+<text class="l" x="386" y="1572">Gate, checked</text>
 <g class="approval">
-<rect x="505" y="1455" width="14" height="14" rx="6"/>
+<rect x="505" y="1565" width="14" height="14" rx="6"/>
 </g>
-<text class="l" x="525" y="1462">You decide</text>
+<text class="l" x="525" y="1572">You decide</text>
 <g class="skip">
-<rect x="623" y="1455" width="14" height="14" rx="6" stroke-dasharray="3 2"/>
+<rect x="623" y="1565" width="14" height="14" rx="6" stroke-dasharray="3 2"/>
 </g>
-<text class="l" x="643" y="1462">Skipped</text>
+<text class="l" x="643" y="1572">Skipped</text>
 </svg>
