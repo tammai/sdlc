@@ -49,6 +49,12 @@ Subagent (general-purpose):
     While iterating, run the focused test for what you're changing; run the
     full suite once before committing, not after every edit.
 
+    Never wait on a command with a sleep loop (`sleep 20` and check again).
+    Run a long command in the foreground with a timeout, or in the background
+    with a completion notice. A concurrency or kill test uses the fewest
+    processes that show the behaviour (a handful, not 40); load belongs in a
+    capped comparison run, not in every test.
+
     ## You Do Not Dispatch Subagents
 
     Do all of this task's work yourself. Never spawn a subagent to
