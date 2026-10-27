@@ -147,17 +147,23 @@ def check(root, name, text, anchor, shown):
 
 
 def verify_records_disagree(root, name):
-    """verify.py's record of its last run against the freshness hook's own copy: a hand-edited record shows here."""
+    """verify.py's record of its last run against the freshness hook's own copy: a hand-edited, malformed or deleted
+    record shows here (both files are agent-writable, so nothing in them is trusted to be well-formed)."""
+    def obj(x):
+        return x if isinstance(x, dict) else {}
+    hook = obj(vf.load(root))
+    b = obj(obj(hook.get("verify")).get("last")) if hook.get("feature") == name else {}
+    if not b:
+        return None
     try:
         with open(os.path.join(root, ".sdlc", ".work", "verify.json"), encoding="utf-8") as f:
             script = json.load(f)
     except (OSError, ValueError):
-        return None
-    hook = vf.load(root)
-    if script.get("feature") != name or hook.get("feature") != name:
-        return None
-    a, b = script.get("last") or {}, (hook.get("verify") or {}).get("last") or {}
-    if a and b and (a.get("tree"), a.get("result")) != (b.get("tree"), b.get("result")):
+        script = None
+    if not isinstance(script, dict) or script.get("feature") != name or not isinstance(script.get("last"), dict):
+        return f"the hook saw a verify run ({b.get('result')}), but verify.json has no record of it"
+    a = script["last"]
+    if (a.get("tree"), a.get("result")) != (b.get("tree"), b.get("result")):
         return f"verify.json says {a.get('result')}, the hook saw {b.get('result')} (tree {str(b.get('tree'))[:12]})"
     return None
 

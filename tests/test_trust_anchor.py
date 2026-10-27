@@ -149,6 +149,9 @@ class TrustAnchorTest(ProjectTestCase):
                    json.dumps({"feature": "login", "verify": {"last": {"tree": "abc", "result": "fail"}}}))
         self.write(".sdlc/.work/verify.json", json.dumps({"feature": "login", "last": {"tree": "abc", "result": "pass"}}))
         self.assertIn("verify records disagree", self.stop()["systemMessage"])
+        self.prompt()
+        self.write(".sdlc/.work/verify.json", "[]")  # malformed or deleted while the hook holds a run: still a notice
+        self.assertIn("verify records disagree", self.stop()["systemMessage"])
 
     def test_lite_flow_review_fix_rerun_in_stage_6_is_not_a_notice(self):
         self.state(stage=5, risk="low", flow="lite")
