@@ -4,6 +4,9 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
+### Changed
+- **On M the main session is the maker** (ADR 0018, amends 0017). In an interactive Claude Code session it does Define and Build itself, asks you directly and fixes the checker's highs itself. Prove is unchanged: one fresh checker on opus, a brief from fixed text and paths, moves from its VERDICT lines alone. L keeps its thin main session and stage agents.
+
 ### Fixed
 - **Relay Prove no longer fails on its own diff facts.** The trust anchor and the main session read VERDICT lines only from the checkers' reports (`code-reviewer`, `ac-checker`, `security`, `ui-reviewer`), not `diff-r<N>.md` or Define's explorer reports in the same folder.
 - **Define's code-explorer and code-architect can write their relay report** (Write tool, held to `.sdlc/.work/findings/` by the role guard; read-only on Cursor).

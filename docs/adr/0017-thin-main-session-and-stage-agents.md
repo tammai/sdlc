@@ -1,6 +1,6 @@
 # ADR 0017: A thin main session, kept-alive stage agents, one record file
 
-- **Status:** Accepted, 2026-10-27. Amends [ADR 0016](0016-cut-l-cost-where-it-bought-nothing.md):
+- **Status:** Accepted, 2026-10-27; amended by [ADR 0018](0018-m-maker-in-the-main-session.md) (on M the main session is the maker). Amends [ADR 0016](0016-cut-l-cost-where-it-bought-nothing.md):
   - one-piece M builds in a kept-alive agent, not in the main session;
   - the advisor doesn't run once Prove has;
   - M's Prove is one checker.

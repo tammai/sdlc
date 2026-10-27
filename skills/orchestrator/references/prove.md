@@ -16,7 +16,7 @@ Build produced the evidence (`build.md`): every acceptance criterion's test reco
 
 | Track | AC checker | Code reviewer | Also | Security, when security-touched | Re-verification |
 |---|---|---|---|---|---|
-| M, `Flow: full`, either risk | none: the checker does it | the **checker**: one, top, one-pass brief plus the AC check | ui-reviewer on UI | one, top | fixes in Build, then `verify.py` and a fresh checker on what changed |
+| M, `Flow: full`, either risk (interactive Claude Code: the brief and moves in `relay.md`'s Prove section) | none: the checker does it | the **checker**: one, top, one-pass brief plus the AC check | ui-reviewer on UI | one, top | fixes in Build, then `verify.py` and a fresh checker on what changed |
 | L | standard | one, top, one-pass brief | ui-reviewer on UI | one, top | fixes in Build, then `verify.py` and the AC checker on what failed |
 | Feature close (every backlog) | standard, every AC | one, top, `Base..HEAD`, one-pass brief | qa-tester; ui-reviewer on UI | one, top | fixes in Build, then `verify.py` and the AC checker on what failed |
 
