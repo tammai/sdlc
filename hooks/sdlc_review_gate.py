@@ -88,29 +88,52 @@ def _glob_re(pattern):
     return re.compile(out + r"\Z")
 
 
+def _globs(text):
+    try:
+        areas = json.loads(text).get("areas") or {}
+    except (ValueError, AttributeError):
+        return None
+    return [g for k in ("sensitive", "migrations") for g in (areas.get(k) or []) if isinstance(g, str)]
+
+
 def _security_areas(root):
-    """areas.sensitive and areas.migrations: the project's config, else the plugin's defaults."""
-    for path in (os.path.join(root, ".sdlc", "config.json"), DEFAULT_AREAS):
-        try:
-            with open(path, encoding="utf-8") as f:
-                areas = (json.load(f).get("areas") or {})
-        except (OSError, ValueError, AttributeError):
-            continue
-        globs = [g for k in ("sensitive", "migrations") for g in (areas.get(k) or []) if isinstance(g, str)]
-        if globs:
-            return [_glob_re(g) for g in globs]
-    return []
+    """areas.sensitive and areas.migrations: the plugin's defaults plus whatever the project's config adds (a
+    union: the config is agent-writable, so it can add areas, never remove one). None when the defaults can't be
+    read: the caller then treats every change as security-touched."""
+    try:
+        with open(DEFAULT_AREAS, encoding="utf-8") as f:
+            globs = _globs(f.read())
+    except OSError:
+        return None
+    if not globs:
+        return None
+    try:
+        with open(os.path.join(root, ".sdlc", "config.json"), encoding="utf-8") as f:
+            globs += _globs(f.read()) or []
+    except OSError:
+        pass
+    return [_glob_re(g.lower() if os.name == "nt" else g) for g in globs]
 
 
-def _security_touched(root, text, start, shas):
-    """Risk: high, or the change since Base: (and these commits) touches a sensitive or migration path."""
+def _names(root, *args):
+    out = _git(root, *args, "-z", "--no-renames")
+    return None if out is None else [n for n in out.split("\0") if n]
+
+
+def _security_touched(root, text, start, anchor, shas):
+    """Risk: high, an uncommitted change to .sdlc/config.json, or a change since the branch point and Base: (and
+    these commits) that touches a sensitive or migration path. Anything it can't tell counts as touched."""
     if re.search(r"^Risk:\s*high\b", text, re.M | re.I):
         return True
-    names = set((_git(root, "diff", "--name-only", start, "HEAD") or "").splitlines())
-    for s in shas:
-        names |= set((_git(root, "diff-tree", "-r", "--no-commit-id", "--name-only", "--root", s) or "").splitlines())
+    if _git(root, "diff", "--quiet", "HEAD", "--", ".sdlc/config.json") is None:
+        return True  # edited and not committed: its areas aren't the ones a reviewer would see
     areas = _security_areas(root)
-    return any(rx.match(n) for n in names if n for rx in areas)
+    lists = [_names(root, "diff", "--name-only", ref, "HEAD") for ref in {start, anchor} if ref]
+    lists += [_names(root, "diff-tree", "-r", "--no-commit-id", "--name-only", "-m", "--root", s) for s in shas]
+    if areas is None or any(names is None for names in lists):
+        return True
+    names = {n.lower() if os.name == "nt" else n for names in lists for n in names}
+    return any(rx.match(n) for n in names for rx in areas)
 
 
 def _branch_point(root):
@@ -145,7 +168,7 @@ def decide(repo_root, shas, reviewed):
         if (point and int(stage.group(1)) < 5 and len(unreviewed) < MAX_DEFER
                 and not _touches_guarded_paths(repo_root, full)):
             return {"defer": True, "shas": [], "own": [], "range": None, "active": True}
-        if not _touches_guarded_paths(repo_root, full) and not _security_touched(repo_root, text, start, full):
+        if not _touches_guarded_paths(repo_root, full) and not _security_touched(repo_root, text, start, anchor, full):
             # Not security-touched: no model review; marked reviewed so a later review doesn't widen over it
             return {"defer": False, "skip": True, "shas": full, "own": full, "range": None, "active": True}
         extra = [s for s in unreviewed if s not in full]

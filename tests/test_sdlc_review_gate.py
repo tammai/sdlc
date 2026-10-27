@@ -59,6 +59,12 @@ class ReviewGateTest(ProjectTestCase):
         self.stage(8, risk="high")
         self.commit("src/list.ts", "sort\nagain\n")
         self.assertFalse(sdlc_review_gate.decide(self.root, [self.head()[:7]], set()).get("skip"))
+        # The config is agent-writable: emptying its areas, or any uncommitted edit to it, never buys a skip
+        self.git("checkout", "-q", "-b", "next", "main")  # a fresh feature: nothing sensitive in its diff yet
+        self.stage(8, base=self.head(), risk="low")
+        self.write(".sdlc/config.json", '{"areas": {"sensitive": ["nothing/**"], "migrations": []}}')
+        self.commit("src/auth/token.ts", "t\n")
+        self.assertFalse(sdlc_review_gate.decide(self.root, [self.head()[:7]], set()).get("skip"))
 
     def test_deferral_is_capped_so_a_stuck_stage_cant_skip_reviews_forever(self):
         # The state file is writable by the agent the review checks: a feature left at Stage 4 stops deferring
