@@ -1,4 +1,4 @@
-"""hooks/sg-python.sh: the launcher every hook starts through finds a working Python 3 once and remembers it."""
+"""hooks/sg-python.sh: the launcher finds a working Python 3 once and remembers it; hooks.json then starts it directly."""
 import json
 import os
 import shutil

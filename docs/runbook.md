@@ -75,7 +75,7 @@ Run `/sdlc:doctor` when something feels off, after installing or upgrading, or b
 | plugin | version; every script `hooks.json` references exists |
 | repo | setup state and version drift; config and lock parse; plugin files missing or hand-edited; project commands defined (per package), their tools on PATH, and whether they have run; the `AGENTS.md` block; baseline present (brownfield); old layout; `.sdlc/.work/` and the contract files git-ignored; design system present when the repo has UI files; rules whose `paths:` match no files; hookify rules that don't parse or have a bad regex; CLAUDE.md over 60 lines; broken links in `knowledge/index.md`; state files missing `Status:`/`Current:`, or several active; corrupt freshness state, or a freshness hook run that failed |
 
-Not covered by doctor: whether the plugin is enabled (`/plugin`), and the plugin's own test suite (`python3 -m unittest discover -s tests -t tests` in the plugin repo).
+Not covered by doctor: whether the plugin is enabled (`/plugin`), and the plugin's own test suite (`py -3.10 -m unittest discover -s tests -t tests` in the plugin repo; macOS/Linux: `python3.10`).
 
 ## Procedures
 
