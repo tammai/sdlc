@@ -40,9 +40,9 @@ Restart the session afterward so the commands and hooks load. To work on the plu
 
 A repo can be shared by several agents: the first one to run setup does the shared part, and each agent after it adds only its own files.
 
-**Update:** update the marketplace and the plugin from `/plugin`, restart, then run `/sdlc:setting-up-projects upgrade` in each repo.
+**Update:** update the marketplace and the plugin from `/plugin`, restart, then run `/sdlc:upgrade` in each repo.
 
-**Uninstall:** run `/sdlc:setting-up-projects eject` in each repo first (it removes the plugin's files and keeps your work), then `/plugin uninstall sdlc`.
+**Uninstall:** run `/sdlc:eject` in each repo first (it removes the plugin's files and keeps your work), then `/plugin uninstall sdlc`.
 
 **Requirements:** `git`, `gh` (for `/sdlc:review-pr` on a GitHub PR, and PR commands), Python 3.9+ (hooks and scripts, stdlib only), Node (brainstorm visual companion), and for TypeScript code intelligence: `npm i -g typescript-language-server typescript`. The security hooks build their own Python environment in the background the first time a security-touched feature needs a model review. Your project needs nothing extra: sdlc runs the commands it already uses.
 
@@ -59,8 +59,8 @@ One row per check (✅ / ⚠️ / ❌) for your machine, the plugin and the curr
 ### 2. Set up the repo (once)
 
 ```
-/sdlc:setting-up-projects                              # existing code
-/sdlc:setting-up-projects a REST API for invoices      # empty repo: say what you're building
+/sdlc:setup                              # existing code
+/sdlc:setup a REST API for invoices      # empty repo: say what you're building
 ```
 
 - Works on a `sdlc/setup` branch, one commit per step; rerun it to resume if interrupted. Needs a clean working tree.
@@ -117,8 +117,8 @@ A new session needs no re-explaining; `state.md` carries it. To pause a feature,
 ### 6. After a plugin update
 
 ```
-/sdlc:setting-up-projects upgrade --dry-run    # see what would change
-/sdlc:setting-up-projects upgrade              # apply it, on its own branch
+/sdlc:upgrade --dry-run    # see what would change
+/sdlc:upgrade              # apply it, on its own branch
 ```
 
 `/sdlc:start` and `/sdlc:status` tell you when the repo is behind. The upgrade regenerates the plugin's files, asks before touching any you edited (merge, skip, or keep yours), and applies versioned migrations one diff at a time.
@@ -127,18 +127,18 @@ A new session needs no re-explaining; `state.md` carries it. To pause a feature,
 
 - `/sdlc:doctor` names the problem and the [runbook](docs/runbook.md) procedure that fixes it.
 - Blocked at the end of a turn with "re-run tests": you're in Prove and code changed. Run the test command the message names.
-- `/sdlc:setting-up-projects eject` removes the plugin's files and keeps your specs, knowledge, constitution, commands and baseline. It shows a dry run first.
+- `/sdlc:eject` removes the plugin's files and keeps your specs, knowledge, constitution, commands and baseline. It shows a dry run first.
 
 ## Commands
 
 | Command | Does |
 |---|---|
-| `/sdlc:setting-up-projects [what you're building]` | Set the repo up once (new or existing code); resumes if interrupted |
+| `/sdlc:setup [what you're building]` | Set the repo up once (new or existing code); resumes if interrupted |
 | `/sdlc:start [request]` | Start a piece of work, or resume the active one with no argument |
 | `/sdlc:status` | Setup state and version drift, then one line per feature. Read-only |
 | `/sdlc:doctor` | Health check of machine, plugin and repo, with a fix per problem. Read-only |
-| `/sdlc:setting-up-projects upgrade [--dry-run] [--revisit]` | Bring the repo up to the installed plugin version |
-| `/sdlc:setting-up-projects eject` | Remove the plugin's files from the repo, keep your work |
+| `/sdlc:upgrade [--dry-run] [--revisit]` | Bring the repo up to the installed plugin version |
+| `/sdlc:eject` | Remove the plugin's files from the repo, keep your work |
 | `/sdlc:review-pr [PR number or URL]` | Local pre-PR review with the right agents for the diff, or a review of a GitHub PR (needs `gh`) |
 | `/sdlc:commit`, `/sdlc:commit-push-pr`, `/sdlc:clean_gone` | Commit; commit, push and open a PR; delete local branches whose remote is gone |
 | `/sdlc:hookify` | Turn a repeated correction into a rule |
@@ -154,7 +154,7 @@ Skills such as `sdlc:writing-specs` or `sdlc:test-driven-development` are used b
 
 | Phase | Replaces | Bundled pieces |
 |---|---|---|
-| Setup (once per repo) | | `setting-up-projects`, `/sdlc:setting-up-projects`, `/sdlc:setting-up-projects upgrade`, `/sdlc:setting-up-projects eject`, `/sdlc:doctor` |
+| Setup (once per repo) | | `setting-up-projects`, `/sdlc:setup`, `/sdlc:upgrade`, `/sdlc:eject`, `/sdlc:doctor` |
 | Define | discover, design, plan | questions ride in the approval with recommended answers, `brainstorming` (L; asks you nothing under the orchestrator), `writing-specs`, `clarifying-specs` (on request), `designing-solutions` + `code-explorer`, `code-architect` agents (L, or an unclear approach), `analyzing-consistency` (L, backlogs) |
 | Build | implement | `scripts/verify.py` (each AC's test recorded red before its code, one full run at the end, drift recorded in the plan), the `using-git-worktrees.md` reference, `executing-plans` / one implementer subagent / `subagent-driven-development` (`Build:`), `dispatching-parallel-agents`, `test-driven-development`, `systematic-debugging`, `/sdlc-extras:ralph-loop` (when installed) |
 | Prove | verify, review, security | M full and L with `Prove: run` (S, M lite and `Prove: skip` go from Build to Ship). First `verify.py status`: reuse Build's passing run, or rerun it once. M full: one fresh checker, a read-only `code-reviewer` that reads each acceptance criterion beside its test and reviews in one pass (correctness, silent failures, test gaps and security basics, with `diff_stats.py` facts; on `opus`, as every code review is), `ui-reviewer` on UI diffs. Security-touched (`Risk: high`, or the diff touches `areas.sensitive` or `areas.migrations`): one more `code-reviewer` with a security-only brief, and the dependency audit. One record, `review.md` (rounds, tickets, fixed, security). L: a separate `ac-checker` (reads each acceptance criterion beside its test; runs nothing) and a top-tier `code-reviewer`. A backlog's feature close (every backlog, once): the `ac-checker` over every criterion, one top-tier `code-reviewer` over the whole branch, `qa-tester`. Plans without `## Acceptance tests` (features started earlier) keep the fresh `verifier`. Commands are time-boxed (2 minutes each outside the project's own, enforced by the prove-budget hook). High findings go back to Build, fixed test first; then one re-verification (`verify.py`, and a fresh checker on the ACs that failed), max 3 rounds, and a stop when the same requirement fails twice; freshness hook. On request: `/sdlc:review-pr` (the local diff, or a GitHub PR by number or URL) |

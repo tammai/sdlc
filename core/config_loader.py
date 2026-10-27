@@ -238,7 +238,7 @@ def attach_problems(result: Dict[str, Any], problems: List[str]) -> Dict[str, An
 
 def _rule_files(root: str) -> List[str]:
     # Personal rules: .claude/hookify.*.local.md (git-ignored).
-    # Team rules: .claude/hookify/*.md (committed; sdlc-*.md are installed by /sdlc:setting-up-projects).
+    # Team rules: .claude/hookify/*.md (committed; sdlc-*.md are installed by /sdlc:setup).
     files = sorted(glob.glob(os.path.join(root, '.claude', 'hookify.*.local.md')))
     files += sorted(glob.glob(os.path.join(root, '.claude', 'hookify', '*.md')))
     return files

@@ -186,7 +186,7 @@ Start with `warn`. Move to `block` once the pattern has no false positives.
 ## 14. Adopt sdlc in an existing repo
 
 1. Install the plugin ([runbook](runbook.md#install)).
-2. Commit or stash your work, then `/sdlc:setting-up-projects`. It detects brownfield and works on a `sdlc/setup` branch, one commit per step.
+2. Commit or stash your work, then `/sdlc:setup`. It detects brownfield and works on a `sdlc/setup` branch, one commit per step.
 3. **Commands:** it records the commands you already use (`pnpm test`, `make lint`, `./gradlew build`, …) in `.sdlc/config.json`, per package in a monorepo. A missing step stays `null`. It doesn't touch your manifest, dependencies or tooling. You approve the list.
 4. **Baseline:** it runs them and records what already fails in `.sdlc/baseline.md`. Features are judged only on new failures. A failing install or build stops setup.
 5. **Audit:** explorer agents draft conventions, gotchas from git history, decisions and per-area rules. You approve, edit or drop each item.
@@ -194,11 +194,11 @@ Start with `warn`. Move to `block` once the pattern has no false positives.
 7. **The rest:** rules, guardrails, lint snippets (only for a linter you already have), allowlist, constitution, a design system (UI projects only), knowledge. Two steps are asked first: adding the sdlc marketplace and `enabledPlugins` to `.claude/settings.json` so teammates are offered the plugin (skipped, and said so, when the session runs sdlc from a directory with `--plugin-dir` rather than the installed copy), and the context diet ([13](#13-keep-always-loaded-context-small)). Existing CI is left alone (it points out steps that differ from the recorded commands); a repo without CI is offered a workflow, and every repo the `sdlc-invariants` check.
 8. At the end: PR or local merge, your choice. Then `/sdlc:start` a small S fix to see the loop end to end.
 
-Interrupted? Run `/sdlc:setting-up-projects` again; it resumes from the last finished step.
+Interrupted? Run `/sdlc:setup` again; it resumes from the last finished step.
 
 ## 15. Start a new project
 
-1. Create an empty repo (README and LICENSE are fine) and run `/sdlc:setting-up-projects what you're building`.
+1. Create an empty repo (README and LICENSE are fine) and run `/sdlc:setup what you're building`.
 2. Answer a few stack questions. It proposes the stack, layout, generator and the commands per package, plus optional extras (a linter, formatter, toolchain pinning), each off unless you say yes. **You approve before anything is generated.** No auth, database or infra "for later" unless you asked.
 3. The ecosystem's own generators build the skeleton, plus strict types, a test runner and one passing test per package. Every command must pass.
 4. CI: `.github/workflows/sdlc-verify.yml` from the same commands, with `sdlc-invariants.yml` beside it to check the shared sdlc files. Windows teammates: set `"ci": {"os": ["ubuntu-latest", "windows-latest"]}` in `.sdlc/config.json`.
@@ -212,14 +212,14 @@ Interrupted? Run `/sdlc:setting-up-projects` again; it resumes from the last fin
 `/sdlc:start` and `/sdlc:status` tell you when the repo's scaffold is behind the installed plugin. Nothing breaks if you wait; you miss the new rules and fixes.
 
 1. Finish or pause in-flight features if you can; the upgrade warns if one is in Build or later.
-2. `/sdlc:setting-up-projects upgrade --dry-run` shows the plan: files added, regenerated, replaced, edited by you, deleted by you, no longer shipped, and migrations.
-3. `/sdlc:setting-up-projects upgrade` runs it on a `sdlc/upgrade-<from>-<to>` branch. A new CI workflow is asked about first. For each plugin file you edited you choose: **apply** the proposed merge, **skip** this time, or **keep mine** (the plugin stops managing it). An edited guardrail (`.claude/hookify/sdlc-*.md`) you apply yourself: Claude is blocked from editing the rules that constrain it.
-4. Each migration is shown as a diff. Declined ones aren't asked again; `/sdlc:setting-up-projects upgrade --revisit` brings them back.
+2. `/sdlc:upgrade --dry-run` shows the plan: files added, regenerated, replaced, edited by you, deleted by you, no longer shipped, and migrations.
+3. `/sdlc:upgrade` runs it on a `sdlc/upgrade-<from>-<to>` branch. A new CI workflow is asked about first. For each plugin file you edited you choose: **apply** the proposed merge, **skip** this time, or **keep mine** (the plugin stops managing it). An edited guardrail (`.claude/hookify/sdlc-*.md`) you apply yourself: Claude is blocked from editing the rules that constrain it.
+4. Each migration is shown as a diff. Declined ones aren't asked again; `/sdlc:upgrade --revisit` brings them back.
 5. PR or local merge. The repo now records the minimum plugin version, so teammates on an older plugin are told to update.
 
 ## 17. Remove sdlc from a repo
 
-`/sdlc:setting-up-projects eject` shows a dry run first. It removes the plugin's own files (generated rules, unedited guardrails, CI workflow and lint snippets, the allowlist, plugin-enablement and `.gitignore` entries it added, the sdlc block in `AGENTS.md`, the lock) and keeps `.sdlc/config.json`, the constitution, design system, knowledge, baseline, area rules and every feature's documents and state. Edited plugin files are asked about one by one. On a `sdlc/eject` branch it fixes imports that would point at deleted files, runs the verify commands, then asks PR or local merge. Uninstall the plugin afterwards (`/plugin uninstall sdlc`) if you're done with it.
+`/sdlc:eject` shows a dry run first. It removes the plugin's own files (generated rules, unedited guardrails, CI workflow and lint snippets, the allowlist, plugin-enablement and `.gitignore` entries it added, the sdlc block in `AGENTS.md`, the lock) and keeps `.sdlc/config.json`, the constitution, design system, knowledge, baseline, area rules and every feature's documents and state. Edited plugin files are asked about one by one. On a `sdlc/eject` branch it fixes imports that would point at deleted files, runs the verify commands, then asks PR or local merge. Uninstall the plugin afterwards (`/plugin uninstall sdlc`) if you're done with it.
 
 ## 18. Clean up finished features
 

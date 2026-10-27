@@ -1,4 +1,4 @@
-<!-- Managed by the sdlc plugin v{{plugin_version}}. Regenerated on /sdlc:setting-up-projects upgrade: edits here are lost. Files named sdlc-*.md belong to the plugin; put your own rules in CLAUDE.md or other .claude/rules/ files. -->
+<!-- Managed by the sdlc plugin v{{plugin_version}}. Regenerated on /sdlc:upgrade: edits here are lost. Files named sdlc-*.md belong to the plugin; put your own rules in CLAUDE.md or other .claude/rules/ files. -->
 # SDLC workflow
 
 - Start or resume work with `/sdlc:start <request>`; check progress with `/sdlc:status`. A feature's documents live in `{{layout.intents_root}}<feature>/` and its state in `{{layout.state_root}}` (both committed; `scaffold.py paths <feature>` names them); scratch goes in `.sdlc/.work/` (git-ignored).

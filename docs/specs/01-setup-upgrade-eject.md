@@ -2,16 +2,16 @@
 
 Prepare a repo once (new or existing), keep it current with the plugin, and remove the plugin cleanly, with every plugin-written file tracked by ownership.
 
-**Entry points:** `/sdlc:setting-up-projects`, `/sdlc:setting-up-projects upgrade [--dry-run] [--revisit]`, `/sdlc:setting-up-projects eject` · **Source:** `skills/setting-up-projects/`, `scripts/scaffold.py`, `templates/project/`, `skills/setting-up-projects/references/monorepo.md` · **Decisions:** [ADR 0001](../adr/0001-project-setup-upgrade-eject.md), [ADR 0002](../adr/0002-record-the-repos-own-commands.md), [ADR 0005](../adr/0005-greenfield-monorepo-layout.md), [ADR 0006](../adr/0006-split-sdlc-docs-from-machinery.md)
+**Entry points:** `/sdlc:setup`, `/sdlc:upgrade [--dry-run] [--revisit]`, `/sdlc:eject` · **Source:** `skills/setting-up-projects/`, `scripts/scaffold.py`, `templates/project/`, `skills/setting-up-projects/references/monorepo.md` · **Decisions:** [ADR 0001](../adr/0001-project-setup-upgrade-eject.md), [ADR 0002](../adr/0002-record-the-repos-own-commands.md), [ADR 0005](../adr/0005-greenfield-monorepo-layout.md), [ADR 0006](../adr/0006-split-sdlc-docs-from-machinery.md)
 
 ## User scenarios
 
-1. **Existing repo.** Given a repo with code and no `.sdlc/config.json`, when the user runs `/sdlc:setting-up-projects`, then on a `sdlc/setup` branch it records the repo's commands (user approves), runs them and writes `.sdlc/baseline.md`, drafts knowledge and area rules for batch approval, adds rules, guardrails, lint snippets, allowlist, CI, constitution and knowledge, and asks PR or local merge.
-2. **New repo.** Given an empty repo, when the user runs `/sdlc:setting-up-projects a REST API for invoices`, then it asks a few stack questions, proposes a stack and commands, generates the skeleton with official tools after approval, and every command passes before continuing.
-3. **Interrupted.** Given setup stopped after some steps, when `/sdlc:setting-up-projects` runs again, then it continues after the last completed step.
-4. **Upgrade with an edited file.** Given the user edited `.github/workflows/sdlc-verify.yml` and the plugin's generator changed, when `/sdlc:setting-up-projects upgrade` runs, then the file is not overwritten; the user chooses merge, skip, or keep theirs for good.
-5. **New multi-app repo.** Given an empty repo, when the user runs `/sdlc:setting-up-projects a web app, an API and a mobile app`, then it asks who will work in the repo and whether to add `infras/`, proposes the `apps/` + `packages/` + `docs/` layout with a versioned API contract, and after approval generates each app and the CI for the team size.
-6. **Eject.** Given a set-up repo, when `/sdlc:setting-up-projects eject` runs, then a dry run is shown; on approval, plugin files are removed, edited ones only if the user agrees, and the user's work stays.
+1. **Existing repo.** Given a repo with code and no `.sdlc/config.json`, when the user runs `/sdlc:setup`, then on a `sdlc/setup` branch it records the repo's commands (user approves), runs them and writes `.sdlc/baseline.md`, drafts knowledge and area rules for batch approval, adds rules, guardrails, lint snippets, allowlist, CI, constitution and knowledge, and asks PR or local merge.
+2. **New repo.** Given an empty repo, when the user runs `/sdlc:setup a REST API for invoices`, then it asks a few stack questions, proposes a stack and commands, generates the skeleton with official tools after approval, and every command passes before continuing.
+3. **Interrupted.** Given setup stopped after some steps, when `/sdlc:setup` runs again, then it continues after the last completed step.
+4. **Upgrade with an edited file.** Given the user edited `.github/workflows/sdlc-verify.yml` and the plugin's generator changed, when `/sdlc:upgrade` runs, then the file is not overwritten; the user chooses merge, skip, or keep theirs for good.
+5. **New multi-app repo.** Given an empty repo, when the user runs `/sdlc:setup a web app, an API and a mobile app`, then it asks who will work in the repo and whether to add `infras/`, proposes the `apps/` + `packages/` + `docs/` layout with a versioned API contract, and after approval generates each app and the CI for the team size.
+6. **Eject.** Given a set-up repo, when `/sdlc:eject` runs, then a dry run is shown; on approval, plugin files are removed, edited ones only if the user agrees, and the user's work stays.
 
 ## Requirements
 

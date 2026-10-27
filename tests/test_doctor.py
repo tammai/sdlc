@@ -68,7 +68,7 @@ class DoctorTest(ProjectTestCase):
     def test_repo_not_set_up_is_a_warning_not_a_failure(self):
         checks, code = self.doctor(expect=0)
         self.assertEqual((checks[("repo", "setup")]["status"], checks[("repo", "setup")]["fix"]),
-                         ("warn", "/sdlc:setting-up-projects"))
+                         ("warn", "/sdlc:setup"))
 
     def test_healthy_set_up_repo(self):
         self.setup_repo()
@@ -91,7 +91,7 @@ class DoctorTest(ProjectTestCase):
         self.write(".sdlc/config.json", json.dumps(data))
         found = self.check("layout")
         self.assertEqual(found["status"], "warn")
-        self.assertIn("/sdlc:setting-up-projects upgrade", found["fix"])
+        self.assertIn("/sdlc:upgrade", found["fix"])
 
     def test_setup_in_progress(self):
         subprocess.run([sys.executable, SCAFFOLD, "--root", self.root, "init", "--kind", "greenfield", "--host", "claude-code"],
@@ -123,7 +123,7 @@ class DoctorTest(ProjectTestCase):
     def test_version_drift(self):
         self.setup_repo()
         self.lock(scaffold_version="1.0.0")
-        self.assertEqual(self.check("version")["fix"], "/sdlc:setting-up-projects upgrade")
+        self.assertEqual(self.check("version")["fix"], "/sdlc:upgrade")
         self.write(".sdlc/config.json", json.dumps({"min_plugin_version": "99.0.0"}))
         checks, code = self.doctor(expect=1)
         self.assertEqual(checks[("repo", "version")]["status"], "fail")
@@ -172,7 +172,7 @@ class DoctorTest(ProjectTestCase):
         self.write(".gitignore", ".sdlc/.work/\n")
         c = self.check(".gitignore")
         self.assertEqual(c["status"], "warn")
-        self.assertIn("/sdlc:setting-up-projects upgrade", c["fix"])
+        self.assertIn("/sdlc:upgrade", c["fix"])
 
     def test_rules_whose_paths_match_nothing(self):
         self.write("src/api/a.ts", "")

@@ -167,10 +167,10 @@ def check_repo(r, root):
         r.add(g, "config and lock", "fail", str(e), f"fix the JSON or restore it from git · {RUNBOOK} R12")
         return
     if status["setup"] == "none":
-        r.add(g, "setup", "warn", "not set up for sdlc", "/sdlc:setting-up-projects")
+        r.add(g, "setup", "warn", "not set up for sdlc", "/sdlc:setup")
     elif status["setup"] == "in_progress":
         r.add(g, "setup", "warn", f"in progress (done: {', '.join(status['completed_steps']) or 'nothing yet'})",
-              f"/sdlc:setting-up-projects resumes it · {RUNBOOK} R12")
+              f"/sdlc:setup resumes it · {RUNBOOK} R12")
     else:
         r.add(g, "setup", "ok", "complete")
         drift = status["drift"]
@@ -178,7 +178,7 @@ def check_repo(r, root):
         if drift == "behind":
             pend = status["pending_migrations"]
             r.add(g, "version", "warn", detail + (f"; pending migrations: {', '.join(pend)}" if pend else ""),
-                  "/sdlc:setting-up-projects upgrade")
+                  "/sdlc:upgrade")
         elif drift == "plugin_too_old":
             r.add(g, "version", "fail", detail + f"; repo needs plugin ≥ {status['min_plugin_version']}",
                   "/plugin update sdlc")
@@ -192,7 +192,7 @@ def check_repo(r, root):
             r.add(g, "plugin files", "warn",
                   "; ".join(x for x in (f"missing: {', '.join(missing)}" if missing else "",
                                        f"generated but hand-edited (lost on upgrade): {', '.join(regen)}" if regen else "") if x),
-                  f"/sdlc:setting-up-projects upgrade restores or regenerates them · {RUNBOOK} R14")
+                  f"/sdlc:upgrade restores or regenerates them · {RUNBOOK} R14")
         else:
             r.add(g, "plugin files", "ok", f"{len(files)} tracked" + (f"; you edited: {', '.join(edited)}" if edited else ""))
         contract = scaffold.cmd_contract(p, None)
@@ -235,16 +235,16 @@ def check_repo(r, root):
             b = os.path.join(root, cfg.get("baseline", ".sdlc/baseline.md"))
             r.add(g, "baseline", "ok" if os.path.exists(b) else "warn",
                   "present" if os.path.exists(b) else "brownfield repo without a baseline: old failures will fail Prove",
-                  None if os.path.exists(b) else f"rerun the baseline step of /sdlc:setting-up-projects · {RUNBOOK} R16")
+                  None if os.path.exists(b) else f"rerun the baseline step of /sdlc:setup · {RUNBOOK} R16")
 
     if status["setup"] == "complete" and sdlc_layout.docs_dir(root) is None:
         r.add(g, "layout", "warn", "sdlc documents are still in .sdlc/ (the layout before 1.7.0)",
-              "run /sdlc:setting-up-projects upgrade to move them to docs/sdlc or a location you choose")
+              "run /sdlc:upgrade to move them to docs/sdlc or a location you choose")
 
     gi = os.path.join(root, ".gitignore")
     lines = open(gi, encoding="utf-8").read().split() if os.path.exists(gi) else []
     # The control contract's runtime files (state.py, spec 12): setup adds these; repos set up before get them
-    # from /sdlc:setting-up-projects upgrade, which re-runs the gitignore step
+    # from /sdlc:upgrade, which re-runs the gitignore step
     contract = [x for x in (".sdlc/state/*.json", ".sdlc/state/*.events.jsonl", ".sdlc/state/*.commands/")
                 if x not in lines]
     if os.path.isdir(os.path.join(root, ".sdlc")):
@@ -253,7 +253,7 @@ def check_repo(r, root):
                   "add `.sdlc/.work/` to .gitignore")
         elif contract:
             r.add(g, ".gitignore", "warn", "the control contract's files aren't git-ignored: "
-                  + ", ".join(contract), "run /sdlc:setting-up-projects upgrade (it re-runs setup's gitignore step)")
+                  + ", ".join(contract), "run /sdlc:upgrade (it re-runs setup's gitignore step)")
         else:
             r.add(g, ".gitignore", "ok", ".sdlc/.work/ and the control contract ignored", None)
 
@@ -265,7 +265,7 @@ def check_repo(r, root):
             ds = os.path.exists(os.path.join(root, design_system))
             r.add(g, "design system", "ok" if ds else "warn",
                   design_system if ds else f"the repo has UI files but no {design_system}: UI work has no system to follow",
-                  None if ds else "run the design-system step of /sdlc:setting-up-projects (or /sdlc:setting-up-projects upgrade)")
+                  None if ds else "run the design-system step of /sdlc:setup (or /sdlc:upgrade)")
 
     dead = []
     for path in sorted(glob.glob(os.path.join(root, ".claude", "rules", "*.md"))):

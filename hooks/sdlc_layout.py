@@ -3,7 +3,7 @@
 New layout (the project's own .sdlc/config.json sets `docs_dir`): state in .sdlc/state/<name>.md, documents in
 <docs_dir>/intents/<name>/, constitution and design system in <docs_dir>/. Legacy layout (no `docs_dir`):
 everything under .sdlc/, a feature in .sdlc/<name>/ with its state.md. Readers accept both, so a repo keeps
-working between a plugin update and the /sdlc:setting-up-projects upgrade that moves it. Paths returned are repo-relative, with `/`.
+working between a plugin update and the /sdlc:upgrade that moves it. Paths returned are repo-relative, with `/`.
 """
 import glob
 import json
