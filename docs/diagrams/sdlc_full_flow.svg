@@ -80,8 +80,8 @@ rect{stroke-width:.6}
 </g>
 <rect class="bound p1" x="12" y="282" width="976" height="301" rx="10"/>
 <g class="phase p1">
-<rect x="20" y="300" width="92" height="265" rx="6"/>
-<text class="t m" x="66.0" y="432.5">Define</text>
+<rect x="20" y="300" width="80" height="265" rx="6"/>
+<text class="t m" x="60.0" y="432.5">Define</text>
 </g>
 <line class="a" x1="220.0" y1="244" x2="220.0" y2="297" marker-end="url(#ar)"/>
 <g class="neutral">
@@ -171,8 +171,8 @@ rect{stroke-width:.6}
 </g>
 <rect class="bound p2" x="12" y="603" width="976" height="253" rx="10"/>
 <g class="phase p2">
-<rect x="20" y="621" width="92" height="217" rx="6"/>
-<text class="t m" x="66.0" y="729.5">Build</text>
+<rect x="20" y="621" width="80" height="217" rx="6"/>
+<text class="t m" x="60.0" y="729.5">Build</text>
 </g>
 <line class="a" x1="220.0" y1="565" x2="220.0" y2="618" marker-end="url(#ar)"/>
 <g class="agent">
@@ -263,8 +263,8 @@ rect{stroke-width:.6}
 </g>
 <rect class="bound p3" x="12" y="876" width="976" height="346" rx="10"/>
 <g class="phase p3">
-<rect x="20" y="894" width="92" height="310" rx="6"/>
-<text class="t m" x="66.0" y="1049.0">Prove</text>
+<rect x="20" y="894" width="80" height="310" rx="6"/>
+<text class="t m" x="60.0" y="1049.0">Prove</text>
 </g>
 <line class="a" x1="220.0" y1="838" x2="220.0" y2="891" marker-end="url(#ar)"/>
 <g class="skip">
@@ -345,9 +345,9 @@ rect{stroke-width:.6}
 <line class="a" x1="880.0" y1="1174" x2="880.0" y2="1204"/>
 <rect class="bound p4" x="12" y="1242" width="976" height="208" rx="10"/>
 <g class="phase p4">
-<rect x="20" y="1260" width="92" height="172" rx="6"/>
-<text class="t m" x="66.0" y="1337.0">Ship</text>
-<text class="t m" x="66.0" y="1355.0">+ Learn</text>
+<rect x="20" y="1260" width="80" height="172" rx="6"/>
+<text class="t m" x="60.0" y="1337.0">Ship</text>
+<text class="t m" x="60.0" y="1355.0">+ Learn</text>
 </g>
 <line class="a" x1="220.0" y1="1204" x2="220.0" y2="1257" marker-end="url(#ar)"/>
 <g class="neutral">
