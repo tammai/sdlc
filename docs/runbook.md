@@ -26,7 +26,7 @@ Operational procedures: install, check health, fix what breaks, maintain the plu
 | Control contract, derived from the state file (git-ignored) | `.sdlc/state/<feature>.json`, `<feature>.events.jsonl`, `<feature>.commands/` |
 | Feature documents (committed) | `docs/sdlc/intents/<feature>/` (`intent.md`, `spec.md`, `plan.md`, `review.md`…; older features also `test-report.md`, `security.md`); the folder is `docs_dir` in the config |
 | Old layout, before 1.7.0 | `.sdlc/<feature>/state.md` and documents beside it; `/sdlc:upgrade` moves them |
-| Scratch (git-ignored) | `.sdlc/.work/`: `verify.json` (written by `scripts/verify.py`), `verify-freshness.json` (the freshness hook's copy of verify runs, written by the hook and by `verify.py` itself), `trust-anchor.json`, `dispatches.jsonl`, `findings/` (Prove reviewers' reports, M and L in Claude Code) |
+| Scratch (git-ignored) | `.sdlc/.work/`: `verify.json` (written by `scripts/verify.py`), `verify-freshness.json` (the freshness hook's copy of verify runs, written by the hook and by `verify.py` itself), `trust-anchor.json`, `dispatches.jsonl`, `findings/<feature>/` (Prove checkers' reports and the maker's `changed-r<N>.txt`, M and L in Claude Code) |
 | Ralph loop state (`sdlc-extras`) | `.claude/ralph-loop.local.md` |
 | Personal hookify rules | `.claude/hookify.<name>.local.md` (git-ignored) |
 | Team hookify rules | `.claude/hookify/<name>.md` (committed) |
@@ -209,7 +209,7 @@ The hook checks Agent/Task dispatches only while a feature has `Status: active`;
 1. **No model:** the dispatch must name `sonnet` or `opus` (Model Selection in `sdlc:subagent-driven-development`). Commands that launch agents, such as `/sdlc:review-pr`, name one too.
 2. **Fable:** used only on your request. `state.py set <feature> "Top model" fable` on every active feature (one active feature without it keeps Fable denied). This raises a trust-anchor notice ([R19](#r19-a-trust-anchor-notice-stops-the-turn)).
 3. **Haiku:** denied everywhere; the cheap tier is `sonnet`. Pass `effort: high` with it.
-4. **Reviewer below Opus:** code-reviewer, feature-reviewer, ui-reviewer, verifier and qa-tester need `opus` (or `fable`) while any active feature says `Track: L`; on S and M they run on `sonnet` at either risk. If the track was misjudged, `state.py set <feature> Track M` (a notice too) and say why with `state.py log`.
+4. **Reviewer below Opus:** code-reviewer and feature-reviewer need `opus` (or `fable`) on every track and risk (M's checker and the security reviewer are code-reviewers); ui-reviewer, verifier and qa-tester need it while any active feature says `Track: L`, and on S and M they run on `sonnet` at either risk. If the track was misjudged, `state.py set <feature> Track M` (a notice too) and say why with `state.py log`.
 5. Forks are never checked: they always run on the session model. To keep Fable out of forks, don't run the session on Fable.
 
 ### R19. A trust-anchor notice stops the turn

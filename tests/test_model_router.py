@@ -34,7 +34,7 @@ class ModelRouterTest(ProjectTestCase):
         self.assertEqual(out["hookSpecificOutput"]["permissionDecision"], "deny")
         self.assertIn("sonnet", out["hookSpecificOutput"]["permissionDecisionReason"])
 
-    def test_m_reviewers_run_on_sonnet_even_on_high_risk(self):
+    def test_m_qa_tester_runs_on_sonnet_even_on_high_risk(self):
         self.write(".sdlc/login/state.md", "# login\nStatus: active\nTrack: M\nRisk: high\nTop model: opus\n")
         self.assertIsNone(self.dispatch(subagent_type="sdlc:qa-tester", model="sonnet"))
 
