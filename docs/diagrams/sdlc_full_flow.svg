@@ -430,37 +430,37 @@ rect{stroke-width:.6}
 <text class="s m" x="549.5" y="1458">A commit on a feature branch, reported. Merge or PR waits for your word; CI green before any merge.</text>
 </g>
 <g class="neutral">
-<rect x="20" y="1485" width="960" height="66" rx="6"/>
-<text class="s" x="32" y="1501">Backlog (M or L, bigger than one session): each slice runs Build → one commit, no Prove; feature close runs Prove on the whole branch, then Ship.</text>
-<text class="s" x="32" y="1518">Any code change after Build's gate goes back to Build: rerun verify.py; with Prove, through Prove again. Autopilot and other agents run M and L in one session.</text>
-<text class="s" x="32" y="1535">/sdlc:deploy is on request, not a phase: the project's own deploy path, your go-ahead before production or a DB migration, smoke test, release.md.</text>
+<rect x="120" y="1485" width="859" height="66" rx="6"/>
+<text class="s" x="132" y="1501">Backlog (M or L, bigger than one session): each slice runs Build → one commit, no Prove; feature close runs Prove on the whole branch, then Ship.</text>
+<text class="s" x="132" y="1518">Any code change after Build's gate goes back to Build: rerun verify.py; with Prove, through Prove again. Autopilot and other agents run M and L in one session.</text>
+<text class="s" x="132" y="1535">/sdlc:deploy is on request, not a phase: the project's own deploy path, your go-ahead before production or a DB migration, smoke test, release.md.</text>
 </g>
 <g class="stage">
-<rect x="20" y="1565" width="14" height="14" rx="6"/>
+<rect x="120" y="1565" width="14" height="14" rx="6"/>
 </g>
-<text class="l" x="40" y="1572">Track</text>
+<text class="l" x="140" y="1572">Track</text>
 <g class="skill">
-<rect x="103" y="1565" width="14" height="14" rx="6"/>
+<rect x="203" y="1565" width="14" height="14" rx="6"/>
 </g>
-<text class="l" x="123" y="1572">Skill</text>
+<text class="l" x="223" y="1572">Skill</text>
 <g class="agent">
-<rect x="186" y="1565" width="14" height="14" rx="6"/>
+<rect x="286" y="1565" width="14" height="14" rx="6"/>
 </g>
-<text class="l" x="206" y="1572">Subagent</text>
+<text class="l" x="306" y="1572">Subagent</text>
 <g class="hook">
-<rect x="290" y="1565" width="14" height="14" rx="6"/>
+<rect x="390" y="1565" width="14" height="14" rx="6"/>
 </g>
-<text class="l" x="310" y="1572">Hook</text>
+<text class="l" x="410" y="1572">Hook</text>
 <g class="gate">
-<rect x="366" y="1565" width="14" height="14" rx="6"/>
+<rect x="466" y="1565" width="14" height="14" rx="6"/>
 </g>
-<text class="l" x="386" y="1572">Gate, checked</text>
+<text class="l" x="486" y="1572">Gate, checked</text>
 <g class="approval">
-<rect x="505" y="1565" width="14" height="14" rx="6"/>
+<rect x="605" y="1565" width="14" height="14" rx="6"/>
 </g>
-<text class="l" x="525" y="1572">You decide</text>
+<text class="l" x="625" y="1572">You decide</text>
 <g class="skip">
-<rect x="623" y="1565" width="14" height="14" rx="6" stroke-dasharray="3 2"/>
+<rect x="723" y="1565" width="14" height="14" rx="6" stroke-dasharray="3 2"/>
 </g>
-<text class="l" x="643" y="1572">Skipped</text>
+<text class="l" x="743" y="1572">Skipped</text>
 </svg>
