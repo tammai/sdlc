@@ -586,7 +586,7 @@ class VerifyFreshnessTest(ProjectTestCase):
         self.bash('python3 scripts/verify.py')  # the project's own script of that name, not the plugin's
         self.bash(f'python3 "{verify}"', interrupted=True)
         self.assertFalse(os.path.exists(self.path(".sdlc/.work/verify-freshness.json")))
-        self.bash(f'python3 "{verify}" red AC-001')
+        self.post("PowerShell", command=f'python3 "{verify}" red AC-001')  # Windows sessions also run it there
         self.bash('python3 "${CLAUDE_PLUGIN_ROOT}/scripts/verify.py" --feature login')
         with open(self.path(".sdlc/.work/verify-freshness.json"), encoding="utf-8") as f:
             st = json.load(f)

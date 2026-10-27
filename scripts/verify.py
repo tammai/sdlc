@@ -61,7 +61,7 @@ def acceptance_map(plan_text):
             continue
         test, run = m.group(2).strip(), m.group(3).strip()
         manual = test.lower() == "manual"
-        rows.append({"ac": m.group(1), "test": test, "file": None if manual else test.split("›")[0].strip(),
+        rows.append({"ac": m.group(1), "test": test, "file": None if manual else test.split("›")[0].strip().strip("`").strip(),
                      "run": run if manual else run.strip("`").strip(), "manual": manual})
     return rows
 
@@ -233,18 +233,20 @@ def status(root, feature):
         hook = {}
     hook = (hook.get("verify") or {}) if hook.get("feature") == feature else {}
     last, hook_last = rec.get("last") or {}, hook.get("last") or {}
+    current = vf.worktree_tree(root)
     if last.get("result") != "pass":
         reason = "no passing verify recorded"
     elif hook_last.get("result") != "pass":
         reason = "hook record missing or unknown"
     elif hook_last.get("tree") != last.get("tree") or set(rec.get("red") or {}) - set(hook.get("red") or {}):
         reason = "records disagree"
-    elif vf.worktree_tree(root) != last.get("tree"):
+    elif current != last.get("tree"):
         reason = "code changed since verify"
     else:
         reason = ""
+    # The current tree and HEAD: what `state.py verified` records and Ship checks against (the core's "Verified tree")
     return {"reuse": not reason, "reason": reason, "manual": last.get("manual", []), "drift": last.get("drift", []),
-            "red": sorted(rec.get("red") or {})}
+            "red": sorted(rec.get("red") or {}), "tree": current, "head": vf.git_head(root)}
 
 
 def active_feature(root):

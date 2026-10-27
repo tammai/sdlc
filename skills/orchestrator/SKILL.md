@@ -56,7 +56,7 @@ Tiers (Model Selection in `sdlc:subagent-driven-development`): cheap and standar
 
 - **Phase header**, at every phase start: `▶ <Phase>   (track M, flow lite)` / `Using: <skills/agents/commands>` / `Gate: <exit criterion>`.
 - **Documents and the state file** are written with your file-writing tool, never through the shell (`cp`, `cat <<EOF`, `echo`, `printf`): they hold backticks, `$`, quotes and arrows that shell quoting breaks. "From a template" means: read the template, then write the filled file.
-- **Verified tree** (uncommitted and untracked work, real index untouched): `rm -f .sdlc/.work/verified.index; GIT_INDEX_FILE=.sdlc/.work/verified.index git add -A && GIT_INDEX_FILE=.sdlc/.work/verified.index git write-tree`. Before any commit: diff it against `Verified:` (`git diff --name-only`), ignoring `.sdlc/`, docs and test-only changes; anything left is unverified code, back to Prove.
+- **Verified tree** (uncommitted and untracked work, real index untouched, `.sdlc/.work/` left out): the `tree` field of `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/verify.py" status`, typed out in full (a chained `git add && git write-tree` is refused in Prove). Before any commit: diff it against `Verified:` (`git diff --name-only`), ignoring `.sdlc/`, docs and test-only changes; anything left is unverified code, back to Prove.
 
 ## Rules
 

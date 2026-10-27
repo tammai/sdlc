@@ -56,7 +56,7 @@ class VerifyTest(ProjectTestCase):
 
     def test_every_ac_needs_a_red_record_and_a_passing_test(self):
         self.spec("AC-001", "AC-002")
-        self.plan([("AC-001", "tests/t.py › ok", 'python3 -c "pass"'),
+        self.plan([("AC-001", "`tests/t.py` › ok", 'python3 -c "pass"'),  # a backticked path is still the path
                    ("AC-002", "manual", "visual check of the badge")])
         self.write("tests/t.py", "")
         code, out, rec = self.verify()
@@ -120,6 +120,14 @@ class VerifyTest(ProjectTestCase):
         self.assertTrue(self.status()["reuse"])
         self.write("src/late.py", "z = 3\n")  # an edit after verify
         self.assertEqual(self.status()["reason"], "code changed since verify")
+        # The tree Ship checks against Verified comes from here, since a chained git command is refused in Prove;
+        # it leaves out .sdlc/.work/, so scratch files a repo tracks by mistake don't count as code changes
+        tree = self.status()["tree"]
+        self.write(".sdlc/.work/trust-anchor.json", "{}")
+        self.git("add", "-f", ".sdlc/.work/trust-anchor.json")
+        self.assertEqual(self.status()["tree"], tree)
+        self.write(".sdlc/.work/trust-anchor.json", '{"changed": 1}')
+        self.assertEqual(self.status()["tree"], tree)
 
     def test_an_ac_without_a_row_fails(self):
         self.spec("AC-001", "AC-002")

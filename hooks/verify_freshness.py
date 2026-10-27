@@ -38,6 +38,7 @@ from datetime import datetime, timezone
 import sdlc_layout  # sibling module: where feature state and sdlc documents live
 
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
+SHELL_TOOLS = {"Bash", "PowerShell"}  # Windows sessions run commands through either
 NON_CODE_DIRS = (".sdlc/", "knowledge/", ".claude/", ".git/", "docs/")
 NON_CODE_EXT = (".md", ".mdx", ".txt", ".rst")
 GENERIC_TEST = re.compile(
@@ -216,7 +217,8 @@ def git(root, *args, env=None):
 
 
 def worktree_tree(root):
-    """Tree object of the current worktree (tracked + untracked, minus ignored), via a temp index copy."""
+    """Tree object of the current worktree (tracked + untracked, minus ignored, minus .sdlc/.work/: the hooks' scratch
+    changes on every run, and a repo that committed it before ignoring it would never match), via a temp index copy."""
     index = git(root, "rev-parse", "--path-format=absolute", "--git-path", "index")
     if not index:
         return None
@@ -231,6 +233,8 @@ def worktree_tree(root):
             os.remove(tmp)
         env = dict(os.environ, GIT_INDEX_FILE=tmp)
         if git(root, "add", "-A", env=env) is None:
+            return None
+        if git(root, "rm", "-r", "--cached", "-q", "--ignore-unmatch", "--", ".sdlc/.work", env=env) is None:
             return None
         return git(root, "write-tree", env=env)
     except Exception:
@@ -413,7 +417,7 @@ def main():
     root = _root = project_root(data.get("cwd"))
     if not root:
         return
-    if event in ("PostToolUse", "PostToolUseFailure") and data.get("tool_name") == "Bash":
+    if event in ("PostToolUse", "PostToolUseFailure") and data.get("tool_name") in SHELL_TOOLS:
         resp = data.get("tool_response") or {}
         building = active_build_or_prove_feature(root)
         run = building and verify_run((data.get("tool_input") or {}).get("command", ""), root, data.get("cwd"), building)
@@ -443,7 +447,7 @@ def main():
                     st["scopes"][sc["name"]].update(stale=True, last_edit_at=now(), last_edit_file=rel,
                                                     reason=f"{rel} edited at {now()} after the last full test run")
                 save(root, st)
-        elif tool == "Bash":
+        elif tool in SHELL_TOOLS:
             cmd = tin.get("command", "")
             resp = data.get("tool_response") or {}
             if data.get("is_interrupt") or (isinstance(resp, dict) and resp.get("interrupted")):
