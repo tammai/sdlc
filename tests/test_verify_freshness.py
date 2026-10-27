@@ -575,8 +575,15 @@ class VerifyFreshnessTest(ProjectTestCase):
     def test_a_verify_run_counts_as_a_full_run_and_is_recorded_by_the_hook(self):
         self.set_state(stage=4, test_cmd="npm test")  # Build: verify runs there, before Prove
         self.write("src/a.ts", "")
+        subprocess.run(["git", "-C", self.root, "init", "-q"], check=True)  # freshness needs a tree to compare against
+        # A run against another project or feature, or an interrupted one, proves nothing here
+        self.bash('python3 "/plugin/scripts/verify.py" --root /elsewhere')
+        self.bash('cd sub && python3 "/plugin/scripts/verify.py"')
+        self.bash('python3 "/plugin/scripts/verify.py" --feature other')
+        self.bash('python3 "/plugin/scripts/verify.py"', interrupted=True)
+        self.assertFalse(os.path.exists(self.path(".sdlc/.work/verify-freshness.json")))
         self.bash('python3 "/plugin/scripts/verify.py" red AC-001')
-        self.bash('python3 "/plugin/scripts/verify.py"')
+        self.bash('python3 "/plugin/scripts/verify.py" --feature login')
         st = json.load(open(self.path(".sdlc/.work/verify-freshness.json"), encoding="utf-8"))
         self.assertIn("AC-001", st["verify"]["red"])
         self.assertEqual(st["verify"]["last"]["result"], "pass")

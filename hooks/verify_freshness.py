@@ -322,14 +322,21 @@ def fresh_scopes(command, scopes, root_tests, root, cwd, configured):
     return names
 
 
-def verify_run(command):
-    """("red", "AC-nnn") or ("full", None) for a run of the plugin's scripts/verify.py, else None."""
+def verify_run(command, root, cwd, feature):
+    """("red", "AC-nnn") or ("full", None) for a run of the plugin's scripts/verify.py on this project and feature,
+    else None: a run against another root, directory or feature proves nothing here."""
     m = VERIFY_CMD.match(command or "")
     if not m:
         return None
     try:
         words = shlex.split(m.group("args"))
     except ValueError:
+        return None
+    opts = {w: words[i + 1] for i, w in enumerate(words[:-1]) if w in VERIFY_OPTS}
+    here = os.path.join(root, run_dir(command, m.start("args"), root, cwd))
+    if os.path.normcase(os.path.abspath(os.path.join(here, opts.get("--root", ".")))) != os.path.normcase(root):
+        return None
+    if opts.get("--feature", feature) != feature:
         return None
     args = [w for i, w in enumerate(words) if not w.startswith("-") and not (i and words[i - 1] in VERIFY_OPTS)]
     if not args:
@@ -351,12 +358,10 @@ def active_build_or_prove_feature(root):
     return None
 
 
-def record_verify(root, data, kind, ac):
+def record_verify(root, data, feature, kind, ac):
     """The hook's own copy of a verify run (verify.py writes its own; Prove and the trust anchor compare them). A
-    full run also counts as a full test run of every scope, so Build's verify carries into Prove."""
-    feature = active_build_or_prove_feature(root)
-    if not feature:
-        return
+    full run also counts as a full test run of every scope, so Build's verify carries into Prove: the Stop check
+    compares that tree with the code, so later edits still make it stale. Without a tree nothing is marked fresh."""
     event = data.get("hook_event_name")
     # Other hosts send no exit code and get `| cat` appended (hosts/hook.py), which VERIFY_CMD doesn't match: there
     # the hook keeps no copy, and Prove reruns verify instead of reusing it
@@ -365,6 +370,8 @@ def record_verify(root, data, kind, ac):
     if st.get("feature") != feature:
         st = {"feature": feature, "scopes": {}}
     tree = worktree_tree(root)
+    if not tree:
+        return
     rec = st.setdefault("verify", {})
     if kind == "red":
         if result == "pass":  # verify.py red exits 0 only when the test failed as it should
@@ -387,9 +394,12 @@ def main():
     if not root:
         return
     if event in ("PostToolUse", "PostToolUseFailure") and data.get("tool_name") == "Bash":
-        run = verify_run((data.get("tool_input") or {}).get("command", ""))
+        resp = data.get("tool_response") or {}
+        building = active_build_or_prove_feature(root)
+        run = building and verify_run((data.get("tool_input") or {}).get("command", ""), root, data.get("cwd"), building)
         if run:
-            record_verify(root, data, *run)
+            if not (data.get("is_interrupt") or (isinstance(resp, dict) and resp.get("interrupted"))):
+                record_verify(root, data, building, *run)
             return
     feature, test_cmd = active_verify_feature(root)
     if not feature:
