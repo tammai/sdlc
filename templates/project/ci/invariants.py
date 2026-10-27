@@ -2,12 +2,11 @@
 """Check the shared sdlc files, whichever agent or person changed them (seeded by the sdlc plugin v{{plugin_version}}).
 
 Only active features count (`Status: active` in their state file):
-  - review.md (test-report.md on features started before it held the rounds): the latest round has its header, both tables and a verdict; with --require-ancestor, the round's
-    commit is in this code's history.
+  - the record matches the phase reached: past Define (Stage 1), spec.md has its `## Acceptance tests` table; in Ship
+    (Stage 8), review.md says what was reviewed (`## Recommended and chosen`).
   - the baseline: against --base, a new row or a higher lint count needs a feature's Deviations entry naming it.
-  - spec.md: no `[inferred]` tag past Define (Stage 1).
 
-Usage: python3 .sdlc/ci/invariants.py [--base REF] [--require-ancestor]
+Usage: python3 .sdlc/ci/invariants.py [--base REF] [--require-ancestor]   (--require-ancestor: accepted, unused since 2.0)
 Exits 1 and prints one line per problem. As a pre-commit hook: python3 .sdlc/ci/invariants.py --base HEAD
 Stdlib only, Python 3.9+; it imports nothing from the plugin.
 """
@@ -20,7 +19,6 @@ import subprocess
 import sys
 
 SDLC = ".sdlc"
-ROUND = re.compile(r"^## Round (\d+)\b.*?\bcommit ([0-9a-f]{7,40})(\+dirty)?\s*$", re.M)
 STAGE = re.compile(r"^Current:\s*Stage\s+(\d+)", re.M)
 
 
@@ -61,28 +59,14 @@ def section(text, heading):
     return m.group(1) if m else ""
 
 
-def check_report(name, docs, require_ancestor):
-    path = os.path.join(docs, "review.md")
-    text = read(path)
-    if "## Round" not in (text or ""):
-        path = os.path.join(docs, "test-report.md")
-        text = read(path)
-    rounds = list(ROUND.finditer(text or ""))
-    if text is None or (not rounds and "## Round" not in text):
-        return []  # not verified yet
-    if not rounds:
-        return [f"{path}: the latest round has no `## Round <n> — <time> — commit <hash>` header"]
-    last = rounds[-1]
-    body = text[last.end():]
+def check_record(docs, stage):
     problems = []
-    if not re.search(r"^\|\s*Check\s*\|\s*Command\s*\|\s*Result\s*\|", body, re.M) \
-            or not re.search(r"^\|\s*Criterion\s*\|\s*Evidence\s*\|\s*Status\s*\|", body, re.M) \
-            or not re.search(r"^\*\*Verdict:\*\*\s*(PASS|FAIL)\b", body, re.M):
-        problems.append(f"{path}: round {last.group(1)} is missing its checks table, criteria table or verdict")
-    # `+dirty` is normal: the gate records the worktree tree, so a round can cover uncommitted work on that commit
-    if require_ancestor and git("merge-base", "--is-ancestor", last.group(2), "HEAD")[0] != 0:
-        problems.append(f"{path}: round {last.group(1)}'s commit {last.group(2)} isn't in this code's history: "
-                        "verify again on this code")
+    spec = os.path.join(docs, "spec.md")
+    if stage >= 4 and "## Acceptance tests" not in (read(spec) or ""):
+        problems.append(f"{spec}: past Define but no `## Acceptance tests` table naming each AC's test")
+    review = os.path.join(docs, "review.md")
+    if stage >= 8 and "## Recommended and chosen" not in (read(review) or ""):
+        problems.append(f"{review}: in Ship but no record of what was reviewed (`## Recommended and chosen`)")
     return problems
 
 
@@ -127,7 +111,7 @@ def check_baseline(base, deviations):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--base", help="the commit to compare the baseline against")
-    ap.add_argument("--require-ancestor", action="store_true", help="a round's commit must be in HEAD's history")
+    ap.add_argument("--require-ancestor", action="store_true", help="accepted for old CI workflows; unused since 2.0")
     a = ap.parse_args(argv)
     sys.stdout.reconfigure(encoding="utf-8")  # file names and messages aren't ASCII; Windows consoles default to cp1252
     problems, deviations = [], ""
@@ -136,11 +120,8 @@ def main(argv=None):
         deviations += section(state, "Deviations")  # any feature's: one may record it and finish in the same push
         if not re.search(r"^Status:\s*active\b", state, re.M):
             continue
-        problems += check_report(name, docs, a.require_ancestor)
         stage = STAGE.search(state)
-        spec = os.path.join(docs, "spec.md")
-        if stage and int(stage.group(1)) >= 2 and "[inferred]" in (read(spec) or ""):
-            problems.append(f"{spec}: `[inferred]` tags are left past Define: the user keeps or drops each one")
+        problems += check_record(docs, int(stage.group(1)) if stage else 0)
     if a.base:
         problems += check_baseline(a.base, deviations)
     for line in problems:

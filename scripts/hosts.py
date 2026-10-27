@@ -25,7 +25,7 @@ import sys
 
 EDIT_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit"}
 # Write only for their report under .sdlc/.work/findings/ (the role guard holds them to it); on Cursor they read
-RELAY_REPORT_ONLY = {"code-explorer", "code-reviewer"}
+REPORT_WRITERS = {"code-explorer", "code-reviewer"}
 # Claude Code-only commands: the Ralph loop's Stop hook runs only there; hookify rules live in .claude/, which only
 # Claude Code's setup writes; context-diet trims Claude Code's own plugin config
 CLAUDE_ONLY_COMMANDS = {"cancel-ralph", "ralph-loop", "ralph-help", "hookify-configure", "hookify-help",
@@ -60,7 +60,7 @@ def cursor_agent(text, source):
         raise ValueError(f"{source}: no frontmatter")
     tools = set(listed_tools(fields))
     # No tools line means every tool, so only a listed set without edit tools is read-only
-    readonly = bool(tools) and not tools & EDIT_TOOLS - ({"Write"} if fields["name"] in RELAY_REPORT_ONLY else set())
+    readonly = bool(tools) and not tools & EDIT_TOOLS - ({"Write"} if fields["name"] in REPORT_WRITERS else set())
     head = [f"name: {fields['name']}", f"description: {fields['description']}", "model: inherit"]
     if readonly:
         head.append("readonly: true")

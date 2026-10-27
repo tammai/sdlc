@@ -42,7 +42,7 @@ CONTRACT_VERSION = 2
 # with its row `done <commit>`; feature close goes on to Review.
 STAGES = {1: "Define", 4: "Build", 5: "Review", 8: "Ship"}
 PHASES = {1: "define", 4: "build", 5: "review", 8: "ship"}
-FIELDS = ("Status", "Track", "Risk", "Build", "Top model", "Base", "Owner", "Tool", "Slice gates", "Process")
+FIELDS = ("Status", "Track", "Risk", "Top model", "Base", "Owner", "Tool", "Slice gates", "Process")
 PROCESS = re.compile(r"^Process:\s*2\b", re.M)  # a 2.0 feature; one without it was started under 1.x
 
 

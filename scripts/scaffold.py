@@ -602,7 +602,7 @@ def generate_invariants(p):
     pad = " " * 6
     lines = [
         f"# Managed by the sdlc plugin v{plugin_version()} (seeded: replaced on upgrade only while unedited).",
-        "# Checks test reports, the baseline and specs of active features: see .sdlc/ci/invariants.py.",
+        "# Checks the record and the baseline of active features: see .sdlc/ci/invariants.py.",
         "name: sdlc invariants", "", "on:", "  pull_request:", "  push:", "    branches: [main, master]", "",
         "permissions:", "  contents: read", "",
         "jobs:", "  invariants:", "    runs-on: ubuntu-latest", "    timeout-minutes: 10", "    steps:",
