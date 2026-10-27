@@ -112,8 +112,9 @@ def check(root, name, text, anchor, shown):
             notices.append("the commands or docs_dir in .sdlc/config.json differ from Base")
         anchor["commands_seen"] = cmds_now
     st = stage(text)
-    spec = read(os.path.join(root, sdlc_layout.features(root).get(name, {}).get("intents", ""), "spec.md"))
+    spec = read(os.path.join(intents, "spec.md"))
     digest = hashlib.sha256(spec.encode("utf-8")).hexdigest() if spec is not None else None
+    anchor["spec_seen"] = digest
     if st is not None and st >= 5:
         first = anchor.setdefault("spec", digest)
         if digest != first:
@@ -176,10 +177,11 @@ def failed_verdicts(root, name):
         return []
     if not files:
         return []
-    latest = max(int(re.search(r"-r(\d+)\.md$", f).group(1)) for f in files)
+    rounds = {f: int(re.search(r"-r(\d+)\.md$", f).group(1)) for f in files}
+    latest = max(rounds.values())
     failed = []
     for f in sorted(files):
-        if int(re.search(r"-r(\d+)\.md$", f).group(1)) != latest:
+        if rounds[f] != latest:
             continue
         verdicts = re.findall(r"^\W*verdict:\W*(pass|fail)\b", read(os.path.join(folder, f)) or "", re.M | re.I)
         if not verdicts or verdicts[-1].lower() != "pass":
@@ -252,14 +254,10 @@ def changed_since_full_run(root, name):
 def accept(anchor):
     """The user has seen the notices: what they flagged becomes the new anchor."""
     anchor["fields"] = anchor.get("fields_seen", anchor.get("fields", {}))
-    if "baseline_seen" in anchor:
-        anchor["baseline_ok"] = anchor["baseline_seen"]
-    if "commands_seen" in anchor:
-        anchor["commands_ok"] = anchor["commands_seen"]
-    if "spec_seen" in anchor:
-        anchor["spec"] = anchor["spec_seen"]
-    if "untested_seen" in anchor:
-        anchor["untested_ok"] = anchor["untested_seen"]
+    for seen, ok in (("baseline_seen", "baseline_ok"), ("commands_seen", "commands_ok"), ("spec_seen", "spec"),
+                     ("untested_seen", "untested_ok")):
+        if seen in anchor:
+            anchor[ok] = anchor[seen]
     anchor["notices"] = []
 
 
@@ -313,8 +311,6 @@ def main():
             notices = check(root, name, text, anchor, stricter_now)
             shown += [f"{name}: {n}" for n in stricter_now]
             anchor["fields_seen"] = {f: field(text, f) for f in FIELDS}
-            spec = read(os.path.join(root, located[name]["intents"], "spec.md"))
-            anchor["spec_seen"] = hashlib.sha256(spec.encode("utf-8")).hexdigest() if spec is not None else None
             fresh = [n for n in notices if n not in anchor.get("notices", [])]
             anchor["notices"] = notices
             new += [f"{name}: {n}" for n in fresh]

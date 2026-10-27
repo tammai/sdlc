@@ -28,12 +28,11 @@ import sdlc_layout  # sibling module: where feature state lives
 
 MAX_DEFER = 10
 MAX_WIDEN = 30
-NEVER_DEFER = re.compile(r"^(\.claude/|\.sdlc/(config\.json|state/)|\.github/|hooks/|\.codex/|\.cursor/|\.agents/"
-                         r"|AGENTS\.md$|CLAUDE\.md$|\.mcp\.json$)")
+_STEERING = r"\.claude/|\.github/|hooks/|\.codex/|\.cursor/|\.agents/|AGENTS\.md$|CLAUDE\.md$|\.mcp\.json$"
+NEVER_DEFER = re.compile(rf"^({_STEERING}|\.sdlc/(config\.json|state/))")
 # Always reviewed, even when not security-touched: what steers the agent or this gate. Not .sdlc/state/: every Ship
 # and slice commit carries it, and the trust anchor already reports the fields that matter (Risk, Track, Flow, Prove)
-NEVER_SKIP = re.compile(r"^(\.claude/|\.sdlc/config\.json$|\.github/|hooks/|\.codex/|\.cursor/|\.agents/"
-                        r"|AGENTS\.md$|CLAUDE\.md$|\.mcp\.json$)")
+NEVER_SKIP = re.compile(rf"^({_STEERING}|\.sdlc/config\.json$)")
 
 
 def _git(root, *args):

@@ -28,16 +28,7 @@ TIERS = "sonnet (cheap and standard), opus (top); see Model Selection in sdlc:su
 
 
 def active_states(root):
-    states = []
-    for f in sdlc_layout.features(root).values():
-        path = os.path.join(root, f["state"])
-        try:
-            text = open(path, encoding="utf-8").read()
-        except OSError:
-            continue
-        if re.search(r"^Status:\s*active\b", text, re.M | re.I):
-            states.append(text)
-    return states
+    return [text for _, text in sdlc_layout.active(root)]
 
 
 def problem(tool_input, states):

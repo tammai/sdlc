@@ -43,8 +43,9 @@ def problem(agent, tool, rel, root):
                   and folder.split("/")[1].rstrip(". ").lower() not in ("state", ".work")
                   or bool(docs) and folder.startswith(docs + "/intents/") and "/" not in folder[len(docs + "/intents/"):])
     # Windows short names (WORK~1 for .work) and stream syntax (a:b) reach a folder by another spelling
-    in_reports = in_reports and not any(c in rel for c in "~:")
-    findings = rel.startswith(".sdlc/.work/findings/") and not any(c in rel for c in "~:")  # its report, by path
+    plain = not any(c in rel for c in "~:")
+    in_reports = in_reports and plain
+    findings = rel.startswith(".sdlc/.work/findings/") and plain  # its report, by path
     if agent in REVIEWERS and tool in WRITES and not findings:
         return (f"sdlc: {agent} reports findings; it doesn't edit files. Write your report under "
                 ".sdlc/.work/findings/ and put the fix in it.")

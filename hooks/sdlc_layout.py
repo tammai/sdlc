@@ -9,6 +9,7 @@ import glob
 import json
 import os
 import posixpath
+import re
 
 DOCS_DEFAULT = "docs/sdlc"
 SDLC = ".sdlc"
@@ -70,3 +71,15 @@ def features(root):
         name = os.path.basename(path)[:-3]
         found[name] = {"state": f"{SDLC}/state/{name}.md", "intents": f"{docs}/intents/{name}/", "layout": "new"}
     return found
+
+
+def active(root):
+    """(name, state text) for each feature whose state says `Status: active`; an unreadable state is skipped."""
+    for name, f in features(root).items():
+        try:
+            with open(os.path.join(root, f["state"]), encoding="utf-8") as fh:
+                text = fh.read()
+        except OSError:
+            continue
+        if re.search(r"^Status:\s*active\b", text, re.M | re.I):
+            yield name, text

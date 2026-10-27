@@ -43,15 +43,7 @@ PLUGIN_VERIFY = re.compile(r"""^python3?(?:\.exe)?[ \t]+(?:"([^"]+)"|([^ \t"]+))
 
 
 def in_prove(root):
-    for f in sdlc_layout.features(root).values():
-        try:
-            text = open(os.path.join(root, f["state"]), encoding="utf-8").read()
-        except OSError:
-            continue
-        if (re.search(r"^Status:\s*active\b", text, re.M | re.I)
-                and re.search(r"^Current:\s*Stage\s*5\b", text, re.M | re.I)):
-            return True
-    return False
+    return any(re.search(r"^Current:\s*Stage\s*5\b", text, re.M | re.I) for _, text in sdlc_layout.active(root))
 
 
 def project_commands(root):
@@ -191,6 +183,7 @@ def main():
     command = str(tin.get("command") or "")
     if is_project_command(command, project_commands(root)):
         return
+    wrapped = bounded(command) if TIMEOUT_BIN else None
     if tool == "Monitor":
         out = deny("sdlc: in Prove there is no waiting on a run: only the project's own commands run in the "
                    "background. Run the check once, in the foreground, with Bash (killed at 120 s).")
@@ -200,11 +193,11 @@ def main():
     elif tin.get("run_in_background"):
         out = deny("sdlc: in Prove, only the project's own commands run in the background. Run this in the "
                    "foreground (killed at 120 s) instead of starting it and polling.")
-    elif TIMEOUT_BIN and bounded(command) is None:
+    elif TIMEOUT_BIN and wrapped is None:
         out = deny("sdlc: in Prove, a command other than the project's own runs one step at a time, killed at 120 s: "
                    "no loops, subshells, `$(...)`, `&` or several chained commands. Split it into separate calls.")
     elif TIMEOUT_BIN:
-        out = {"updatedInput": dict(tin, command=bounded(command), timeout=TOOL_TIMEOUT_MS)}  # replaces the input
+        out = {"updatedInput": dict(tin, command=wrapped, timeout=TOOL_TIMEOUT_MS)}  # replaces the input
     elif not isinstance(tin.get("timeout"), (int, float)) or tin["timeout"] > CAP_S * 1000:
         out = {"updatedInput": dict(tin, timeout=CAP_S * 1000)}
     else:

@@ -29,12 +29,10 @@ State lives in .sdlc/.work/verify-freshness.json. Never fails the session: any e
 import json
 import os
 import re
-import shlex
-import shutil
-import subprocess
 import sys
-import tempfile
-from datetime import datetime, timezone
+
+# subprocess, tempfile, shutil, shlex and datetime are imported where used: most runs exit before needing them, and
+# they cost about 25 ms on every tool call this hook (and prove_budget and trust_anchor, which import it) sees
 
 import sdlc_layout  # sibling module: where feature state and sdlc documents live
 
@@ -74,6 +72,7 @@ _root = None  # for the error marker
 
 
 def now():
+    from datetime import datetime, timezone
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
@@ -130,16 +129,10 @@ def initial_scope_state(root, feature, scopes):
 
 
 def active_verify_feature(root):
-    for name, f in sdlc_layout.features(root).items():
-        try:
-            text = open(os.path.join(root, f["state"]), encoding="utf-8").read()
-        except OSError:
-            continue
+    for name, text in sdlc_layout.active(root):
         # On the Lite flow Stage 6 stays tracked: a slice rests there after its commit, and old features fixed review there
         stage = r"(5|6)" if re.search(r"^Flow:\s*lite\b", text, re.M | re.I) else r"5"
-        if re.search(r"^Status:\s*active\b", text, re.M | re.I) and re.search(
-            rf"^Current:\s*Stage\s*{stage}\b", text, re.M | re.I
-        ):
+        if re.search(rf"^Current:\s*Stage\s*{stage}\b", text, re.M | re.I):
             m = re.search(r"test:\s*`([^`]+)`", text)
             return name, (m.group(1).strip() if m else None)
     return None, None
@@ -207,6 +200,7 @@ def save(root, data):
 
 
 def git_head(root):
+    import subprocess
     try:
         return subprocess.run(
             ["git", "-C", root, "rev-parse", "--short", "HEAD"],
@@ -217,6 +211,7 @@ def git_head(root):
 
 
 def git(root, *args, env=None):
+    import subprocess
     # git writes paths as UTF-8; the default (Windows code page) decoding crashes on a non-ASCII repo folder
     p = subprocess.run(["git", "-C", root, *args], capture_output=True, encoding="utf-8", errors="replace",
                        timeout=5, env=env)
@@ -226,6 +221,8 @@ def git(root, *args, env=None):
 def worktree_tree(root):
     """Tree object of the current worktree (tracked + untracked, minus ignored, minus .sdlc/.work/: the hooks' scratch
     changes on every run, and a repo that committed it before ignoring it would never match), via a temp index copy."""
+    import shutil
+    import tempfile
     index = git(root, "rev-parse", "--path-format=absolute", "--git-path", "index")
     if not index:
         return None
@@ -274,6 +271,7 @@ def is_code_file(root, file_path):
 
 
 def names_specific_tests(args, is_go):
+    import shlex
     try:
         tokens = shlex.split(args)
     except ValueError:
@@ -358,6 +356,7 @@ def verify_runs(command, root, cwd, feature):
     m = VERIFY_CMD.match(flat)
     if not m or not is_plugin_verify(m.group("dq") or m.group("sq") or m.group("bare")):
         return [], False
+    import shlex
     try:
         words = shlex.split(m.group("args"))
     except ValueError:
@@ -381,15 +380,8 @@ def verify_runs(command, root, cwd, feature):
 
 
 def active_build_or_prove_feature(root):
-    for name, f in sdlc_layout.features(root).items():
-        try:
-            text = open(os.path.join(root, f["state"]), encoding="utf-8").read()
-        except OSError:
-            continue
-        if re.search(r"^Status:\s*active\b", text, re.M | re.I) and re.search(
-                r"^Current:\s*Stage\s*[45]\b", text, re.M | re.I):
-            return name
-    return None
+    return next((name for name, text in sdlc_layout.active(root)
+                 if re.search(r"^Current:\s*Stage\s*[45]\b", text, re.M | re.I)), None)
 
 
 def record_verify(root, feature, runs, exit_result=None):

@@ -180,9 +180,7 @@ def cursor_output(event, m):
         out["followup_message"] = m["block"] or "sdlc: a hook asked to continue."
     elif event == "UserPromptSubmit" and m["blocked"]:
         out.update({"continue": False, "user_message": m["block"] or "sdlc: a hook stopped this prompt."})
-    elif event in ("PostToolUse", "PostToolUseFailure") and (m["context"] or m["notes"]):
-        out["additional_context"] = m["context"] or m["notes"]
-    elif event == "PreToolUse" and (m["context"] or m["notes"]):
+    elif event in ("PreToolUse", "PostToolUse", "PostToolUseFailure") and (m["context"] or m["notes"]):
         out["additional_context"] = m["context"] or m["notes"]  # no `permission`: an allow would skip the approval
     return out
 

@@ -25,7 +25,6 @@ import re
 import subprocess
 import sys
 import time
-from datetime import datetime, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(HERE), "hooks"))
@@ -40,10 +39,6 @@ AC_ID = re.compile(r"\bAC-\d{3}\b")
 TABLE_ROW = re.compile(r"^\s*\|\s*(AC-\d{3})\s*\|(.*?)\|(.*?)\|\s*$")
 TASK_START = re.compile(r"^\s*(\d+)\.\s")
 BACKTICKED = re.compile(r"`([^`]+)`")
-
-
-def now():
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def section(text, heading):
@@ -208,7 +203,7 @@ def full(root, feature, timeout=1800):
     for d in drifted or []:
         if not d["covered"]:
             failures.append(f"drift: {d['item']} has no Deviations entry with What:, Why: and Effect:")
-    rec["last"] = {"at": now(), "tree": vf.worktree_tree(root), "head": vf.git_head(root),
+    rec["last"] = {"at": vf.now(), "tree": vf.worktree_tree(root), "head": vf.git_head(root),
                    "result": "fail" if failures else "pass", "seconds": round(time.time() - started, 1),
                    "failures": failures, "manual": manual, "drift": drifted or []}
     save_record(root, rec, ("full", None))
@@ -241,7 +236,7 @@ def red(root, feature, ac, timeout=1800):
     rec = load_record(root)
     if rec.get("feature") != feature:
         rec = {"feature": feature}
-    entry = {"at": now(), "tree": vf.worktree_tree(root), "exit": code}
+    entry = {"at": vf.now(), "tree": vf.worktree_tree(root), "exit": code}
     rec.setdefault("red", {})[ac] = entry
     save_record(root, rec, ("red", ac))
     return entry, None
@@ -275,11 +270,7 @@ def status(root, feature):
 
 
 def active_feature(root):
-    for name, f in sdlc_layout.features(root).items():
-        text = read(os.path.join(root, f["state"])) or ""
-        if re.search(r"^Status:\s*active\b", text, re.M | re.I):
-            return name
-    return None
+    return next((name for name, _ in sdlc_layout.active(root)), None)
 
 
 def main(argv=None):
