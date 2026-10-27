@@ -48,7 +48,7 @@ Build produced the evidence (`build.md`): every acceptance criterion's test reco
    ```
 
    Then `state.py round <f> <N> pass|fail "<one-line reason>" --commit <sha>`, and the reviews with `state.py log <f> "<summary>" --type review_done`.
-2. **Findings go back to Build.** With any high finding (from any checker or the audit): `state.py advance <f> 4`, and fix them all together there, each with a failing test first (`sdlc:systematic-debugging` for anything unexplained; `Build: subagent`: back to the implementer), then `$V`.
+2. **Findings go back to Build.** With any high finding (from any checker or the audit): `state.py advance <f> 4`, and fix them all together there, each with a failing test first (`sdlc:systematic-debugging` for anything unexplained; `Build: subagent`: back to the implementer), then `$V`. Fix the rule, not the instance: list the other cases it covers, and check the fix opens no new failure.
    - An AC the checker says doesn't prove: fix its test (or its Run cell) so it would catch the behaviour missing, and record the change in `## Deviations` (what, why, effect). Its code already exists, so it can't be recorded red again; the fresh AC checker in step 3 reads the new test.
    - A failed qa scenario is a finding like any other; only a failure that needs a new requirement goes to the user.
    - Simplifications are findings.

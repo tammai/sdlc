@@ -46,7 +46,7 @@ Rate each issue from 0-100:
 
 ## Severity, from impact
 
-- **High**: a failing or unproven acceptance criterion; wrong behaviour against the spec or a "Must not break" invariant; data loss or corruption; a security issue; an error path that breaks the spec's error format or exit code; a test gap rated 8 or more; a broken constitution MUST rule.
+- **High**: a failing or unproven acceptance criterion; wrong behaviour against the spec or a "Must not break" invariant; data loss or corruption; a security issue; a crash window where the spec says a killed or interrupted process must not leave the system unusable (a lock or file created and then written, a write then a rename), whatever the stated cause; an error path that breaks the spec's error format or exit code; a test gap rated 8 or more; a broken constitution MUST rule.
 - **Fix in passing**: code-style rules (comments, naming, formatting, docs wording), from CLAUDE.md, `.claude/rules/` or anywhere else. Never high, whatever the confidence: the maker fixes them with the other fixes, without a new round.
 - **Medium / low**: everything else; ticketed.
 

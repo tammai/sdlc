@@ -22,6 +22,8 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 - **Faster hooks, about 30% per event** (measured on Windows: an Edit's hooks 414 to 278 ms, a Bash call's 314 to 223 ms). Each hook's command starts the Python the launcher remembered directly, falling back to `sg-python.sh` when none is remembered; the security hook loads its HTTP and TLS modules only when it calls a model.
 
 ### Fixed
+- **A crash window in a write is a high finding** when the spec says a killed process must not leave the system unusable (a lock created, then written; a write, then a rename), whatever the stated cause. The eval's lock flaw (an empty lock after a kill between create and write) was ticketed as a disk-error case instead.
+- **Fixes go in at the rule, not the instance:** the fix instruction now says to list the other cases the rule covers and check the fix opens no new failure (each fix in an eval run had created the next finding).
 - **Prove's budget lets variables be set before a timed command:** `S=...; F=...; $S round $F 1 fail ...` was denied as too complex, so a round's `state.py round` record could go missing. Bare `VAR=value` steps run nothing and now pass through like `cd`; the command after them is still killed at 120 s.
 - **Relay Prove no longer fails on its own diff facts.** The trust anchor and the main session read VERDICT lines only from the checkers' reports (`code-reviewer`, `ac-checker`, `security`, `ui-reviewer`), not `diff-r<N>.md` or Define's explorer reports in the same folder.
 - **Define's code-explorer and code-architect can write their relay report** (Write tool, held to `.sdlc/.work/findings/` by the role guard; read-only on Cursor).
