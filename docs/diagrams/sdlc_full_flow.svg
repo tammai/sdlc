@@ -1,204 +1,447 @@
-<svg width="100%" viewBox="0 0 1000 1030" role="img" xmlns="http://www.w3.org/2000/svg">
-<title>SDLC with hooks, gates, skills and subagents</title>
-<desc>The orchestrator runs four phases: Define, Build, Prove, and Ship with Learn at the end of every feature. Each phase row shows the bundled skills, subagents and hooks involved and its exit gate; gates marked red need the user's approval. Define ends in one approval (none on S, which writes no documents, only Intent: and Repro: lines in its state file); Build records each acceptance criterion's test failing before its code and ends with one passing verify.py run (Build: tasks runs one implementer per task with no per-task review: Prove is the only review); S and M lite have no Prove: Build's passing verify.py goes to Ship. On M full and L (skippable at Define's approval) Prove reuses that run (or reruns it once) and runs one parallel round on one commit: a fresh checker that reads each test against its criterion (on M the one code-reviewer, which also reviews with a one-pass brief, top tier; on L an ac-checker beside a top-tier code-reviewer); full security (one more code-reviewer with a security brief, and the dependency audit) only when the change is security-touched (Risk: high, or sensitive or migration paths); high findings go back to Build, then one re-verification. Ship commits on a feature branch on every track and reports it without asking; merge or PR waits for the user's word. Backlog slices loop Build and a commit, with no Prove per slice, then a feature close runs Prove and Ship. Deploy is the on-request command /sdlc:deploy, not a phase; Operate is gone. Five core hook families run throughout: hookify, security-guidance (its commit review only on a security-touched change), verify-freshness and prove-budget (both Prove only; prove-budget kills commands other than the project's own at 120 s), and model-router (checks each subagent's model, never haiku, and logs it while a feature is active; with role-guard, which keeps the plugin's agents to their role, and trust-anchor, which tells the user when what verification trusts changes). The optional sdlc-extras companion plugin adds the ralph-loop Stop hook (Build only).</desc>
+<svg width="100%" viewBox="0 0 1000 1385" role="img" xmlns="http://www.w3.org/2000/svg">
+<title>SDLC tracks by phase</title>
+<desc>The orchestrator's four tracks side by side, by phase (Define, Build, Prove, Ship with Learn). S, a fix: Define writes no documents and asks no approval, only Intent: and Repro: lines in the state file; one sonnet implementer makes the repro test fail first, then fixes it, and verify.py passes; no Prove; Ship learns a lesson only if there is one, asks the advisor once and commits on a branch without asking. M lite (risk low, the default): the session writes intent.md, a Lite spec.md and plan.md, with a design only when the approach isn't obvious, and you approve once; Build runs natively or with one subagent, each acceptance criterion's test red first; no Prove; Ship learns, asks the advisor once and commits. M full (risk high, or on request): writing-specs and writing-plans write the spec and plan, and the approval also sets Prove run or skip; the session builds as the maker; Prove dispatches one fresh opus code-reviewer that checks each criterion's test and reviews the diff in one pass, plus a security reviewer when security-touched and a ui-reviewer on UI; a FAIL goes back to Build and a fresh checker re-checks; Prove skip goes to Ship. L, a project: an opus Define agent runs brainstorming, specs, design, plans and consistency while the main session only coordinates; one sonnet Build agent per part; Prove runs a fresh ac-checker and opus code-reviewer in parallel each round, plus security, ui and, at a backlog close, qa-tester; round 3 failing or one criterion failing twice goes to you; Ship adds retro.md. Every track ends in one commit on a feature branch; merge or PR waits for the user. hookify, security-guidance, model-router, role-guard and trust-anchor run on every track; verify-freshness and prove-budget only in Prove. Backlog slices skip Prove until the feature close. Deploy is the on-request /sdlc:deploy, not a phase.</desc>
 <style>
-text{font-family:anthropic-sans,-apple-system,"system-ui","Segoe UI",sans-serif;dominant-baseline:central;text-anchor:middle}
-.a{fill:none;stroke:#898781;stroke-width:1.5}
-.t{font-size:14px;font-weight:500;text-anchor:start}.s{font-size:12px;text-anchor:start}.c{text-anchor:middle!important}
-.l{font-size:12px;fill:#52514e}.l[text-anchor=start]{text-anchor:start}
-rect{stroke-width:.5}
-.neutral rect{fill:#fcfcfb;stroke:rgba(11,11,11,.2)}.neutral .t{fill:#0b0b0b}.neutral .s{fill:#52514e}
-.panel{fill:none;stroke:rgba(11,11,11,.2);stroke-dasharray:4 3}.panel+text{fill:#0b0b0b}
+text{font-family:anthropic-sans,-apple-system,"system-ui","Segoe UI",sans-serif;dominant-baseline:central;text-anchor:start}
+.a{fill:none;stroke:#898781;stroke-width:1.5}#ar path{fill:#898781}
+.t{font-size:14px;font-weight:500}.t2{font-size:12px;font-weight:600}.s{font-size:11.5px}
+.l{font-size:12px;fill:#52514e}.m{text-anchor:middle}
+rect{stroke-width:.6}
+.neutral rect{fill:#fcfcfb;stroke:rgba(11,11,11,.2)}.neutral .t{fill:#0b0b0b}.neutral .s{fill:#3d3d3a}
+.phase rect{fill:#eeedfe;stroke:#534ab7}.phase .t{fill:#3c3489}
 .stage rect{fill:#eeedfe;stroke:#534ab7}.stage .t{fill:#3c3489}.stage .s{fill:#534ab7}
 .skill rect{fill:#e6f1fb;stroke:#185fa5}.skill .s{fill:#0c447c}
 .agent rect{fill:#e1f5ee;stroke:#0f6e56}.agent .s{fill:#085041}
 .hook rect{fill:#faeeda;stroke:#854f0b}.hook .t{fill:#633806}.hook .s{fill:#854f0b}
 .gate rect{fill:#f1efe8;stroke:#5f5e5a}.gate .s{fill:#2c2c2a}
 .approval rect{fill:#faece7;stroke:#993c1d}.approval .s{fill:#712b13}
+.skip rect{fill:none;stroke:#898781}.skip .s,.skip .t2{fill:#6b6a65}
 @media (prefers-color-scheme:dark){
-.a{stroke:#a09e96}.l{fill:#aaa8a2}
-.neutral rect{fill:#262624;stroke:rgba(255,255,255,.2)}.neutral .t{fill:#f0efea}.neutral .s{fill:#aaa8a2}
-.panel{stroke:rgba(255,255,255,.25)}.panel+text{fill:#f0efea}
-.stage rect{fill:#26244a;stroke:#a098f0}.stage .t{fill:#cecbfa}.stage .s{fill:#a098f0}
+.a{stroke:#a09e96}#ar path{fill:#a09e96}.l{fill:#aaa8a2}
+.neutral rect{fill:#262624;stroke:rgba(255,255,255,.2)}.neutral .t{fill:#f0efea}.neutral .s{fill:#c8c6bf}
+.phase rect,.stage rect{fill:#26244a;stroke:#a098f0}.phase .t,.stage .t{fill:#cecbfa}.stage .s{fill:#a098f0}
 .skill rect{fill:#102a44;stroke:#6aa8e6}.skill .s{fill:#b5d4f4}
 .agent rect{fill:#0c3228;stroke:#5ac8a5}.agent .s{fill:#aae6d4}
 .hook rect{fill:#3d2a10;stroke:#e0a04c}.hook .t{fill:#f5d9a8}.hook .s{fill:#e0a04c}
 .gate rect{fill:#2e2d2a;stroke:#a09e96}.gate .s{fill:#d3d1c7}
 .approval rect{fill:#401e14;stroke:#e68c6e}.approval .s{fill:#f5c8b9}
-}
-.hook .dim{fill:#633806}@media (prefers-color-scheme:dark){.hook .dim{fill:#f5d9a8}}</style>
-<defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
-<g class="neutral"><rect x="20" y="20" width="960" height="44" rx="8"/><text class="t c" x="500" y="36">/sdlc:start → orchestrator skill</text><text class="s c" x="500" y="54">Sizes the work, runs each phase, keeps .sdlc/state/&lt;feature&gt;.md, stops at gates</text></g>
-<rect class="panel" x="20" y="80" width="960" height="188" rx="10"/>
-<text class="t" x="34" y="98">Always on: hooks</text>
-<g class="hook"><rect x="34" y="112" width="175" height="124" rx="8"/><text class="t" x="44" y="128">hookify</text><text class="s" x="44" y="148">PreToolUse · Prompt · Stop</text>
-<text class="s dim" x="44" y="168">Blocks rm -rf, force-push</text>
-<text class="s dim" x="44" y="184">to main, secret values.</text>
-<text class="s dim" x="44" y="200">Warns on .only, console.log</text>
-<text class="s dim" x="44" y="216">and comment noise.</text>
+.skip rect{stroke:#7a7872}.skip .s,.skip .t2{fill:#a09e96}
+}</style>
+<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z"/></marker></defs>
+<g class="neutral">
+<rect x="20" y="20" width="960" height="50" rx="6"/>
+<text class="t m" x="500.0" y="37">/sdlc:start → the orchestrator picks the smallest track that fits</text>
+<text class="s m" x="500.0" y="55">Sized by footprint, not by risk words: risk raises the review, not the number of steps</text>
 </g>
-<g class="hook"><rect x="221" y="112" width="175" height="124" rx="8"/><text class="t" x="231" y="128">security-guidance</text><text class="s" x="231" y="148">Prompt · PostToolUse · Stop</text>
-<text class="s dim" x="231" y="168">Pattern warnings on edits,</text>
-<text class="s dim" x="231" y="184">diff review at turn end,</text>
-<text class="s dim" x="231" y="200">agentic review on git</text>
-<text class="s dim" x="231" y="216">commit and git push.</text>
+<g class="hook">
+<rect x="20" y="82" width="960" height="50" rx="6"/>
+<text class="t" x="32" y="99">Always on, every track</text>
+<text class="s" x="200" y="99">hookify: blocks rm -rf, force-push to main, secret values; warns on .only, console.log, comment noise</text>
+<text class="s" x="200" y="117">security-guidance: edit warnings, commit review only when security-touched · model-router + role-guard + trust-anchor</text>
 </g>
-<g class="hook"><rect x="408" y="112" width="175" height="124" rx="8"/><text class="t" x="418" y="128">verify-freshness</text><text class="s" x="418" y="148">PostToolUse · Stop · Prove</text>
-<text class="s dim" x="418" y="168">Edits mark tests stale,</text>
-<text class="s dim" x="418" y="184">a full run marks them</text>
-<text class="s dim" x="418" y="200">fresh. Blocks finishing</text>
-<text class="s dim" x="418" y="216">while stale.</text>
+<g class="stage">
+<rect x="120" y="146" width="208" height="58" rx="6"/>
+<text class="t m" x="224.0" y="162">S – fix</text>
+<text class="s m" x="224.0" y="180">bug or tweak, 1–3 files,</text>
+<text class="s m" x="224.0" y="194">expected behavior known</text>
 </g>
-<g class="hook"><rect x="595" y="112" width="175" height="124" rx="8"/><text class="t" x="605" y="128">model-router</text><text class="s" x="605" y="148">PreToolUse · Agent</text>
-<text class="s dim" x="605" y="168">Every subagent names a</text>
-<text class="s dim" x="605" y="184">model. Fable only on</text>
-<text class="s dim" x="605" y="200">request; never haiku;</text>
-<text class="s dim" x="605" y="216">opus reviewers on L.</text>
+<g class="stage">
+<rect x="337" y="146" width="208" height="58" rx="6"/>
+<text class="t m" x="441.0" y="162">M lite</text>
+<text class="s m" x="441.0" y="180">a few files to a few days,</text>
+<text class="s m" x="441.0" y="194">risk low (the default)</text>
 </g>
-<g class="hook"><rect x="782" y="112" width="175" height="124" rx="8"/><text class="t" x="792" y="128">ralph-loop</text><text class="s" x="792" y="148">Stop · sdlc-extras</text>
-<text class="s dim" x="792" y="168">Re-feeds the task until</text>
-<text class="s dim" x="792" y="184">the completion promise</text>
-<text class="s dim" x="792" y="200">or max iterations.</text>
-<text class="s dim" x="792" y="216">Optional, Build.</text>
+<g class="stage">
+<rect x="554" y="146" width="208" height="58" rx="6"/>
+<text class="t m" x="658.0" y="162">M full</text>
+<text class="s m" x="658.0" y="180">M with risk high, or</text>
+<text class="s m" x="658.0" y="194">when you ask for it</text>
 </g>
-<text class="l" x="34" y="254" text-anchor="start">SessionStart: bootstraps the Agent SDK for the commit reviewer</text>
-<text class="l" x="85.0" y="288">Phase</text>
-<text class="l" x="255.0" y="288">Skills</text>
-<text class="l" x="468.0" y="288">Subagents</text>
-<text class="l" x="654.0" y="288">Hooks that matter here</text>
-<text class="l" x="861.0" y="288">Gate</text>
-<g class="stage"><rect x="30" y="304" width="110" height="148" rx="8"/><text class="t c" x="85.0" y="354">Define</text><text class="s c" x="85.0" y="372">S: no docs, no</text><text class="s c" x="85.0" y="388">approval</text><text class="s c" x="85.0" y="404">M, L: intent,</text><text class="s c" x="85.0" y="420">spec, plan</text></g>
-<g class="skill"><rect x="148" y="304" width="214" height="148" rx="6"/>
-<text class="s" x="158" y="322">reads knowledge/index.md and</text>
-<text class="s" x="158" y="338">recurring-defects.md</text>
-<text class="s" x="158" y="354">brainstorming (L)</text>
-<text class="s" x="158" y="370">writing-specs / -plans (full)</text>
-<text class="s" x="158" y="386">designing-solutions (L, or M</text>
-<text class="s" x="158" y="402">with a non-obvious approach)</text>
-<text class="s" x="158" y="418">analyzing-consistency (L,</text>
-<text class="s" x="158" y="434">or a backlog)</text>
+<g class="stage">
+<rect x="771" y="146" width="208" height="58" rx="6"/>
+<text class="t m" x="875.0" y="162">L – project</text>
+<text class="s m" x="875.0" y="180">several parts, or approach</text>
+<text class="s m" x="875.0" y="194">unclear after Define</text>
 </g>
-<g class="agent"><rect x="370" y="304" width="196" height="148" rx="6"/>
-<text class="s" x="380" y="322">code-explorer</text>
-<text class="s" x="380" y="338">code-architect</text>
-<text class="s" x="380" y="354">(only when a design runs)</text>
+<g class="phase">
+<rect x="20" y="226" width="92" height="265" rx="6"/>
+<text class="t m" x="66.0" y="358.5">Define</text>
 </g>
-<text class="l" x="654.0" y="378">no extra hooks</text>
-<g class="approval"><rect x="742" y="304" width="238" height="148" rx="6"/>
-<text class="s" x="752" y="322">You approve once (not on S): the</text>
-<text class="s" x="752" y="338">intent, spec, plan, or a backlog;</text>
-<text class="s" x="752" y="354">no [inferred] left, Non-Goals</text>
-<text class="s" x="752" y="370">filled, criteria testable, every</text>
-<text class="s" x="752" y="386">FR has a task, Public Surface</text>
-<text class="s" x="752" y="402">declared, design criteria hold.</text>
-<text class="s" x="752" y="418">Build: method shown, not asked</text>
+<line class="a" x1="224.0" y1="206" x2="224.0" y2="223" marker-end="url(#ar)"/>
+<g class="neutral">
+<rect x="120" y="226" width="208" height="58" rx="6"/>
+<text class="s" x="129" y="240">No documents, no approval: two</text>
+<text class="s" x="129" y="255">lines in the state file, Intent:</text>
+<text class="s" x="129" y="270">and Repro:</text>
 </g>
-<g class="stage"><rect x="30" y="464" width="110" height="116" rx="8"/><text class="t c" x="85.0" y="514">Build</text><text class="s c" x="85.0" y="532">S, M, L</text></g>
-<line class="a" marker-end="url(#arrow)" x1="85.0" y1="452" x2="85.0" y2="464"/>
-<g class="skill"><rect x="148" y="464" width="214" height="116" rx="6"/>
-<text class="s" x="158" y="482">using-git-worktrees (L, dirty tree)</text>
-<text class="s" x="158" y="498">test-driven-development</text>
-<text class="s" x="158" y="514">systematic-debugging on failure</text>
-<text class="s" x="158" y="530">subagent-driven-development</text>
-<text class="s" x="158" y="546">(Build: subagent or tasks)</text>
-<text class="s" x="158" y="562">dispatching-parallel-agents</text>
+<g class="gate">
+<rect x="120" y="289" width="208" height="28" rx="6"/>
+<text class="s" x="129" y="303">Checked: straight on to Build</text>
 </g>
-<g class="agent"><rect x="370" y="464" width="196" height="116" rx="6"/>
-<text class="s" x="380" y="482">Build from the track:</text>
-<text class="s" x="380" y="498">native: none, this session</text>
-<text class="s" x="380" y="514">subagent: one implementer</text>
-<text class="s" x="380" y="530">tasks: one implementer</text>
-<text class="s" x="380" y="546">per task, no review</text>
+<line class="a" x1="224.0" y1="317" x2="224.0" y2="491"/>
+<line class="a" x1="441.0" y1="206" x2="441.0" y2="223" marker-end="url(#ar)"/>
+<g class="neutral">
+<rect x="337" y="226" width="208" height="73" rx="6"/>
+<text class="s" x="346" y="240">The session writes intent.md (2–3</text>
+<text class="s" x="346" y="255">approaches, one recommended), a</text>
+<text class="s" x="346" y="270">Lite spec.md and plan.md (3–6</text>
+<text class="s" x="346" y="285">tasks)</text>
 </g>
-<g class="hook"><rect x="574" y="464" width="160" height="116" rx="6"/>
-<text class="s" x="584" y="482">hookify guardrails</text>
-<text class="s" x="584" y="498">security: edit warnings</text>
-<text class="s" x="584" y="514">ralph-loop (optional)</text>
-<text class="s" x="584" y="530">model-router: models</text>
+<g class="skill">
+<rect x="337" y="304" width="208" height="43" rx="6"/>
+<text class="s" x="346" y="318">designing-solutions only when the</text>
+<text class="s" x="346" y="333">approach isn't obvious</text>
 </g>
-<g class="gate"><rect x="742" y="464" width="238" height="116" rx="6"/>
-<text class="s" x="752" y="482">Every task done, verify.py</text>
-<text class="s" x="752" y="498">passes: each AC test red first,</text>
-<text class="s" x="752" y="514">then green; drift recorded; no</text>
-<text class="s" x="752" y="530">TODO without a ticket</text>
+<g class="agent">
+<rect x="337" y="352" width="208" height="43" rx="6"/>
+<text class="s" x="346" y="366">code-explorer · code-architect</text>
+<text class="s" x="346" y="381">(with a design)</text>
 </g>
-<g class="stage"><rect x="30" y="592" width="110" height="148" rx="8"/><text class="t c" x="85.0" y="642">Prove</text><text class="s c" x="85.0" y="660">verify, review,</text><text class="s c" x="85.0" y="676">security</text><text class="s c" x="85.0" y="692">M full, L</text></g>
-<line class="a" marker-end="url(#arrow)" x1="85.0" y1="580" x2="85.0" y2="592"/>
-<g class="skill"><rect x="148" y="592" width="214" height="148" rx="6"/>
-<text class="s" x="158" y="610">verification-before-completion</text>
-<text class="s" x="158" y="626">systematic-debugging on a fail</text>
-<text class="s" x="158" y="642">diff_stats.py for reviewers</text>
-<text class="s" x="158" y="658">receiving-code-review</text>
-<text class="s" x="158" y="674">security brief, dep audit</text>
-<text class="s" x="158" y="690">(security-touched only)</text>
+<g class="approval">
+<rect x="337" y="400" width="208" height="43" rx="6"/>
+<text class="s" x="346" y="414">You approve once: documents,</text>
+<text class="s" x="346" y="429">approach, Build: method</text>
 </g>
-<g class="agent"><rect x="370" y="592" width="196" height="148" rx="6"/>
-<text class="s" x="380" y="610">One parallel round, one commit:</text>
-<text class="s" x="380" y="626">ac-checker (L, close)</text>
-<text class="s" x="380" y="642">code-reviewer (one-pass brief)</text>
-<text class="s" x="380" y="658">  top tier on L</text>
-<text class="s" x="380" y="674">qa-tester (Feature close)</text>
-<text class="s" x="380" y="690">ui-reviewer on UI diffs</text>
-<text class="s" x="380" y="706">code-reviewer (security brief)</text>
-<text class="s" x="380" y="722">  security-touched only</text>
+<line class="a" x1="441.0" y1="443" x2="441.0" y2="491"/>
+<line class="a" x1="658.0" y1="206" x2="658.0" y2="223" marker-end="url(#ar)"/>
+<g class="neutral">
+<rect x="554" y="226" width="208" height="28" rx="6"/>
+<text class="s" x="563" y="240">The session writes intent.md</text>
 </g>
-<g class="hook"><rect x="574" y="592" width="160" height="148" rx="6"/>
-<text class="s" x="584" y="610">verify-freshness: stale</text>
-<text class="s" x="584" y="626">on edit, fresh on full</text>
-<text class="s" x="584" y="642">run, blocks Stop</text>
-<text class="s" x="584" y="658">security-guidance</text>
-<text class="s" x="584" y="674">router, role-guard:</text>
-<text class="s" x="584" y="690">ac-checker, reviewers</text>
-<text class="s" x="584" y="706">prove-budget: kills</text>
-<text class="s" x="584" y="722">slow commands at 120 s</text>
+<g class="skill">
+<rect x="554" y="259" width="208" height="58" rx="6"/>
+<text class="s" x="563" y="273">writing-specs (spec + checklist) ·</text>
+<text class="s" x="563" y="288">writing-plans · designing-</text>
+<text class="s" x="563" y="303">solutions when not obvious</text>
 </g>
-<g class="gate"><rect x="742" y="592" width="238" height="148" rx="6"/>
-<text class="s" x="752" y="610">verify.py + checker PASS on</text>
-<text class="s" x="752" y="626">this code (M full, L, close),</text>
-<text class="s" x="752" y="642">AC proven, no unresolved high</text>
-<text class="s" x="752" y="658">finding, no test gap ≥ 8, no</text>
-<text class="s" x="752" y="674">critical or high security, no</text>
-<text class="s" x="752" y="690">secrets. Fixes in Build, one</text>
-<text class="s" x="752" y="706">re-verification. Round 3 fails,</text>
-<text class="s" x="752" y="722">or a need fails twice: ask you</text>
+<g class="agent">
+<rect x="554" y="322" width="208" height="43" rx="6"/>
+<text class="s" x="563" y="336">code-explorer · code-architect</text>
+<text class="s" x="563" y="351">(with a design)</text>
 </g>
-<g class="stage"><rect x="30" y="752" width="110" height="132" rx="8"/><text class="t c" x="85.0" y="802">Ship</text><text class="s c" x="85.0" y="820">+ Learn</text><text class="s c" x="85.0" y="836">S, M, L</text></g>
-<line class="a" marker-end="url(#arrow)" x1="85.0" y1="740" x2="85.0" y2="752"/>
-<g class="skill"><rect x="148" y="752" width="214" height="132" rx="6"/>
-<text class="s" x="158" y="770">Learn: recurring-defects.md;</text>
-<text class="s" x="158" y="786">managing-knowledge, /sdlc:</text>
-<text class="s" x="158" y="802">hookify only for a durable</text>
-<text class="s" x="158" y="818">lesson; retro.md (L)</text>
-<text class="s" x="158" y="834">/sdlc:commit, one commit</text>
-<text class="s" x="158" y="850">finishing-a-development-branch</text>
-<text class="s" x="158" y="866">/sdlc:commit-push-pr</text>
+<g class="approval">
+<rect x="554" y="370" width="208" height="43" rx="6"/>
+<text class="s" x="563" y="384">You approve once, and choose</text>
+<text class="s" x="563" y="399">Prove: run (default) or skip</text>
 </g>
-<g class="agent"><rect x="370" y="752" width="196" height="132" rx="6"/>
-<text class="s" x="380" y="770">conversation-analyzer</text>
-<text class="s" x="380" y="786">(sdlc-extras, /hookify)</text>
-<text class="s" x="380" y="802">/sdlc:code-review agents</text>
-<text class="s" x="380" y="818">on a PR, on request</text>
+<line class="a" x1="658.0" y1="413" x2="658.0" y2="491"/>
+<line class="a" x1="875.0" y1="206" x2="875.0" y2="223" marker-end="url(#ar)"/>
+<g class="agent">
+<rect x="771" y="226" width="208" height="43" rx="6"/>
+<text class="s" x="780" y="240">Define agent (opus); the main</text>
+<text class="s" x="780" y="255">session only coordinates (relay)</text>
 </g>
-<g class="hook"><rect x="574" y="752" width="160" height="132" rx="6"/>
-<text class="s" x="584" y="770">security: review on</text>
-<text class="s" x="584" y="786">commit and push</text>
-<text class="s" x="584" y="802">hookify: no force-push</text>
-<text class="s" x="584" y="818">to main</text>
+<g class="skill">
+<rect x="771" y="274" width="208" height="73" rx="6"/>
+<text class="s" x="780" y="288">brainstorming → intent.md ·</text>
+<text class="s" x="780" y="303">writing-specs · designing-</text>
+<text class="s" x="780" y="318">solutions · writing-plans ·</text>
+<text class="s" x="780" y="333">analyzing-consistency</text>
 </g>
-<g class="approval"><rect x="742" y="752" width="238" height="132" rx="6"/>
-<text class="s" x="752" y="770">Verified tree clean, Learn done,</text>
-<text class="s" x="752" y="786">CI green before any merge.</text>
-<text class="s" x="752" y="802">Every track commits on a</text>
-<text class="s" x="752" y="818">branch, kept. Status: done</text>
+<g class="agent">
+<rect x="771" y="352" width="208" height="43" rx="6"/>
+<text class="s" x="780" y="366">code-explorer · code-architect,</text>
+<text class="s" x="780" y="381">via DISPATCH:</text>
 </g>
-<path class="a loop" marker-end="url(#arrow)" d="M30 666 L20 666 L20 522 L28 522"/>
-<text class="l" transform="rotate(-90 9 594)" x="9" y="594">step back</text>
-<text class="l" x="34" y="900" text-anchor="start">Backlog: each slice runs Build → one commit, no Prove; once all are done, feature close runs Prove on the whole branch, then Ship.</text>
-<g class="neutral"><rect x="20" y="920" width="960" height="52" rx="8" style="stroke-dasharray:4 3"/><text class="t" x="34" y="937">/sdlc:deploy · on request, not a phase</text><text class="s" x="34" y="956">Project's own deploy path · your go-ahead before a production deploy or DB migration · smoke test · release.md with the rollback step</text></g>
-<g class="stage"><rect x="30" y="996" width="14" height="14" rx="3"/></g><text class="l" text-anchor="start" x="50" y="1003">Phase</text>
-<g class="skill"><rect x="130" y="996" width="14" height="14" rx="3"/></g><text class="l" text-anchor="start" x="150" y="1003">Skill</text>
-<g class="agent"><rect x="220" y="996" width="14" height="14" rx="3"/></g><text class="l" text-anchor="start" x="240" y="1003">Subagent</text>
-<g class="hook"><rect x="330" y="996" width="14" height="14" rx="3"/></g><text class="l" text-anchor="start" x="350" y="1003">Hook</text>
-<g class="gate"><rect x="410" y="996" width="14" height="14" rx="3"/></g><text class="l" text-anchor="start" x="430" y="1003">Gate, checked</text>
-<g class="approval"><rect x="550" y="996" width="14" height="14" rx="3"/></g><text class="l" text-anchor="start" x="570" y="1003">Gate, you approve</text>
+<g class="neutral">
+<rect x="771" y="400" width="208" height="43" rx="6"/>
+<text class="s" x="780" y="414">backlog.md when it won't fit one</text>
+<text class="s" x="780" y="429">session</text>
+</g>
+<g class="approval">
+<rect x="771" y="448" width="208" height="43" rx="6"/>
+<text class="s" x="780" y="462">You approve once, and choose</text>
+<text class="s" x="780" y="477">Prove: run (default) or skip</text>
+</g>
+<g class="phase">
+<rect x="20" y="513" width="92" height="187" rx="6"/>
+<text class="t m" x="66.0" y="606.5">Build</text>
+</g>
+<line class="a" x1="224.0" y1="493" x2="224.0" y2="510" marker-end="url(#ar)"/>
+<g class="agent">
+<rect x="120" y="513" width="208" height="28" rx="6"/>
+<text class="s" x="129" y="527">One implementer subagent (sonnet)</text>
+</g>
+<g class="skill">
+<rect x="120" y="546" width="208" height="43" rx="6"/>
+<text class="s" x="129" y="560">test-driven-development ·</text>
+<text class="s" x="129" y="575">systematic-debugging on failure</text>
+</g>
+<g class="neutral">
+<rect x="120" y="594" width="208" height="43" rx="6"/>
+<text class="s" x="129" y="608">Repro test fails first (verify.py</text>
+<text class="s" x="129" y="623">red AC-001), then the fix</text>
+</g>
+<g class="gate">
+<rect x="120" y="642" width="208" height="28" rx="6"/>
+<text class="s" x="129" y="656">Checked: verify.py passes</text>
+</g>
+<line class="a" x1="224.0" y1="670" x2="224.0" y2="700"/>
+<line class="a" x1="441.0" y1="493" x2="441.0" y2="510" marker-end="url(#ar)"/>
+<g class="neutral">
+<rect x="337" y="513" width="208" height="43" rx="6"/>
+<text class="s" x="346" y="527">Build: native (this session), or</text>
+<text class="s" x="346" y="542">one subagent (sonnet)</text>
+</g>
+<g class="skill">
+<rect x="337" y="561" width="208" height="43" rx="6"/>
+<text class="s" x="346" y="575">test-driven-development ·</text>
+<text class="s" x="346" y="590">systematic-debugging on failure</text>
+</g>
+<g class="neutral">
+<rect x="337" y="609" width="208" height="43" rx="6"/>
+<text class="s" x="346" y="623">Each AC's test red first, then</text>
+<text class="s" x="346" y="638">green</text>
+</g>
+<g class="gate">
+<rect x="337" y="657" width="208" height="28" rx="6"/>
+<text class="s" x="346" y="671">Checked: verify.py passes</text>
+</g>
+<line class="a" x1="441.0" y1="685" x2="441.0" y2="700"/>
+<line class="a" x1="658.0" y1="493" x2="658.0" y2="510" marker-end="url(#ar)"/>
+<g class="neutral">
+<rect x="554" y="513" width="208" height="43" rx="6"/>
+<text class="s" x="563" y="527">Build: native, the session is the</text>
+<text class="s" x="563" y="542">maker</text>
+</g>
+<g class="skill">
+<rect x="554" y="561" width="208" height="43" rx="6"/>
+<text class="s" x="563" y="575">test-driven-development ·</text>
+<text class="s" x="563" y="590">systematic-debugging on failure</text>
+</g>
+<g class="neutral">
+<rect x="554" y="609" width="208" height="43" rx="6"/>
+<text class="s" x="563" y="623">Each AC's test red first, then</text>
+<text class="s" x="563" y="638">green</text>
+</g>
+<g class="gate">
+<rect x="554" y="657" width="208" height="28" rx="6"/>
+<text class="s" x="563" y="671">Checked: verify.py passes</text>
+</g>
+<line class="a" x1="658.0" y1="685" x2="658.0" y2="700"/>
+<line class="a" x1="875.0" y1="493" x2="875.0" y2="510" marker-end="url(#ar)"/>
+<g class="agent">
+<rect x="771" y="513" width="208" height="43" rx="6"/>
+<text class="s" x="780" y="527">One Build agent per part (sonnet),</text>
+<text class="s" x="780" y="542">resumed with SendMessage</text>
+</g>
+<g class="skill">
+<rect x="771" y="561" width="208" height="43" rx="6"/>
+<text class="s" x="780" y="575">test-driven-development · using-</text>
+<text class="s" x="780" y="590">git-worktrees (dirty tree)</text>
+</g>
+<g class="neutral">
+<rect x="771" y="609" width="208" height="43" rx="6"/>
+<text class="s" x="780" y="623">verify.py red per AC, once at the</text>
+<text class="s" x="780" y="638">end; writes its changed-files list</text>
+</g>
+<g class="gate">
+<rect x="771" y="657" width="208" height="43" rx="6"/>
+<text class="s" x="780" y="671">Checked: verify.py passes, DONE:</text>
+<text class="s" x="780" y="686">build pass</text>
+</g>
+<g class="phase">
+<rect x="20" y="722" width="92" height="295" rx="6"/>
+<text class="t m" x="66.0" y="869.5">Prove</text>
+</g>
+<line class="a" x1="224.0" y1="702" x2="224.0" y2="719" marker-end="url(#ar)"/>
+<g class="skip">
+<rect x="120" y="722" width="208" height="58" rx="6" stroke-dasharray="4 3"/>
+<text class="t2" x="129" y="736">No Prove</text>
+<text class="s" x="129" y="751">The red record and the passing</text>
+<text class="s" x="129" y="766">verify.py are the evidence</text>
+</g>
+<line class="a" x1="224.0" y1="780" x2="224.0" y2="1017"/>
+<line class="a" x1="441.0" y1="702" x2="441.0" y2="719" marker-end="url(#ar)"/>
+<g class="skip">
+<rect x="337" y="722" width="208" height="58" rx="6" stroke-dasharray="4 3"/>
+<text class="t2" x="346" y="736">No Prove (risk low)</text>
+<text class="s" x="346" y="751">Build's passing verify.py goes to</text>
+<text class="s" x="346" y="766">Ship</text>
+</g>
+<line class="a" x1="441.0" y1="780" x2="441.0" y2="1017"/>
+<line class="a" x1="658.0" y1="702" x2="658.0" y2="719" marker-end="url(#ar)"/>
+<g class="agent">
+<rect x="554" y="722" width="208" height="58" rx="6"/>
+<text class="s" x="563" y="736">One fresh checker: code-reviewer</text>
+<text class="s" x="563" y="751">(opus) reads each AC's test, then</text>
+<text class="s" x="563" y="766">reviews the diff in one pass</text>
+</g>
+<g class="agent">
+<rect x="554" y="785" width="208" height="58" rx="6"/>
+<text class="s" x="563" y="799">+ security code-reviewer (opus)</text>
+<text class="s" x="563" y="814">when security-touched · ui-</text>
+<text class="s" x="563" y="829">reviewer (sonnet) on UI</text>
+</g>
+<g class="hook">
+<rect x="554" y="848" width="208" height="43" rx="6"/>
+<text class="s" x="563" y="862">verify-freshness · prove-budget</text>
+<text class="s" x="563" y="877">(kills slow commands at 120 s)</text>
+</g>
+<g class="gate">
+<rect x="554" y="896" width="208" height="58" rx="6"/>
+<text class="s" x="563" y="910">Checked: every VERDICT PASS. FAIL</text>
+<text class="s" x="563" y="925">→ fix in Build, test first, then a</text>
+<text class="s" x="563" y="940">fresh checker</text>
+</g>
+<g class="skip">
+<rect x="554" y="959" width="208" height="58" rx="6" stroke-dasharray="4 3"/>
+<text class="s" x="563" y="973">Prove: skip → Ship (a security-</text>
+<text class="s" x="563" y="988">touched change still gets its</text>
+<text class="s" x="563" y="1003">security review)</text>
+</g>
+<line class="a" x1="875.0" y1="702" x2="875.0" y2="719" marker-end="url(#ar)"/>
+<g class="agent">
+<rect x="771" y="722" width="208" height="58" rx="6"/>
+<text class="s" x="780" y="736">Fresh each round, in parallel: ac-</text>
+<text class="s" x="780" y="751">checker (sonnet) ∥ code-reviewer</text>
+<text class="s" x="780" y="766">(opus)</text>
+</g>
+<g class="agent">
+<rect x="771" y="785" width="208" height="58" rx="6"/>
+<text class="s" x="780" y="799">+ security reviewer when touched ·</text>
+<text class="s" x="780" y="814">ui-reviewer (opus) on UI · qa-</text>
+<text class="s" x="780" y="829">tester at backlog close</text>
+</g>
+<g class="hook">
+<rect x="771" y="848" width="208" height="43" rx="6"/>
+<text class="s" x="780" y="862">verify-freshness · prove-budget</text>
+<text class="s" x="780" y="877">(kills slow commands at 120 s)</text>
+</g>
+<g class="gate">
+<rect x="771" y="896" width="208" height="58" rx="6"/>
+<text class="s" x="780" y="910">Checked: every VERDICT PASS. FAIL</text>
+<text class="s" x="780" y="925">→ the Build agent fixes; ac-</text>
+<text class="s" x="780" y="940">checker re-checks failed ACs</text>
+</g>
+<g class="approval">
+<rect x="771" y="959" width="208" height="43" rx="6"/>
+<text class="s" x="780" y="973">Round 3 fails, or one AC fails</text>
+<text class="s" x="780" y="988">twice: you decide</text>
+</g>
+<line class="a" x1="875.0" y1="1002" x2="875.0" y2="1017"/>
+<g class="phase">
+<rect x="20" y="1039" width="92" height="172" rx="6"/>
+<text class="t m" x="66.0" y="1116.0">Ship</text>
+<text class="t m" x="66.0" y="1134.0">+ Learn</text>
+</g>
+<line class="a" x1="224.0" y1="1019" x2="224.0" y2="1036" marker-end="url(#ar)"/>
+<g class="neutral">
+<rect x="120" y="1039" width="208" height="43" rx="6"/>
+<text class="s" x="129" y="1053">Learn: a lesson only, when there</text>
+<text class="s" x="129" y="1068">is one</text>
+</g>
+<g class="neutral">
+<rect x="120" y="1087" width="208" height="28" rx="6"/>
+<text class="s" x="129" y="1101">Advisor once, before the commit</text>
+</g>
+<g class="skill">
+<rect x="120" y="1120" width="208" height="43" rx="6"/>
+<text class="s" x="129" y="1134">/sdlc:commit: one commit on a</text>
+<text class="s" x="129" y="1149">branch</text>
+</g>
+<g class="gate">
+<rect x="120" y="1168" width="208" height="43" rx="6"/>
+<text class="s" x="129" y="1182">Checked: verified tree clean;</text>
+<text class="s" x="129" y="1197">reported, not asked</text>
+</g>
+<line class="a" x1="441.0" y1="1019" x2="441.0" y2="1036" marker-end="url(#ar)"/>
+<g class="neutral">
+<rect x="337" y="1039" width="208" height="43" rx="6"/>
+<text class="s" x="346" y="1053">Learn: recurring-defects.md,</text>
+<text class="s" x="346" y="1068">managing-knowledge</text>
+</g>
+<g class="neutral">
+<rect x="337" y="1087" width="208" height="28" rx="6"/>
+<text class="s" x="346" y="1101">Advisor once, before the commit</text>
+</g>
+<g class="skill">
+<rect x="337" y="1120" width="208" height="43" rx="6"/>
+<text class="s" x="346" y="1134">/sdlc:commit: one commit on a</text>
+<text class="s" x="346" y="1149">branch</text>
+</g>
+<g class="gate">
+<rect x="337" y="1168" width="208" height="43" rx="6"/>
+<text class="s" x="346" y="1182">Checked: verified tree clean;</text>
+<text class="s" x="346" y="1197">reported, not asked</text>
+</g>
+<line class="a" x1="658.0" y1="1019" x2="658.0" y2="1036" marker-end="url(#ar)"/>
+<g class="neutral">
+<rect x="554" y="1039" width="208" height="43" rx="6"/>
+<text class="s" x="563" y="1053">Learn: recurring-defects.md from</text>
+<text class="s" x="563" y="1068">review.md, managing-knowledge</text>
+</g>
+<g class="skill">
+<rect x="554" y="1087" width="208" height="43" rx="6"/>
+<text class="s" x="563" y="1101">/sdlc:commit: one commit on a</text>
+<text class="s" x="563" y="1116">branch</text>
+</g>
+<g class="gate">
+<rect x="554" y="1135" width="208" height="43" rx="6"/>
+<text class="s" x="563" y="1149">Checked: verified tree clean;</text>
+<text class="s" x="563" y="1164">reported, not asked</text>
+</g>
+<line class="a" x1="658.0" y1="1178" x2="658.0" y2="1211"/>
+<line class="a" x1="875.0" y1="1019" x2="875.0" y2="1036" marker-end="url(#ar)"/>
+<g class="neutral">
+<rect x="771" y="1039" width="208" height="43" rx="6"/>
+<text class="s" x="780" y="1053">Learn: recurring-defects.md,</text>
+<text class="s" x="780" y="1068">managing-knowledge, retro.md</text>
+</g>
+<g class="neutral">
+<rect x="771" y="1087" width="208" height="28" rx="6"/>
+<text class="s" x="780" y="1101">The main session runs Ship</text>
+</g>
+<g class="skill">
+<rect x="771" y="1120" width="208" height="43" rx="6"/>
+<text class="s" x="780" y="1134">/sdlc:commit: one commit on a</text>
+<text class="s" x="780" y="1149">branch</text>
+</g>
+<g class="gate">
+<rect x="771" y="1168" width="208" height="43" rx="6"/>
+<text class="s" x="780" y="1182">Checked: verified tree clean;</text>
+<text class="s" x="780" y="1197">reported, not asked</text>
+</g>
+<line class="a" x1="224.0" y1="1211" x2="224.0" y2="1230" marker-end="url(#ar)"/>
+<line class="a" x1="441.0" y1="1211" x2="441.0" y2="1230" marker-end="url(#ar)"/>
+<line class="a" x1="658.0" y1="1211" x2="658.0" y2="1230" marker-end="url(#ar)"/>
+<line class="a" x1="875.0" y1="1211" x2="875.0" y2="1230" marker-end="url(#ar)"/>
+<g class="neutral">
+<rect x="120" y="1233" width="859" height="30" rx="6"/>
+<text class="s m" x="549.5" y="1248">A commit on a feature branch, reported. Merge or PR waits for your word; CI green before any merge.</text>
+</g>
+<g class="neutral">
+<rect x="20" y="1275" width="960" height="66" rx="6"/>
+<text class="s" x="32" y="1291">Backlog (M or L, bigger than one session): each slice runs Build → one commit, no Prove; feature close runs Prove on the whole branch, then Ship.</text>
+<text class="s" x="32" y="1308">Any code change after Build's gate goes back to Build: rerun verify.py; with Prove, through Prove again. Autopilot and other agents run M and L in one session.</text>
+<text class="s" x="32" y="1325">/sdlc:deploy is on request, not a phase: the project's own deploy path, your go-ahead before production or a DB migration, smoke test, release.md.</text>
+</g>
+<g class="stage">
+<rect x="20" y="1355" width="14" height="14" rx="6"/>
+</g>
+<text class="l" x="40" y="1362">Track</text>
+<g class="skill">
+<rect x="103" y="1355" width="14" height="14" rx="6"/>
+</g>
+<text class="l" x="123" y="1362">Skill</text>
+<g class="agent">
+<rect x="186" y="1355" width="14" height="14" rx="6"/>
+</g>
+<text class="l" x="206" y="1362">Subagent</text>
+<g class="hook">
+<rect x="290" y="1355" width="14" height="14" rx="6"/>
+</g>
+<text class="l" x="310" y="1362">Hook</text>
+<g class="gate">
+<rect x="366" y="1355" width="14" height="14" rx="6"/>
+</g>
+<text class="l" x="386" y="1362">Gate, checked</text>
+<g class="approval">
+<rect x="505" y="1355" width="14" height="14" rx="6"/>
+</g>
+<text class="l" x="525" y="1362">You decide</text>
+<g class="skip">
+<rect x="623" y="1355" width="14" height="14" rx="6" stroke-dasharray="3 2"/>
+</g>
+<text class="l" x="643" y="1362">Skipped</text>
 </svg>

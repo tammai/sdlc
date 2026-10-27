@@ -85,7 +85,7 @@ Each phase starts with a header:
   Gate:  <exit criterion>
 ```
 
-The whole loop, with hard stops, is in [sdlc_orchestrator_decision_tree.svg](diagrams/sdlc_orchestrator_decision_tree.svg); per-phase skills, subagents, hooks and gates are in [sdlc_full_flow.svg](diagrams/sdlc_full_flow.svg).
+The whole loop, with hard stops, is in [sdlc_orchestrator_decision_tree.svg](diagrams/sdlc_orchestrator_decision_tree.svg); each track (S, M lite, M full, L) phase by phase, with its skills, subagents, hooks and gates, is in [sdlc_full_flow.svg](diagrams/sdlc_full_flow.svg).
 
 ### Hard stops
 
