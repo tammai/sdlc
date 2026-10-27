@@ -6,7 +6,7 @@ import unittest
 from helpers import HOOKS, PLUGIN_ROOT, ProjectTestCase, run_hook
 
 HOOK = ["python3", os.path.join(HOOKS, "prove_budget.py")]
-STATE = "# Feature: login\nStatus: active\nCurrent: Stage {stage} – Prove\n"
+STATE = "# Feature: login\nStatus: active\nProcess: 2\nCurrent: Stage {stage} – Prove\n"
 
 
 class ProveBudgetTest(ProjectTestCase):

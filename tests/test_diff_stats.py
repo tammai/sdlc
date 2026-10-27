@@ -118,7 +118,7 @@ class DiffStatsTest(ProjectTestCase):
         self.git("checkout", "-q", "main")
         base = subprocess.run(["git", "-C", self.root, "rev-parse", "--short", "HEAD"], capture_output=True,
                               text=True).stdout.strip()
-        self.write(".sdlc/login/state.md", f"# Feature: login\nStatus: active\nBase: `{base}`\n")
+        self.write(".sdlc/login/state.md", f"# Feature: login\nStatus: active\nProcess: 2\nBase: `{base}`\n")
         self.write("src/a.ts", "x()\n")
         self.write("docs/notes.md", "n\n")
         self.git("add", "-A")

@@ -34,7 +34,7 @@ if not m and os.environ.get("STUB_MODE") == "done":  # feature close reaches its
 class AutopilotTest(ProjectTestCase):
     def setUp(self):
         super().setUp()
-        self.state = self.write(".sdlc/state/login.md", "# login\nStatus: active\nCurrent: Stage 5 – Verify\n")
+        self.state = self.write(".sdlc/state/login.md", "# login\nStatus: active\nProcess: 2\nCurrent: Stage 5 – Verify\n")
         self.backlog = self.write("docs/sdlc/intents/login/backlog.md", BACKLOG)
         self.log = self.path("calls.log")
         stub = self.write("bin/stub.py", STUB)

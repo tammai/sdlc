@@ -9,7 +9,7 @@ from helpers import HOOKS, ProjectTestCase
 sys.path.insert(0, HOOKS)
 import sdlc_review_gate  # noqa: E402
 
-STATE = "# login\nStatus: active\nRisk: {risk}\nBase: {base}\nCurrent: Stage {stage} – x\n"
+STATE = "# login\nStatus: active\nProcess: 2\nRisk: {risk}\nBase: {base}\nCurrent: Stage {stage} – x\n"
 
 
 class ReviewGateTest(ProjectTestCase):

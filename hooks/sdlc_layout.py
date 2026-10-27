@@ -74,12 +74,13 @@ def features(root):
 
 
 def active(root):
-    """(name, state text) for each feature whose state says `Status: active`; an unreadable state is skipped."""
+    """(name, state text) for each 2.0 feature (`Process: 2`) whose state says `Status: active`; an unreadable state,
+    or one started under sdlc 1.x, is skipped, so the hooks stay silent on it."""
     for name, f in features(root).items():
         try:
             with open(os.path.join(root, f["state"]), encoding="utf-8") as fh:
                 text = fh.read()
         except OSError:
             continue
-        if re.search(r"^Status:\s*active\b", text, re.M | re.I):
+        if re.search(r"^Status:\s*active\b", text, re.M | re.I) and re.search(r"^Process:\s*2\b", text, re.M):
             yield name, text

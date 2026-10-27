@@ -13,7 +13,7 @@ import verify_freshness as vf  # noqa: E402  (the tree the hook computes)
 
 HOOK = ["python3", os.path.join(HOOKS, "trust_anchor.py")]
 FRESHNESS = ["python3", os.path.join(HOOKS, "verify_freshness.py")]
-STATE = "# login\nStatus: active\nTrack: {track}\nRisk: {risk}\nTop model: opus\nBase: {base}\nCurrent: Stage {stage}\n"
+STATE = "# login\nStatus: active\nProcess: 2\nTrack: {track}\nRisk: {risk}\nTop model: opus\nBase: {base}\nCurrent: Stage {stage}\n"
 BASELINE = "# Known failures baseline\n\n## Failing tests\n\n| Package | Test | Failure | Since |\n|---|---|---|---|\n{rows}\n## Lint\n"
 
 

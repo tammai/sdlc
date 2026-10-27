@@ -35,7 +35,7 @@ class CodexHookTest(ProjectTestCase):
         self.assertEqual(run_hook(ADAPTER + ["codex", "PreToolUse"], "not json", self.root)[:2], (0, {}))  # never fails the turn
 
     def test_a_patch_after_the_tests_keeps_stage_5_from_finishing(self):
-        self.write(".sdlc/login/state.md", "# Feature: login\nStatus: active\nCurrent: Stage 5\n\n"
+        self.write(".sdlc/login/state.md", "# Feature: login\nStatus: active\nProcess: 2\nCurrent: Stage 5\n\n"
                                            "## Commands\n- test: `pytest`\n")
         self.write("a.py", "x = 1\n")
         # Codex sends a command's output without its exit code: the run counts, its result is unknown, even when the
@@ -76,7 +76,7 @@ class CursorHookTest(ProjectTestCase):
         self.assertEqual(self.cursor("PreToolUse", "preToolUse", tool_name="Shell", tool_input={"command": "ls"}), {})
 
     def test_an_edit_after_the_tests_sends_a_follow_up_once(self):
-        self.write(".sdlc/login/state.md", "# Feature: login\nStatus: active\nCurrent: Stage 5\n\n"
+        self.write(".sdlc/login/state.md", "# Feature: login\nStatus: active\nProcess: 2\nCurrent: Stage 5\n\n"
                                            "## Commands\n- test: `pytest`\n")
         self.cursor("PostToolUseFailure", "postToolUseFailure", tool_name="Shell", tool_input={"command": "pytest"},
                     error_message="Command failed with exit code 1", failure_type="error")
@@ -112,7 +112,7 @@ class AntigravityHookTest(ProjectTestCase):
                          (0, {"decision": "ask"}))
 
     def test_an_edit_after_the_tests_continues_the_turn_once(self):
-        self.write(".sdlc/login/state.md", "# Feature: login\nStatus: active\nCurrent: Stage 5\n\n"
+        self.write(".sdlc/login/state.md", "# Feature: login\nStatus: active\nProcess: 2\nCurrent: Stage 5\n\n"
                                            "## Commands\n- test: `pytest`\n")
         self.write("a.py", "x = 1\n")
         # A command's result comes with no exit code, even when it fails: the run counts, its result is unknown

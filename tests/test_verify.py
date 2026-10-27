@@ -8,7 +8,7 @@ import unittest
 from helpers import PLUGIN_ROOT, ProjectTestCase
 
 SCRIPT = os.path.join(PLUGIN_ROOT, "scripts", "verify.py")
-STATE = "# Feature: login\nStatus: active\nCurrent: Stage 4 – Build\nBase: {base}\n"
+STATE = "# Feature: login\nStatus: active\nProcess: 2\nCurrent: Stage 4 – Build\nBase: {base}\n"
 
 
 class VerifyTest(ProjectTestCase):
@@ -146,7 +146,7 @@ class VerifyTest(ProjectTestCase):
         state = self.path(".sdlc/login/state.md")
         with open(state, encoding="utf-8") as f:
             text = f.read()
-        self.write(".sdlc/login/state.md", text.replace("Status: active", "Status: active\nTrack: S") +
+        self.write(".sdlc/login/state.md", text.replace("Status: active", "Status: active\nProcess: 2\nTrack: S") +
                    'Repro: `tests/t.py` › cascade removes done | `python3 -c "import sys; sys.exit(1)"`\n')
         self.write("tests/t.py", "")
         self.write("src/fix.py", "x = 1\n")  # no plan, so no drift check
@@ -155,7 +155,7 @@ class VerifyTest(ProjectTestCase):
         self.assertIn("AC-001: no red run recorded", out)
         code, out, _ = self.verify("red", "AC-001")
         self.assertEqual(code, 0, out)
-        self.write(".sdlc/login/state.md", text.replace("Status: active", "Status: active\nTrack: S") +
+        self.write(".sdlc/login/state.md", text.replace("Status: active", "Status: active\nProcess: 2\nTrack: S") +
                    'Repro: `tests/t.py` › cascade removes done | `python3 -c "pass"`\n')  # the fix makes it pass
         code, out, rec = self.verify()
         self.assertEqual(code, 0, out)

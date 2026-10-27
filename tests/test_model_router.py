@@ -11,7 +11,7 @@ HOOK = ["python3", os.path.join(HOOKS, "model_router.py")]
 class ModelRouterTest(ProjectTestCase):
     def setUp(self):
         super().setUp()
-        self.write(".sdlc/login/state.md", "# login\nStatus: active\nTrack: M\nRisk: low\nTop model: opus\n")
+        self.write(".sdlc/login/state.md", "# login\nStatus: active\nProcess: 2\nTrack: M\nRisk: low\nTop model: opus\n")
 
     def dispatch(self, **tool_input):
         payload = {"hook_event_name": "PreToolUse", "cwd": self.root, "tool_name": "Agent",
@@ -35,7 +35,7 @@ class ModelRouterTest(ProjectTestCase):
         self.assertIn("sonnet", out["hookSpecificOutput"]["permissionDecisionReason"])
 
     def test_m_qa_tester_runs_on_sonnet_even_on_high_risk(self):
-        self.write(".sdlc/login/state.md", "# login\nStatus: active\nTrack: M\nRisk: high\nTop model: opus\n")
+        self.write(".sdlc/login/state.md", "# login\nStatus: active\nProcess: 2\nTrack: M\nRisk: high\nTop model: opus\n")
         self.assertIsNone(self.dispatch(subagent_type="sdlc:qa-tester", model="sonnet"))
 
     def test_a_code_reviewer_runs_on_opus_on_every_track_and_risk(self):
@@ -52,16 +52,16 @@ class ModelRouterTest(ProjectTestCase):
     def test_active_feature_in_the_new_layout_is_seen(self):
         os.remove(self.path(".sdlc/login/state.md"))
         self.write(".sdlc/config.json", json.dumps({"docs_dir": "docs/sdlc"}))
-        self.write(".sdlc/state/login.md", "# login\nStatus: active\nTrack: M\nRisk: low\nTop model: opus\n")
+        self.write(".sdlc/state/login.md", "# login\nStatus: active\nProcess: 2\nTrack: M\nRisk: low\nTop model: opus\n")
         out = self.dispatch(subagent_type="sdlc:verifier")
         self.assertEqual(out["hookSpecificOutput"]["permissionDecision"], "deny")
 
     def test_fable_with_the_users_opt_in_goes_ahead(self):
-        self.write(".sdlc/login/state.md", "# login\nStatus: active\nTrack: M\nRisk: low\nTop model: fable\n")
+        self.write(".sdlc/login/state.md", "# login\nStatus: active\nProcess: 2\nTrack: M\nRisk: low\nTop model: fable\n")
         self.assertIsNone(self.dispatch(subagent_type="sdlc:code-reviewer", model="fable"))
 
     def test_track_l_floor_applies_to_reviewers_only(self):
-        self.write(".sdlc/login/state.md", "# login\nStatus: active\nTrack: L\nRisk: low\nTop model: opus\n")
+        self.write(".sdlc/login/state.md", "# login\nStatus: active\nProcess: 2\nTrack: L\nRisk: low\nTop model: opus\n")
         self.assertEqual(self.dispatch(subagent_type="sdlc:verifier", model="sonnet")
                          ["hookSpecificOutput"]["permissionDecision"], "deny")
         self.assertIsNone(self.dispatch(subagent_type="general-purpose", model="sonnet"))
@@ -70,7 +70,7 @@ class ModelRouterTest(ProjectTestCase):
         self.assertIsNone(self.dispatch(subagent_type="fork"))
 
     def test_dispatches_are_logged_with_the_stage(self):
-        self.write(".sdlc/login/state.md", "# login\nStatus: active\nRisk: low\nCurrent: Stage 5 – Verify\n")
+        self.write(".sdlc/login/state.md", "# login\nStatus: active\nProcess: 2\nRisk: low\nCurrent: Stage 5 – Verify\n")
         self.dispatch(subagent_type="general-purpose", model="sonnet", description="verify round 1")
         with open(self.path(".sdlc/.work/dispatches.jsonl"), encoding="utf-8") as f:
             entry = json.loads(f.read().splitlines()[-1])

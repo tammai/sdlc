@@ -54,8 +54,8 @@ def _active_features(root):
                 text = fh.read()
         except OSError:
             continue
-        if re.search(r"^Status:[ \t]*active[ \t]*(\(|$)", text, re.M | re.I):
-            found.append(text)
+        if re.search(r"^Status:[ \t]*active[ \t]*(\(|$)", text, re.M | re.I) and re.search(r"^Process:\s*2\b", text, re.M):
+            found.append(text)  # a 1.x feature (no `Process: 2`) is finished on 1.8.1, not gated here
     return found
 
 

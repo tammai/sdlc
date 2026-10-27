@@ -14,6 +14,7 @@ HOOK = ["python3", os.path.join(HOOKS, "verify_freshness.py")]
 
 STATE = """# Feature: {feature}
 Status: {status}
+Process: 2
 Current: Stage {stage}
 Track: M
 {flow_line}
