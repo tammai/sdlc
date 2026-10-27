@@ -18,7 +18,7 @@ import sys
 
 import sdlc_layout  # sibling module: where feature state and sdlc documents live
 
-REVIEWERS = {"code-reviewer", "comment-analyzer", "feature-reviewer", "pr-test-analyzer", "silent-failure-hunter",
+REVIEWERS = {"ac-checker", "code-reviewer", "comment-analyzer", "feature-reviewer", "pr-test-analyzer", "silent-failure-hunter",
              "type-design-analyzer", "ui-reviewer"}
 WRITES = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 READS = {"Read", "Grep", "Glob"}

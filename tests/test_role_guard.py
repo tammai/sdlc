@@ -20,6 +20,7 @@ class RoleGuardTest(ProjectTestCase):
 
     def test_reviewer_cannot_edit(self):
         self.assertEqual(self.call("Edit", "src/a.ts", "sdlc:code-reviewer"), "deny")
+        self.assertEqual(self.call("Edit", "src/a.ts", "sdlc:ac-checker"), "deny")
         self.assertIsNone(self.call("Edit", "src/a.ts"))  # the main session
         self.assertIsNone(self.call("Edit", "src/a.ts", "general-purpose"))
 
