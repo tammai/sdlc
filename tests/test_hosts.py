@@ -17,11 +17,11 @@ class HostsTest(ProjectTestCase):
         self.write(".claude-plugin/marketplace.json", json.dumps({"name": "sdlc", "plugins": []}))
         self.write("agents/reviewer.md", "---\nname: reviewer\ntools: Glob, Grep, Read, Bash\ndescription: Reviews.\n"
                                          "model: opus\n---\nReview it.\n")
-        # Its Write is only for the relay's report file, and Cursor never runs the relay
-        self.write("agents/ac-checker.md", "---\nname: ac-checker\ntools: Read, Write\ndescription: Checks.\n"
-                                           "model: inherit\n---\nCheck it.\n")
-        self.write("agents/verifier.md", "---\nname: verifier\ntools: Read, Bash, Write\ndescription: Verifies.\n"
-                                         "model: inherit\n---\nVerify it.\n")
+        # Its Write is only for its findings report, which Cursor's flow doesn't read
+        self.write("agents/code-reviewer.md", "---\nname: code-reviewer\ntools: Read, Write\ndescription: Checks.\n"
+                                              "model: inherit\n---\nCheck it.\n")
+        self.write("agents/qa-tester.md", "---\nname: qa-tester\ntools: Read, Bash, Write\ndescription: Tests.\n"
+                                          "model: inherit\n---\nTest it.\n")
 
     def hosts(self, cmd):
         p = subprocess.run([sys.executable, SCRIPT, "--root", self.root, cmd], capture_output=True, encoding="utf-8")
@@ -38,8 +38,8 @@ class HostsTest(ProjectTestCase):
             self.assertEqual(json.loads(self.read(manifest))["version"], "2.0.0", manifest)
         self.assertEqual(self.read("hosts/cursor/agents/reviewer.md"),
                          "---\nname: reviewer\ndescription: Reviews.\nmodel: inherit\nreadonly: true\n---\nReview it.\n")
-        self.assertNotIn("readonly", self.read("hosts/cursor/agents/verifier.md"))  # it writes its report
-        self.assertIn("readonly: true", self.read("hosts/cursor/agents/ac-checker.md"))
+        self.assertNotIn("readonly", self.read("hosts/cursor/agents/qa-tester.md"))  # it writes its report
+        self.assertIn("readonly: true", self.read("hosts/cursor/agents/code-reviewer.md"))
         self.write(".claude-plugin/plugin.json", json.dumps({"name": "sdlc", "version": "2.1.0", "description": "d"}))
         code, out = self.hosts("check")
         self.assertEqual(code, 1)

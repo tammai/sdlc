@@ -2,7 +2,7 @@
 
 <!-- Written by /sdlc:setup (sdlc v{{plugin_version}}). Yours from then on: the plugin never overwrites it.
      Prove (Stage 5) fails only on failures NOT listed here. Rules:
-     - Shrinks on its own: when a listed item passes, the verifier removes it and says so in test-report.md.
+     - Shrinks on its own: when a listed item passes, the build removes it and says so in plan.md's review section.
      - Never grows silently: adding an item needs the user's OK and a Deviations entry in that feature's state.md.
      - Fixing items is its own S-track work, not a side job inside a feature. -->
 

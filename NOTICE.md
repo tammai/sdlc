@@ -5,21 +5,21 @@ This plugin bundles and adapts material from the projects below. Their license t
 ## Superpowers — MIT License, Copyright (c) 2025 Jesse Vincent
 https://github.com/obra/superpowers — `licenses/superpowers-MIT.txt`
 
-Copied: skills `brainstorming`, `writing-plans`, `executing-plans`, `subagent-driven-development`, `dispatching-parallel-agents` (now `skills/orchestrator/references/dispatching-parallel-agents.md`), `test-driven-development`, `systematic-debugging`, `verification-before-completion`, `requesting-code-review` (now `skills/executing-plans/references/requesting-code-review.md` and `code-reviewer.md`), `receiving-code-review`, `using-git-worktrees`, `finishing-a-development-branch` (these three now `skills/orchestrator/references/<name>.md`), and `using-superpowers/references/claude-code-tools.md` (now `skills/executing-plans/references/`).
+Copied: skills `brainstorming`, `dispatching-parallel-agents` (now `skills/orchestrator/references/dispatching-parallel-agents.md`), `test-driven-development`, `systematic-debugging`, `verification-before-completion`, `receiving-code-review`, `using-git-worktrees`, `finishing-a-development-branch` (these three now `skills/orchestrator/references/<name>.md`) (now `skills/executing-plans/references/`).
 
 Modified: skill cross-references renamed from `superpowers:` to `sdlc:`; output paths moved to `.sdlc/<feature>/` and working files to `.sdlc/.work/`; brainstorming hands back to the orchestrator and doesn't re-ask Define's blocking questions; `executing-plans` and `subagent-driven-development` skip their final whole-branch review when the orchestrator moves it to Prove (the review stays on the top tier), and under the orchestrator ("Prove is the only review") `subagent-driven-development` also skips its per-task reviews; the brainstorm companion's remote logo fetch is disabled by default; `systematic-debugging`'s creation log and pressure-test scenarios are not shipped. The descriptions of `brainstorming`, `test-driven-development` and `systematic-debugging` are rewritten to say what each does and when, scoped to the orchestrator's phases, instead of firing on any creative work, feature or bug.
 
 ## GitHub Spec Kit — MIT License, Copyright GitHub, Inc.
 https://github.com/github/spec-kit — `licenses/spec-kit-MIT.txt`
 
-Copied: `templates/spec-template.md`, `templates/constitution-template.md`, and `templates/design-template.md` (originally `plan-template.md`), with command placeholders and paths updated.
+Copied: `templates/spec-template.md` and `templates/constitution-template.md`, with command placeholders and paths updated.
 
-Adapted (rewritten without the Spec Kit CLI, scripts and extension hooks): skills `writing-specs` (from `specify`), `clarifying-specs` (from `clarify`), `designing-solutions` (from `plan`), `analyzing-consistency` (from `analyze`), `project-constitution` (from `constitution`).
+Adapted (rewritten without the Spec Kit CLI, scripts and extension hooks): skill `project-constitution` (from `constitution`).
 
 ## Anthropic Claude Code plugins — Apache License 2.0, Copyright Anthropic, PBC
 https://github.com/anthropics/claude-plugins-official — `licenses/anthropic-plugins-Apache-2.0.txt`
 
-- **feature-dev:** agents `code-explorer`, `code-architect`, and `code-reviewer` (renamed `feature-reviewer` to avoid a name clash; in `plugins/sdlc-extras/agents/`)
+- **feature-dev:** agents `code-explorer` and `code-reviewer` (renamed `feature-reviewer` to avoid a name clash; in `plugins/sdlc-extras/agents/`)
 - **pr-review-toolkit:** command `review-pr`; agents `code-reviewer`, `pr-test-analyzer`, `silent-failure-hunter`, and `comment-analyzer`, `type-design-analyzer` (in `plugins/sdlc-extras/agents/`)
 - **code-simplifier:** agent `code-simplifier` (in `plugins/sdlc-extras/agents/`)
 - **code-review:** command `code-review`
@@ -36,3 +36,5 @@ Not included: Anthropic's `claude-security` plugin (its license reserves all rig
 
 ## Everything else
 The orchestrator, setting-up-projects and managing-knowledge skills (with `skills/orchestrator/references/` and `skills/setting-up-projects/references/trimming-context.md`), the `ac-checker`, `verifier`, `qa-tester` and `ui-reviewer` agents, `hooks/verify_freshness.py`, `sdlc_review_gate.py`, `model_router.py`, `role_guard.py`, `prove_budget.py` and `trust_anchor.py`, the `start`, `status`, `knowledge-audit` and `deploy` commands, everything in `scripts/`, `templates/knowledge/`, `templates/project/`, `templates/design-system-template.md`, `templates/backlog-template.md`, `migrations/` and `tests/` are original to this plugin, MIT licensed (`LICENSE`).
+
+Removed in sdlc 2.0 (from the lists above): skills `writing-plans`, `executing-plans`, `subagent-driven-development`, `requesting-code-review`, `writing-specs`, `clarifying-specs`, `designing-solutions`, `analyzing-consistency`; agent `code-architect`; `templates/design-template.md`; `using-superpowers/references/claude-code-tools.md`.

@@ -8,7 +8,7 @@ Usage: verify.py [--root DIR] [--feature NAME] [--timeout S] [red AC-nnn | statu
   run, and the row's Run command passing. Writes the result to .sdlc/.work/verify.json and exits 0 on pass, 1 on a
   failure, 2 when there's no feature to verify. On S (no plan.md), the state file's `Repro: <test file> › <name> |
   <command>` line is AC-001. A plan without the table, and no Repro line, is an old plan: the AC checks are skipped
-  and Prove uses the verifier. Then drift from plan.md: a changed file no task or acceptance test names, a task
+  and the plan is from sdlc 1.x. Then drift from plan.md: a changed file no task or acceptance test names, a task
   whose files didn't change, an export or dependency the Public Surface doesn't list; each needs a `## Deviations`
   line naming it, with What:, Why: and Effect:.
 `red AC-nnn`, run before the AC's code is written: runs that AC's test and records it failing (exit 0). A test that
@@ -177,7 +177,7 @@ def full(root, feature, timeout=1800):
     acs, rows = acceptance(root, feature)
     manual = []
     if rows is None:
-        notes.append("no acceptance tests section: old plan, Prove uses the verifier")
+        notes.append("no acceptance tests section: every 2.0 plan has one")
     else:
         by_ac = {r["ac"]: r for r in rows}
         for ac in acs:

@@ -18,8 +18,8 @@ import sys
 
 import sdlc_layout  # sibling module: where feature state and sdlc documents live
 
-# Define's explorers and architects write only their report too (the relay's DISPATCH)
-REVIEWERS = {"ac-checker", "code-architect", "code-explorer", "code-reviewer", "comment-analyzer", "feature-reviewer",
+# Define's explorers write only their report too
+REVIEWERS = {"code-explorer", "code-reviewer", "comment-analyzer", "feature-reviewer",
              "pr-test-analyzer", "silent-failure-hunter", "type-design-analyzer", "ui-reviewer"}
 WRITES = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 READS = {"Read", "Grep", "Glob"}
@@ -49,10 +49,6 @@ def problem(agent, tool, rel, root):
     if agent in REVIEWERS and tool in WRITES and not findings:
         return (f"sdlc: {agent} reports findings; it doesn't edit files. Write your report under "
                 ".sdlc/.work/findings/ and put the fix in it.")
-    if agent == "verifier" and tool in WRITES and not (
-            rel.endswith("/test-report.md") and in_reports or rel == ".sdlc/baseline.md" or rel.startswith((".sdlc/.work/redgreen/", ".sdlc/.work/probes/"))):
-        return ("sdlc: the verifier writes only test-report.md, the baseline, its .sdlc/.work/redgreen/ worktree and .sdlc/.work/probes/: it never edits "
-                "source, the spec, config or state.md. Report the problem; the fix goes back to Build.")
     if agent == "qa-tester":
         if tool in WRITES and not (rel.endswith("/qa-report.md") and in_reports or rel.startswith(".sdlc/.work/qa/")):
             return "sdlc: the qa-tester writes only qa-report.md and scratch files under .sdlc/.work/qa/."

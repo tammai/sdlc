@@ -2,7 +2,7 @@
 """sdlc review budget (file name kept: hooks.json and the host adapters name it): Review's command budget (ADR 0012).
 
 PreToolUse on Bash, PowerShell and Monitor, active only while an .sdlc 2.0 feature is in Stage 5 (Review), for every
-caller (session, verifier, reviewers). A command that isn't one of the project's own (`commands` and
+caller (session, reviewers). A command that isn't one of the project's own (`commands` and
 `packages[].commands` in .sdlc/config.json: install, build, lint, typecheck, test; extra arguments, builtins like
 `cd <dir> &&` beside them and a pipe into a filter like `tail` allowed, nothing else chained):
   - Bash: is killed at 120 s. At its own `timeout` Claude Code moves a command to the background instead of killing

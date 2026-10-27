@@ -20,13 +20,12 @@ class RoleGuardTest(ProjectTestCase):
 
     def test_reviewer_cannot_edit(self):
         self.assertEqual(self.call("Edit", "src/a.ts", "sdlc:code-reviewer"), "deny")
-        self.assertEqual(self.call("Edit", "src/a.ts", "sdlc:ac-checker"), "deny")
         self.assertEqual(self.call("Edit", "src/a.ts", "sdlc-extras:comment-analyzer"), "deny")  # the companion's
         self.assertIsNone(self.call("Edit", "src/a.ts"))  # the main session
         self.assertIsNone(self.call("Edit", "src/a.ts", "general-purpose"))
 
     def test_define_explorers_write_only_their_report(self):
-        for agent in ("sdlc:code-explorer", "sdlc:code-architect"):
+        for agent in ("sdlc:code-explorer",):
             with self.subTest(agent=agent):
                 self.assertIsNone(self.call("Write", ".sdlc/.work/findings/login/code-explorer-r1.md", agent))
                 self.assertEqual(self.call("Write", "src/a.ts", agent), "deny")
@@ -35,25 +34,17 @@ class RoleGuardTest(ProjectTestCase):
         # Under the relay the main session passes paths, not findings: a reviewer writes its report here
         self.assertIsNone(self.call("Write", ".sdlc/.work/findings/code-reviewer-r1.md", "sdlc:code-reviewer"))
         self.assertEqual(self.call("Write", ".sdlc/.work/findings/../trust-anchor.json", "sdlc:code-reviewer"), "deny")
-        self.assertEqual(self.call("Write", ".sdlc/login/review.md", "sdlc:ac-checker"), "deny")
+        self.assertEqual(self.call("Write", ".sdlc/login/review.md", "sdlc:code-reviewer"), "deny")
 
-    def test_verifier_writes_only_its_report_baseline_and_scratch(self):
-        self.assertIsNone(self.call("Write", ".sdlc/login/test-report.md", "sdlc:verifier"))
-        self.assertIsNone(self.call("Write", ".sdlc/.work/probes/kill-mid-write.sh", "sdlc:verifier"))  # a repro to hand back
-        self.assertEqual(self.call("Edit", "src/a.ts", "sdlc:verifier"), "deny")
-        self.assertEqual(self.call("Edit", ".sdlc/login/spec.md", "sdlc:verifier"), "deny")  # no moving the goalposts
-        self.assertEqual(self.call("Write", ".sdlc/.work/trust-anchor.json", "sdlc:verifier"), "deny")
-
-    def test_verifier_and_qa_tester_work_in_the_docs_folder(self):
+    def test_qa_tester_works_in_the_docs_folder(self):
         self.write(".sdlc/config.json", '{"docs_dir": "docs/sdlc"}')
-        self.assertIsNone(self.call("Write", "docs/sdlc/intents/login/test-report.md", "sdlc:verifier"))
-        self.assertEqual(self.call("Edit", "docs/sdlc/intents/login/spec.md", "sdlc:verifier"), "deny")
+        self.assertEqual(self.call("Edit", "docs/sdlc/intents/login/spec.md", "sdlc:qa-tester"), "deny")
         self.assertIsNone(self.call("Read", "docs/sdlc/intents/login/spec.md", "sdlc:qa-tester"))
         self.assertIsNone(self.call("Write", "docs/sdlc/intents/login/qa-report.md", "sdlc:qa-tester"))
-        self.assertEqual(self.call("Write", "docs/sdlc/test-report.md", "sdlc:verifier"), "deny")  # feature folders only
-        self.assertEqual(self.call("Write", ".sdlc/state/test-report.md", "sdlc:verifier"), "deny")  # would read as state
-        self.assertEqual(self.call("Write", ".sdlc/STATE/test-report.md", "sdlc:verifier"), "deny")
-        self.assertEqual(self.call("Write", ".sdlc/WORK~1/test-report.md", "sdlc:verifier"), "deny")  # short name
+        self.assertEqual(self.call("Write", "docs/sdlc/qa-report.md", "sdlc:qa-tester"), "deny")  # feature folders only
+        self.assertEqual(self.call("Write", ".sdlc/state/qa-report.md", "sdlc:qa-tester"), "deny")  # would read as state
+        self.assertEqual(self.call("Write", ".sdlc/STATE/qa-report.md", "sdlc:qa-tester"), "deny")
+        self.assertEqual(self.call("Write", ".sdlc/WORK~1/qa-report.md", "sdlc:qa-tester"), "deny")  # short name
 
     def test_qa_tester_reads_the_spec_but_not_the_code(self):
         self.assertIsNone(self.call("Read", ".sdlc/login/spec.md", "sdlc:qa-tester"))

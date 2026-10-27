@@ -33,8 +33,9 @@ Before you start implementing, you must, in order:
    human partner pick one (see Lay out the approaches).
 2. Write the design doc, short or full (see Size the Work).
 3. Get their approval of that doc.
-4. If you were started by the sdlc orchestrator, return to it (it runs
-   sdlc:writing-specs next). Otherwise invoke the sdlc:writing-plans skill.
+4. If you were started by the sdlc orchestrator, return to it (Define
+   writes intent.md, spec.md and plan.md next). Otherwise suggest
+   `/sdlc:start` with the design doc, which does the same.
 
 Two things aren't implementing: a spike they said yes to (see Spike to
 feel things out), and doing what they asked once they've opted out of
@@ -278,8 +279,8 @@ stays labeled throwaway, and keeping what it produced is a new request
 that comes back through this gate.
 
 After the design doc is approved: if the sdlc orchestrator started you,
-return to it; otherwise the next step is the plan: invoke
-sdlc:writing-plans and no other skill.
+return to it; otherwise the next step is `/sdlc:start` with the design
+doc, and no other skill.
 </HARD-GATE>
 
 ## Red Flags

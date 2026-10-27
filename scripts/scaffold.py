@@ -354,7 +354,7 @@ def cmd_render(p, a):
 # --- commands contract -------------------------------------------------------------------
 # The project's own commands live in config: `commands` for a single project, or `packages` (each with name,
 # path, stack and commands) for a monorepo. A command set to null means "not applicable" (e.g. typecheck for
-# shell scripts). Stages, the verifier, CI, the allowlist and the freshness hook all read them from here.
+# shell scripts). Stages, verify.py, CI, the allowlist and the freshness hook all read them from here.
 
 ROOT_SCOPE = "(root)"
 
