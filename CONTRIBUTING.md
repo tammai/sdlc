@@ -17,14 +17,14 @@ sdlc/
 │                            the hooks under Codex, Cursor and Antigravity
 ├── agents/                  subagents: ac-checker, verifier, reviewers, code-explorer/architect, …
 ├── commands/                slash commands (/sdlc:start, setup, upgrade, eject, doctor, status, prune, deploy, context-diet, review-pr, …)
-├── skills/                  skills; orchestrator/ is the conductor (a short core plus references/ read per phase), setting-up-projects/ runs setup/upgrade/eject
+├── skills/                  skills; orchestrator/ is the conductor (a short core plus references/ read per phase; references/relay.md replaces the phase files for M and L in an interactive Claude Code session), setting-up-projects/ runs setup/upgrade/eject
 │                            (references/trimming-context.md: /sdlc:context-diet); executing-plans/references/ holds requesting-code-review.md
 │                            and code-reviewer.md; managing-knowledge/references/ holds claude-md-improver.md and its folder
 ├── hooks/
 │   ├── hooks.json           which script runs on which event; every hook starts through sg-python.sh
 │   ├── verify_freshness.py  Prove (Stage 5; on `Flow: lite` also 6, where a backlog slice rests) stale/fresh test tracking, and its own copy of verify.py runs (original)
 │   ├── model_router.py      checks each subagent dispatch's model, logs dispatches (original)
-│   ├── role_guard.py        keeps the plugin's agents to their role's file access (original)
+│   ├── role_guard.py        keeps the plugin's agents to their role's file access; reviewers write only .sdlc/.work/findings/ (original)
 │   ├── prove_budget.py      kills non-project shell commands at 120 s in Prove, no background runs (original)
 │   ├── trust_anchor.py      shows the user changes to what verification trusts (original)
 │   ├── pretooluse.py, stop.py, userpromptsubmit.py   hookify entry points (vendored)

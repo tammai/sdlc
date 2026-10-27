@@ -5,6 +5,13 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 ## Unreleased
 
 ### Changed
+- **A thin main session and kept-alive stage agents** (ADR 0017). On the L eval, the main session's context per turn grew to 368k in Prove and 440k in Ship. Now:
+  - **Relay**, on M and L in an interactive Claude Code session. The main session passes paths and runs the state moves. On M, a kept-alive maker does Define and Build; on L, a Define agent and then one Build agent per part. Agents end each turn with `DISPATCH:`, `ASK:`, `QUESTION:`, `STATUS:` or `DONE:`. S, autopilot, headless runs and the other agents keep the in-session flow.
+  - **M's Prove is one checker:** a fresh code-reviewer that also checks each AC's test. The trust anchor accepts it on M.
+  - **Reviewers write their report** under `.sdlc/.work/findings/`; the role guard allows that folder only.
+  - **`plan.md` opens with `## Handoff to Build`:** decisions with reasons, rejected options, facts from the code, what must not break, open calls, and risks with their proofs.
+  - **No advisor once Prove has run.**
+  - **One record file, `review.md`:** rounds, tickets, fixes and security. `test-report.md` and `security.md` are no longer written on new features. The `sdlc-invariants` CI check reads `review.md` first (`/sdlc:upgrade` brings the new check), and prune keeps `review.md` on `Risk: high`. Learn writes only lessons that aren't obvious, and no feature note.
 - **Cut L's cost where it bought nothing** (ADR 0016). On the L eval the plugin matched plain Claude's hidden tests and beat its rubric (4.20 vs 3.60), but took 193 min vs 18, 56.2M tokens vs 3.1M, and 5 touches vs 1. The gain came from review. Now:
   - **`verify.py` writes the hook's copy of its own run**, so a run inside a subagent, spelled any way, counts for Prove's reuse (it showed "records disagree").
   - **Comparison proofs have a budget:** about 1,000 cases or 2 minutes, in-process where possible, run once in Build. Prove doesn't rerun Build's proof scripts.

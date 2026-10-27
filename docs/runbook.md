@@ -24,9 +24,9 @@ Operational procedures: install, check health, fix what breaks, maintain the plu
 | Known failures from before setup | `.sdlc/baseline.md` |
 | Feature state (committed; written by `scripts/state.py`) | `.sdlc/state/<feature>.md` |
 | Control contract, derived from the state file (git-ignored) | `.sdlc/state/<feature>.json`, `<feature>.events.jsonl`, `<feature>.commands/` |
-| Feature documents (committed) | `docs/sdlc/intents/<feature>/` (`intent.md`, `spec.md`, `plan.md`, `test-report.md`, `review.md`…); the folder is `docs_dir` in the config |
+| Feature documents (committed) | `docs/sdlc/intents/<feature>/` (`intent.md`, `spec.md`, `plan.md`, `review.md`…; older features also `test-report.md`, `security.md`); the folder is `docs_dir` in the config |
 | Old layout, before 1.7.0 | `.sdlc/<feature>/state.md` and documents beside it; `/sdlc:upgrade` moves them |
-| Scratch (git-ignored) | `.sdlc/.work/`: `verify.json` (written by `scripts/verify.py`), `verify-freshness.json` (the freshness hook's copy of verify runs, written by the hook and by `verify.py` itself), `trust-anchor.json`, `dispatches.jsonl` |
+| Scratch (git-ignored) | `.sdlc/.work/`: `verify.json` (written by `scripts/verify.py`), `verify-freshness.json` (the freshness hook's copy of verify runs, written by the hook and by `verify.py` itself), `trust-anchor.json`, `dispatches.jsonl`, `findings/` (Prove reviewers' reports, M and L in Claude Code) |
 | Ralph loop state (`sdlc-extras`) | `.claude/ralph-loop.local.md` |
 | Personal hookify rules | `.claude/hookify.<name>.local.md` (git-ignored) |
 | Team hookify rules | `.claude/hookify/<name>.md` (committed) |
@@ -118,7 +118,7 @@ The verify-freshness hook is active only while an active feature's state says `C
 ### R5. A verify round gives different answers each time
 
 1. Don't retry until green. A test that passes after failing is flaky, and Prove's gate fails on a retried-until-green test.
-2. Run the failing test a few times in isolation (at most 5 repeats; its row's Run command in `plan.md`'s `## Acceptance tests` runs just that test) and record the results in `test-report.md`.
+2. Run the failing test a few times in isolation (at most 5 repeats; its row's Run command in `plan.md`'s `## Acceptance tests` runs just that test) and record the results in `review.md` (`test-report.md` on an older feature).
 3. Fix or quarantine the flaky test with your approval, and record it with `state.py deviation`.
 
 ### R6. Ralph loop won't stop
@@ -153,7 +153,7 @@ The state file is `.sdlc/state/<feature>.md`; beside it, git-ignored, `state.py`
 1. A wrong field: `state.py set <feature> <Field> <value>` (Status, Track, Risk, Flow, Prove, Build, Top model, Base, Owner, Tool, Slice gates; on S, Intent and Repro). Changing Track, Risk, Flow, Prove, Top model or Base raises a trust-anchor notice ([R19](#r19-a-trust-anchor-notice-stops-the-turn)).
 2. A wrong phase: `state.py advance <feature> <n>` without `--gate`, where `<n>` is 1 Define, 4 Build, 5 Prove or 8 Ship (a backlog feature also rests at 6 between slices).
 3. A hand edit, or a missing or damaged `.json`: `state.py sync <feature>` rewrites the contract from the state file. `state.py` refuses a state file without `Status:` and `Current: Stage <n> – <name>`.
-4. A lost state file: the documents (`intent.md`, `spec.md`, `plan.md`, `test-report.md`…) are the real record. Write a new one from the template in `skills/orchestrator/references/start.md`, tick the phases whose documents exist, set `Current:` to the next phase's stage, then `state.py sync <feature>` and `state.py deviation <feature> "state file reconstructed"`.
+4. A lost state file: the documents (`intent.md`, `spec.md`, `plan.md`, `review.md`…) are the real record. Write a new one from the template in `skills/orchestrator/references/start.md`, tick the phases whose documents exist, set `Current:` to the next phase's stage, then `state.py sync <feature>` and `state.py deviation <feature> "state file reconstructed"`.
 
 ### R10. Hooks error on Windows or with an odd Python
 
@@ -204,7 +204,7 @@ Hard stops are different: they always wait for your answer and aren't skipped. T
 
 ### R18. A subagent dispatch is denied by the model router
 
-The hook checks Agent/Task dispatches only while a feature has `Status: active`; the deny reason says which check failed. Every dispatch, denied or not, is logged to `.sdlc/.work/dispatches.jsonl`, which Prove's gate reads to confirm an ac-checker (features planned before ADR 0013: a verifier) ran in Stage 5.
+The hook checks Agent/Task dispatches only while a feature has `Status: active`; the deny reason says which check failed. Every dispatch, denied or not, is logged to `.sdlc/.work/dispatches.jsonl`, which Prove's gate reads to confirm an ac-checker (on M, the code-reviewer; features planned before ADR 0013: a verifier) ran in Stage 5.
 
 1. **No model:** the dispatch must name `sonnet` or `opus` (Model Selection in `sdlc:subagent-driven-development`). Commands that launch agents, such as `/sdlc:review-pr`, name one too.
 2. **Fable:** used only on your request. `state.py set <feature> "Top model" fable` on every active feature (one active feature without it keeps Fable denied). This raises a trust-anchor notice ([R19](#r19-a-trust-anchor-notice-stops-the-turn)).
@@ -214,7 +214,7 @@ The hook checks Agent/Task dispatches only while a feature has `Status: active`;
 
 ### R19. A trust-anchor notice stops the turn
 
-The state, spec, baseline and config the hooks trust are writable by the agent they check, so `hooks/trust_anchor.py` can't prevent a change; at Stop it shows you one. A notice reads "Verification anchors changed: …" and names what moved: `Track:`, `Risk:`, `Flow:`, `Prove:`, `Top model:` or `Base:`; a failing test added to `.sdlc/baseline.md` or changed commands in `.sdlc/config.json` since `Base:`; `spec.md` edited during Prove; leaving or skipping Prove with untested code (an ac-checker on a passing full run of the current code counts, and on S, M lite and `Prove: skip` that passing run alone; on `Flow: lite`, any Stop outside Stages 4–6 with untested code); an active feature no longer active other than by `Status: done`; "verify records disagree" (`.sdlc/.work/verify.json` differs from the freshness hook's copy of the run, or is missing or damaged while the hook holds one: rerun `verify.py` and say why the record changed); or its own record (`.sdlc/.work/trust-anchor.json`) damaged.
+The state, spec, baseline and config the hooks trust are writable by the agent they check, so `hooks/trust_anchor.py` can't prevent a change; at Stop it shows you one. A notice reads "Verification anchors changed: …" and names what moved: `Track:`, `Risk:`, `Flow:`, `Prove:`, `Top model:` or `Base:`; a failing test added to `.sdlc/baseline.md` or changed commands in `.sdlc/config.json` since `Base:`; `spec.md` edited during Prove; leaving or skipping Prove with untested code (an ac-checker, or on M the code-reviewer, on a passing full run of the current code counts, and on S, M lite and `Prove: skip` that passing run alone; on `Flow: lite`, any Stop outside Stages 4–6 with untested code); an active feature no longer active other than by `Status: done`; "verify records disagree" (`.sdlc/.work/verify.json` differs from the freshness hook's copy of the run, or is missing or damaged while the hook holds one: rerun `verify.py` and say why the record changed); or its own record (`.sdlc/.work/trust-anchor.json`) damaged.
 
 1. **Stricter changes** (Track up, Risk low → high, Flow lite → full, Prove skip → run) only add checks: "Stricter process: …", no block. Exception: a backlog feature leaving `Flow: lite` blocks.
 2. **Every other change** blocks the stop once. Claude must tell you what changed and why, without undoing it on its own. Your next message accepts it: the current values become the anchor, and the notice doesn't block again. Autopilot stops at a notice you haven't seen.
@@ -326,12 +326,14 @@ When every must item passes, record the date and commit in the changelog entry's
 
 ### Add or change a phase rule
 
-Phase behavior lives in `skills/orchestrator/`: the core `SKILL.md` (the phase → stage number → file map, tracks, risk and model tiers, state, what several phases share, the rules and hard stops) and `references/` (`define.md`, `build.md`, `prove.md`, `ship.md`, plus `start.md`, `backlog-slices.md`, `review-brief.md`). Anything two phases use goes in the core. The hooks and `state.py` key on the stage numbers (1, 4, 5, 8; 6 for a backlog between slices), not the names. After editing, keep these in step:
+Phase behavior lives in `skills/orchestrator/`: the core `SKILL.md` (the phase → stage number → file map, tracks, risk and model tiers, state, what several phases share, the rules and hard stops) and `references/` (`define.md`, `build.md`, `prove.md`, `ship.md`, plus `start.md`, `backlog-slices.md`, `review-brief.md`, and `relay.md`, which M and L read in an interactive Claude Code session instead of the phase files). Anything two phases use goes in the core. The hooks and `state.py` key on the stage numbers (1, 4, 5, 8; 6 for a backlog between slices), not the names. After editing, keep these in step:
 
 | If you change… | Also check |
 |---|---|
+| The relay (`relay.md`: the agent protocol, who runs which `state.py` move) | `skills/orchestrator/SKILL.md` and `start.md`, `hooks/role_guard.py` (reviewers write `.sdlc/.work/findings/`), `tests/test_role_guard.py`, `docs/guidebook.md`, `docs/specs/02-orchestration.md` |
 | Phase gates or tracks | `docs/diagrams/*.svg`, `docs/guidebook.md`, README phase table, the gate table in `docs/sdlc/intents/2026-10-26-four-phases/spec.md` |
 | A hard stop | the Rules section of the orchestrator, `docs/playbook.md`, R11 above |
+| Prove's record (`review.md`) | `templates/project/ci/invariants.py` (reads its rounds, falls back to `test-report.md`), `tests/test_invariants.py`, `scripts/prune.py` and `tests/test_prune.py` (what it keeps), `docs/specs/04-verification.md`, `08-health-and-status.md`, `11-multi-agent.md` |
 | Verify behavior | `scripts/verify.py`, `tests/test_verify.py`, `agents/ac-checker.md`, `agents/verifier.md`, `agents/qa-tester.md`, `hooks/verify_freshness.py` (its own copy of verify runs), `hooks/prove_budget.py` (the 120 s kill), `tests/test_verify_freshness.py`, `hooks/trust_anchor.py` (what it watches), `hooks/role_guard.py` (what the verifier may write) |
 | State fields or stage numbers | `scripts/state.py`, `tests/test_state.py`, `docs/specs/12-control-contract.md`, the template in `references/start.md`, every hook that reads the field (`verify_freshness`, `trust_anchor`, `model_router`, `sdlc_review_gate`) |
 | An agent's role or file access | the agent's `tools:` frontmatter, `hooks/role_guard.py`, `tests/test_role_guard.py`, `docs/specs/03-scope-and-review.md` and `04-verification.md` |
