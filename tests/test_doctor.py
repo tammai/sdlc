@@ -48,7 +48,8 @@ class DoctorTest(ProjectTestCase):
 
     def test_environment_and_plugin_checks_always_run(self):
         checks, _ = self.doctor()
-        for key in [("environment", "python"), ("environment", "python3"), ("environment", "git"),
+        self.assertEqual(checks[("environment", "hook python")]["status"], "ok")  # the launcher the hooks start with
+        for key in [("environment", "python"), ("environment", "hook python"), ("environment", "git"),
                     ("environment", "gh"), ("environment", "jq"), ("environment", "security reviewer env"),
                     ("plugin", "version"), ("plugin", "hook scripts")]:
             self.assertIn(key, checks)
@@ -57,11 +58,11 @@ class DoctorTest(ProjectTestCase):
     # Windows looks in the running interpreter's folder before PATH, so an empty PATH can't hide a python3.exe there
     @unittest.skipIf(os.path.exists(os.path.join(os.path.dirname(sys.executable), "python3.exe")),
                      "python3.exe sits next to the interpreter; Windows finds it even with an empty PATH")
-    def test_missing_python3_fails(self):
+    def test_hook_python_that_does_not_run_fails(self):
         p = subprocess.run([sys.executable, DOCTOR, "--root", self.root], capture_output=True, encoding="utf-8", errors="replace",
                            env={**os.environ, "CLAUDE_PLUGIN_ROOT": PLUGIN_ROOT, "PATH": ""})
         checks = {(c["group"], c["check"]): c for c in json.loads(p.stdout)["checks"]}
-        self.assertEqual(checks[("environment", "python3")]["status"], "fail")
+        self.assertEqual(checks[("environment", "hook python")]["status"], "fail")
         self.assertEqual(p.returncode, 1)
 
     def test_repo_not_set_up_is_a_warning_not_a_failure(self):
