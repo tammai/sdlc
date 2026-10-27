@@ -30,7 +30,9 @@ Ship's single advisor call read 414k tokens. Prove's fix pass resumed an impleme
    - **On L,** a Define agent and then one Build agent per part do the work, the parts one after another. `verify.py`'s records are single files that parallel agents would overwrite.
    - **Stage agents** are resumed with `SendMessage`, not re-spawned. Each ends every turn with one line: `DISPATCH:`, `ASK:`, `QUESTION:`, `STATUS:` or `DONE:`.
    - **Dispatching:** stage agents can't start agents, so they ask the main session to dispatch for them.
-   - **Where it doesn't run:** S, autopilot, headless runs, Codex, Cursor and Antigravity keep the in-session flow. Whether a `claude -p` session is woken when a background agent finishes is unverified.
+   - **Tiers:** the M maker and L's Build agents are standard (sonnet). L's Define agent is top tier (opus), because brainstorming and the design run there. M's Define therefore moves from the session's tier to sonnet.
+   - **One Prove on L:** only the last part's `DONE:` dispatches Prove, over the whole change. A fix goes to the agent whose part holds the finding's files.
+   - **Where it doesn't run:** S, backlogs, autopilot, headless runs, Codex, Cursor and Antigravity keep the in-session flow. On Cursor, the ac-checker and code-reviewer stay `readonly`. Whether a `claude -p` session is woken when a background agent finishes is unverified.
 2. **Paths, not contents.** Reviewers write their report under `.sdlc/.work/findings/`; the role guard allows them that folder and nothing else. `ac-checker` and `code-reviewer` gain the Write tool for it.
 3. **The maker fixes Prove's findings.** It knows the design, so it breaks fewer of the design's rules. Reviewers stay fresh every round.
 4. **M's checker.** M's Prove is one fresh `code-reviewer` that also reads each AC beside its test, reading the diff once.

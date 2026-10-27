@@ -1,6 +1,6 @@
 # Relay: a thin main session, kept-alive stage agents (M and L)
 
-**When.** M and L in an interactive Claude Code session. S, autopilot and headless runs (`--autopilot`, `claude -p`), and the other agents (Codex, Cursor, Antigravity) keep the in-session flow: read the phase files as the core says.
+**When.** M and L in an interactive Claude Code session. A backlog keeps the in-session flow (`backlog-slices.md`: its slices pause and resume across sessions), as do S, autopilot and headless runs (`--autopilot`, `claude -p`), and the other agents (Codex, Cursor, Antigravity) keep the in-session flow: read the phase files as the core says.
 
 **The main session coordinates; it never does a phase's work.** It holds the state file, the user's exchanges and one-line status. It reads this file and the core, not `define.md`, `build.md` or `prove.md`. It never reads briefs, findings, documents or code. It passes paths, runs the `state.py` moves and shows the user what an agent hands it. Its context stays small (about 30–50k), so every turn is cheap.
 
@@ -8,7 +8,7 @@
 
 **M: a maker and a checker.** One kept-alive **maker** does Define and Build: the Define agent's work below, then, resumed after the approval, the Build agent's. The checker (`prove.md`) is spawned fresh every round and never resumed: its value is not having seen the build. **L:** a Define agent, then one Build agent per part.
 
-Two agents on L, `general-purpose`, each on the standard tier (`model: sonnet`). Each is spawned once and resumed with `SendMessage` every time after, so it never re-reads its files. Start a fresh one from the files instead after `/clear` or in a new session. A fresh one's brief names the feature, its phase file and `plan.md`'s `## Handoff to Build`.
+Each stage agent is `general-purpose` and names its tier (Model Selection in `sdlc:subagent-driven-development`): the M maker standard (`model: sonnet`); on L, the Define agent top (`model: opus`, where brainstorming and the design run) and each Build agent standard. Each is spawned once and resumed with `SendMessage` every time after, so it never re-reads its files. Start a fresh one from the files instead after `/clear` or in a new session. A fresh one's brief names the feature, its phase file and `plan.md`'s `## Handoff to Build`.
 
 - **Define agent.** Its brief: "You are the Define agent for `<feature>`. Read `${CLAUDE_PLUGIN_ROOT}/skills/orchestrator/references/define.md` and follow it from step 1, then the Protocol in `${CLAUDE_PLUGIN_ROOT}/skills/orchestrator/references/relay.md`. You ask the user nothing directly." It writes `intent.md`, `spec.md` and `plan.md` on the recommended answers, then writes its approval message to `<intents>/approval.md` and ends with `ASK:`. Every decision the user's reply settles goes into `plan.md`'s `## Handoff to Build` with its reason before the agent's `DONE:`, because the next agent knows only what is written.
 - **Build agent.** Its brief: "You are the Build agent for `<feature>`. Read `${CLAUDE_PLUGIN_ROOT}/skills/orchestrator/references/build.md` and `prove.md`, then `<intents>/plan.md` (its `## Handoff to Build` first), `spec.md` and `intent.md`, and the Protocol in `${CLAUDE_PLUGIN_ROOT}/skills/orchestrator/references/relay.md`. Build the whole change." It builds natively in its own context, whatever `Build:` says, and runs `verify.py` red per AC and once at the end. Then it writes the Prove briefs and ends with `DONE: build pass` and one `DISPATCH:` per Prove agent from `prove.md`'s table. When Prove's results come back, it is resumed. It reads the findings, logs the round in `review.md`, and ends with `DONE: prove pass|fail`. On a fail, it is resumed in Build to fix the findings: it knows the design, so it breaks fewer of its rules.
@@ -32,8 +32,9 @@ A stage agent can't start agents of its own: where a skill or phase file says to
 
 - Define agent `DONE: define pass` → `advance <f> 4 --gate pass`, then the Build agent.
 - Build agent `DONE: build pass`:
+  - L, a part that isn't the last: start the next part's Build agent; no Prove yet (one Prove, at the end). Only the last part's `DONE:` carries the Prove `DISPATCH:` lines, and its brief covers the whole change since `Base:`.
   - with Prove: `advance <f> 5 --gate pass`, then its `DISPATCH:` lines.
   - with no Prove (M lite, `Prove: skip`): `verified`, `advance <f> 8 --gate pass`, Ship.
 - `DONE: prove pass` → `round <f> <N> pass`, `verified`, `advance <f> 8 --gate pass`, then Ship in the main session (`ship.md`, at small context).
-- `DONE: prove fail` → `round <f> <N> fail "<the line>"`, `advance <f> 4`, then resume the Build agent: "fix the findings in `review.md`, then `verify.py`". Its next `DONE: build pass` comes with the re-verification's `DISPATCH:` (an ac-checker on the ACs that failed, or nothing) → `advance <f> 5`, as above.
+- `DONE: prove fail` → `round <f> <N> fail "<the line>"`, `advance <f> 4`, then resume the Build agent (on L, the one whose part holds the finding's files): "fix the findings in `review.md`, then `verify.py`". Its next `DONE: build pass` comes with the re-verification's `DISPATCH:` (M: a fresh checker on what changed; L: an ac-checker on the ACs that failed, or nothing) → `advance <f> 5`, as above.
 - The hard stops still go to the user: the round cap and a requirement failing twice come back as `ASK:`.

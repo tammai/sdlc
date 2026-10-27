@@ -17,6 +17,9 @@ class HostsTest(ProjectTestCase):
         self.write(".claude-plugin/marketplace.json", json.dumps({"name": "sdlc", "plugins": []}))
         self.write("agents/reviewer.md", "---\nname: reviewer\ntools: Glob, Grep, Read, Bash\ndescription: Reviews.\n"
                                          "model: opus\n---\nReview it.\n")
+        # Its Write is only for the relay's report file, and Cursor never runs the relay
+        self.write("agents/ac-checker.md", "---\nname: ac-checker\ntools: Read, Write\ndescription: Checks.\n"
+                                           "model: inherit\n---\nCheck it.\n")
         self.write("agents/verifier.md", "---\nname: verifier\ntools: Read, Bash, Write\ndescription: Verifies.\n"
                                          "model: inherit\n---\nVerify it.\n")
 
@@ -36,6 +39,7 @@ class HostsTest(ProjectTestCase):
         self.assertEqual(self.read("hosts/cursor/agents/reviewer.md"),
                          "---\nname: reviewer\ndescription: Reviews.\nmodel: inherit\nreadonly: true\n---\nReview it.\n")
         self.assertNotIn("readonly", self.read("hosts/cursor/agents/verifier.md"))  # it writes its report
+        self.assertIn("readonly: true", self.read("hosts/cursor/agents/ac-checker.md"))
         self.write(".claude-plugin/plugin.json", json.dumps({"name": "sdlc", "version": "2.1.0", "description": "d"}))
         code, out = self.hosts("check")
         self.assertEqual(code, 1)

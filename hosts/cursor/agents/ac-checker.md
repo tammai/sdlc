@@ -2,6 +2,7 @@
 name: ac-checker
 description: Prove-phase acceptance checker. Spawn a NEW instance each round. Reads each acceptance criterion in the spec beside the test plan.md names for it, and says whether that test proves the criterion. Runs nothing and does not modify code.
 model: inherit
+readonly: true
 ---
 
 `${CLAUDE_PLUGIN_ROOT}` is the sdlc plugin's folder. Claude Code fills it in; on other agents it stays as written, so use the installed plugin's folder instead: the one above this file that holds `scripts/` and `skills/`.
