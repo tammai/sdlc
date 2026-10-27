@@ -83,6 +83,13 @@ class VerifyTest(ProjectTestCase):
         code, out, _ = self.verify("red", "AC-001")
         self.assertEqual(code, 1)
         self.assertIn("tests/missing.py not found", out)
+        # The file exists but the id is wrong: the runner fails without running the test, which proves nothing
+        self.plan([("AC-001", "tests/t.py › typo", 'python3 -c "import sys; print(\'AttributeError: module has no attribute test_typo\'); sys.exit(1)"')])
+        code, out, _ = self.verify("red", "AC-001")
+        self.assertEqual(code, 1)
+        self.assertIn("did not run", out)
+        self.plan([("AC-001", "tests/t.py › ok", 'python3 -c "import sys; sys.exit(4)"')])  # pytest: node id not found
+        self.assertEqual(self.verify("red", "AC-001")[0], 1)
 
     def test_drift_needs_a_deviation_with_what_why_and_effect(self):
         self.spec()  # no ACs: only the commands and the drift check run

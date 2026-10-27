@@ -2,7 +2,7 @@
 
 - Isolation: `sdlc:using-git-worktrees` (L, or whenever the working tree is dirty).
 - Always on: `sdlc:test-driven-development` (one failing test per behaviour, the code that passes it); `sdlc:systematic-debugging` the moment something fails unexpectedly.
-- **Build proves its own work** (ADR 0013), with `V="python3 ${CLAUDE_PLUGIN_ROOT}/scripts/verify.py"`. Build produces the evidence; Prove only judges it.
+- **Build proves its own work** (ADR 0013), where `$V` below stands for `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/verify.py"`: type that full command each time, never a shell variable or alias, or the hooks won't recognise the run (no record, and in Prove it is killed at 120 s). Build produces the evidence; Prove only judges it.
   1. Per acceptance criterion: write the test `plan.md`'s `## Acceptance tests` names, then `$V red AC-nnn` before any of its code. It records the test failing; a test that passes, can't be found or can't run is refused, so fix the test first. `manual` rows have no red step.
   2. Write the code. While coding, run only the tests near the change, not the full suite.
   3. Once, at the end: `$V`. It runs the project's verify plan (lint, typecheck, build, the full suite), each AC's test, and the drift check. Fix until it passes. A plan without `## Acceptance tests` (a feature started earlier) runs the full suite as before.

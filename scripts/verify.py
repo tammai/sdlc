@@ -189,7 +189,13 @@ def full(root, feature, timeout=1800):
     return rec["last"], notes
 
 
-NOT_RUNNABLE = {126, 127, 5}  # shell: can't execute / not found; pytest: no tests collected
+# Exits that mean the test never ran: shell can't execute / not found (126, 127; cmd.exe 9009), pytest no tests
+# collected (5) or usage error such as an unknown node id (4), our timeout (124)
+NOT_RUNNABLE = {126, 127, 9009, 5, 4, 124}
+# Runner output that means the named test wasn't found. Only the runner's own lookup: an ImportError or
+# AttributeError about the code under test is the normal red of a test written first
+NOT_FOUND = re.compile(r"no tests ran|collected 0 items|No tests found|no tests to run|ERROR: not found:|"
+                       r"has no attribute '?test\w*", re.I)
 
 
 def red(root, feature, ac, timeout=1800):
@@ -205,8 +211,8 @@ def red(root, feature, ac, timeout=1800):
     code, out = run(row["run"], root, timeout)
     if code == 0:
         return None, f"{ac}: its test passes before its code exists, so it proves nothing"
-    if code in NOT_RUNNABLE:
-        return None, f"{ac}: test not found or not runnable (exit {code})\n{out[-500:]}"
+    if code in NOT_RUNNABLE or NOT_FOUND.search(out):
+        return None, f"{ac}: the test did not run (exit {code}): check the Test and Run cells\n{out[-500:]}"
     rec = load_record(root)
     if rec.get("feature") != feature:
         rec = {"feature": feature}

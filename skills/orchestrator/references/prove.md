@@ -6,7 +6,7 @@ Build produced the evidence (`build.md`): every acceptance criterion's test reco
 
 ## The round
 
-`V="python3 ${CLAUDE_PLUGIN_ROOT}/scripts/verify.py"`. On the review-ready commit:
+`$V` below stands for `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/verify.py"`: type that full command each time, never a shell variable or alias, or the hooks won't recognise the run (no record, and in Prove it is killed at 120 s). On the review-ready commit:
 
 1. **Evidence.** `$V status`. `reuse: true`: the last verify passed, the hook's own copy agrees and the code hasn't changed since, so use it. Otherwise run `$V` once in this session; a FAIL goes back to Build with its failure lines. `verify.py` doesn't read `.sdlc/baseline.md`: when a project has one and only the test step fails, read the output yourself, and if every failure is listed there, log it with `state.py log` and go on (no reuse then; rerun `$V` after any later change).
 2. **Dispatch at the same time**, each fresh, on the same commit, what the track runs:

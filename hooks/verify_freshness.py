@@ -57,8 +57,10 @@ SHELL_SEP = re.compile(r"\|\||&&|[|;&]")
 REDIRECT = re.compile(r"&?\d*[<>]{1,2}&?\s*[^\s;&|<>]*")
 GO_ALL_PACKAGES = ("./...", "...", ".")
 # The plugin's verify script, optionally after `cd <dir> &&`; options take a value, so their values aren't actions
-VERIFY_CMD = re.compile(r"""^(?:\s*cd\s+("[^"]+"|'[^']+'|\S+)\s*&&)*\s*python3?(?:\.exe)?\s+["']?[^"'\s]*scripts[/\\]verify\.py["']?(?P<args>[^;&|]*)$""")
+VERIFY_CMD = re.compile(r"""^(?:\s*cd\s+("[^"]+"|'[^']+'|\S+)\s*&&)*\s*python3?(?:\.exe)?[ \t]+(?:"(?P<dq>[^"]+)"|'(?P<sq>[^']+)'|(?P<bare>[^ \t"']+))"""
+                        r"""(?P<args>[^;&|\n\r]*)\Z""")
 VERIFY_OPTS = ("--root", "--feature", "--timeout")
+PLUGIN_VERIFY = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts", "verify.py")
 ERROR_FILE = os.path.join(".sdlc", ".work", "verify-freshness.error")
 _root = None  # for the error marker
 
@@ -322,16 +324,30 @@ def fresh_scopes(command, scopes, root_tests, root, cwd, configured):
     return names
 
 
+def is_plugin_verify(path):
+    """The plugin's own scripts/verify.py, by absolute path (an unexpanded ${CLAUDE_PLUGIN_ROOT} and Git Bash's /c/
+    count): a project script with the same name, or a relative path, isn't it."""
+    if path.startswith("${CLAUDE_PLUGIN_ROOT}/") and os.environ.get("CLAUDE_PLUGIN_ROOT"):
+        path = os.environ["CLAUDE_PLUGIN_ROOT"] + path[len("${CLAUDE_PLUGIN_ROOT}"):]
+    if os.name == "nt" and re.match(r"^/[A-Za-z]/", path):
+        path = f"{path[1]}:{path[2:]}"
+    return os.path.isabs(path) and (os.path.normcase(os.path.realpath(path))
+                                    == os.path.normcase(os.path.realpath(PLUGIN_VERIFY)))
+
+
 def verify_run(command, root, cwd, feature):
     """("red", "AC-nnn") or ("full", None) for a run of the plugin's scripts/verify.py on this project and feature,
     else None: a run against another root, directory or feature proves nothing here."""
     m = VERIFY_CMD.match(command or "")
-    if not m:
+    if not m or not is_plugin_verify(m.group("dq") or m.group("sq") or m.group("bare")):
         return None
     try:
         words = shlex.split(m.group("args"))
     except ValueError:
         return None
+    words = [part for w in words for part in (w.split("=", 1) if w.startswith("--") and "=" in w else [w])]
+    if any(w.startswith("-") and w not in VERIFY_OPTS for w in words):
+        return None  # --help, or an option verify.py doesn't take: nothing was verified
     opts = {w: words[i + 1] for i, w in enumerate(words[:-1]) if w in VERIFY_OPTS}
     here = os.path.join(root, run_dir(command, m.start("args"), root, cwd))
     if os.path.normcase(os.path.abspath(os.path.join(here, opts.get("--root", ".")))) != os.path.normcase(root):

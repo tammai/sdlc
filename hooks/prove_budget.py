@@ -36,7 +36,6 @@ UNTIMED = {"cd", "pushd", "popd", "export", "unset", "set", "shopt", "alias", "s
 COMPOUND = {"if", "then", "else", "elif", "fi", "for", "while", "until", "do", "done", "case", "esac", "select",
             "function", "time", "{", "}", "(", ")", "[[", "!"}
 ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
-VERIFY_SCRIPT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts", "verify.py")
 PLUGIN_VERIFY = re.compile(r"""^python3?(?:\.exe)?[ \t]+(?:"([^"]+)"|([^ \t"]+))(?:[ \t]+[\w.=-]+)*\Z""")
 LEADING_CD = re.compile(r"""^\s*cd\s+("[^"]+"|'[^']+'|[^\s;&|]+)\s*&&\s*""")
 
@@ -71,14 +70,7 @@ def is_plugin_verify(command):
     m = PLUGIN_VERIFY.match(command.strip())
     if not m:
         return False
-    path = m.group(1) or m.group(2)
-    if path.startswith("${CLAUDE_PLUGIN_ROOT}/") and os.environ.get("CLAUDE_PLUGIN_ROOT"):  # the shell expands it
-        path = os.environ["CLAUDE_PLUGIN_ROOT"] + path[len("${CLAUDE_PLUGIN_ROOT}"):]
-    if os.name == "nt" and re.match(r"^/[A-Za-z]/", path):  # Git Bash's /c/... is C:/...
-        path = f"{path[1]}:{path[2:]}"
-    # Absolute only: a relative path resolves against a directory the hook can't be sure of
-    return os.path.isabs(path) and os.path.normcase(os.path.realpath(path)) == os.path.normcase(
-        os.path.realpath(VERIFY_SCRIPT))
+    return vf.is_plugin_verify(m.group(1) or m.group(2))
 
 
 def is_project_command(command, commands):

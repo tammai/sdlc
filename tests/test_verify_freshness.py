@@ -4,7 +4,7 @@ import os
 import subprocess
 import unittest
 
-from helpers import HOOKS, ProjectTestCase, run_hook
+from helpers import HOOKS, PLUGIN_ROOT, ProjectTestCase, run_hook
 
 HOOK = ["python3", os.path.join(HOOKS, "verify_freshness.py")]
 
@@ -577,13 +577,17 @@ class VerifyFreshnessTest(ProjectTestCase):
         self.write("src/a.ts", "")
         subprocess.run(["git", "-C", self.root, "init", "-q"], check=True)  # freshness needs a tree to compare against
         # A run against another project or feature, or an interrupted one, proves nothing here
-        self.bash('python3 "/plugin/scripts/verify.py" --root /elsewhere')
-        self.bash('cd sub && python3 "/plugin/scripts/verify.py"')
-        self.bash('python3 "/plugin/scripts/verify.py" --feature other')
-        self.bash('python3 "/plugin/scripts/verify.py"', interrupted=True)
+        verify = os.path.join(PLUGIN_ROOT, "scripts", "verify.py")
+        self.bash(f'python3 "{verify}" --root /elsewhere')
+        self.bash(f'python3 "{verify}" --root=/elsewhere')
+        self.bash(f'cd sub && python3 "{verify}"')
+        self.bash(f'python3 "{verify}" --feature other')
+        self.bash(f'python3 "{verify}" --help')  # exits 0 without running anything
+        self.bash('python3 scripts/verify.py')  # the project's own script of that name, not the plugin's
+        self.bash(f'python3 "{verify}"', interrupted=True)
         self.assertFalse(os.path.exists(self.path(".sdlc/.work/verify-freshness.json")))
-        self.bash('python3 "/plugin/scripts/verify.py" red AC-001')
-        self.bash('python3 "/plugin/scripts/verify.py" --feature login')
+        self.bash(f'python3 "{verify}" red AC-001')
+        self.bash('python3 "${CLAUDE_PLUGIN_ROOT}/scripts/verify.py" --feature login')
         with open(self.path(".sdlc/.work/verify-freshness.json"), encoding="utf-8") as f:
             st = json.load(f)
         self.assertIn("AC-001", st["verify"]["red"])
