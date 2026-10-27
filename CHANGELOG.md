@@ -5,6 +5,7 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 ## Unreleased
 
 ### Changed
+- **One review on L: Prove's.** `Build: tasks` (L's default) no longer runs a reviewer, fix round and re-review per task: the orchestrator tells subagent-driven development "Prove is the only review", and a task is done when its implementer reports DONE with its tests passing. In the planner-team L round each task cost an Opus review plus, on a finding, a fix round and a scoped re-review before the next task could start.
 - **Prove only where it pays** (ADR 0015). The S-task eval found quality equal to a plain run, and what still cost on every track was Prove and review. Now:
   - **No Prove on S and M lite.** Build's passing `verify.py` goes straight to Ship (`state.py verified`, then `advance <f> 8`). The trust anchor accepts that run on S, M with `Flow: lite` and `Prove: skip`, and still reports M full or L reaching Ship without Prove. This replaces "M Lite: Prove dispatches one fresh verifier" (ADR 0011) and the ac-checker on M lite (ADR 0013) below.
   - **`Prove: run | skip`**, a new state field. On M full and L, Define's approval shows `Prove: run` and you can answer skip (`state.py set <f> Prove skip`); autopilot and headless runs keep `run`. The trust anchor watches it: run → skip after the anchor was taken is a notice, skip → run passes.

@@ -1,6 +1,6 @@
 ---
 name: subagent-driven-development
-description: Runs an implementation plan with a fresh implementer subagent and a review per task. Used by sdlc's Build with Build tasks (Track L), or when the user asks for subagent-driven execution.
+description: Runs an implementation plan with a fresh implementer subagent per task (and a review per task, except under the sdlc orchestrator, where Prove is the only review). Used by sdlc's Build with Build tasks (Track L), or when the user asks for subagent-driven execution.
 ---
 
 # Subagent-Driven Development
@@ -265,7 +265,9 @@ rush it into implementation.
 
 ### 3. Review the task
 
-Per-task reviews are task-scoped gates. The broad review happens once, at the
+**Under the sdlc orchestrator, when it says "Prove is the only review":** skip this step. A task is done when the implementer reports DONE with its tests run and passing (and, where the plan names acceptance tests, their `verify.py red` records); go to the next task. The one review is Prove's, at the end; record anything you would have asked a reviewer to look at as a `Ruling:` line so Prove sees it.
+
+Otherwise: per-task reviews are task-scoped gates. The broad review happens once, at the
 final whole-branch review. Never skip the task review, and never accept a
 report missing either verdict — spec compliance AND task quality are both
 required. Implementer self-review never replaces the task review; both are
