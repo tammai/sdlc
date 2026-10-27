@@ -2,7 +2,7 @@
 """sdlc state: every change to a feature's state in one call, so state.md and the control contract can't disagree.
 
 state.md stays the model's view and the committed record; the hooks read it (`Current: Stage <n> – <name>`,
-`Status:`, `Flow:`, `Base:`). Each call also writes the control contract, git-ignored runtime files a runner or a
+`Status:`, `Process:`, `Base:`). Each call also writes the control contract, git-ignored runtime files a runner or a
 control app reads without knowing the pipeline's internals (docs/specs/12-control-contract.md), beside the state
 file and git-ignored (in either layout):
   .sdlc/state/<feature>.json            snapshot, derived from state.md (contract_version)
@@ -10,7 +10,6 @@ file and git-ignored (in either layout):
   .sdlc/state/<feature>.commands/       the runner's inbox; never read or executed here
 Advancing to the current stage is refused (it would tick the stage before its gate ran).
 Usage: python3 state.py [--root DIR] advance FEATURE STAGE [--gate pass|fail] [--note TEXT]
-                                     round FEATURE N pass|fail REASON [--commit SHA]
                                      verified FEATURE COMMIT TREE
                                      log FEATURE TEXT [--type note|review_done]
                                      deviation FEATURE TEXT
@@ -39,15 +38,12 @@ import backlog  # noqa: E402  (sibling script: the backlog table)
 import sdlc_layout  # noqa: E402  (where the feature's state and documents live)
 
 CONTRACT_VERSION = 2
-# Four phases, each run at one stage number (1 Define, 4 Build, 5 Prove, 8 Ship) so the hooks keep reading numbers.
-# The other numbers keep their old names for features started under the 11-stage flow.
-# 6 is also where a backlog slice rests once committed (Stage 8 means feature close reached Ship).
-STAGES = {1: "Define", 2: "Design", 3: "Plan", 4: "Build", 5: "Prove", 6: "Review", 7: "Security",
-          8: "Ship", 9: "Deploy", 10: "Operate", 11: "Learn"}
-PHASES = {1: "define", 2: "define", 3: "define", 4: "build", 5: "prove", 6: "prove", 7: "prove",
-          8: "ship", 9: "ship", 10: "ship", 11: "ship"}
-FIELDS = ("Status", "Track", "Risk", "Flow", "Build", "Top model", "Base", "Owner", "Tool", "Slice gates",
-          "Intent", "Repro", "Prove")  # Intent, Repro: S's whole Define; Prove: run | skip, chosen before Build
+# sdlc 2.0: four phases, each at one stage number so the hooks keep reading numbers. A backlog slice rests at Stage 4
+# with its row `done <commit>`; feature close goes on to Review.
+STAGES = {1: "Define", 4: "Build", 5: "Review", 8: "Ship"}
+PHASES = {1: "define", 4: "build", 5: "review", 8: "ship"}
+FIELDS = ("Status", "Track", "Risk", "Build", "Top model", "Base", "Owner", "Tool", "Slice gates", "Process")
+PROCESS = re.compile(r"^Process:\s*2\b", re.M)  # a 2.0 feature; one without it was started under 1.x
 
 
 class Refused(Exception):
@@ -142,6 +138,8 @@ def check(text):
     m = re.search(r"^Current:\s*Stage\s*(\d+)\b", text, re.M)
     if not m:
         raise Refused("state.md's Current: line isn't `Current: Stage <n> – <name>`")
+    if not PROCESS.search(text):
+        raise Refused("started under sdlc 1.x (no `Process: 2`): finish it with sdlc 1.8.1, or archive it")
     return int(m.group(1))
 
 
@@ -258,11 +256,6 @@ def apply(a, text, backlog_raw):
                       flags=re.M)
         return text, None, {"type": "stage_entered", "from": stage, "stage": a.stage, "gate": a.gate,
                             "note": a.note}
-    if a.cmd == "round":
-        text = append_to_section(text, "Verify rounds",
-                                 f"Round {a.n} — {a.commit or '-'} — {a.result.upper()} — {a.reason}")
-        return text, None, {"type": "verify_round", "round": a.n, "result": a.result, "commit": a.commit,
-                            "reason": a.reason}
     if a.cmd == "verified":
         return set_line(text, "Verified", f"{a.commit} tree {a.tree}"), None, {
             "type": "verified", "commit": a.commit, "tree": a.tree}
@@ -371,8 +364,6 @@ def main(argv=None):
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("advance"); s.add_argument("feature"); s.add_argument("stage", type=int)
     s.add_argument("--gate", choices=["pass", "fail"]); s.add_argument("--note")
-    s = sub.add_parser("round"); s.add_argument("feature"); s.add_argument("n", type=int)
-    s.add_argument("result", choices=["pass", "fail"]); s.add_argument("reason"); s.add_argument("--commit")
     s = sub.add_parser("verified"); s.add_argument("feature"); s.add_argument("commit"); s.add_argument("tree")
     s = sub.add_parser("log"); s.add_argument("feature"); s.add_argument("text")
     s.add_argument("--type", choices=["note", "review_done"], default="note")
