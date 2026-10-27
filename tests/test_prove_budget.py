@@ -35,8 +35,11 @@ class ProveBudgetTest(ProjectTestCase):
         # verify.py runs only the project's commands and each acceptance test's own Run command (ADR 0013)
         verify = os.path.join(PLUGIN_ROOT, "scripts", "verify.py")
         self.assertEqual(self.call(5, command=f'python3 "{verify}" red AC-001', timeout=600000), {})
+        self.assertEqual(self.call(5, command='python3 "${CLAUDE_PLUGIN_ROOT}/scripts/verify.py"'), {})  # unexpanded
         self.assertIn("updatedInput", self.call(5, command='python3 "/tmp/scripts/verify.py"'))  # a lookalike
         self.assertNotEqual(self.call(5, command=f'python3 "{verify}"; node probe.js'), {})  # not exempt
+        self.assertNotEqual(self.call(5, command=f'python3 "{verify}"\nnode probe.js'), {})  # a second line
+        self.assertNotEqual(self.call(5, command="cd /elsewhere && python3 scripts/verify.py"), {})  # relative
 
     def test_background_runs_are_refused_only_in_prove(self):
         out = self.call(5, command="node probe.js", run_in_background=True)

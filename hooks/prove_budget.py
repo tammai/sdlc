@@ -37,7 +37,7 @@ COMPOUND = {"if", "then", "else", "elif", "fi", "for", "while", "until", "do", "
             "function", "time", "{", "}", "(", ")", "[[", "!"}
 ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 VERIFY_SCRIPT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts", "verify.py")
-PLUGIN_VERIFY = re.compile(r"""^python3?(?:\.exe)?\s+(?:"([^"]+)"|(\S+))(?:\s+[\w.=-]+)*\s*$""")
+PLUGIN_VERIFY = re.compile(r"""^python3?(?:\.exe)?[ \t]+(?:"([^"]+)"|([^ \t"]+))(?:[ \t]+[\w.=-]+)*\Z""")
 LEADING_CD = re.compile(r"""^\s*cd\s+("[^"]+"|'[^']+'|[^\s;&|]+)\s*&&\s*""")
 
 
@@ -66,17 +66,28 @@ def project_commands(root):
 def is_plugin_verify(command):
     """The plugin's own scripts/verify.py, alone: it runs only the project's commands and each acceptance test's own
     Run command, so it counts as the project's (ADR 0013). A lookalike path or anything chained after it doesn't."""
-    m = PLUGIN_VERIFY.match(command)
+    if "\n" in command or "\r" in command:
+        return False
+    m = PLUGIN_VERIFY.match(command.strip())
     if not m:
         return False
-    return os.path.normcase(os.path.abspath(m.group(1) or m.group(2))) == os.path.normcase(VERIFY_SCRIPT)
+    path = m.group(1) or m.group(2)
+    if path.startswith("${CLAUDE_PLUGIN_ROOT}/") and os.environ.get("CLAUDE_PLUGIN_ROOT"):  # the shell expands it
+        path = os.environ["CLAUDE_PLUGIN_ROOT"] + path[len("${CLAUDE_PLUGIN_ROOT}"):]
+    if os.name == "nt" and re.match(r"^/[A-Za-z]/", path):  # Git Bash's /c/... is C:/...
+        path = f"{path[1]}:{path[2:]}"
+    # Absolute only: a relative path resolves against a directory the hook can't be sure of
+    return os.path.isabs(path) and os.path.normcase(os.path.realpath(path)) == os.path.normcase(
+        os.path.realpath(VERIFY_SCRIPT))
 
 
 def is_project_command(command, commands):
+    if is_plugin_verify(command):
+        return True
     while LEADING_CD.match(command):
         command = LEADING_CD.sub("", command, count=1)
     command = command.strip()
-    return is_plugin_verify(command) or any(
+    return any(
         command == c or command.startswith(c) and command[len(c)].isspace() for c in commands)
 
 
