@@ -1,6 +1,6 @@
 # ADR 0014: A lighter S, and a companion plugin for niche parts
 
-- **Status:** Accepted, 2026-10-27. Amends [ADR 0010](0010-four-phases.md): S no longer writes `intent.md`, `spec.md` and `plan.md`, and Ship no longer stops to ask on S and `Flow: lite`. Amends [ADR 0013](0013-build-proves-prove-judges.md): Codex, Cursor and Antigravity now get the hook's copy of a verify run, and S's one acceptance test comes from the state file.
+- **Status:** Accepted, 2026-10-27. Amends [ADR 0010](0010-four-phases.md): S no longer writes `intent.md`, `spec.md` and `plan.md`, and Ship no longer stops to ask on S and `Flow: lite`. Amends [ADR 0013](0013-build-proves-prove-judges.md): Codex, Cursor and Antigravity now get the hook's copy of a verify run, and S's one acceptance test comes from the state file. Amended by [ADR 0015](0015-prove-only-where-it-pays.md): S has no Prove step at all, and a security review (in Prove and at commit) runs only on a security-touched change.
 - **Deciders:** Tâm Mai.
 
 ## Context

@@ -29,7 +29,7 @@ sdlc/
 │   ├── trust_anchor.py      shows the user changes to what verification trusts (original)
 │   ├── pretooluse.py, stop.py, userpromptsubmit.py   hookify entry points (vendored)
 │   ├── security_reminder_hook.py + modules, sg-python.sh   security-guidance (vendored; patched to ask sdlc_review_gate.py)
-│   └── sdlc_review_gate.py  one commit security review per review-ready diff while a feature is active (original)
+│   └── sdlc_review_gate.py  while a feature is active: one commit security review per review-ready diff, skipped unless security-touched (original)
 ├── core/                    hookify rule loader and engine (vendored, patched; see NOTICE.md)
 ├── matchers/, utils/        empty hookify packages (vendored)
 ├── knowledge/               this repo's own knowledge, same 3-tier spec as projects (sdlc:managing-knowledge)

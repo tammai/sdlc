@@ -99,14 +99,14 @@ Cause: the SessionStart hook builds a venv with the Claude Agent SDK in the back
 
 ### R3. Security hook is too noisy or too slow
 
-1. Identify which part is firing: edit pattern warnings, turn-end review, or commit/push review. While a feature is active, the commit review runs once per review-ready diff (from Prove on), not on every build commit.
+1. Identify which part is firing: edit pattern warnings, turn-end review, or commit/push review. While a feature is active, the commit review runs once per review-ready diff (from Prove on, or at Ship on a track without Prove), not on every build commit, and only on a security-touched change (`Risk: high`, or a diff touching `areas.sensitive` or `areas.migrations`); any other is recorded as reviewed with no model call. If a sensitive path gets no review, add it to `areas.sensitive` in `.sdlc/config.json`.
 2. Turn off only that part with the matching variable from the table above.
 3. Prefer fixing the finding. If it's a false positive you'll see again, tell the reviewer why in the response (acknowledged findings are fine) rather than disabling the hook.
 4. `SECURITY_GUIDANCE_DISABLE=1` is a last resort; record it with `state.py deviation`.
 
 ### R4. Blocked at Stop with "re-run tests"
 
-The verify-freshness hook is active only while an active feature's state says `Current: Stage 5 – Prove`, or, on `Flow: lite` (every backlog feature, and Lite features started before the four phases), Stage 5 or 6.
+The verify-freshness hook is active only while an active feature's state says `Current: Stage 5 – Prove`, or, on `Flow: lite` (every backlog feature, and Lite features started before the four phases), Stage 5 or 6. S and M lite features started since ADR 0015 never enter Stage 5.
 
 1. Run the **full** test command: `commands.test` from `.sdlc/config.json` (monorepo: the stale package's own, from its `path`; the block message names it), or the `test:` command in the state file's `Commands:` line. A filtered run, single test file, pytest node id or single Go package doesn't count.
 2. Make sure no code changed after that run. Formatters, `sed -i` and subagents count as changes; the hook compares the worktree against the tree recorded at the last full run.
@@ -150,7 +150,7 @@ The Ralph loop comes with the optional `sdlc-extras` plugin.
 
 The state file is `.sdlc/state/<feature>.md`; beside it, git-ignored, `state.py` writes the control contract (`<feature>.json`, `<feature>.events.jsonl`), derived from it.
 
-1. A wrong field: `state.py set <feature> <Field> <value>` (Status, Track, Risk, Flow, Build, Top model, Base, Owner, Tool, Slice gates; on S, Intent and Repro). Changing Track, Risk, Flow, Top model or Base raises a trust-anchor notice ([R19](#r19-a-trust-anchor-notice-stops-the-turn)).
+1. A wrong field: `state.py set <feature> <Field> <value>` (Status, Track, Risk, Flow, Prove, Build, Top model, Base, Owner, Tool, Slice gates; on S, Intent and Repro). Changing Track, Risk, Flow, Prove, Top model or Base raises a trust-anchor notice ([R19](#r19-a-trust-anchor-notice-stops-the-turn)).
 2. A wrong phase: `state.py advance <feature> <n>` without `--gate`, where `<n>` is 1 Define, 4 Build, 5 Prove or 8 Ship (a backlog feature also rests at 6 between slices).
 3. A hand edit, or a missing or damaged `.json`: `state.py sync <feature>` rewrites the contract from the state file. `state.py` refuses a state file without `Status:` and `Current: Stage <n> – <name>`.
 4. A lost state file: the documents (`intent.md`, `spec.md`, `plan.md`, `test-report.md`…) are the real record. Write a new one from the template in `skills/orchestrator/references/start.md`, tick the phases whose documents exist, set `Current:` to the next phase's stage, then `state.py sync <feature>` and `state.py deviation <feature> "state file reconstructed"`.
@@ -213,9 +213,9 @@ The hook checks Agent/Task dispatches only while a feature has `Status: active`;
 
 ### R19. A trust-anchor notice stops the turn
 
-The state, spec, baseline and config the hooks trust are writable by the agent they check, so `hooks/trust_anchor.py` can't prevent a change; at Stop it shows you one. A notice reads "Verification anchors changed: …" and names what moved: `Track:`, `Risk:`, `Flow:`, `Top model:` or `Base:`; a failing test added to `.sdlc/baseline.md` or changed commands in `.sdlc/config.json` since `Base:`; `spec.md` edited during Prove; leaving or skipping Prove with untested code (an ac-checker on a passing full run of the current code counts, and on S that passing run alone; on `Flow: lite`, any Stop outside Stages 4–6 with untested code); an active feature no longer active other than by `Status: done`; "verify records disagree" (`.sdlc/.work/verify.json` differs from the freshness hook's copy of the run, or is missing or damaged while the hook holds one: rerun `verify.py` and say why the record changed); or its own record (`.sdlc/.work/trust-anchor.json`) damaged.
+The state, spec, baseline and config the hooks trust are writable by the agent they check, so `hooks/trust_anchor.py` can't prevent a change; at Stop it shows you one. A notice reads "Verification anchors changed: …" and names what moved: `Track:`, `Risk:`, `Flow:`, `Prove:`, `Top model:` or `Base:`; a failing test added to `.sdlc/baseline.md` or changed commands in `.sdlc/config.json` since `Base:`; `spec.md` edited during Prove; leaving or skipping Prove with untested code (an ac-checker on a passing full run of the current code counts, and on S, M lite and `Prove: skip` that passing run alone; on `Flow: lite`, any Stop outside Stages 4–6 with untested code); an active feature no longer active other than by `Status: done`; "verify records disagree" (`.sdlc/.work/verify.json` differs from the freshness hook's copy of the run, or is missing or damaged while the hook holds one: rerun `verify.py` and say why the record changed); or its own record (`.sdlc/.work/trust-anchor.json`) damaged.
 
-1. **Stricter changes** (Track up, Risk low → high, Flow lite → full) only add checks: "Stricter process: …", no block. Exception: a backlog feature leaving `Flow: lite` blocks.
+1. **Stricter changes** (Track up, Risk low → high, Flow lite → full, Prove skip → run) only add checks: "Stricter process: …", no block. Exception: a backlog feature leaving `Flow: lite` blocks.
 2. **Every other change** blocks the stop once. Claude must tell you what changed and why, without undoing it on its own. Your next message accepts it: the current values become the anchor, and the notice doesn't block again. Autopilot stops at a notice you haven't seen.
 3. If the change was wrong, say so in that message and have it reverted (`state.py set`, or restore the file from git); moving a value back is itself a notice.
 
@@ -287,13 +287,13 @@ The test suite runs hooks and scripts as subprocesses; this checks the installed
 2. Ask: "run `git push --force origin main`". It's blocked, and Claude can say why.
 3. Ask Claude to write `const k = "sk-ant-api03-…"` with 30+ characters after the prefix: blocked.
 
-**E. An S fix through all four phases (must)**
+**E. An S fix: Define, Build, Ship (must)**
 1. `/sdlc:start fix: add returns a string when given numeric strings`. It proposes track S and creates `.sdlc/state/<yyyy-mm-dd>-s-<slug>.md`; the announcement shows `Build: subagent`.
-2. Define writes `intent.md`, `spec.md` (the repro among its acceptance criteria) and `plan.md` in `docs/sdlc/intents/<feature>/`, and goes on to Build **without asking for approval**.
+2. Define writes no documents: it records `Intent:` and `Repro:` in the state file and goes on to Build **without asking for approval**.
 3. Build dispatches one implementer subagent with `model: sonnet`, which writes a failing test first and records it with `verify.py red AC-001`, then the fix, runs `verify.py` and doesn't commit. `.sdlc/.work/verify.json` holds the red record and a passing run.
-4. Prove dispatches **nothing** (`.sdlc/.work/dispatches.jsonl` shows no checker or reviewer): `verify.py status` shows `reuse: true` (or the session reruns `verify.py` once), and the trust anchor accepts that run in place of a checker.
-5. While in Prove, ask Claude to change a source file **with a shell command** (e.g. `sed -i`), then end the turn: it's **blocked**, and the message names the test command. Run it; the turn then ends normally.
-6. Ship runs the verified-tree check and Learn, makes one commit, then **stops to ask** merge, PR or keep. `git status` never shows `.sdlc/state/*.json`.
+4. **No Prove:** the state goes from Stage 4 to Stage 8 with `Verified:` set from `verify.py status`; `.sdlc/.work/dispatches.jsonl` shows no checker or reviewer, and the trust anchor accepts the passing run without Stage 5.
+5. In an M feature on the full flow, while in Prove, ask Claude to change a source file **with a shell command** (e.g. `sed -i`), then end the turn: it's **blocked**, and the message names the test command. Run it; the turn then ends normally.
+6. Ship runs the verified-tree check and Learn, makes one commit on a feature branch and reports it **without asking**. Its security review is skipped (not security-touched): it is recorded as reviewed with no model call, though the commit carries the state file. `git status` never shows `.sdlc/state/*.json`.
 7. Trust anchor (should): in a new S feature, ask Claude to run `state.py set <feature> Risk high`: a "Stricter process" message, no block. Then `Risk low`: the stop is blocked once, and your next message clears it.
 
 **F. Security hooks (should)**
@@ -303,7 +303,7 @@ The test suite runs hooks and scripts as subprocesses; this checks the installed
 **G. Brownfield setup (must)**
 1. Copy a small real repo (or a sample with two packages in different languages) into `/tmp/sdlc-smoke-brown`, add one deliberately failing test, commit.
 2. `/sdlc:setup`: it records the existing commands per package and **asks you to approve** them; it writes `.sdlc/baseline.md` listing the failing test; audit drafts are shown in batches and nothing is written before you approve.
-3. `/sdlc:start` a small change; in Prove the known failure doesn't fail the round, and a new failure would.
+3. `/sdlc:start` a small change on the full flow; in Prove the known failure doesn't fail the round, and a new failure would.
 4. Monorepo (should): edit a file in one package during Prove; the block names only that package and its command.
 
 **H. Upgrade and eject (must)**

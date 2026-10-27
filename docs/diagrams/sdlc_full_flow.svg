@@ -1,6 +1,6 @@
 <svg width="100%" viewBox="0 0 1000 1030" role="img" xmlns="http://www.w3.org/2000/svg">
 <title>SDLC with hooks, gates, skills and subagents</title>
-<desc>The orchestrator runs four phases: Define, Build, Prove, and Ship with Learn at the end of every feature. Each phase row shows the bundled skills, subagents and hooks involved and its exit gate; gates marked red need the user's approval. Define ends in one approval (none on S, which writes no documents, only Intent: and Repro: lines in its state file); Build records each acceptance criterion's test failing before its code and ends with one passing verify.py run; Prove reuses that run (or reruns it once) and runs the checkers the track needs in one parallel round on one commit: S dispatches none, M lite one fresh ac-checker that reads each test against its criterion, M full adds one light code-reviewer, L the top-tier reviewers and full security. Ship commits on a feature branch without asking on S and lite, and asks merge, PR or keep on full and L. Backlog slices loop Build, Prove and a commit, then a feature close runs Prove and Ship. Deploy is the on-request command /sdlc:deploy, not a phase; Operate is gone. Five hook families run throughout: hookify, security-guidance, verify-freshness and prove-budget (Prove only), model-router (checks each subagent's model, never haiku, and logs it while a feature is active; with role-guard, which keeps the plugin's agents to their role, and trust-anchor, which tells the user when what verification trusts changes) and ralph-loop (optional, Build, from the sdlc-extras companion plugin).</desc>
+<desc>The orchestrator runs four phases: Define, Build, Prove, and Ship with Learn at the end of every feature. Each phase row shows the bundled skills, subagents and hooks involved and its exit gate; gates marked red need the user's approval. Define ends in one approval (none on S, which writes no documents, only Intent: and Repro: lines in its state file); Build records each acceptance criterion's test failing before its code and ends with one passing verify.py run; S and M lite have no Prove: Build's passing verify.py goes to Ship. On M full and L (skippable at Define's approval) Prove reuses that run (or reruns it once) and runs one parallel round on one commit: a fresh ac-checker that reads each test against its criterion, on M full one light code-reviewer, on L the top-tier reviewers; full security only when the change is security-touched (Risk: high, or sensitive or migration paths); high findings go back to Build, then one re-verification. Ship commits on a feature branch without asking on S and lite, and asks merge, PR or keep on full and L. Backlog slices loop Build and a commit, with no Prove per slice, then a feature close runs Prove and Ship. Deploy is the on-request command /sdlc:deploy, not a phase; Operate is gone. Five hook families run throughout: hookify, security-guidance (its commit review only on a security-touched change), verify-freshness and prove-budget (Prove only), model-router (checks each subagent's model, never haiku, and logs it while a feature is active; with role-guard, which keeps the plugin's agents to their role, and trust-anchor, which tells the user when what verification trusts changes) and ralph-loop (optional, Build, from the sdlc-extras companion plugin).</desc>
 <style>
 text{font-family:anthropic-sans,-apple-system,"system-ui","Segoe UI",sans-serif;dominant-baseline:central;text-anchor:middle}
 .a{fill:none;stroke:#898781;stroke-width:1.5}
@@ -122,19 +122,19 @@ rect{stroke-width:.5}
 <text class="s" x="752" y="514">then green; drift recorded; no</text>
 <text class="s" x="752" y="530">TODO without a ticket</text>
 </g>
-<g class="stage"><rect x="30" y="592" width="110" height="148" rx="8"/><text class="t c" x="85.0" y="642">Prove</text><text class="s c" x="85.0" y="660">verify, review,</text><text class="s c" x="85.0" y="676">security</text><text class="s c" x="85.0" y="692">S, M, L</text></g>
+<g class="stage"><rect x="30" y="592" width="110" height="148" rx="8"/><text class="t c" x="85.0" y="642">Prove</text><text class="s c" x="85.0" y="660">verify, review,</text><text class="s c" x="85.0" y="676">security</text><text class="s c" x="85.0" y="692">M full, L</text></g>
 <line class="a" marker-end="url(#arrow)" x1="85.0" y1="580" x2="85.0" y2="592"/>
 <g class="skill"><rect x="148" y="592" width="214" height="148" rx="6"/>
 <text class="s" x="158" y="610">verification-before-completion</text>
 <text class="s" x="158" y="626">systematic-debugging on a fail</text>
 <text class="s" x="158" y="642">diff_stats.py for reviewers</text>
 <text class="s" x="158" y="658">receiving-code-review</text>
-<text class="s" x="158" y="674">security-only brief (full)</text>
-<text class="s" x="158" y="690">dependency audit per stack</text>
+<text class="s" x="158" y="674">security brief (sensitive)</text>
+<text class="s" x="158" y="690">dep audit (sensitive only)</text>
 </g>
 <g class="agent"><rect x="370" y="592" width="196" height="148" rx="6"/>
 <text class="s" x="380" y="610">One parallel round, one commit:</text>
-<text class="s" x="380" y="626">ac-checker (M, L; none on S)</text>
+<text class="s" x="380" y="626">ac-checker (M full, L, close)</text>
 <text class="s" x="380" y="642">code-reviewer (M full: light)</text>
 <text class="s" x="380" y="658">qa-tester (Feature close)</text>
 <text class="s" x="380" y="674">silent-failure-hunter (L)</text>
@@ -151,12 +151,12 @@ rect{stroke-width:.5}
 <text class="s" x="584" y="690">ac-checker, reviewers</text>
 </g>
 <g class="gate"><rect x="742" y="592" width="238" height="148" rx="6"/>
-<text class="s" x="752" y="610">verify.py + ac-checker PASS (S:</text>
-<text class="s" x="752" y="626">verify.py) on this code, every</text>
+<text class="s" x="752" y="610">verify.py + ac-checker PASS on</text>
+<text class="s" x="752" y="626">this code (M full, L, close),</text>
 <text class="s" x="752" y="642">AC proven, no unresolved high</text>
 <text class="s" x="752" y="658">finding, no test gap ≥ 8 (L), no</text>
 <text class="s" x="752" y="674">critical or high security, no</text>
-<text class="s" x="752" y="690">secrets. Fixes go together, one</text>
+<text class="s" x="752" y="690">secrets. Fixes in Build, one</text>
 <text class="s" x="752" y="706">re-verification. Round 3 fails,</text>
 <text class="s" x="752" y="722">or a need fails twice: ask you</text>
 </g>
@@ -191,7 +191,7 @@ rect{stroke-width:.5}
 </g>
 <path class="a loop" marker-end="url(#arrow)" d="M30 666 L20 666 L20 522 L28 522"/>
 <text class="l" transform="rotate(-90 9 594)" x="9" y="594">step back</text>
-<text class="l" x="34" y="900" text-anchor="start">Backlog: each slice runs Build → Prove → one commit; once every slice is done, a feature close runs Prove on the whole branch, then Ship.</text>
+<text class="l" x="34" y="900" text-anchor="start">Backlog: each slice runs Build → one commit, no Prove; once all are done, feature close runs Prove on the whole branch, then Ship.</text>
 <g class="neutral"><rect x="20" y="920" width="960" height="52" rx="8" style="stroke-dasharray:4 3"/><text class="t" x="34" y="937">/sdlc:deploy · on request, not a phase</text><text class="s" x="34" y="956">Project's own deploy path · your go-ahead before a production deploy or DB migration · smoke test · release.md with the rollback step</text></g>
 <g class="stage"><rect x="30" y="996" width="14" height="14" rx="3"/></g><text class="l" text-anchor="start" x="50" y="1003">Phase</text>
 <g class="skill"><rect x="130" y="996" width="14" height="14" rx="3"/></g><text class="l" text-anchor="start" x="150" y="1003">Skill</text>
