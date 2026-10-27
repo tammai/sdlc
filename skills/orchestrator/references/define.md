@@ -1,6 +1,6 @@
 # Define (Stage 1)
 
-Before any code, you and the user agree on what, why and how, and it is written down in three files: `intent.md` (why), `spec.md` (what must be true) and `plan.md` (how). Same files and sections at every size; S fills each in a few lines. Stay at `Current: Stage 1 – Define` until the gate, then `state.py advance <f> 4 --gate pass`.
+Before any code, you and the user agree on what, why and how, and it is written down in three files: `intent.md` (why), `spec.md` (what must be true, and the test for each criterion) and `plan.md` (how). Same files and sections at every size; S fills each in a few lines. Review adds `review.md` later. Stay at `Current: Stage 1 – Define` until the gate, then `state.py advance <f> 4 --gate pass`.
 
 **Nothing stays in your head.** A later session, a reviewer or a teammate months from now works from these files alone. Test: could a fresh agent build this from the three files without asking?
 
@@ -11,8 +11,8 @@ Before any code, you and the user agree on what, why and how, and it is written 
 5. **Keep to the brief.** Add no hardening, options, config or tooling that neither the request nor an applicable failure mode calls for. Anything else you'd add is listed as a proposal in `intent.md` and dropped unless the user keeps it.
 6. **Write the three files**, once, with your file-writing tool, from `${CLAUDE_PLUGIN_ROOT}/templates/intent-template.md`, `spec-template.md` and `plan-template.md`. UI work: read `ui-work.md` first.
    - **`intent.md`:** what the change is for and who it serves, why now, the user's own words where they matter, the decisions with what was ruled out and why, and for a bug its proof and root cause. On L the design decisions go here too; there is no `design.md`.
-   - **`spec.md`:** acceptance criteria with ids (`AC-001` onward), each a behaviour a test can prove (about 10 or fewer, never "existing tests still pass"); what's out of scope; the must-never-break lines; and the failure modes that apply (concurrent use, scale, persisted data, a crash mid-write, untrusted input, I/O errors), each turned into a criterion or a must-never-break line.
-   - **`plan.md`:** how the build runs (step 7); `## Tasks`, each naming its files (backticked: `verify.py` reports a changed file no task names as drift); `## Acceptance tests`, one row per AC with the test and a command that runs only it (`manual` with a reason when no test can prove it); `## Public Surface`; `## UI mapping` on UI work; `## Deviations` and `## Review`, empty until later.
+   - **`spec.md`:** acceptance criteria with ids (`AC-001` onward), each a behaviour a test can prove (about 10 or fewer, never "existing tests still pass"); beside them, `## Acceptance tests`, one row per AC with the test and a command that runs only it (`manual` with a reason when no test can prove it); what's out of scope; the must-never-break lines; and the failure modes that apply (concurrent use, scale, persisted data, a crash mid-write, untrusted input, I/O errors), each turned into a criterion or a must-never-break line.
+   - **`plan.md`** (a working file; the permanent record is the other three and `review.md`): how the build runs (step 7); `## Tasks`, each naming its files (backticked: `verify.py` reports a changed file no task names as drift); `## Public Surface`; `## UI mapping` on UI work; `## Deviations`, empty until Build.
    - **Bigger than one session** (several distinct parts that won't fit one context; never a 1–2-file change): add `backlog.md` (`backlog-slices.md`), and `plan.md` gives each part an outline (approach, main files, interfaces between parts).
 7. **How the build runs** is your call, written at the top of `plan.md` with its reason:
    - **inline** (default): this session builds it, like plain Claude;
@@ -21,4 +21,4 @@ Before any code, you and the user agree on what, why and how, and it is written 
 8. **Gate.**
    - **S:** no stop. Say in one or two lines what you'll do and why (and for a bug, the proof and the cause), then `state.py advance <f> 4 --gate pass`.
    - **M and L:** one message with the paths to the three files (and `backlog.md`), the chosen approach and what was ruled out in one line each, the acceptance criteria with their tests (`manual` ones apart, with reasons), how the build runs, any proposals you'd drop unless kept, and "Reply 'approved', or change anything." The user reads the files and approves. Update the files for anything the reply changed (once), then `state.py advance <f> 4 --gate pass`.
-   - Either way: every AC has a row in `## Acceptance tests`; out of scope is filled; the three files stand alone.
+   - Either way: every AC has a row in `spec.md`'s `## Acceptance tests`; out of scope is filled; the three files stand alone.

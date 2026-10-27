@@ -32,11 +32,11 @@ Each review is a fresh agent on `opus`, never the context that wrote the code, d
 
 - **High:** back to Build (`state.py advance <f> 4`), fixed each with a failing test first, fixing the rule not the instance; then `$V` and `advance <f> 5`. The review isn't rerun: the fixes are proven by their tests and the full suite.
 - **Disagreement** (you think a high is wrong): it goes to the user with the finding and your case. Never downgrade or waive one yourself; a waiver is the user's, recorded with `state.py deviation <f> "waived round <N>: <ids> — <reason>"` (those words: the trust anchor reads them).
-- **Medium and low:** ticketed in `plan.md`'s `## Review`; not fixed now unless trivial.
+- **Medium and low:** ticketed in `<intents>/review.md`; not fixed now unless trivial.
 - A failure to baseline is the user's decision, recorded with `state.py deviation` naming the test.
 
 ## 4. Record
 
-In `plan.md`'s `## Review`, once: what you recommended and why, what was chosen (and by whom), each review's verdict, the high findings with what fixed them, and the tickets. If nothing ran, one line saying so and why. List every `## Deviations` line and every `manual` AC in your end-of-Review message, so the user sees them without opening the plan.
+Write `<intents>/review.md` once, from `${CLAUDE_PLUGIN_ROOT}/templates/review-template.md`: what you recommended and why, what was chosen (and by whom), each review's verdict, the high findings with what fixed them, and the tickets. If nothing ran, one line saying so and why. List every `## Deviations` line and every `manual` AC in your end-of-Review message, so the user sees them without opening the plan.
 
 **Gate:** `$V status` shows `reuse: true` on the current code; every chosen review's latest report ends `VERDICT: PASS`, or its highs are fixed (and re-verified by `$V`) or waived by the user; security-touched: no critical or high security finding open and no secrets in the diff. Then `state.py verified <f> <commit> <tree>` and `state.py advance <f> 8 --gate pass`.

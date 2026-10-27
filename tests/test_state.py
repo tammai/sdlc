@@ -20,7 +20,7 @@ Current: Stage 4 – Build
 ## Stages
 - [x] 1 Define   — intent.md, spec.md, plan.md
 - [ ] 4 Build
-- [ ] 5 Review   — plan.md ## Review
+- [ ] 5 Review   — review.md
 - [ ] 8 Ship     — PR:
 
 ## Gate log

@@ -5,7 +5,7 @@ For work too big for one session's context, so it can pause, `/clear` and resume
 1. **Backlog.** In Define, write `<intents>/backlog.md` from `${CLAUDE_PLUGIN_ROOT}/templates/backlog-template.md`: one row per part (something a test can see working), with its acceptance criteria, dependencies and size; every AC is in some row. `plan.md` gives each part an outline. Both are approved with the other files in Define's one approval.
 2. **Pick the part:** `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/backlog.py" next <intents>/backlog.md` (a part in progress, else the first `todo` whose dependencies are done; `check <backlog> B<n>` for a named one). Nothing ready while rows remain → say which and stop; every row `done` → Feature close. Then `state.py slice <f> start B<n>`; from Define, also `state.py advance <f> 4 --gate pass`. Parts stay at Stage 4.
 3. **Each part:**
-   - write `<intents>/plan-B<n>.md` from `${CLAUDE_PLUGIN_ROOT}/templates/plan-template.md` and the part's outline (its tasks, files, acceptance tests, Public Surface);
+   - write `<intents>/plan-B<n>.md` from `${CLAUDE_PLUGIN_ROOT}/templates/plan-template.md` and the part's outline (its tasks, files and Public Surface; its acceptance tests are rows in `spec.md`);
    - build it as `build.md` says, ending with `verify.py` passing;
    - `state.py verified …`, then one commit for the part (code, tests, plan, state) naming the record, and `state.py slice <f> done B<n> <commit>`;
    - update `plan.md`'s `## Handoff` with what the next part needs, so a fresh session can start from the files;

@@ -131,6 +131,16 @@ Intent before code, with the agent judging when to ask; questions one at a time.
 
 ## Decided after the builder check
 
+- **The record is four files, split by lifetime (user, option B, during the build):**
+
+  | File | Holds | Lifetime |
+  |---|---|---|
+  | `intent.md` | why, decisions, bug proof | permanent |
+  | `spec.md` | acceptance criteria, each with its test (`## Acceptance tests`), must-never-break, out of scope | permanent |
+  | `plan.md` | how the build runs, tasks, handoff, Public Surface, deviations | working file; `/sdlc:prune` may delete it once merged |
+  | `review.md` | recommended and chosen reviews, verdicts, fixes, tickets, lessons filed | permanent |
+
+  `verify.py` reads the acceptance-test table from `spec.md` (from `plan.md` on a 1.x feature).
 - **How the build runs is the agent's call, made before the build (user):** at the end of Define the agent picks inline (default: the main session builds, like plain Claude), parts in fresh sessions (the work won't fit one context; `/clear` + `/sdlc:start`, or autopilot), or parallel subagents (only for truly independent parts: different files, no shared interfaces, real time saved). The choice and its reason go in `plan.md`; on M and L it is in the approval message; on S it just goes ahead.
 - **Read a file only when the context doesn't already hold it (user):**
   - Don't re-read, in the same session, what the agent just wrote, a reference it already loaded, or a file it just edited.

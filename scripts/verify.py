@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """One command that proves a feature: the project's verify plan, then every acceptance criterion against the test
-plan.md names for it (ADR 0013).
+spec.md names for it (plan.md on a 1.x feature) (ADR 0013).
 
 Usage: verify.py [--root DIR] [--feature NAME] [--timeout S] [red AC-nnn | status]
   Runs the verify plan (lint, typecheck, build, test from .sdlc/config.json, per package), then, for every `AC-nnn`
-  in spec.md: a row in plan.md's `## Acceptance tests` table, a `manual` row's reason, the test file, a recorded red
+  in spec.md: a row in spec.md's `## Acceptance tests` table (plan.md's on a 1.x feature), a `manual` row's reason, the test file, a recorded red
   run, and the row's Run command passing. Writes the result to .sdlc/.work/verify.json and exits 0 on pass, 1 on a
   failure, 2 when there's no feature to verify. On S (no plan.md), the state file's `Repro: <test file> › <name> |
   <command>` line is AC-001. A plan without the table, and no Repro line, is an old plan: the AC checks are skipped
@@ -112,10 +112,13 @@ REPRO = re.compile(r"^Repro:\s*(.+?)\s*\|\s*(.+?)\s*$", re.M)
 
 
 def acceptance(root, feature):
-    """(AC ids, rows): from spec.md and plan.md's table, or, on S (no plan), from the state file's
-    `Repro: <test file> › <name> | <command>` line as AC-001. Rows are None for an old plan with neither."""
+    """(AC ids, rows): from spec.md and its `## Acceptance tests` table (sdlc 2.0; plan.md's table on a 1.x feature),
+    or, on an old S fix (no plan), from the state file's `Repro: <test file> › <name> | <command>` line as AC-001.
+    Rows are None for an old plan with none of them."""
     spec_text, plan_text = docs(root, feature)
-    rows = acceptance_map(plan_text)
+    rows = acceptance_map(spec_text)
+    if rows is None:
+        rows = acceptance_map(plan_text)
     if rows is not None:
         return spec_acs(spec_text), rows
     m = REPRO.search(read(os.path.join(root, sdlc_layout.paths(root, feature)["state"])) or "")
@@ -152,7 +155,8 @@ def drift(root, feature, plan_text):
         if current:
             tasks.setdefault(current, set()).update(BACKTICKED.findall(line))
     named = set().union(*tasks.values()) if tasks else set()
-    named |= {r["file"] for r in acceptance_map(plan_text) or [] if r["file"]}
+    rows = acceptance_map(docs(root, feature)[0])  # sdlc 2.0: the table is spec.md's; 1.x: plan.md's
+    named |= {r["file"] for r in (rows if rows is not None else acceptance_map(plan_text)) or [] if r["file"]}
     items = [(f, "file") for f in changed if f not in named]
     items += [(f"task {n}", "task") for n, files in tasks.items()
               if any("/" in f or "." in f for f in files) and not files & set(changed)]

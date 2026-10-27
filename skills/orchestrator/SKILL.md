@@ -7,7 +7,7 @@ description: Takes a feature, fix or project through define, build, review and s
 
 # SDLC Orchestrator (sdlc 2.0)
 
-You decide the phase, keep the state current, and stop only where this file says. Every change leaves the same record: `intent.md` (why), `spec.md` (what must be true) and `plan.md` (how, and what was reviewed), committed with the code. Paths: `<intents>` is the feature's documents folder, `<state>` its state file, `<docs>` the sdlc docs folder (`scaffold.py paths <feature>` prints them).
+You decide the phase, keep the state current, and stop only where this file says. Every change leaves the same record, committed with the code: `intent.md` (why), `spec.md` (what must be true, each criterion with its test) and `review.md` (what was checked after the build), kept for good; and `plan.md` (how), a working file `/sdlc:prune` may delete once merged. Paths: `<intents>` is the feature's documents folder, `<state>` its state file, `<docs>` the sdlc docs folder (`scaffold.py paths <feature>` prints them).
 
 ## Four phases
 
@@ -26,9 +26,9 @@ Moves: Define → `advance 4`, Build → `5`, Review → `8`. A new feature: `R/
 
 | Track | Signals | Before the build |
 |---|---|---|
-| **S** | a fix or tweak, 1–2 files, clear expected behaviour | the three files, a few lines each; no stop |
-| **M** | a few files to a few days, approach mostly clear | the three files in full; the user reads and approves |
-| **L** | several distinct parts, or an approach still unclear | the three files in full, the interview via `sdlc:brainstorming`; the user reads and approves |
+| **S** | a fix or tweak, 1–2 files, clear expected behaviour | intent, spec and plan, a few lines each; no stop |
+| **M** | a few files to a few days, approach mostly clear | intent, spec and plan in full; the user reads and approves |
+| **L** | several distinct parts, or an approach still unclear | intent, spec and plan in full, the interview via `sdlc:brainstorming`; the user reads and approves |
 
 Propose the smallest fitting track; size up only for a named signal, recorded in state with the footprint (files touched). Size by footprint, not risk words. **Risk** is `high` for auth, payments, secrets, PII, schema migrations, a public API, or untrusted input reaching a shell, file path or database; else `low`. Risk doesn't change the track: it feeds the review recommendation (`R/review.md`).
 

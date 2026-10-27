@@ -3,16 +3,26 @@
 <!-- What must be true when it's done: no files, code structure or steps (those are plan.md's).
      Same sections at every size: S a line or two each. -->
 
-**Intent:** [intent.md](intent.md) · **Plan:** [plan.md](plan.md) · **References:** [links to existing docs this builds on, or delete the line]
+**Intent:** [intent.md](intent.md) · **Plan:** [plan.md](plan.md) · **Review:** [review.md](review.md) · **References:** [links to existing docs this builds on, or delete the line]
 
 ## Acceptance criteria
 
 <!-- Each an id, AC-001 onward, and a new or changed behaviour a test can prove, so its test fails before the change.
      About 10 or fewer. Never "existing tests still pass": verify.py runs the whole suite anyway.
-     A bug: AC-001 is the test that proves it today. plan.md's "## Acceptance tests" names each one's test. -->
+     A bug: AC-001 is the test that proves it today. "## Acceptance tests" below names each one's test. -->
 
 - **AC-001** Given [state], when [action], then [outcome].
 - **AC-002** Given [state], when [action], then [outcome].
+
+## Acceptance tests
+
+<!-- One row per AC above: the test that proves it and a command that runs only that test. Build records each
+     failing before its code (`verify.py red AC-nnn`), and verify.py checks this table. No test can prove it:
+     Test `manual`, the Run cell says why. -->
+
+| AC | Test | Run |
+|---|---|---|
+| AC-001 | [test file] › [test name] | `[command that runs only this test]` |
 
 ## Must never break
 

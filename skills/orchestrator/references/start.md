@@ -37,7 +37,7 @@ Current: Stage 1 – Define
 ## Stages
 - [ ] 1 Define   — intent.md, spec.md, plan.md
 - [ ] 4 Build
-- [ ] 5 Review   — plan.md ## Review
+- [ ] 5 Review   — review.md
 - [ ] 8 Ship     — PR: (Learn: knowledge, recurring-defects.md)
 
 ## Gate log
