@@ -39,6 +39,8 @@ AC_ID = re.compile(r"\bAC-\d{3}\b")
 TABLE_ROW = re.compile(r"^\s*\|\s*(AC-\d{3})\s*\|(.*?)\|(.*?)\|\s*$")
 TASK_START = re.compile(r"^\s*(\d+)\.\s")
 BACKTICKED = re.compile(r"`([^`]+)`")
+# What running the tests or tools leaves behind when a repo doesn't ignore it: never drift
+GENERATED = re.compile(r"(^|/)(__pycache__|\.pytest_cache|\.mypy_cache|\.ruff_cache|node_modules|\.tox)/|\.py[co]$")
 
 
 def section(text, heading):
@@ -146,7 +148,7 @@ def drift(root, feature, plan_text):
     facts = diff_stats.collect(root, m.group(1), [plan_path] if os.path.exists(plan_path) else [])
     docs_dir = sdlc_layout.docs_dir(root)
     changed = [f for f in facts["changed_files"] if not f.startswith(".sdlc/") and not f.lower().endswith(".md")
-               and not (docs_dir and f.startswith(docs_dir + "/"))]
+               and not (docs_dir and f.startswith(docs_dir + "/")) and not GENERATED.search(f)]
     tasks, current = {}, None
     for line in (section(plan_text, "Tasks") or "").splitlines():
         t = TASK_START.match(line)
@@ -264,8 +266,8 @@ def status(root, feature):
         reason = "hook record missing or unknown"
     elif hook_last.get("tree") != last.get("tree") or set(rec.get("red") or {}) - set(hook.get("red") or {}):
         reason = "records disagree"
-    elif current != last.get("tree"):
-        reason = "code changed since verify"
+    elif current != last.get("tree") and vf.changed_code_files(root, last.get("tree"), current) != []:
+        reason = "code changed since verify"  # docs and the record (review.md, a lesson) don't count; unknown does
     else:
         reason = ""
     # The current tree and HEAD: what `state.py verified` records and Ship checks against (the core's "Verified tree")

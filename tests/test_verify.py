@@ -113,9 +113,11 @@ class VerifyTest(ProjectTestCase):
         self.plan([], tasks=tasks)
         self.write("src/store.py", "x = 1\n")
         self.write("src/cache.py", "y = 2\n")  # untracked, not in the plan
+        self.write("src/__pycache__/store.cpython-310.pyc", "bytecode")  # what running the tests leaves behind
         code, out, _ = self.verify()
         self.assertEqual(code, 1)
         self.assertIn("drift: src/cache.py", out)
+        self.assertNotIn("__pycache__", out)
         self.plan([], tasks=tasks, deviations=["- `src/cache.py` (task 1) — What: helper · Why: reuse · Effect: none on ACs"])
         code, out, rec = self.verify()
         self.assertEqual(code, 0, out)
@@ -133,6 +135,10 @@ class VerifyTest(ProjectTestCase):
         tree = self.record()["last"]["tree"]
         self.write(".sdlc/.work/verify-freshness.json",  # the hook's copy of the same run
                    json.dumps({"feature": "login", "verify": {"last": {"tree": tree, "result": "pass"}}}))
+        self.assertTrue(self.status()["reuse"])
+        # Writing the record (review.md, a lesson) after the run isn't a code change: the run still counts
+        self.write(".sdlc/login/review.md", "# Review\n")
+        self.write("docs/notes.md", "lesson\n")
         self.assertTrue(self.status()["reuse"])
         self.write("src/late.py", "z = 3\n")  # an edit after verify
         self.assertEqual(self.status()["reason"], "code changed since verify")

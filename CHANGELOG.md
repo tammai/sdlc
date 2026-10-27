@@ -13,6 +13,8 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 - **Reviews are recommended after the build** (security; code at low, default or high depth; UI; advisor where available; or none). S runs the recommendation, M and L ask you. Each review runs once, on opus.
 - **Learn before merge:** lessons land in the project's knowledge in the same change. Then green locally and on CI (one CI fix, then it asks), and it stops at the PR.
 - **Trivial changes skip the workflow.** Start, implement, fix and brainstorm requests trigger it in a repo set up for sdlc, but a typo or a one-line fix with an obvious cause is just done and committed, with no record.
+- **S runs from one file** (`references/s-track.md`: the whole flow and the record's shapes inline) and goes from Build straight to Ship. On a one-line fix it took 23 turns instead of 40.
+- **`verify.py`:** writing the record after a passing run (review.md, a lesson) no longer counts as a code change, and files the tests leave behind (`__pycache__`, `*.pyc`, tool caches) are never drift.
 - **Phases are Define, Build, Review, Ship** (stages 1, 4, 5, 8); a 2.0 feature's state carries `Process: 2`.
 - **Removed:** Prove and its rounds, Lite/Full, `Prove: run|skip`, the verifier, ac-checker and code-architect agents, the relay, and the skills writing-specs, clarifying-specs, designing-solutions, analyzing-consistency, executing-plans, subagent-driven-development and writing-plans. Every command you type keeps its name.
 
