@@ -13,7 +13,8 @@ Usage: verify.py [--root DIR] [--feature NAME] [--timeout S] [red AC-nnn | statu
   line naming it, with What:, Why: and Effect:.
 `red AC-nnn`, run before the AC's code is written: runs that AC's test and records it failing (exit 0). A test that
   passes, can't be found or can't run is refused (exit 1, nothing recorded): it would prove nothing.
-`status`: JSON for Prove. `reuse` is true only when the last run passed, the freshness hook's own copy of it agrees
+Each run also writes the freshness hook's copy of itself (.sdlc/.work/verify-freshness.json).
+`status`: JSON for Prove. `reuse` is true only when the last run passed, the freshness hook's copy of it agrees
   (same tree, every red AC), and the code hasn't changed since; otherwise `reason` says why and Prove reruns verify.
 Stdlib only, Python 3.9+.
 """
@@ -96,11 +97,15 @@ def load_record(root):
         return {}
 
 
-def save_record(root, rec):
+def save_record(root, rec, run):
+    """Writes verify.json, then the freshness hook's copy of the same run, so a run counts whatever spelling ran it
+    (a subagent's `verify.py; git status` is one the hook doesn't match). A later hand edit to either still shows as
+    "records disagree"."""
     path = os.path.join(root, RECORD)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(rec, f, indent=2)
+    vf.record_verify(root, rec["feature"], [run])
 
 
 def docs(root, feature):
@@ -206,7 +211,7 @@ def full(root, feature, timeout=1800):
     rec["last"] = {"at": now(), "tree": vf.worktree_tree(root), "head": vf.git_head(root),
                    "result": "fail" if failures else "pass", "seconds": round(time.time() - started, 1),
                    "failures": failures, "manual": manual, "drift": drifted or []}
-    save_record(root, rec)
+    save_record(root, rec, ("full", None))
     return rec["last"], notes
 
 
@@ -238,7 +243,7 @@ def red(root, feature, ac, timeout=1800):
         rec = {"feature": feature}
     entry = {"at": now(), "tree": vf.worktree_tree(root), "exit": code}
     rec.setdefault("red", {})[ac] = entry
-    save_record(root, rec)
+    save_record(root, rec, ("red", ac))
     return entry, None
 
 

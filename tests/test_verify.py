@@ -129,6 +129,18 @@ class VerifyTest(ProjectTestCase):
         self.write(".sdlc/.work/trust-anchor.json", '{"changed": 1}')
         self.assertEqual(self.status()["tree"], tree)
 
+    def test_a_run_the_hook_never_saw_still_counts_for_reuse(self):
+        # A subagent's `verify.py …; git status --short` is a spelling the hook doesn't match: verify.py writes
+        # the hook's copy itself, so Prove can reuse the run
+        self.spec("AC-001")
+        self.plan([("AC-001", "tests/t.py › ok", 'python3 -c "import sys; sys.exit(1)"')])
+        self.write("tests/t.py", "")
+        self.assertEqual(self.verify("red", "AC-001")[0], 0)
+        self.plan([("AC-001", "tests/t.py › ok", 'python3 -c "pass"')])
+        code, out, _ = self.verify()
+        self.assertEqual(code, 0, out)
+        self.assertEqual(self.status()["reason"], "")
+
     def test_an_s_fix_is_proven_from_the_repro_line_in_its_state(self):
         # S writes no spec.md or plan.md: the state file's Repro line is its one acceptance test (AC-001)
         state = self.path(".sdlc/login/state.md")
