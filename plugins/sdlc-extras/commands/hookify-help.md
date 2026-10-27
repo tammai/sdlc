@@ -3,7 +3,7 @@ description: Get help with the hookify plugin
 allowed-tools: ["Read"]
 ---
 
-`${CLAUDE_PLUGIN_ROOT}` is the sdlc plugin's folder. Claude Code fills it in; on other agents it stays as written, so use the installed plugin's folder instead: the one above this file that holds `scripts/` and `skills/`.
+`${CLAUDE_PLUGIN_ROOT}` is the sdlc-extras plugin's folder (a companion to sdlc). Claude Code fills it in; on other agents it stays as written, so use the installed plugin's folder instead: the one above this file that holds `scripts/` and `skills/`.
 
 # Hookify Plugin Help
 
@@ -72,9 +72,9 @@ Without arguments, hookify analyzes recent conversation to find behaviors you wa
 ## Available Commands
 
 - **`/sdlc:hookify`** - Create hooks from conversation analysis or explicit instructions
-- **`/sdlc:hookify-help`** - Show this help (what you're reading now)
-- **`/sdlc:hookify-list`** - List all configured hooks
-- **`/sdlc:hookify-configure`** - Enable/disable existing hooks interactively
+- **`/sdlc-extras:hookify-help`** - Show this help (what you're reading now)
+- **`/sdlc-extras:hookify-list`** - List all configured hooks
+- **`/sdlc-extras:hookify-configure`** - Enable/disable existing hooks interactively
 
 ## Example Use Cases
 
@@ -174,4 +174,4 @@ Use Python regex syntax:
 
 5. Create more rules as you encounter unwanted behaviors
 
-For more examples, check the `${CLAUDE_PLUGIN_ROOT}/examples/` directory.
+For more examples, see the sdlc plugin's `examples/` folder.

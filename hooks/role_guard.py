@@ -63,7 +63,7 @@ def main():
     try:
         data = json.load(sys.stdin)
         agent = str(data.get("agent_type") or "")
-        if not agent.startswith("sdlc:"):
+        if not agent.startswith(("sdlc:", "sdlc-extras:")):  # sdlc-extras: the companion plugin's reviewers
             return
         root = os.path.abspath(os.environ.get("CLAUDE_PROJECT_DIR") or data.get("cwd") or os.getcwd())
         rel = rel_path(root, data.get("tool_input") or {}, data.get("cwd"))

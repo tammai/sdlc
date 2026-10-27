@@ -1,6 +1,6 @@
 ---
 name: silent-failure-hunter
-description: Use this agent when reviewing code changes in a pull request to identify silent failures, inadequate error handling, and inappropriate fallback behavior. Invoke it proactively after completing a logical chunk of work that involves error handling, catch blocks, fallback logic, or any code that could suppress errors. See "When to invoke" in the agent body for worked scenarios.
+description: Finds swallowed errors, empty catch blocks and fallbacks that hide a failure in a diff. Used in the sdlc Prove phase on Track L and by /sdlc:review-pr when error handling changes.
 model: inherit
 readonly: true
 ---

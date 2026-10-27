@@ -15,7 +15,7 @@ import os
 import subprocess
 import sys
 
-DUPLICATES = {"security-guidance", "code-review", "code-simplifier"}  # bundled in sdlc
+DUPLICATES = {"security-guidance", "code-review"}  # bundled in sdlc (code-simplifier moved to sdlc-extras)
 LSP_LANGUAGES = {
     "typescript-lsp": {"typescript", "javascript"}, "pyright-lsp": {"python"}, "rust-analyzer-lsp": {"rust"},
     "gopls-lsp": {"go"}, "clangd-lsp": {"c", "cpp"}, "jdtls-lsp": {"java"}, "kotlin-lsp": {"kotlin"},

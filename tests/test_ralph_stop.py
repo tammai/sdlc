@@ -1,12 +1,13 @@
-"""hooks/stop-hook.sh: the ralph-loop Stop hook."""
+"""plugins/sdlc-extras/hooks/stop-hook.sh: the ralph-loop Stop hook (the sdlc-extras companion plugin)."""
 import json
 import os
 import subprocess
 import unittest
 
-from helpers import BASH, HOOKS, PLUGIN_ROOT, ProjectTestCase, run_hook
+from helpers import BASH, PLUGIN_ROOT, ProjectTestCase, run_hook
 
-HOOK = [BASH, os.path.join(HOOKS, "stop-hook.sh")]
+EXTRAS = os.path.join(PLUGIN_ROOT, "plugins", "sdlc-extras")
+HOOK = [BASH, os.path.join(EXTRAS, "hooks", "stop-hook.sh")]
 STATE = ".claude/ralph-loop.local.md"
 
 
@@ -86,7 +87,7 @@ started_at: "2026-10-22T00:00:00Z"
         self.assertFalse(os.path.exists(self.path(STATE)))
 
     def test_setup_rejects_a_multiline_promise(self):
-        p = subprocess.run([BASH, os.path.join(PLUGIN_ROOT, "scripts", "setup-ralph-loop.sh"), "do it",
+        p = subprocess.run([BASH, os.path.join(EXTRAS, "scripts", "setup-ralph-loop.sh"), "do it",
                             "--completion-promise", "DONE\nmax_iterations: 99"],
                            cwd=self.root, capture_output=True, encoding="utf-8", errors="replace")
         self.assertNotEqual(p.returncode, 0)

@@ -1,0 +1,15 @@
+{
+  "description": "sdlc-extras: the Ralph loop's Stop hook (active only during /sdlc-extras:ralph-loop)",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/stop-hook.sh\""
+          }
+        ]
+      }
+    ]
+  }
+}

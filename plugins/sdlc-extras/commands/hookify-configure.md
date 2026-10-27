@@ -113,7 +113,7 @@ Changes apply immediately - no restart needed
 - Changes take effect immediately on next tool use
 - You can also manually edit .claude/hookify.*.local.md files
 - To permanently remove a rule, delete its .local.md file
-- Use `/sdlc:hookify-list` to see all configured rules
+- Use `/sdlc-extras:hookify-list` to see all configured rules
 
 ## Edge Cases
 

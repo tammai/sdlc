@@ -1,7 +1,7 @@
 ---
 name: pr-test-analyzer
 tools: Glob, Grep, Read, Bash
-description: Use this agent when you need to review a pull request for test coverage quality and completeness. This agent should be invoked after a PR is created or updated to ensure tests adequately cover new functionality and edge cases. Typical triggers include the user asking whether tests on a freshly-created PR are thorough, an updated PR adding new logic that needs coverage analysis, and a final pre-merge double-check before marking a PR ready. See "When to invoke" in the agent body for worked scenarios.
+description: Reviews whether a change's tests cover its new behaviour and edge cases, rating gaps 1 to 10. Used in the sdlc Prove phase on Track L and by /sdlc:review-pr when test files change.
 model: inherit
 color: cyan
 ---

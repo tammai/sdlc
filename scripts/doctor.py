@@ -73,7 +73,7 @@ def check_environment(r, root):
           None if ok else "install Python 3.10+ from python.org (not the Microsoft Store) and Git Bash on Windows")
     for tool, needed_for, status in (("git", "worktrees, freshness hook, commits", "fail"),
                                      ("gh", "/sdlc:code-review and PR commands", "warn"),
-                                     ("jq", "the /sdlc:ralph-loop stop hook (it silently stops looping without it)", "warn")):
+                                     ("jq", "the sdlc-extras Ralph loop's stop hook (it silently stops looping without it)", "warn")):
         found = shutil.which(tool)
         if tool == "jq" and not claude:
             r.add(g, tool, "skip", no_claude)

@@ -22,7 +22,7 @@ You will help the user create hookify rules to prevent unwanted behaviors. Follo
 - Look for examples of the behavior happening
 
 **If $ARGUMENTS is empty:**
-- Launch the conversation-analyzer agent to find problematic behaviors
+- Launch the `sdlc-extras:conversation-analyzer` agent to find problematic behaviors when the sdlc-extras companion plugin is installed; otherwise do the same analysis yourself, following the prompt below
 - Agent will scan user prompts for frustration signals
 - Agent will return structured findings
 

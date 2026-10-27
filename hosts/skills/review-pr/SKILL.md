@@ -42,11 +42,12 @@ Run a comprehensive pull request review using multiple specialized agents, each 
    Based on changes:
    - **Always applicable**: code-reviewer (general quality)
    - **If test files changed**: pr-test-analyzer
-   - **If comments/docs added, or diff stats flag comment-heavy files**: comment-analyzer
+   - **If comments/docs added, or diff stats flag comment-heavy files**: `sdlc-extras:comment-analyzer`
    - **If error handling changed**: silent-failure-hunter
-   - **If types added/modified**: type-design-analyzer
+   - **If types added/modified**: `sdlc-extras:type-design-analyzer`
    - **If UI files changed** (paths in `areas.ui`, from `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" config`): ui-reviewer, with `<docs>/design-system.md`. Its High findings are Critical. Add "visual check requested" to its brief only when the user asked for screenshots.
-   - **Before the other reviewers**: code-simplifier (polish and refine), so they review the code that will merge
+   - **Before the other reviewers**: `sdlc-extras:code-simplifier` (polish and refine), so they review the code that will merge
+   - The three `sdlc-extras:` agents come from the optional sdlc-extras companion plugin. When it isn't installed, skip them and say so in the summary; code-reviewer still covers comments and types at a coarser grain.
 
 5. **Launch Review Agents**
 

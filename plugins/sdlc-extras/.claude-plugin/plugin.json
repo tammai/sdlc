@@ -1,0 +1,19 @@
+{
+  "name": "sdlc-extras",
+  "displayName": "SDLC extras",
+  "version": "1.8.1",
+  "description": "Optional companions to the sdlc plugin: the Ralph loop (/sdlc-extras:ralph-loop), hookify's list, configure and help commands, and the conversation-analyzer, type-design-analyzer, comment-analyzer and code-simplifier agents that /sdlc:hookify and /sdlc:review-pr use when present.",
+  "author": {
+    "name": "Tâm Mai",
+    "email": "tammai.it@gmail.com"
+  },
+  "homepage": "https://github.com/tammai/sdlc",
+  "repository": "https://github.com/tammai/sdlc",
+  "license": "MIT",
+  "keywords": [
+    "sdlc",
+    "ralph-loop",
+    "hookify",
+    "code-review"
+  ]
+}

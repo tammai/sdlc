@@ -3,7 +3,7 @@ description: List all configured hookify rules
 allowed-tools: ["Glob", "Read", "Skill"]
 ---
 
-`${CLAUDE_PLUGIN_ROOT}` is the sdlc plugin's folder. Claude Code fills it in; on other agents it stays as written, so use the installed plugin's folder instead: the one above this file that holds `scripts/` and `skills/`.
+`${CLAUDE_PLUGIN_ROOT}` is the sdlc-extras plugin's folder (a companion to sdlc). Claude Code fills it in; on other agents it stays as written, so use the installed plugin's folder instead: the one above this file that holds `scripts/` and `skills/`.
 
 # List Hookify Rules
 
@@ -73,12 +73,12 @@ You haven't created any hookify rules yet.
 To get started:
 1. Use `/sdlc:hookify` to analyze conversation and create rules
 2. Or manually create `.claude/hookify.my-rule.local.md` files
-3. See `/sdlc:hookify-help` for documentation
+3. See `/sdlc-extras:hookify-help` for documentation
 
 Example:
 ```
 /sdlc:hookify Warn me when I use console.log
 ```
 
-Check `${CLAUDE_PLUGIN_ROOT}/examples/` for example rule files.
+See the sdlc plugin's `examples/` folder for example rule files.
 ```
