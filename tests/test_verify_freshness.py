@@ -2,9 +2,13 @@
 import json
 import os
 import subprocess
+import sys
 import unittest
 
 from helpers import HOOKS, PLUGIN_ROOT, ProjectTestCase, run_hook
+
+sys.path.insert(0, HOOKS)
+import verify_freshness as vf  # noqa: E402  (the same tree the hook computes)
 
 HOOK = ["python3", os.path.join(HOOKS, "verify_freshness.py")]
 
@@ -572,12 +576,25 @@ class VerifyFreshnessTest(ProjectTestCase):
         self.bash("npm test")
         self.assertAllows()
 
+    def verify_wrote(self, red=None, result="pass", tree=None):
+        """What verify.py leaves in .sdlc/.work/verify.json for a run on the current code."""
+        tree = tree or vf.worktree_tree(self.root)
+        path = self.path(".sdlc/.work/verify.json")
+        rec = json.load(open(path, encoding="utf-8")) if os.path.exists(path) else {"feature": "login"}
+        if red:
+            rec.setdefault("red", {})[red] = {"tree": tree, "exit": 1}
+        else:
+            rec["last"] = {"tree": tree, "result": result}
+        self.write(".sdlc/.work/verify.json", json.dumps(rec))
+
     def test_a_verify_run_counts_as_a_full_run_and_is_recorded_by_the_hook(self):
         self.set_state(stage=4, test_cmd="npm test")  # Build: verify runs there, before Prove
         self.write("src/a.ts", "")
         subprocess.run(["git", "-C", self.root, "init", "-q"], check=True)  # freshness needs a tree to compare against
-        # A run against another project or feature, or an interrupted one, proves nothing here
         verify = os.path.join(PLUGIN_ROOT, "scripts", "verify.py")
+        self.verify_wrote(red="AC-001")
+        self.verify_wrote()
+        # A run against another project or feature, or an interrupted one, proves nothing here
         self.bash(f'python3 "{verify}" --root /elsewhere')
         self.bash(f'python3 "{verify}" --root=/elsewhere')
         self.bash(f'cd sub && python3 "{verify}"')
@@ -586,14 +603,20 @@ class VerifyFreshnessTest(ProjectTestCase):
         self.bash('python3 scripts/verify.py')  # the project's own script of that name, not the plugin's
         self.bash(f'python3 "{verify}"', interrupted=True)
         self.assertFalse(os.path.exists(self.path(".sdlc/.work/verify-freshness.json")))
-        self.post("PowerShell", command=f'python3 "{verify}" red AC-001')  # Windows sessions also run it there
-        self.bash('python3 "${CLAUDE_PLUGIN_ROOT}/scripts/verify.py" --feature login')
+        # The shapes agents really use: a cd into the project, a pipe, an echo of the exit code (eval r1)
+        self.bash(f'cd "{self.root}" && python3 "{verify}" red AC-001 2>&1 | tail -40')
+        self.bash(f'cd "{self.root}" && python3 "{verify}"; echo exit=$?')
         with open(self.path(".sdlc/.work/verify-freshness.json"), encoding="utf-8") as f:
             st = json.load(f)
         self.assertIn("AC-001", st["verify"]["red"])
         self.assertEqual(st["verify"]["last"]["result"], "pass")
         self.assertFalse(st["scopes"]["(root)"]["stale"])
-
+        # A record for other code (left from an earlier run, or edited) isn't copied
+        self.verify_wrote(result="pass", tree="0" * 40)
+        self.write("src/a.ts", "changed")
+        self.bash(f'python3 "{verify}"')
+        with open(self.path(".sdlc/.work/verify-freshness.json"), encoding="utf-8") as f:
+            self.assertNotEqual(json.load(f)["verify"]["last"]["tree"], "0" * 40)
 
 if __name__ == "__main__":
     unittest.main()
