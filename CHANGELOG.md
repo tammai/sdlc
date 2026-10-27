@@ -2,7 +2,18 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
-## Unreleased
+## 2.0.0
+
+**Before you update:** finish every feature in progress with sdlc 1.8.1, or archive it (`Status: done`). 2.0 can't run a feature started under 1.x, and `/sdlc:upgrade` waits until none is active.
+
+### sdlc 2.0: the slim process core (ADR 0020)
+- **The same record at every size**, split by lifetime: `intent.md` (why, decisions, a bug's proof and cause), `spec.md` (acceptance criteria, each with its test, must-never-break lines, out of scope) and `review.md` (what was checked after the build) are kept; `plan.md` (how) is a working file `/sdlc:prune` may delete once merged.
+- **Intent before code.** The agent asks only when what, why or how isn't clear, one question at a time, at any size. A bug is proven first, then its root cause, then the fix. S doesn't stop before the build; on M and L you read and approve intent, spec and plan.
+- **The builder works like plain Claude:** no review agents during the build; tests still recorded failing first (`verify.py red`). The agent decides before the build whether it runs inline, in parts across fresh sessions, or with parallel subagents.
+- **Reviews are recommended after the build** (security; code at low, default or high depth; UI; advisor where available; or none). S runs the recommendation, M and L ask you. Each review runs once, on opus.
+- **Learn before merge:** lessons land in the project's knowledge in the same change. Then green locally and on CI (one CI fix, then it asks), and it stops at the PR.
+- **Phases are Define, Build, Review, Ship** (stages 1, 4, 5, 8); a 2.0 feature's state carries `Process: 2`.
+- **Removed:** Prove and its rounds, Lite/Full, `Prove: run|skip`, the verifier, ac-checker and code-architect agents, the relay, and the skills writing-specs, clarifying-specs, designing-solutions, analyzing-consistency, executing-plans, subagent-driven-development and writing-plans. Every command you type keeps its name.
 
 ### Changed
 - **The model security review runs only for security-touched work** (ADR 0019, amends 0015). The turn-end review and the commit review run only while an sdlc feature is active and its change is security-touched; outside a feature they don't run. Pattern warnings, secret blocking, the push review and Prove's security pass are unchanged. `SDLC_SECURITY_REVIEW=always` brings back the old behaviour.
