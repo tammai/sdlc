@@ -33,5 +33,16 @@ class LauncherTest(ProjectTestCase):
             self.assertEqual(f.read().strip(), remembered)
 
 
+    def test_without_a_plugin_data_folder_it_remembers_per_user_never_in_shared_temp(self):
+        env = {k: v for k, v in os.environ.items() if k != "CLAUDE_PLUGIN_DATA"}
+        env.update(HOME=self.root, XDG_CACHE_HOME="", TMPDIR=self.path("shared-tmp"))
+        os.makedirs(self.path("shared-tmp"))
+        p = subprocess.run([BASH, LAUNCHER, "-c", "print(7*6)"], capture_output=True, encoding="utf-8",
+                           errors="replace", env=env)
+        self.assertEqual(p.stdout.strip(), "42", p.stderr)
+        self.assertTrue(os.path.exists(self.path(".cache/sdlc/sdlc-hook-python")))
+        self.assertEqual(os.listdir(self.path("shared-tmp")), [])  # another user could plant or redirect it there
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -120,12 +120,22 @@ on_path() {
 }
 
 # Every hook starts through this launcher, so the probes below would run on each tool call. The interpreter a
-# probe accepted is remembered with where its name resolved (the plugin's data folder, else the temp folder) and
-# used directly next time, as long as the name still resolves to that same file (a builtin lookup, no process): a
-# PATH change that puts, say, the Microsoft Store stub first makes the probes run again.
-SG_CACHE="${CLAUDE_PLUGIN_DATA:-${TMPDIR:-/tmp}}/sdlc-hook-python"
+# probe accepted is remembered with where its name resolved and used directly next time, as long as the name still
+# resolves to that same file (a builtin lookup, no process): a PATH change that puts, say, the Microsoft Store stub
+# first makes the probes run again. The file lives in the plugin's data folder, else the user's own cache folder,
+# never a shared temp folder, where another user could plant it or a symlink in its place. It is trusted only when
+# the current user owns it, and written through a temp file renamed into place.
+sg_cache_dir="${CLAUDE_PLUGIN_DATA:-}"
+if [ -z "$sg_cache_dir" ] && [ -n "${HOME:-}" ]; then
+    sg_cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/sdlc"
+    mkdir -p "$sg_cache_dir" 2>/dev/null || sg_cache_dir=""
+fi
+SG_CACHE=""
+[ -n "$sg_cache_dir" ] && SG_CACHE="$sg_cache_dir/sdlc-hook-python"
 sg_cached=""
-[ -r "$SG_CACHE" ] && IFS= read -r sg_cached < "$SG_CACHE" 2>/dev/null || true
+if [ -n "$SG_CACHE" ] && [ -f "$SG_CACHE" ] && [ ! -L "$SG_CACHE" ] && [ -O "$SG_CACHE" ]; then
+    IFS= read -r sg_cached < "$SG_CACHE" 2>/dev/null || true
+fi
 sg_cached_name=${sg_cached%%$'\t'*}
 sg_cached_path=${sg_cached#*$'\t'}
 case "$sg_cached_name" in
@@ -137,9 +147,16 @@ case "$sg_cached_name" in
         fi ;;
 esac
 remember() {
-    local line
+    local line tmp
+    [ -n "$SG_CACHE" ] || return 0
     line="$*"$'\t'"$(type -P "${1%% *}")"
-    [ "$sg_cached" = "$line" ] || printf '%s\n' "$line" > "$SG_CACHE" 2>/dev/null || true
+    [ "$sg_cached" = "$line" ] && return 0
+    tmp=$(mktemp "$SG_CACHE.XXXXXX" 2>/dev/null) || return 0
+    if printf '%s\n' "$line" > "$tmp" 2>/dev/null; then
+        mv -f "$tmp" "$SG_CACHE" 2>/dev/null || rm -f "$tmp"
+    else
+        rm -f "$tmp"
+    fi
 }
 
 # How long the probes took, for the launcher_probe_max_ms / launcher_probe_ms
