@@ -40,13 +40,13 @@ Propose the *smallest* fitting track; size up only for a named signal, written i
 | M, `Flow: lite` | `native` (or `subagent`, standard) | no Prove: Build's passing `verify.py` | only when security-touched |
 | M, `Flow: full`, either risk | `native` | ac-checker and one light code-reviewer, both standard | only when security-touched: full, standard |
 | L | `tasks`, standard implementers | top | only when security-touched: full, top |
-| Backlog (slices) | `native` | none per slice; one Prove at Feature close on M full and L (reviewer top) | only when security-touched, at Feature close |
+| Backlog (slices) | `native` | none per slice; one Prove at Feature close, on every backlog (reviewer top) | only when security-touched, at Feature close |
 
 Tiers (Model Selection in `sdlc:subagent-driven-development`): cheap and standard are `sonnet`, passed with `effort: high`; top is `opus` (`fable` only when the user asks: `Top model: fable`). Never `haiku`. Every dispatch names its `model`; the model router denies a missing model, `haiku`, `fable` without the opt-in, and reviewers, the verifier or qa-tester below `opus` on `Track: L`.
 
 **`Build: native | subagent | tasks`**, from the table, shown in Define's approval and never asked separately (`state.py set` if the user changes it); `R/build.md` says what each does.
 
-**`Flow: lite | full`**: lite has no Prove (Build's passing `verify.py` is the evidence); full runs Prove, the ac-checker with light review. **`Prove: run | skip`** (M full and L): asked once in Define's approval, before Build, default `run`; with nobody to ask (autopilot, a headless run) it is `run`. `skip` takes the feature from Build to Ship like lite. **Security-touched** (`Risk: high`, or the diff touches `areas.sensitive` or `areas.migrations`): the only case for a security review, in Prove and at commit; otherwise the always-on pattern hooks only. Prove's high findings go back to Build to be fixed (`R/prove.md`).
+**`Flow: lite | full`**: lite has no Prove (Build's passing `verify.py` is the evidence); full runs Prove, the ac-checker with light review. **`Prove: run | skip`** (M full and L): asked once in Define's approval, before Build, default `run`; with nobody to ask (autopilot, a headless run) it is `run`. `skip` takes the feature from Build to Ship like lite, except that a security-touched change still gets its full security review in Stage 5 first. **Security-touched** (`Risk: high`, or the diff touches `areas.sensitive` or `areas.migrations`): the only case for a security review, in Prove and at commit; otherwise the always-on pattern hooks only. Prove's high findings go back to Build to be fixed (`R/prove.md`).
 
 ## State: always through `state.py`
 
@@ -56,11 +56,11 @@ Tiers (Model Selection in `sdlc:subagent-driven-development`): cheap and standar
 
 - **Phase header**, at every phase start: `▶ <Phase>   (track M, flow lite)` / `Using: <skills/agents/commands>` / `Gate: <exit criterion>`.
 - **Documents and the state file** are written with your file-writing tool, never through the shell (`cp`, `cat <<EOF`, `echo`, `printf`): they hold backticks, `$`, quotes and arrows that shell quoting breaks. "From a template" means: read the template, then write the filled file.
-- **Verified tree** (uncommitted and untracked work, real index untouched, `.sdlc/.work/` left out): the `tree` field of `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/verify.py" status`, typed out in full (a chained `git add && git write-tree` is refused in Prove). Before any commit: diff it against `Verified:` (`git diff --name-only`), ignoring `.sdlc/`, docs and test-only changes; anything left is unverified code, back to Prove.
+- **Verified tree** (uncommitted and untracked work, real index untouched, `.sdlc/.work/` left out): the `tree` field of `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/verify.py" status`, typed out in full (a chained `git add && git write-tree` is refused in Prove). Before any commit: diff it against `Verified:` (`git diff --name-only`), ignoring `.sdlc/`, docs and test-only changes; anything left is unverified code, back to Build: rerun `verify.py` there (S, M lite and `Prove: skip` then go on to Ship), and on a feature with Prove, through Prove again.
 
 ## Rules
 
-- One phase at a time; `state.py` at every move. A failed gate: stay, or step back one phase, with the reason. A code change after Prove's gate goes back to Prove.
+- One phase at a time; `state.py` at every move. A failed gate: stay, or step back one phase, with the reason. A code change after Build's or Prove's gate goes back to Build: rerun `verify.py` there (S, M lite and `Prove: skip` then go on to Ship), and on a feature with Prove, through Prove again.
 - **Ownership:** before advancing, compare `Owner:` with `git config user.email`; someone else's → say who (`Tool:`) and ask; on yes, `set` Owner and Tool and record the handover as a deviation. No `Owner:` → set yours.
 - **Advisor**, where available: at most twice per feature, before sending Define's approval and before Ship's commit. Not at the other phase gates.
 - **Hard stops, always ask:** Define's approval (not on S), anything that adds scope, the round cap and a requirement failing in two rounds (`R/prove.md`), merges, production deploys, DB migrations, anything irreversible. Everything else runs without asking: passing checks, and failed verify rounds below the round cap.

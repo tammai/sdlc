@@ -17,6 +17,6 @@
 - Optional loop for a single well-specified task with a machine-checkable finish, when the optional sdlc-extras companion plugin is installed: `/sdlc-extras:ralph-loop "<task>" --completion-promise "DONE" --max-iterations 15`.
 - Background: the security-guidance hooks warn on risky edits; hookify rules (if any) enforce team rules.
 - **Gate:** every plan task done; `$V` passes (every AC's test recorded red and now passing, every drift recorded with what, why and effect); no TODO without a ticket. Then:
-  - **No Prove** (S, M on `Flow: lite`, or `Prove: skip`): `state.py verified <f> <HEAD> <tree>` with the `tree` from `$V status`, then `state.py advance <f> 8 --gate pass` (Ship). A backlog slice instead commits as `backlog-slices.md` says.
+  - **No Prove** (S, M on `Flow: lite`, or `Prove: skip`): `state.py verified <f> <HEAD> <tree>` with the `tree` from `$V status`, then `state.py advance <f> 8 --gate pass` (Ship). A backlog slice instead commits as `backlog-slices.md` says. A security-touched change on `Prove: skip` first goes to Stage 5 for its full security review alone (`prove.md`).
   - **Prove** (M on `Flow: full` and L, `Prove: run`): `state.py advance <f> 5 --gate pass`.
   - **Back from Prove with findings**: fix them here, then `$V` and `state.py advance <f> 5` for the one re-verification (`prove.md`).

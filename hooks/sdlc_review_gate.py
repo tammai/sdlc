@@ -30,6 +30,10 @@ MAX_DEFER = 10
 MAX_WIDEN = 30
 NEVER_DEFER = re.compile(r"^(\.claude/|\.sdlc/(config\.json|state/)|\.github/|hooks/|\.codex/|\.cursor/|\.agents/"
                          r"|AGENTS\.md$|CLAUDE\.md$|\.mcp\.json$)")
+# Always reviewed, even when not security-touched: what steers the agent or this gate. Not .sdlc/state/: every Ship
+# and slice commit carries it, and the trust anchor already reports the fields that matter (Risk, Track, Flow, Prove)
+NEVER_SKIP = re.compile(r"^(\.claude/|\.sdlc/config\.json$|\.github/|hooks/|\.codex/|\.cursor/|\.agents/"
+                        r"|AGENTS\.md$|CLAUDE\.md$|\.mcp\.json$)")
 
 
 def _git(root, *args):
@@ -54,10 +58,10 @@ def _active_feature(root):
     return found[0] if len(found) == 1 else None
 
 
-def _touches_guarded_paths(root, shas):
+def _touches_guarded_paths(root, shas, guard=NEVER_DEFER):
     for s in shas:
         files = _git(root, "diff-tree", "-r", "--no-commit-id", "--name-only", "-z", "--no-renames", "-m", "--root", s)
-        if files is None or any(NEVER_DEFER.match(f) for f in files.split("\0") if f):
+        if files is None or any(guard.match(f) for f in files.split("\0") if f):
             return True
     return False
 
@@ -168,7 +172,8 @@ def decide(repo_root, shas, reviewed):
         if (point and int(stage.group(1)) < 5 and len(unreviewed) < MAX_DEFER
                 and not _touches_guarded_paths(repo_root, full)):
             return {"defer": True, "shas": [], "own": [], "range": None, "active": True}
-        if not _touches_guarded_paths(repo_root, full) and not _security_touched(repo_root, text, start, anchor, full):
+        if (not _touches_guarded_paths(repo_root, full, NEVER_SKIP)
+                and not _security_touched(repo_root, text, start, anchor, full)):
             # Not security-touched: no model review; marked reviewed so a later review doesn't widen over it
             return {"defer": False, "skip": True, "shas": full, "own": full, "range": None, "active": True}
         extra = [s for s in unreviewed if s not in full]

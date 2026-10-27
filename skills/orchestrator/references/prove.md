@@ -1,6 +1,6 @@
 # Prove (Stage 5): judge Build's evidence, review and security in one round
 
-**Who gets Prove.** M on `Flow: full` and L, unless the user chose `Prove: skip` before Build (Define's approval). S, M on `Flow: lite`, and `Prove: skip` go from Build straight to Ship on Build's passing `verify.py` (`build.md`'s gate). A feature split into slices or tasks gets one Prove, at the end (`backlog-slices.md`'s Feature close), never one per slice or task.
+**Who gets Prove.** M on `Flow: full`, L, and every backlog at its Feature close, unless the user chose `Prove: skip` before Build (Define's approval). S, M on `Flow: lite`, and `Prove: skip` go from Build straight to Ship on Build's passing `verify.py` (`build.md`'s gate), except that a security-touched change on `Prove: skip` still comes here for its full security review alone. A feature split into slices or tasks gets one Prove, at the end (`backlog-slices.md`'s Feature close), never one per slice or task.
 
 Entered from Build's gate (`state.py advance <f> 5 --gate pass`; Feature close: `advance <f> 5` from Stage 6). Old Stages 5–7 live here: a feature resumed at 6 or 7 picks up from what its Gate log shows. Stage 5 switches on the budget hook (every shell command other than the project's own is killed at 120 s, exit 124, and never runs in the background or under Monitor, so nothing is polled) and the freshness hook for every fix: a code change marks test results stale, a full run (`verify.py`, or the suite with no filters) marks them fresh, and a turn can't end stale.
 
@@ -16,9 +16,9 @@ Build produced the evidence (`build.md`): every acceptance criterion's test reco
 
 | Track | AC checker | Code reviewer | Also | Security, when security-touched | Re-verification |
 |---|---|---|---|---|---|
-| M, `Flow: full`, either risk | standard | one, standard, light brief | ui-reviewer on UI | full, standard | in-session `verify.py` |
-| L | standard | top | silent-failure-hunter; pr-test-analyzer; ui-reviewer on UI | full, top | in-session `verify.py` |
-| Feature close (M full, L) | standard, every AC | top, `Base..HEAD` | qa-tester; ui-reviewer on UI | full (top on L) | in-session `verify.py` |
+| M, `Flow: full`, either risk | standard | one, standard, light brief | ui-reviewer on UI | full, standard | fixes in Build, then `verify.py` and the AC checker on what failed |
+| L | standard | top | silent-failure-hunter; pr-test-analyzer; ui-reviewer on UI | full, top | fixes in Build, then `verify.py` and the AC checker on what failed |
+| Feature close (every backlog) | standard, every AC | top, `Base..HEAD` | qa-tester; ui-reviewer on UI | full (top on L) | fixes in Build, then `verify.py` and the AC checker on what failed |
 
 - **Old plan** (no `## Acceptance tests` in `plan.md`; `$V` says so): this feature keeps the previous round. Dispatch a fresh `sdlc:verifier` in place of the AC checker (the feature dir, the round number, the commands, whether a qa-tester runs), and re-verify fixes with a fresh verifier.
 - **`sdlc:ac-checker`** (standard tier): the feature dir; in a later round, only the AC ids that failed. It reads each acceptance criterion beside its named test (or what a `manual` row points to) and says whether the test proves it. It runs nothing. Never resume or message one from an earlier round.

@@ -65,6 +65,11 @@ class ReviewGateTest(ProjectTestCase):
         self.write(".sdlc/config.json", '{"areas": {"sensitive": ["nothing/**"], "migrations": []}}')
         self.commit("src/auth/token.ts", "t\n")
         self.assertFalse(sdlc_review_gate.decide(self.root, [self.head()[:7]], set()).get("skip"))
+        self.git("checkout", "-q", "-b", "ship", "main")
+        self.stage(8, base=self.head(), risk="low")
+        self.git("add", "-f", ".sdlc/state/login.md")  # Ship's commit carries the state file
+        self.commit("src/list.ts", "s\n")
+        self.assertTrue(sdlc_review_gate.decide(self.root, [self.head()[:7]], set()).get("skip"))
         self.git("checkout", "-q", "-b", "cased", "main")
         self.stage(8, base=self.head(), risk="low")
         self.commit("src/Auth/Login.ts", "l\n")  # macOS and Windows checkouts ignore case
