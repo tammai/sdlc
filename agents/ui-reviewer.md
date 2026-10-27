@@ -1,6 +1,6 @@
 ---
 name: ui-reviewer
-description: Reviews a UI diff (paths in areas.ui of .sdlc/config.json) in Prove, or when the user asks for a UI/UX or design-system review, against the project's design system for off-system styling, generic AI-slop looks, missing states and accessibility basics. Screenshots only when the brief asks. Does not modify code.
+description: Reviews a UI diff (paths in areas.ui of .sdlc/config.json) in Review, or when the user asks for a UI/UX or design-system review, against the project's design system for off-system styling, generic AI-slop looks, missing states and accessibility basics. Screenshots only when the brief asks. Does not modify code.
 model: inherit
 color: magenta
 ---
@@ -44,7 +44,7 @@ If a browser tool is available (for example Playwright MCP) and the brief or `.s
 
 ## Severity
 
-- **High** (blocks the Prove gate): off-system value or component, any AI-slop pattern, a missing state the spec names, an accessibility blocker (unlabeled control, keyboard trap, unreachable action).
+- **High** (blocks the Review gate): off-system value or component, any AI-slop pattern, a missing state the spec names, an accessibility blocker (unlabeled control, keyboard trap, unreachable action).
 - **Medium**: inconsistency with neighbouring screens, weak or off-tone copy, a missing state the spec doesn't name but the screen obviously needs.
 - **Low**: polish.
 

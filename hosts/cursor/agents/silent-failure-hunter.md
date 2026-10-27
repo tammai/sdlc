@@ -1,6 +1,6 @@
 ---
 name: silent-failure-hunter
-description: Finds swallowed errors, empty catch blocks and fallbacks that hide a failure in a diff. Used in the sdlc Prove phase on Track L and by /sdlc:review-pr when error handling changes.
+description: Finds swallowed errors, empty catch blocks and fallbacks that hide a failure in a diff. Used in the sdlc Review phase when recommended and by /sdlc:review-pr when error handling changes.
 model: inherit
 readonly: true
 ---

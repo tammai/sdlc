@@ -242,8 +242,8 @@ builder check.
 
 **Where it goes:** in a software repo,
 `<intents>/intent.md`, committed (features started before it was named
-that have `brainstorm.md`). The orchestrator turns it into `spec.md`
-(requirements) and, when a design runs, `design.md`.
+that have `brainstorm.md`). The orchestrator then writes `spec.md` and
+`plan.md` beside it.
 Otherwise, ask. Your human partner's preferences override both.
 
 **Builder check** (for a project): dispatch a fresh subagent with

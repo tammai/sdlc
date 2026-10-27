@@ -14,8 +14,8 @@ Usage: verify.py [--root DIR] [--feature NAME] [--timeout S] [red AC-nnn | statu
 `red AC-nnn`, run before the AC's code is written: runs that AC's test and records it failing (exit 0). A test that
   passes, can't be found or can't run is refused (exit 1, nothing recorded): it would prove nothing.
 Each run also writes the freshness hook's copy of itself (.sdlc/.work/verify-freshness.json).
-`status`: JSON for Prove. `reuse` is true only when the last run passed, the freshness hook's copy of it agrees
-  (same tree, every red AC), and the code hasn't changed since; otherwise `reason` says why and Prove reruns verify.
+`status`: JSON for Review. `reuse` is true only when the last run passed, the freshness hook's copy of it agrees
+  (same tree, every red AC), and the code hasn't changed since; otherwise `reason` says why and Review reruns verify.
 Stdlib only, Python 3.9+.
 """
 import argparse
@@ -243,7 +243,7 @@ def red(root, feature, ac, timeout=1800):
 
 
 def status(root, feature):
-    """Whether Prove can reuse the last verify: it passed, the hook's own copy agrees, and the code is unchanged."""
+    """Whether Review can reuse the last verify: it passed, the hook's own copy agrees, and the code is unchanged."""
     rec = load_record(root)
     if rec.get("feature") != feature:
         rec = {}

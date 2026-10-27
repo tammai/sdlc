@@ -8,10 +8,10 @@ These connect to outside services (they're MCP servers or need accounts/credenti
 | Define, Build | Current library docs | Context7 |
 | Define (design) | Large-codebase search | Serena, Sourcegraph, Greptile |
 | Define / `/sdlc:deploy` | Database | Prisma, Supabase, Neon, MongoDB |
-| Prove | Browser / e2e | Playwright, Chrome DevTools |
-| Prove | API tests | Postman |
-| Prove | Extra reviewers | CodeRabbit, Qodo, SonarQube |
-| Prove (security) | Deep scans | Claude Security (Anthropic; license doesn't allow bundling — install separately), Semgrep, Aikido, Sonatype Guide, Endor Labs |
+| Review | Browser / e2e | Playwright, Chrome DevTools |
+| Review | API tests | Postman |
+| Review | Extra reviewers | CodeRabbit, Qodo, SonarQube |
+| Review (security) | Deep scans | Claude Security (Anthropic; license doesn't allow bundling — install separately), Semgrep, Aikido, Sonatype Guide, Endor Labs |
 | Ship | PRs, CI status | GitHub, GitLab (the bundled commands also work with plain `gh`) |
 | `/sdlc:deploy` | Hosting | Vercel, Netlify, Railway, Cloudflare, Firebase, AWS (Deploy on AWS / aws-core / AWS Serverless), Azure, Terraform |
 | Operate (reference only) | Errors, metrics, flags | Sentry, Datadog, PostHog, PagerDuty |

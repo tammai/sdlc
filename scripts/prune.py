@@ -2,9 +2,10 @@
 """sdlc prune: delete the working files of finished features, keep their record.
 
 A feature qualifies when its state.md on the main branch says `Status: done` (so it's merged) and
-hasn't changed for --older-than days. Its plans (plan.md and the slices' plan-B<n>.md), reports, review and checklists
-go; intent, spec, design,
-retro and state stay, and on Risk: high so do review.md (its `## Security` section) and an older security.md. Git history keeps everything deleted.
+hasn't changed for --older-than days. Its reports, review and checklists go, and on a 1.x feature its plans
+(plan.md and the slices' plan-B<n>.md) too; intent, spec, design, retro and state stay, a 2.0 feature's (`Process: 2`)
+plans stay (they hold the how and the review), and on Risk: high so do review.md (its `## Security` section) and an
+older security.md. Git history keeps everything deleted.
 Usage: python3 prune.py [--root DIR] [--main REF] list [--older-than 45d]
        python3 prune.py [--root DIR] [--main REF] apply [--older-than 45d] FEATURE...
 Prints one JSON object. Stdlib only, Python 3.9+.
@@ -76,8 +77,11 @@ def candidate(root, ref, name, older_than):
         delete.remove("review.md")
     else:
         delete.append("security.md")
+    v2 = re.search(r"^Process:\s*2\b", state, re.M)  # sdlc 2.0: the plans are the record (how, and the review)
+    if v2:
+        delete.remove("plan.md")
     here = [f for f in delete if os.path.exists(os.path.join(root, loc["intents"], f))]
-    if os.path.isdir(folder):
+    if os.path.isdir(folder) and not v2:
         here += sorted(f for f in os.listdir(folder) if SLICE_PLAN.fullmatch(f))
     return {"feature": name, "age_days": age, "delete": here, "dir": loc["intents"]}
 

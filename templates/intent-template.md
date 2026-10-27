@@ -1,40 +1,36 @@
 # Intent: [FEATURE NAME]
 
-<!-- Written in Define, read first by every reviewer. Keep the headings: a person and a script both read them.
-     S: 10–20 lines in all. M: about a page. L: the full brainstormed design. A heading that doesn't apply: one line saying so. -->
+<!-- Why this change exists, for a reader months from now. Same headings at every size: S a line or two each,
+     M about a page, L the full interview's design. A heading that doesn't apply: one line saying so. -->
 
-## Intent and why
+**Spec:** [spec.md](spec.md) · **Plan:** [plan.md](plan.md)
 
-**Request (verbatim)**: [the request or ticket text, unedited]
+## What it's for
 
-[What the user wants and why: the problem, who has it, what changes for them when it's done.]
+**Request (verbatim):** [the request or ticket text, unedited]
 
-## Questions and answers
+[What the user wants, who it serves, and what changes for them when it's done.]
 
-- [each blocking question and the user's answer; "None asked" if none]
+## Why now
 
-## Approaches considered
+[What prompted it.]
 
-| Approach | Trade-offs |
-|---|---|
-| [A: one line] | [what it costs, what it risks, what it makes easy] |
-| [B: one line] | [...] |
+## The user's words
 
-## Chosen approach and why
+- [answers to the questions asked in Define, and anything else the user said that shaped what gets built; "None asked" if none]
 
-[Which one, and why it beats the others for this request. S and M: the agent's recommendation, confirmed or changed at Define's approval. L: the one the user picked.]
+## Decisions
 
-## The chosen approach in detail
+| Decision | Ruled out | Why |
+|---|---|---|
+| [the chosen approach, or a choice inside it] | [the alternative] | [why this one] |
 
-[What changes and where (files, modules, screens), the flow or data it touches, what stays untouched, and the risks. When a design runs, summarize design.md and link it.]
+<!-- On L the design lives here: structure, data flow, what stays untouched. There is no design.md. -->
 
-## Goals, non-goals, constraints
+## Bug: proof and cause
 
-- Goals: [...]
-- Non-goals: [what this deliberately leaves out]
-- Constraints: [stack, compatibility, performance, deadlines, anything fixed]
+[A bug only: the failing test or exact steps that show it, what they show, and the root cause (not the symptom). Otherwise: "Not a bug."]
 
-## Calls made, and what's left to the builder
+## Proposals not asked for
 
-- [decisions the agent made without asking, so the user can check them]
-- [what the builder decides]
+- [anything you'd add that neither the request nor a failure mode calls for; dropped unless the user keeps it. "None" if none]

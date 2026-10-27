@@ -548,7 +548,7 @@ def generate_ci(p, package=None):
         trigger = ["  pull_request:", *paths, "  push:", "    branches: [main, master]", *paths]
     lines = [
         f"# Managed by the sdlc plugin v{plugin_version()} (seeded: replaced on upgrade only while unedited).",
-        "# Generated from the commands in .sdlc/config.json: the same commands Prove runs.",
+        "# Generated from the commands in .sdlc/config.json: the same commands verify.py runs.",
         name, "", "on:", *trigger, "",
         "concurrency:", f"  group: {group}-${{{{ github.ref }}}}", "  cancel-in-progress: true", "",
         "permissions:", "  contents: read", "",
@@ -1364,7 +1364,7 @@ def build_parser():
     s = sub.add_parser("run-commands", help="run install and the verify plan once; record each exit in the lock")
     s.add_argument("--timeout", type=int, default=900, help="seconds per command (default 900)")
     s.set_defaults(fn=cmd_run_commands)
-    sub.add_parser("commands", help="scopes and the install/verify plan (what Prove and CI run)") \
+    sub.add_parser("commands", help="scopes and the install/verify plan (what verify.py and CI run)") \
         .set_defaults(fn=cmd_commands)
 
     s = sub.add_parser("preview", help="render a template to stdout without writing")

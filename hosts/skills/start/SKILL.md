@@ -1,6 +1,6 @@
 ---
 name: start
-description: Start or resume a feature through the SDLC pipeline (define → build → prove → ship, with learn)
+description: Start or resume a feature through the SDLC pipeline (define → build → review → ship, with learn)
 ---
 
 Use the `sdlc:orchestrator` skill now and follow it exactly.

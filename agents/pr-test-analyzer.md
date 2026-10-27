@@ -1,7 +1,7 @@
 ---
 name: pr-test-analyzer
 tools: Glob, Grep, Read, Bash
-description: Reviews whether a change's tests cover its new behaviour and edge cases, rating gaps 1 to 10. Used in the sdlc Prove phase on Track L and by /sdlc:review-pr when test files change.
+description: Reviews whether a change's tests cover its new behaviour and edge cases, rating gaps 1 to 10. Used in the sdlc Review phase when recommended and by /sdlc:review-pr when test files change.
 model: inherit
 color: cyan
 ---

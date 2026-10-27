@@ -33,7 +33,7 @@ MAX_WIDEN = 30
 _STEERING = r"\.claude/|\.github/|hooks/|\.codex/|\.cursor/|\.agents/|AGENTS\.md$|CLAUDE\.md$|\.mcp\.json$"
 NEVER_DEFER = re.compile(rf"^({_STEERING}|\.sdlc/(config\.json|state/))")
 # Always reviewed, even when not security-touched: what steers the agent or this gate. Not .sdlc/state/: every Ship
-# and slice commit carries it, and the trust anchor already reports the fields that matter (Risk, Track, Flow, Prove)
+# and slice commit carries it, and the trust anchor already reports the fields that matter (Risk, Track, Process)
 NEVER_SKIP = re.compile(rf"^({_STEERING}|\.sdlc/config\.json$)")
 
 

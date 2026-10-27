@@ -4,9 +4,6 @@
 PreToolUse on file tools. Claude Code names the subagent making a call in `agent_type` (`sdlc:<agent>`); calls
 from the main session or other plugins' agents get no output. Denies, with the reason the agent sees:
   - a reviewer editing any file but its report under .sdlc/.work/findings/: reviewers report, they don't fix
-  - the verifier editing anything but test-report.md (in .sdlc/ or the docs folder), .sdlc/baseline.md (it removes
-    items that pass), .sdlc/.work/redgreen/ (its worktree) and .sdlc/.work/probes/ (repro scripts): not source,
-    the spec, config, state or the hooks' state
   - the qa-tester reading or searching project files other than .sdlc/, the docs folder (docs_dir) and READMEs, or
     writing anything but qa-report.md and .sdlc/.work/qa/
 Paths outside the project (scratch dirs) are left alone. Bash stays open to all of them: they need it for git,

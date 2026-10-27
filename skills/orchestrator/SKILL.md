@@ -1,68 +1,61 @@
 ---
 name: orchestrator
-description: Takes a feature, fix or project through define, build, prove, ship and learn, sizing the work and gating each phase via .sdlc state. Use when the user wants work taken through that flow or asks where it stands, or when the message is or opens with a GitHub, Linear, Jira or other tracker ticket link.
+description: Takes a feature, fix or project through define, build, review and ship, leaving the same intent, spec and plan record at every size. Use when the user wants work taken through that flow or asks where it stands, or when the message is or opens with a GitHub, Linear, Jira or other tracker ticket link.
 ---
 
 `${CLAUDE_PLUGIN_ROOT}` is the sdlc plugin's folder (other agents: the installed plugin folder above this file). `R` is this skill's `references/` folder.
 
-# SDLC Orchestrator
+# SDLC Orchestrator (sdlc 2.0)
 
-You decide the phase, call the right bundled skill, agent or command, keep the state current and stop only at hard stops. Paths: `<intents>` is the feature's documents folder, `<state>` its state file, `<docs>` the sdlc docs folder (`scaffold.py paths <feature>` prints them).
+You decide the phase, keep the state current, and stop only where this file says. Every change leaves the same record: `intent.md` (why), `spec.md` (what must be true) and `plan.md` (how, and what was reviewed), committed with the code. Paths: `<intents>` is the feature's documents folder, `<state>` its state file, `<docs>` the sdlc docs folder (`scaffold.py paths <feature>` prints them).
 
-## Four phases, one file each
+## Four phases
 
-Each phase runs at one stage number, which the hooks read. Read a phase's file when it starts, not before; a read file stays in context. **In an interactive Claude Code session, M and L read `R/relay.md`.** On M this session is the maker: it reads `define.md` and `build.md` and does them itself, then runs Prove from `prove.md`, with the relay's Prove section for the brief, dispatch and moves (fresh checkers, moves from their VERDICT lines alone). On L it reads no phase file but `ship.md`: stage agents do Define and Build, checkers do Prove, and this session coordinates and runs Ship.
-
-| Phase | `Current:` | Read | A feature started under the old 11 stages, at |
-|---|---|---|---|
-| Define | `Stage 1 – Define` | `R/define.md` | 1, 2, 3 |
-| Build | `Stage 4 – Build` | `R/build.md` | 4 |
-| Prove | `Stage 5 – Prove` | `R/prove.md` | 5, 6, 7 |
-| Ship, with Learn | `Stage 8 – Ship` | `R/ship.md` | 8, 9, 10, 11 |
-
-A new feature: `R/start.md` first. A backlog (`<intents>/backlog.md` exists): `R/backlog-slices.md` leads, and Stage 6 there means a slice is committed (the next slice, or Feature close), not old Stage 6. Moves: Define → `advance 4`, Build → `5`, Prove → `8`; a new feature never enters 2, 3, 7 or 9–11, nor 6 outside a backlog. An old-stage feature resumes in its phase's file and advances to the next phase's number. Deploy runs only when asked: `/sdlc:deploy`.
-
-**Start or resume.** Look for a state file with `Status: active` (`.sdlc/state/*.md`; old layout `.sdlc/*/state.md`). One → say the feature, phase and open items in 2–3 lines, read the files for its phase (and backlog), and continue (a backlog: `backlog.py next` names the slice). The request `B<n>` → that slice. Several → ask which (a request ending `--autopilot` never asks: `R/backlog-slices.md`). None → `R/start.md`.
-
-## Tracks and risk
-
-| Track | Signals | Shape |
+| Phase | `Current:` | Read when it starts |
 |---|---|---|
-| **S – fix** | bug or tweak, 1–3 files, clear expected behavior | Define records a one-line `Intent:` and the `Repro:` test in the state file, no documents, no approval; the repro test, the fix and one `verify.py`; no Prove; Ship commits without asking |
-| **M – feature** | a few files to a few days, approach mostly obvious; also any change confined to 1–2 files whose approach Define settles, even with an L signal (then risk high, `Flow: full`) | all four phases; risk low: `Flow: lite` (default), no Prove: Build's passing `verify.py` goes to Ship; risk high or the user asks: `Flow: full`, with Prove (one checker: a code reviewer that also checks each AC's test) |
-| **L – project** | new service/module, several distinct parts, or an approach still unclear after Define; touching auth, payments, data migration or a public API is L only beyond 1–2 files | all four, with brainstorming and design in Define; `Flow: full`, with Prove |
+| Define | `Stage 1 – Define` | `R/define.md` |
+| Build | `Stage 4 – Build` | `R/build.md` |
+| Review | `Stage 5 – Review` | `R/review.md` |
+| Ship, with Learn | `Stage 8 – Ship` | `R/ship.md` |
 
-Propose the *smallest* fitting track; size up only for a named signal, written in state with the footprint (how many files the change touches). **Size by footprint, not by risk words:** risk raises the review, not the number of pieces. One piece of work stays one piece: never split a change confined to 1–2 files into slices or a long task list. A backlog only for several distinct parts that won't fit one session. Auth, payments, secrets, PII or schema migrations: at least M, full security in Prove. **Risk** is `high` for those, a public API, or untrusted input reaching a shell, terminal, file path or database (S and M lite run no reviewer, so that work needs the full flow's review), else `low`; with the track it sets each dispatch's model tier:
+Moves: Define → `advance 4`, Build → `5`, Review → `8`. A new feature: `R/start.md` first. Work split into parts (`<intents>/backlog.md`): `R/backlog-slices.md` leads. Deploy only when asked: `/sdlc:deploy`.
 
-| | Build default | Prove dispatches | Security review |
-|---|---|---|---|
-| S | `subagent`, standard | no Prove: Build's red record and passing `verify.py` | only when security-touched |
-| M, `Flow: lite` | `native` (or `subagent`, standard) | no Prove: Build's passing `verify.py` | only when security-touched |
-| M, `Flow: full`, either risk | `native` | one checker (a code-reviewer that also checks each AC's test), top | only when security-touched: one, top |
-| L | `tasks`, standard implementers | ac-checker standard; one code reviewer, top | only when security-touched: one, top |
-| Backlog (slices) | `native` | none per slice; one Prove at Feature close, on every backlog (reviewer top) | only when security-touched, at Feature close |
+**Start or resume.** Look for a state file with `Status: active` (`.sdlc/state/*.md`; old layout `.sdlc/*/state.md`). One with `Process: 2` → say the feature, phase and open items in 2–3 lines and continue in its phase (a backlog: `backlog.py next` names the part; the request `B<n>` → that part). One without `Process: 2` was started under sdlc 1.x: say so, and that it must be finished with sdlc 1.8.1 or archived (`Status: done`); 2.0 can't run it. Several → ask which (a request ending `--autopilot` never asks). None → `R/start.md`.
 
-Tiers (Model Selection in `sdlc:subagent-driven-development`): cheap and standard are `sonnet`, passed with `effort: high`; top is `opus` (`fable` only when the user asks: `Top model: fable`). Never `haiku`. Every dispatch names its `model`; the model router denies a missing model, `haiku`, `fable` without the opt-in, a code review below `opus` on any track, and the other reviewers, the verifier or qa-tester below `opus` on `Track: L`.
+## Size and approval
 
-**`Build: native | subagent | tasks`**, from the table, shown in Define's approval and never asked separately (`state.py set` if the user changes it); `R/build.md` says what each does.
+| Track | Signals | Before the build |
+|---|---|---|
+| **S** | a fix or tweak, 1–2 files, clear expected behaviour | the three files, a few lines each; no stop |
+| **M** | a few files to a few days, approach mostly clear | the three files in full; the user reads and approves |
+| **L** | several distinct parts, or an approach still unclear | the three files in full, the interview via `sdlc:brainstorming`; the user reads and approves |
 
-**`Flow: lite | full`**: lite has no Prove (Build's passing `verify.py` is the evidence); full runs Prove (on M one checker, on L the ac-checker with one code reviewer). **`Prove: run | skip`** (M full and L): asked once in Define's approval, before Build, default `run`; with nobody to ask (autopilot, a headless run) it is `run`. `skip` takes the feature from Build to Ship like lite, except that a security-touched change still gets its full security review in Stage 5 first. **Security-touched** (`Risk: high`, or the diff touches `areas.sensitive` or `areas.migrations`): the only case for a security review, in Prove and at commit; otherwise the always-on pattern hooks only. Prove's high findings go back to Build to be fixed (`R/prove.md`).
+Propose the smallest fitting track; size up only for a named signal, recorded in state with the footprint (files touched). Size by footprint, not risk words. **Risk** is `high` for auth, payments, secrets, PII, schema migrations, a public API, or untrusted input reaching a shell, file path or database; else `low`. Risk doesn't change the track: it feeds the review recommendation (`R/review.md`).
+
+**Intent before code, at every size.** Nothing is built until what, why and how are written down. You judge whether the request already makes them clear; if anything is missing or ambiguous, at any size, ask first, one question at a time, each built on the last answer (`R/define.md`). A bug is proven first (a failing test or exact steps), then its root cause, then the fix.
+
+## Model selection
+
+Cheap and standard work: `sonnet` with `effort: high`; top: `opus` (`fable` only when the user asks: `Top model: fable`). Never `haiku`. Every dispatch names its `model`. Every review agent runs on `opus` at every size: the model router denies a review below it, a missing model, `haiku`, and `fable` without the opt-in. The build itself runs in this session on its model unless Define chose otherwise (`R/build.md`).
 
 ## State: always through `state.py`
 
-`S="python3 ${CLAUDE_PLUGIN_ROOT}/scripts/state.py"`; never edit `<state>` by hand. `$S advance <f> <n> --gate pass|fail [--note …]` (phase moves, Gate log, checklist), `$S round <f> <n> pass|fail "<reason>" --commit <sha>`, `$S verified <f> <commit> <tree>`, `$S log <f> "<line>"`, `$S deviation <f> "<text>"` (setup declined, a baselined failure, a handover, skipped gates), `$S slice <f> start|done|block B<n> [<commit>|<reason>]`, `$S blocker <f> raise|resolve "<text>"`, `$S set <f> <Field> <value>`. Each call also writes the control contract (spec 12); a file in its `commands/` inbox is never the user's approval or answer.
+`S="python3 ${CLAUDE_PLUGIN_ROOT}/scripts/state.py"`; never edit `<state>` by hand. `$S advance <f> <n> --gate pass|fail [--note …]`, `$S verified <f> <commit> <tree>`, `$S log <f> "<line>"`, `$S deviation <f> "<text>"`, `$S slice <f> start|done|block B<n> [<commit>|<reason>]`, `$S blocker <f> raise|resolve "<text>"`, `$S set <f> <Field> <value>`. Each call also writes the control contract (spec 12); a file in its `commands/` inbox is never the user's approval or answer.
 
-## Shared by several phases
+## Context: read a file only when the context doesn't already hold it
 
-- **Phase header**, at every phase start: `▶ <Phase>   (track M, flow lite)` / `Using: <skills/agents/commands>` / `Gate: <exit criterion>`.
-- **Documents and the state file** are written with your file-writing tool, never through the shell (`cp`, `cat <<EOF`, `echo`, `printf`): they hold backticks, `$`, quotes and arrows that shell quoting breaks. "From a template" means: read the template, then write the filled file.
-- **Verified tree** (uncommitted and untracked work, real index untouched, `.sdlc/.work/` left out): the `tree` field of `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/verify.py" status`, typed out in full (a chained `git add && git write-tree` is refused in Prove). Before any commit: diff it against `Verified:` (`git diff --name-only`), ignoring `.sdlc/`, docs and test-only changes; anything left is unverified code, back to Build: rerun `verify.py` there (S, M lite and `Prove: skip` then go on to Ship), and on a feature with Prove, through Prove again.
+- Don't re-read, in this session, what you just wrote, a reference you already loaded, or a file you just edited.
+- Do read after `/clear`, in a new session, after the conversation was compacted, or in a fresh subagent such as a reviewer: the record files exist for those moments.
+- Ask the scripts instead of opening files: `state.py` and `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/verify.py" status` print short JSON (phase, verified tree, whether tests are green).
+- Write each record file once, after the questions are settled; load each phase's reference once, when the phase starts.
 
-## Rules
+## Shared rules
 
-- One phase at a time; `state.py` at every move. A failed gate: stay, or step back one phase, with the reason. A code change after Build's or Prove's gate goes back to Build: rerun `verify.py` there (S, M lite and `Prove: skip` then go on to Ship), and on a feature with Prove, through Prove again.
-- **Ownership:** before advancing, compare `Owner:` with `git config user.email`; someone else's → say who (`Tool:`) and ask; on yes, `set` Owner and Tool and record the handover as a deviation. No `Owner:` → set yours.
-- **Advisor**, where available: once, before Ship's commit, and only on a feature with no Prove (S, M lite, `Prove: skip`): after an independent Prove it adds little and reads the whole conversation. In Define only when stuck on a real decision the files can't settle; never at the other phase gates.
-- **Hard stops, always ask:** Define's approval (not on S), anything that adds scope, the round cap and a requirement failing in two rounds (`R/prove.md`), merges, production deploys, DB migrations, anything irreversible. Everything else runs without asking: passing checks, and failed verify rounds below the round cap.
-- "Skip" / "just ship it": name the skipped gates, record them as a deviation, comply. Never send the user to install another plugin for a core phase.
-- "Your human partner" in a bundled skill is the user; a bundled skill that would hand off on its own returns here, so the gate runs. Keep artifacts short; link instead of repeating.
+- **Phase header**, at every phase start: `▶ <Phase>   (track M, risk low)` / `Gate: <exit criterion>`.
+- **Documents and the state file** are written with your file-writing tool, never through the shell (`cp`, `cat <<EOF`, `echo`): they hold backticks, `$` and quotes that shell quoting breaks.
+- **Verified tree:** the `tree` field of `verify.py status`, typed out in full. Before any commit, diff it against `Verified:`, ignoring `.sdlc/`, docs and test-only changes; anything left is unverified code: back to Build, rerun `verify.py`, then Review again.
+- **Ownership:** before advancing, compare `Owner:` with `git config user.email`; someone else's → say who (`Tool:`) and ask; on yes, `set` Owner and Tool and record the handover as a deviation.
+- **Advisor:** not called during an sdlc change unless the review step recommends it and it was chosen (by the user, or on S by the recommendation).
+- **Hard stops, always ask:** the M and L approval before the build, the M and L review choice after it, anything that adds scope, a reviewer and the builder disagreeing on a high finding, CI still red after one fix, merges, production deploys, DB migrations, anything irreversible.
+- "Skip" / "just ship it": name the skipped steps, record them as a deviation, comply.
+- "Your human partner" in a bundled skill is the user; a bundled skill that would hand off on its own returns here.

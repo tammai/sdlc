@@ -1,6 +1,6 @@
 ---
 name: code-reviewer
-description: Reviews a diff for bugs, security problems and breaks from the project's rules, reporting only high-confidence issues. Read-only. Used in sdlc's Prove, by /sdlc:review-pr, and when the user asks for a review before a commit or PR. Tell it which changes to review.
+description: Reviews a diff for bugs, security problems and breaks from the project's rules, reporting only high-confidence issues. Read-only. Used in sdlc's Review, by /sdlc:review-pr, and when the user asks for a review before a commit or PR. Tell it which changes to review.
 model: inherit
 readonly: true
 ---

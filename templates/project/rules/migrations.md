@@ -9,4 +9,4 @@ paths:
 - Never edit a migration that has been applied anywhere; add a new one.
 - Every migration needs a tested rollback (down migration or written restore steps in the feature's `release.md`).
 - Prefer additive, backward-compatible steps (add column → backfill → switch reads → drop later) over destructive ones.
-- Work touching migrations is at least M track and gets a full security pass in Prove.
+- Work touching migrations is at least M track and always gets a security review after the build.

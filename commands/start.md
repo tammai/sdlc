@@ -1,5 +1,5 @@
 ---
-description: Start or resume a feature through the SDLC pipeline (define → build → prove → ship, with learn)
+description: Start or resume a feature through the SDLC pipeline (define → build → review → ship, with learn)
 argument-hint: "[what you want to build or fix | B<n> to run that backlog slice]"
 ---
 

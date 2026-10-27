@@ -14,7 +14,7 @@ Active only while an .sdlc 2.0 feature is in Stage 5 (Review), at every track. F
                                                                      edits via Bash, formatters, subagents); block if
                                                                      any scope is stale, naming what to rerun
   - PostToolUse / PostToolUseFailure Bash running scripts/verify.py,  -> the hook's own copy of the run under "verify"
-    in Build or Prove (Stage 4 or 5), alone or in any segment of a       (verify.json's entry for that run, when its tree
+    in Build or Review (Stage 4 or 5), alone or in any segment of a       (verify.json's entry for that run, when its tree
     chained command                                                     is the current code: `red AC-nnn`, or a full
                                                                      run's result, which marks every scope fresh); the
                                                                      trust anchor compares the two records later
@@ -386,7 +386,7 @@ def record_verify(root, feature, runs, exit_result=None):
     the code as it is now. Not the command's exit code: after `| tail` or `; echo $?` that's another command's. A
     later edit to verify.json, in another call, then no longer matches this copy (the trust anchor reports it). When
     the call's exit code is verify.py's own (`exit_result`), the entry must agree with it. A
-    full run also counts as a full test run of every scope, so Build's verify carries into Prove: the Stop check
+    full run also counts as a full test run of every scope, so Build's verify carries into Review: the Stop check
     compares that tree with the code, so later edits still make it stale. Without a tree nothing is recorded."""
     tree = worktree_tree(root)
     try:
