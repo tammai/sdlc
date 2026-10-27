@@ -119,6 +119,29 @@ on_path() {
     command -v "$1" >/dev/null 2>&1
 }
 
+# Every hook starts through this launcher, so the probes below would run on each tool call. The interpreter a
+# probe accepted is remembered with where its name resolved (the plugin's data folder, else the temp folder) and
+# used directly next time, as long as the name still resolves to that same file (a builtin lookup, no process): a
+# PATH change that puts, say, the Microsoft Store stub first makes the probes run again.
+SG_CACHE="${CLAUDE_PLUGIN_DATA:-${TMPDIR:-/tmp}}/sdlc-hook-python"
+sg_cached=""
+[ -r "$SG_CACHE" ] && IFS= read -r sg_cached < "$SG_CACHE" 2>/dev/null || true
+sg_cached_name=${sg_cached%%$'\t'*}
+sg_cached_path=${sg_cached#*$'\t'}
+case "$sg_cached_name" in
+    "py -3"|python3|python|python3.[0-9]|python3.[0-9][0-9])
+        sg_head=${sg_cached_name%% *}
+        if [ "$sg_cached_path" != "$sg_cached" ] && [ "$(type -P "$sg_head")" = "$sg_cached_path" ]; then
+            # shellcheck disable=SC2086
+            exec $sg_cached_name "$@"
+        fi ;;
+esac
+remember() {
+    local line
+    line="$*"$'\t'"$(type -P "${1%% *}")"
+    [ "$sg_cached" = "$line" ] || printf '%s\n' "$line" > "$SG_CACHE" 2>/dev/null || true
+}
+
 # How long the probes took, for the launcher_probe_max_ms / launcher_probe_ms
 # metrics the hook reports. Measurement only: `ask` is `v=$(probe ...)` with a
 # clock around it, and changes neither which interpreter runs nor how long a
@@ -185,6 +208,7 @@ for cmd in "python3.13" "python3.12" "python3.11" "python3.10"; do
     ask "$cmd" || { note_unreadable "$cmd"; continue; }
     v=${v%$'\r'}
     if is_sdk_compatible "$v"; then
+        remember "$cmd"
         exec "$cmd" "$@"
     fi
 done
@@ -201,6 +225,8 @@ for cmd in "python3" "python" "py -3"; do
     v=${v%$'\r'}
     if is_sdk_compatible "$v"; then
         # shellcheck disable=SC2086
+        # shellcheck disable=SC2086
+        remember $cmd
         exec $cmd "$@"
     fi
     # Anything that successfully reported a "M.m" string.
@@ -221,6 +247,7 @@ for cmd in "python3.14" "python3.15" "python3.16" "python3.17" "python3.18" "pyt
     v=$(probe "$cmd") || { note_unreadable "$cmd"; continue; }
     v=${v%$'\r'}
     if is_sdk_compatible "$v"; then
+        remember "$cmd"
         exec "$cmd" "$@"
     fi
 done
@@ -232,6 +259,8 @@ done
 # stop working on default macOS, which is a regression vs today.
 if [ -n "$sg_older" ]; then
     # shellcheck disable=SC2086
+    # shellcheck disable=SC2086
+    remember $sg_older
     exec $sg_older "$@"
 fi
 
@@ -288,7 +317,7 @@ fi
 # Exit 1, never 2: on an asyncRewake hook exit 2 means "the review has
 # findings, wake the model", and a launcher failure is not a finding.
 if [ -n "$sg_unreadable" ]; then
-    echo "security-guidance: found Python, but it cannot read the hook script (missing, or not visible to Python), so no security checks ran." >&2
+    echo "sdlc hooks: found Python, but it cannot read the hook script (missing, or not visible to Python), so this hook did not run." >&2
     echo "  hook script: $SG_TARGET" >&2
     echo "  on Windows this happens when python, python3 and py are Microsoft Store or Python Install Manager aliases;" >&2
     echo "  install Python from https://python.org and put it ahead of ...\\Microsoft\\WindowsApps in PATH" >&2
@@ -296,7 +325,7 @@ if [ -n "$sg_unreadable" ]; then
     echo '{"metrics": {"launcher_unreadable": 1}}'
     exit 1
 fi
-echo "security-guidance: no working Python 3 interpreter found." >&2
+echo "sdlc hooks: no working Python 3 interpreter found, so this hook did not run." >&2
 echo "  tried: python3.13 to python3.10, python3, python, py -3, python3.14 to python3.19" >&2
 echo "  on Windows, install Python from https://python.org (NOT the Microsoft Store)" >&2
 echo "  on macOS, install Python 3.10+ via Homebrew (\`brew install python\`)" >&2
