@@ -143,7 +143,7 @@ Intent before code, with the agent judging when to ask; questions one at a time.
 ## The agent's calls (for the user to check)
 
 - **Red-first testing stays:** `verify.py` keeps checking that each acceptance line's test was recorded failing before its code and passing after, and the drift check. "Builder like plain Claude" means no review agents during the build, not dropping test-first. The acceptance-to-test table stays in `plan.md` (`## Acceptance tests`), where `verify.py` reads it; `spec.md`'s acceptance lines carry the AC ids.
-- **Parts vs backlog:** parts are status lines in `plan.md`, used on M or L when the work won't fit one session. The existing backlog stays as a queue of separate changes (each its own record) that autopilot runs unattended, so `/sdlc:start B<n>` keeps working; slice-specific Stage 6 resting points go.
+- **Parts are the existing backlog slices** (`backlog.md`, a plan per part, `/sdlc:start B<n>`, autopilot), used on M or L when the work won't fit one session: they already resume from files and land together at feature close. (Revised in planning from "status lines in `plan.md`"; nothing the user decided changes.)
 - **Review options:** the plugin's own `code-reviewer` agent with three brief variants (low: correctness only; default: today's one-pass brief; high: plus a deeper pass on failure modes), which works on every supported agent. Security review is the `code-reviewer` with the security-only brief, plus the dependency audit. The advisor is offered only where the agent has one.
 - **Eval:** a later, separate step; this build ends at a release candidate. In measuring the limits, waiting on CI and the push aren't counted (plain Claude doesn't push); agent time runs to local green and the PR.
 
