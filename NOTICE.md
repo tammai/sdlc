@@ -35,4 +35,4 @@ Modified: command and skill references renamed to the `sdlc:` namespace; the thr
 Not included: Anthropic's `claude-security` plugin (its license reserves all rights). Install it separately if you want deep vulnerability scans.
 
 ## Everything else
-The orchestrator and managing-knowledge skills, the `verifier` agent, `hooks/verify_freshness.py`, the `start`, `status` and `knowledge-audit` commands, `scripts/scaffold.py`, `scripts/diff_stats.py`, `scripts/doctor.py`, `templates/knowledge/`, `templates/project/`, `tests/`, and `skills/orchestrator/references/` are original to this plugin, MIT licensed (`LICENSE`).
+The orchestrator and managing-knowledge skills, the `verifier` and `ac-checker` agents, `hooks/verify_freshness.py`, the `start`, `status` and `knowledge-audit` commands, `scripts/scaffold.py`, `scripts/diff_stats.py`, `scripts/doctor.py`, `scripts/verify.py`, `templates/knowledge/`, `templates/project/`, `tests/`, and `skills/orchestrator/references/` are original to this plugin, MIT licensed (`LICENSE`).

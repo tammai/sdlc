@@ -36,6 +36,8 @@ UNTIMED = {"cd", "pushd", "popd", "export", "unset", "set", "shopt", "alias", "s
 COMPOUND = {"if", "then", "else", "elif", "fi", "for", "while", "until", "do", "done", "case", "esac", "select",
             "function", "time", "{", "}", "(", ")", "[[", "!"}
 ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+VERIFY_SCRIPT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts", "verify.py")
+PLUGIN_VERIFY = re.compile(r"""^python3?(?:\.exe)?\s+(?:"([^"]+)"|(\S+))(?:\s+[\w.=-]+)*\s*$""")
 LEADING_CD = re.compile(r"""^\s*cd\s+("[^"]+"|'[^']+'|[^\s;&|]+)\s*&&\s*""")
 
 
@@ -61,11 +63,21 @@ def project_commands(root):
     return [c.strip() for s in sets if isinstance(s, dict) for c in s.values() if isinstance(c, str) and c.strip()]
 
 
+def is_plugin_verify(command):
+    """The plugin's own scripts/verify.py, alone: it runs only the project's commands and each acceptance test's own
+    Run command, so it counts as the project's (ADR 0013). A lookalike path or anything chained after it doesn't."""
+    m = PLUGIN_VERIFY.match(command)
+    if not m:
+        return False
+    return os.path.normcase(os.path.abspath(m.group(1) or m.group(2))) == os.path.normcase(VERIFY_SCRIPT)
+
+
 def is_project_command(command, commands):
     while LEADING_CD.match(command):
         command = LEADING_CD.sub("", command, count=1)
     command = command.strip()
-    return any(command == c or command.startswith(c) and command[len(c)].isspace() for c in commands)
+    return is_plugin_verify(command) or any(
+        command == c or command.startswith(c) and command[len(c)].isspace() for c in commands)
 
 
 def split_top_level(command):

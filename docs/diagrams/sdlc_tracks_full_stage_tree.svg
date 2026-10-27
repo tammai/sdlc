@@ -1,6 +1,6 @@
 <svg width="100%" viewBox="0 0 680 572" role="img" xmlns="http://www.w3.org/2000/svg">
 <title>SDLC tracks and their phases</title>
-<desc>Sizing picks the smallest fitting S, M or L track. Each track runs the four phases Define, Build, Prove and Ship with Learn; every track writes intent.md, spec.md and plan.md; S's are short, with no approval, and S dispatches no Prove checkers (the session runs the full suite once); M runs Flow lite by default, where Prove is one fresh verifier (full on high risk adds a light code review); L adds brainstorming and design in Define and full security in Prove. A dot marks phases that end by asking the user. Backlog slices loop Build, Prove and a commit, then a feature close. Deploy is the on-request command /sdlc:deploy on any track, not a phase.</desc>
+<desc>Sizing picks the smallest fitting S, M or L track. Each track runs the four phases Define, Build, Prove and Ship with Learn; every track writes intent.md, spec.md and plan.md; S's are short, with no approval, and every track's Build records each acceptance criterion's test failing before its code and ends with one passing verify.py run, which Prove reuses; S dispatches no Prove checkers; M runs Flow lite by default, where Prove is one fresh ac-checker reading each test against its criterion (full on high risk adds a light code review); L adds brainstorming and design in Define and full security in Prove. A dot marks phases that end by asking the user. Backlog slices loop Build, Prove and a commit, then a feature close. Deploy is the on-request command /sdlc:deploy on any track, not a phase.</desc>
 <style>
 text{font-family:anthropic-sans,-apple-system,"system-ui","Segoe UI",sans-serif;text-anchor:middle;dominant-baseline:central}
 .a{fill:none;stroke:#898781;stroke-width:1.5}
@@ -37,12 +37,12 @@ rect{stroke-width:.5}
 </g>
 <g class="run"><rect x="40" y="252" width="180" height="58" rx="4"/>
 <text class="r" x="130.0" y="266" font-weight="600">Build</text>
-<text class="r" x="130.0" y="283">repro test first</text>
+<text class="r" x="130.0" y="283">repro test red first</text>
 <text class="r" x="130.0" y="298">one implementer (sonnet)</text>
 </g>
 <g class="run"><rect x="40" y="318" width="180" height="58" rx="4"/>
 <text class="r" x="130.0" y="332" font-weight="600">Prove</text>
-<text class="r" x="130.0" y="349">no checkers: suite run once</text>
+<text class="r" x="130.0" y="349">no checkers: verify.py</text>
 <text class="r" x="130.0" y="364">security: hooks only</text>
 </g>
 <g class="run"><rect x="40" y="384" width="180" height="58" rx="4"/>
@@ -61,12 +61,12 @@ rect{stroke-width:.5}
 </g>
 <g class="run"><rect x="250" y="252" width="180" height="58" rx="4"/>
 <text class="r" x="340.0" y="266" font-weight="600">Build</text>
-<text class="r" x="340.0" y="283">native, test first</text>
+<text class="r" x="340.0" y="283">native, each AC red first</text>
 <text class="r" x="340.0" y="298">in this session</text>
 </g>
 <g class="run"><rect x="250" y="318" width="180" height="58" rx="4"/>
 <text class="r" x="340.0" y="332" font-weight="600">Prove</text>
-<text class="r" x="340.0" y="349">lite: one fresh verifier</text>
+<text class="r" x="340.0" y="349">lite: one fresh ac-checker</text>
 <text class="r" x="340.0" y="364">full: + light review</text>
 </g>
 <g class="run"><rect x="250" y="384" width="180" height="58" rx="4"/>

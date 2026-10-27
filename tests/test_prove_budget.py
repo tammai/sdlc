@@ -3,7 +3,7 @@ import json
 import os
 import unittest
 
-from helpers import HOOKS, ProjectTestCase, run_hook
+from helpers import HOOKS, PLUGIN_ROOT, ProjectTestCase, run_hook
 
 HOOK = ["python3", os.path.join(HOOKS, "prove_budget.py")]
 STATE = "# Feature: login\nStatus: active\nCurrent: Stage {stage} – Prove\n"
@@ -32,6 +32,11 @@ class ProveBudgetTest(ProjectTestCase):
 
     def test_project_commands_are_left_alone(self):
         self.assertEqual(self.call(5, command="cd app && npm test 2>&1 | tail -5", timeout=600000), {})
+        # verify.py runs only the project's commands and each acceptance test's own Run command (ADR 0013)
+        verify = os.path.join(PLUGIN_ROOT, "scripts", "verify.py")
+        self.assertEqual(self.call(5, command=f'python3 "{verify}" red AC-001', timeout=600000), {})
+        self.assertIn("updatedInput", self.call(5, command='python3 "/tmp/scripts/verify.py"'))  # a lookalike
+        self.assertNotEqual(self.call(5, command=f'python3 "{verify}"; node probe.js'), {})  # not exempt
 
     def test_background_runs_are_refused_only_in_prove(self):
         out = self.call(5, command="node probe.js", run_in_background=True)

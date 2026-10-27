@@ -11,7 +11,7 @@ The plugin installs and runs on its own in Claude Code, Codex, Cursor and Antigr
 | Claude Code | `/plugin marketplace add tammai/sdlc`, then `/plugin install sdlc@sdlc` | `.claude-plugin/` |
 | Codex | `codex plugin marketplace add tammai/sdlc`, then `codex plugin add sdlc@sdlc` | `.agents/plugins/marketplace.json`, then `.codex-plugin/plugin.json`: skills from `skills/` and `hosts/skills/` |
 | Cursor | Customize → Import from Repo, or put a clone in `~/.cursor/plugins/local` | `.cursor-plugin/`; agents from `hosts/cursor/agents/` |
-| Antigravity | `python3 scripts/hosts.py dist antigravity <folder>` in a clone, then `agy plugin install <folder>` (a direct `agy plugin install https://github.com/tammai/sdlc` loads only 3 of the 13 agents) | root `plugin.json`, `skills/`, `hosts/skills/`, `agents/` |
+| Antigravity | `python3 scripts/hosts.py dist antigravity <folder>` in a clone, then `agy plugin install <folder>` (a direct `agy plugin install https://github.com/tammai/sdlc` loads only 3 of the agents, checked when there were 13) | root `plugin.json`, `skills/`, `hosts/skills/`, `agents/` |
 
 ## User scenarios
 
@@ -58,7 +58,7 @@ Every `[enforced]` requirement in specs 02–06 rests on one of these mechanisms
 | Plugin hook: freshness, trust anchor, hookify guardrails | Stale results in Prove (Stage 5), changed anchors, team guardrails | enforced | enforced once the hooks are trusted (`/hooks`); guardrails only where Claude Code set them up | enforced; guardrails only where Claude Code set them up | enforced in the CLI (`dist` install); guardrails only where Claude Code set them up |
 | Plugin hook: role guard, model router, prove budget, security hooks | reviewers can't edit, dispatches name a model, Prove's 120 s command kill, security review | enforced | instructed | instructed | instructed |
 | Plugin script run by a skill | scaffold, doctor, `diff_stats.py` | enforced | enforced, if the agent finds the plugin folder | same | same |
-| Subagent roles | fresh verifier, read-only reviewers | enforced (tools per agent) | instructed: Codex agents can't be made read-only, and plugin agents aren't loaded | reviewers `readonly`; the verifier instructed | instructed: all 13 load from the `dist` copy; no read-only flag |
+| Subagent roles | ac-checker, fresh verifier (old plans), read-only reviewers | enforced (tools per agent) | instructed: Codex agents can't be made read-only, and plugin agents aren't loaded | reviewers and the ac-checker `readonly`; the verifier instructed | instructed: all 14 load from the `dist` copy; no read-only flag |
 | Generated CI (`sdlc-verify`) | the full test suite on the merged code | enforced | enforced | enforced | enforced |
 | Generated CI (`sdlc-invariants`) | test-report rounds, baseline growth, `[inferred]` tags | enforced | enforced | enforced | enforced |
 | Policy rules | code style, tests, migrations, sensitive areas, CI, UI | `.claude/rules/`, glob-scoped | `AGENTS.md` block, always loaded | same | same |

@@ -14,12 +14,12 @@ sdlc/
 │                            and hosts/<host>/hooks.json, root hooks.json (Antigravity's): built by scripts/hosts.py, never edited;
 │                            `hosts.py dist antigravity` builds Antigravity's install copy. hosts/hook.py (hand-written) runs
 │                            the hooks under Codex, Cursor and Antigravity
-├── agents/                  subagents: verifier, reviewers, code-explorer/architect, simplifier, …
+├── agents/                  subagents: ac-checker, verifier, reviewers, code-explorer/architect, simplifier, …
 ├── commands/                slash commands (/sdlc:start, setup, upgrade, eject, doctor, status, prune, deploy, context-diet, review-pr, …)
 ├── skills/                  skills; orchestrator/ is the conductor (a short core plus references/ read per phase), setting-up-projects/ runs setup/upgrade/eject
 ├── hooks/
 │   ├── hooks.json           which script runs on which event
-│   ├── verify_freshness.py  Prove (Stage 5; old Lite features: 5–6) stale/fresh test tracking (original)
+│   ├── verify_freshness.py  Prove (Stage 5; old Lite features: 5–6) stale/fresh test tracking, and its own copy of verify.py runs (original)
 │   ├── model_router.py      checks each subagent dispatch's model, logs dispatches (original)
 │   ├── role_guard.py        keeps the plugin's agents to their role's file access (original)
 │   ├── prove_budget.py      kills non-project shell commands at 120 s in Prove, no background runs (original)
@@ -35,6 +35,7 @@ sdlc/
 │   ├── scaffold.py          setup/upgrade/eject bookkeeping: lock, file classes, commands, CI generator
 │   ├── doctor.py            read-only health check
 │   ├── diff_stats.py        review facts for Prove, Public Surface check
+│   ├── verify.py            Build's one proof command: verify plan, each AC's red record and test, plan drift; `red`, `status`
 │   ├── hosts.py             builds the other agents' manifests from .claude-plugin/ and agents/ (CI checks them)
 │   ├── backlog.py           the next ready slice of a feature's backlog.md
 │   ├── state.py             every state change in one call: state.md plus the control contract (beside it, git-ignored)
@@ -61,7 +62,7 @@ sdlc/
 ├── CHANGELOG.md  NOTICE.md  LICENSE  README.md
 ```
 
-Original to this plugin: the orchestrator and setting-up-projects skills, `managing-knowledge`, `trimming-context`, the `verifier`, `qa-tester` and `ui-reviewer` agents, `verify_freshness.py`, `sdlc_review_gate.py`, `model_router.py`, `role_guard.py`, `prove_budget.py`, `trust_anchor.py`, `commands/deploy.md`, everything in `scripts/` except the ralph script, `templates/project/`, `templates/knowledge/`, `templates/design-system-template.md`, `templates/backlog-template.md`, `migrations/`, `tests/`, `docs/`. Everything else is vendored; `NOTICE.md` says what came from where and what was changed.
+Original to this plugin: the orchestrator and setting-up-projects skills, `managing-knowledge`, `trimming-context`, the `ac-checker`, `verifier`, `qa-tester` and `ui-reviewer` agents, `verify_freshness.py`, `sdlc_review_gate.py`, `model_router.py`, `role_guard.py`, `prove_budget.py`, `trust_anchor.py`, `commands/deploy.md`, everything in `scripts/` except the ralph script, `templates/project/`, `templates/knowledge/`, `templates/design-system-template.md`, `templates/backlog-template.md`, `migrations/`, `tests/`, `docs/`. Everything else is vendored; `NOTICE.md` says what came from where and what was changed.
 
 ## Dev loop
 

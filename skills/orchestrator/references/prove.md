@@ -8,7 +8,7 @@ Build produced the evidence (`build.md`): every acceptance criterion's test reco
 
 `V="python3 ${CLAUDE_PLUGIN_ROOT}/scripts/verify.py"`. On the review-ready commit:
 
-1. **Evidence.** `$V status`. `reuse: true`: the last verify passed, the hook's own copy agrees and the code hasn't changed since, so use it. Otherwise run `$V` once in this session; a FAIL goes back to Build with its failure lines.
+1. **Evidence.** `$V status`. `reuse: true`: the last verify passed, the hook's own copy agrees and the code hasn't changed since, so use it. Otherwise run `$V` once in this session; a FAIL goes back to Build with its failure lines. `verify.py` doesn't read `.sdlc/baseline.md`: when a project has one and only the test step fails, read the output yourself, and if every failure is listed there, log it with `state.py log` and go on (no reuse then; rerun `$V` after any later change).
 2. **Dispatch at the same time**, each fresh, on the same commit, what the track runs:
 
 | Track | AC checker | Code reviewer | Also | Security | Re-verification |
@@ -31,7 +31,23 @@ Build produced the evidence (`build.md`): every acceptance criterion's test reco
 
 ## Then
 
-1. **Log.** Append `## Round N — <time> — commit <hash>` to `<intents>/test-report.md`: the verify result (reused or rerun, and its time), the AC checker's line per AC, the `manual` ACs as "checked by reading, not by a test", and every drift entry from `plan.md`'s `## Deviations` (what, why, effect). Then `state.py round <f> <N> pass|fail "<one-line reason>" --commit <sha>`, and the reviews with `state.py log <f> "<summary>" --type review_done`.
+1. **Log.** Append a round to `<intents>/test-report.md` in this shape (the `sdlc-invariants` CI check reads the header, both tables and the verdict line):
+
+   ```markdown
+   ## Round <N> — <UTC time> — commit <hash>
+
+   | Check | Command | Result |
+   |---|---|---|
+   | Verify | `verify.py` | ✅ pass, reused from Build (41s) / ❌ … |
+
+   | Criterion | Evidence | Status |
+   |---|---|---|
+   | AC-001 … | `tests/x.py` › name: red at Build, passes; ac-checker: proves | ✅ |
+   | AC-002 … | manual: checked by reading, not by a test (<what the checker read>) | ✅ |
+
+   **Drift:** each `## Deviations` line from `plan.md` (what, why, effect), or none
+   **Verdict:** PASS | FAIL
+   ``` Then `state.py round <f> <N> pass|fail "<one-line reason>" --commit <sha>`, and the reviews with `state.py log <f> "<summary>" --type review_done`.
 2. **Fix every high finding together**, from all checkers and the audit, each with a failing test first (`sdlc:systematic-debugging` for anything unexplained; `Build: subagent`: back to the implementer).
    - An AC the checker says doesn't prove: fix its test (or its Run cell) so it would catch the behaviour missing, and record the change in `## Deviations` (what, why, effect). Its code already exists, so it can't be recorded red again; the fresh AC checker in step 3 reads the new test.
    - A failed qa scenario is a finding like any other; only a failure that needs a new requirement goes to the user.

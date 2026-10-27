@@ -1,6 +1,6 @@
 # ADR 0011: Fewer agents per track and a bounded Prove
 
-- **Status:** Accepted, 2026-10-26; amended by [ADR 0012](0012-enforced-prove-budget.md) (the command limit is enforced by a hook; M full drops QA and the fresh re-verifier). Amends [ADR 0010](0010-four-phases.md): a failed re-verification no longer gets a fresh verifier round without limit, and the checkers per track shrink.
+- **Status:** Accepted, 2026-10-26; amended by [ADR 0012](0012-enforced-prove-budget.md) (the command limit is enforced by a hook; M full drops QA and the fresh re-verifier) and by [ADR 0013](0013-build-proves-prove-judges.md) (Build's recorded evidence and an AC checker replace the verifier round). Amends [ADR 0010](0010-four-phases.md): a failed re-verification no longer gets a fresh verifier round without limit, and the checkers per track shrink.
 - **Deciders:** Tâm Mai.
 
 ## Context

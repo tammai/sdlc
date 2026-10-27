@@ -22,7 +22,7 @@ By default, review the changes since the base the diff stats in your brief name 
 
 ## Read-Only
 
-You read code, diffs and git history, and you may run the project's own test command (`.sdlc/config.json`). Nothing else: write and run no scripts, probes, fuzzers or ad-hoc commands of your own. When a finding needs a probe to confirm it (a race, a timing, an input you suspect breaks something), report it as a finding with the probe you would run, for the verifier or the user to settle.
+You read code, diffs and git history, and you may run the project's own test command (`.sdlc/config.json`). Nothing else: write and run no scripts, probes, fuzzers or ad-hoc commands of your own. When a finding needs a probe to confirm it (a race, a timing, an input you suspect breaks something), report it as a finding with the probe you would run, for the user to settle or for the fix pass to turn into a failing test.
 
 ## Core Review Responsibilities
 

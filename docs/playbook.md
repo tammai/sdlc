@@ -36,8 +36,8 @@ A feature's documents go in `<docs>/intents/<feature>/` (`<docs>` is `docs/sdlc`
 **Type:** `/sdlc:start fix: export button 500s when the report is empty` (or paste a GitHub issue, Linear or Jira link).
 
 1. **Define:** the agent sizes it S (bug, 1–3 files, clear expected behaviour) and writes three short files: `intent.md` (the bug, one or two fix options, the chosen one, assumptions), `spec.md` (1–3 requirements, the repro as an acceptance criterion) and `plan.md` (1–3 tasks). No approval.
-2. **Build:** one implementer subagent (`sonnet`, high effort) writes a failing test that reproduces the bug, then the fix, then runs the full suite, and reports the repro test failing before the fix and passing after it. The session doesn't write the fix itself.
-3. **Prove:** nothing is dispatched: the fix was built and verified in one place. The session runs the full suite once and checks that the implementer's report shows the repro test failing before the fix. A red suite goes back to the implementer.
+2. **Build:** one implementer subagent (`sonnet`, high effort) writes a failing test that reproduces the bug and records it failing with `verify.py red AC-001`, then the fix, then runs `verify.py`, and reports both results. The session doesn't write the fix itself.
+3. **Prove:** nothing is dispatched: the fix was built and verified in one place. The session runs `verify.py status` and reuses the passing run (or reruns `verify.py` once), which shows the repro test was recorded red. A FAIL goes back to the implementer.
 4. **Ship:** Learn adds any defect Prove fixed to `recurring-defects.md`, one commit, then your merge, PR or keep.
 
 **You decide:** merge, PR or keep. The round cap and a requirement failing twice ([6](#6-verify-keeps-failing)), and anything that adds scope, also stop it.
@@ -48,13 +48,13 @@ A feature's documents go in `<docs>/intents/<feature>/` (`<docs>` is `docs/sdlc`
 
 **Type:** `/sdlc:start add CSV export to the reports page`
 
-1. **Define:** blocking questions come once, in one numbered message (or none). Then `intent.md` (why, 2–3 approaches, the recommended one), `spec.md` (requirements, about 10 or fewer acceptance criteria, non-goals, failure modes) and `plan.md` (3–6 tasks, each with its files, first test, command and requirement, plus a Public Surface section listing everything new others can see). If the approach isn't obvious, `design.md` and its set come too.
-2. **You approve once.** The message lists the three paths, the recommended approach and the alternatives, every `[inferred]` item (each dropped unless you keep it), the tasks, the Public Surface and `Build: native`. Reply to change any of them: another approach, keep an inferred item, `Build: subagent`.
-3. **Build:** native, test first, from `plan.md`. Changes from the plan are written under its `## Deviations`.
-4. **Prove:** on `Flow: lite`, one fresh `verifier` on the commit, plus light security (dependency audit, hook findings); no reviewers. Findings are fixed together, failing test first, then the full suite once more in the session.
+1. **Define:** blocking questions come once, in one numbered message (or none). Then `intent.md` (why, 2–3 approaches, the recommended one), `spec.md` (requirements, about 10 or fewer acceptance criteria numbered `AC-001` onward, non-goals, failure modes) and `plan.md` (3–6 tasks, each with its files, first test, command and requirement, an `## Acceptance tests` table naming the test that proves each criterion, plus a Public Surface section listing everything new others can see). If the approach isn't obvious, `design.md` and its set come too.
+2. **You approve once.** The message lists the three paths, the recommended approach and the alternatives, every `[inferred]` item (each dropped unless you keep it), the tasks, the Public Surface, each acceptance criterion with its test (`manual` ones apart, with their reasons) and `Build: native`. Reply to change any of them: another approach, keep an inferred item, `Build: subagent`.
+3. **Build:** native, from `plan.md`. Per acceptance criterion: the test, `verify.py red AC-nnn` to record it failing, then the code. `verify.py` once at the end runs the checks, every criterion's test and the drift check. Changes from the plan are written under its `## Deviations` with what, why and effect; they never stop the build, and the end of Prove lists them.
+4. **Prove:** on `Flow: lite`, Build's `verify.py` run is reused (or rerun once), one fresh `ac-checker` reads each criterion beside its test, plus light security (dependency audit, hook findings); no reviewers. Findings are fixed together, failing test first, then `verify.py` once more in the session, and a fresh ac-checker on any criterion that failed.
 5. **Ship:** Learn, one commit, then your merge, PR or keep.
 
-Low-risk M work runs `Flow: lite`, as above. Say "use the full flow" to get `writing-specs` with its checklist, `writing-plans`, one light code-reviewer on `sonnet` (correctness, silent failures and security in one pass), a ui-reviewer on UI work in Prove, and fixes re-checked with the full suite in the session (a fresh verifier only when the verifier itself failed). High-risk M work always gets it, and so does a spec that needs a design decision the request doesn't settle.
+Low-risk M work runs `Flow: lite`, as above. Say "use the full flow" to get `writing-specs` with its checklist, `writing-plans`, one light code-reviewer on `sonnet` (correctness, silent failures and security in one pass), a ui-reviewer on UI work in Prove, and fixes re-checked in the session the same way. High-risk M work always gets it, and so does a spec that needs a design decision the request doesn't settle.
 
 **Good habits:** state non-goals up front; answer the questions briefly; challenge any addition you didn't ask for at the approval, not after the code exists. Too big for one session? See [19](#19-a-big-feature-becomes-a-backlog).
 
@@ -65,14 +65,14 @@ Low-risk M work runs `Flow: lite`, as above. Say "use the full flow" to get `wri
 1. **Define**, `Flow: full`: blocking questions first, then `brainstorming` writes `intent.md`, asking you to pick between approaches. It may offer a browser visual companion (needs Node).
 2. The design (`designing-solutions`) dispatches `code-explorer` and `code-architect` and writes `design.md`, `research.md`, `data-model.md`, `contracts/` and `quickstart.md`. Expect options: minimal, minimal plus one named extension, pragmatic. Minimal is recommended unless it fails a named requirement. `writing-plans` writes `plan.md`; `analyzing-consistency` checks every requirement has a task. One approval covers it all, with `Build: tasks`.
 3. **Build:** a git worktree, a fresh implementer per task and a review after each.
-4. **Prove:** top-tier verifier and code-reviewer, silent-failure-hunter, pr-test-analyzer and full security in one round, then a fresh verifier re-checks.
+4. **Prove:** Build's `verify.py` run, the ac-checker, a top-tier code-reviewer, silent-failure-hunter, pr-test-analyzer and full security in one round; fixes are re-checked with `verify.py` in the session.
 5. **Ship:** Learn also writes `retro.md` and a `knowledge/features/` page. Deploy only when you ask ([10](#10-merge-and-deploy)).
 
 **You decide:** Define's approval, merge, deploy, migrations.
 
 ## 4. Change something risky
 
-Auth, payments, secrets, PII, schema migrations: the work is **at least M**, `Risk: high`, and Prove runs **full security**. On L the verifier and reviewers run on the top tier, and the model-router hook denies a cheaper one; on M they run on `sonnet`, and full security is a standard-tier pass.
+Auth, payments, secrets, PII, schema migrations: the work is **at least M**, `Risk: high`, and Prove runs **full security**. On L the reviewers run on the top tier, and the model-router hook denies a cheaper one; on M they run on `sonnet`, and full security is a standard-tier pass.
 
 1. While you build, the security hooks warn on risky edits and review the diff at turn end. The commit review runs after `git commit`: on a feature branch, build commits wait and are reviewed together once Prove starts. Address each finding, or acknowledge it with a reason.
 2. Prove adds `feature-reviewer` and `code-reviewer` with a security-only brief (injection, authz, secrets, SSRF, XSS, unsafe deserialization, dependency risk), in the same round, plus the dependency audit. On a backlog this runs once, at feature close.
@@ -94,17 +94,17 @@ A new session needs no re-explaining: the state file and the three documents car
 
 ## 6. Verify keeps failing
 
-Each round, a **new** verifier runs everything fresh, so flaky results show up as flaky, not as pass-after-retry. (S has no verifier: its re-check is the full suite in the session.)
+Each round judges a `verify.py` run on the current code: Build's, reused when nothing changed since, or a new one. A **new** ac-checker reads the tests each round. (S has no checker: its re-check is `verify.py` in the session. A feature planned before ADR 0013, with no `## Acceptance tests`, still gets a new verifier each round.)
 
 | Round | What happens |
 |---|---|
-| Fails | The agent fixes the listed failures, failing test first, `systematic-debugging` for anything unexplained, then re-verifies without asking: a fresh verifier on L (and on the full flow when the verifier itself failed), the full suite in the session otherwise |
+| Fails | The agent fixes the listed failures, failing test first, `systematic-debugging` for anything unexplained, then re-verifies without asking: `verify.py` in the session, and a fresh ac-checker on the criteria that failed |
 | The same requirement fails in two rounds | It stops and brings you what still fails, what each round changed and a root-cause hypothesis |
 | Round 3 fails | The same stop |
 
-**A failure that existed before your change:** if `.sdlc/baseline.md` lists it, it doesn't fail the round. If not, the verifier reports it as new and may ask to baseline it; that's your call, recorded as a deviation. Baseline items that now pass are removed automatically.
+**A failure that existed before your change:** if `.sdlc/baseline.md` lists it, it doesn't fail a verifier round (features planned before ADR 0013); `verify.py` doesn't read the baseline yet, so on newer features it fails verify. If not, it's reported as new and the agent may ask to baseline it; that's your call, recorded as a deviation. Baseline items that now pass are removed automatically.
 
-**"Could not verify within budget":** the verifier and the qa-tester run every command that isn't the project's own with a 2-minute limit (a hook enforces it in Claude Code), and get 10 minutes per round. A criterion or scenario they couldn't settle in that time comes to you; it is never counted as passed. Run it yourself, or say how to make it quicker.
+**"Could not verify within budget":** the verifier (old plans) and the qa-tester run every command that isn't the project's own with a 2-minute limit (a hook enforces it in Claude Code), and get 10 minutes per round. A criterion or scenario they couldn't settle in that time comes to you; it is never counted as passed. Run it yourself, or say how to make it quicker.
 
 **A qa-tester scenario failed but the tests pass:** the tests prove something other than the spec. It's a finding like any other, fixed with a failing test that reproduces the steps. Only one that needs a new requirement comes to you. **"Not run":** the qa-tester lacked something it needed (a tool, a browser) and never installs anything. The reason is in `qa-report.md`: provide it, or check the scenario yourself. A scenario it couldn't work out how to run is a finding instead: the quickstart is missing a step.
 
@@ -266,7 +266,8 @@ It reports, per active feature:
 - `Track:` down, `Risk:` high → low, `Flow:` full → lite, `Top model:` or `Base:` changed;
 - a failing test added to `.sdlc/baseline.md`, or commands in `.sdlc/config.json` changed since `Base:`;
 - `spec.md` edited after Prove started;
-- skipping Prove, or leaving it with code changed since the last full test run (on S, a passing full run of the current code counts as Prove);
+- skipping Prove, or leaving it with code changed since the last full test run (an ac-checker on a passing full run of the current code counts as Prove; on S, that passing run alone);
+- `verify records disagree`: `.sdlc/.work/verify.json` differs from the freshness hook's own copy of the run, or is missing or damaged while the hook holds one;
 - on `Flow: lite`, stopping outside Build and Prove with untested code;
 - a feature stopping being active other than by finishing (a pause, a deleted state file);
 - a damaged trust-anchor record.
@@ -310,5 +311,5 @@ Autopilot won't start a session while a notice is open; its JSON `stopped` reaso
 | Decision | Owner |
 |---|---|
 | Track and risk | The agent proposes; you can override |
-| Verify verdict | The latest fresh verifier (on Lite and M full, the in-session suite after fixes; on S, the session's full-suite run) |
+| Verify verdict | The latest `verify.py` run on the current code and the latest fresh ac-checker (on S, `verify.py` alone; old plans: the latest fresh verifier) |
 | Fixing findings and re-running verify below the round cap | The agent, without asking |

@@ -1,6 +1,6 @@
 # ADR 0012: An enforced Prove budget, and M full without QA
 
-- **Status:** Accepted, 2026-10-26. Amends [ADR 0011](0011-track-cost.md): the 2-minute command limit is now enforced by a hook, which 0011 rejected, and M full drops the qa-tester and the fresh re-verifier.
+- **Status:** Accepted, 2026-10-26; amended by [ADR 0013](0013-build-proves-prove-judges.md) (the red-green run on Base and the fresh re-verifier are gone: Build records each test red, and Prove reuses its verify run). Amends [ADR 0011](0011-track-cost.md): the 2-minute command limit is now enforced by a hook, which 0011 rejected, and M full drops the qa-tester and the fresh re-verifier.
 - **Deciders:** Tâm Mai.
 
 ## Context
