@@ -2,7 +2,7 @@
 """One command that proves a feature: the project's verify plan, then every acceptance criterion against the test
 plan.md names for it (ADR 0013).
 
-Usage: verify.py [--root DIR] [--feature NAME] [--timeout S] [red AC-nnn]
+Usage: verify.py [--root DIR] [--feature NAME] [--timeout S] [red AC-nnn | status]
   Runs the verify plan (lint, typecheck, build, test from .sdlc/config.json, per package), then, for every `AC-nnn`
   in spec.md: a row in plan.md's `## Acceptance tests` table, a `manual` row's reason, the test file, a recorded red
   run, and the row's Run command passing. Writes the result to .sdlc/.work/verify.json and exits 0 on pass, 1 on a
@@ -12,6 +12,8 @@ Usage: verify.py [--root DIR] [--feature NAME] [--timeout S] [red AC-nnn]
   line naming it, with What:, Why: and Effect:.
 `red AC-nnn`, run before the AC's code is written: runs that AC's test and records it failing (exit 0). A test that
   passes, can't be found or can't run is refused (exit 1, nothing recorded): it would prove nothing.
+`status`: JSON for Prove. `reuse` is true only when the last run passed, the freshness hook's own copy of it agrees
+  (same tree, every red AC), and the code hasn't changed since; otherwise `reason` says why and Prove reruns verify.
 Stdlib only, Python 3.9+.
 """
 import argparse
@@ -214,6 +216,31 @@ def red(root, feature, ac, timeout=1800):
     return entry, None
 
 
+def status(root, feature):
+    """Whether Prove can reuse the last verify: it passed, the hook's own copy agrees, and the code is unchanged."""
+    rec = load_record(root)
+    if rec.get("feature") != feature:
+        rec = {}
+    try:
+        hook = json.loads(read(os.path.join(root, ".sdlc", ".work", "verify-freshness.json")) or "{}")
+    except ValueError:
+        hook = {}
+    hook = (hook.get("verify") or {}) if hook.get("feature") == feature else {}
+    last, hook_last = rec.get("last") or {}, hook.get("last") or {}
+    if last.get("result") != "pass":
+        reason = "no passing verify recorded"
+    elif hook_last.get("result") != "pass":
+        reason = "hook record missing or unknown"
+    elif hook_last.get("tree") != last.get("tree") or set(rec.get("red") or {}) - set(hook.get("red") or {}):
+        reason = "records disagree"
+    elif vf.worktree_tree(root) != last.get("tree"):
+        reason = "code changed since verify"
+    else:
+        reason = ""
+    return {"reuse": not reason, "reason": reason, "manual": last.get("manual", []), "drift": last.get("drift", []),
+            "red": sorted(rec.get("red") or {})}
+
+
 def active_feature(root):
     for name, f in sdlc_layout.features(root).items():
         text = read(os.path.join(root, f["state"])) or ""
@@ -227,7 +254,7 @@ def main(argv=None):
     ap.add_argument("--root", default=".")
     ap.add_argument("--feature")
     ap.add_argument("--timeout", type=int, default=1800)
-    ap.add_argument("action", nargs="?", choices=["red"])
+    ap.add_argument("action", nargs="?", choices=["red", "status"])
     ap.add_argument("ac", nargs="?")
     a = ap.parse_args(argv)
     root = os.path.abspath(a.root)
@@ -235,6 +262,9 @@ def main(argv=None):
     if not feature:
         print("verify: no active feature (pass --feature)")
         return 2
+    if a.action == "status":
+        print(json.dumps(status(root, feature), indent=2))
+        return 0
     if a.action == "red":
         if not a.ac or not AC_ID.fullmatch(a.ac):
             print("verify red: name one acceptance criterion, e.g. AC-001")

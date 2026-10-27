@@ -97,6 +97,22 @@ class VerifyTest(ProjectTestCase):
         self.assertEqual(code, 0, out)
         self.assertEqual(rec["last"]["drift"][0]["covered"], True)
 
+    def status(self):
+        code, out, _ = self.verify("status")
+        self.assertEqual(code, 0, out)
+        return json.loads(out)
+
+    def test_reuse_only_when_both_records_match_the_current_code(self):
+        self.spec()
+        self.plan([])
+        self.verify()
+        tree = self.record()["last"]["tree"]
+        self.write(".sdlc/.work/verify-freshness.json",  # the hook's copy of the same run
+                   json.dumps({"feature": "login", "verify": {"last": {"tree": tree, "result": "pass"}}}))
+        self.assertTrue(self.status()["reuse"])
+        self.write("src/late.py", "z = 3\n")  # an edit after verify
+        self.assertEqual(self.status()["reason"], "code changed since verify")
+
     def test_an_ac_without_a_row_fails(self):
         self.spec("AC-001", "AC-002")
         self.plan([("AC-001", "tests/t.py › ok", 'python3 -c "pass"')])
