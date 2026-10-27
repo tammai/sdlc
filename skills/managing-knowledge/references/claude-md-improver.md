@@ -1,8 +1,4 @@
----
-name: claude-md-improver
-description: Audit and improve CLAUDE.md files in repositories. Use when user asks to check, audit, update, improve, or fix CLAUDE.md files. Scans for all CLAUDE.md files, evaluates quality against templates, outputs quality report, then makes targeted updates. Also use when the user mentions "CLAUDE.md maintenance" or "project memory optimization".
-tools: Read, Glob, Grep, Bash, Edit
----
+<!-- Reference for managing-knowledge's Audit (was the claude-md-improver skill). Its own references are in claude-md-improver/. -->
 
 # CLAUDE.md Improver
 
@@ -34,7 +30,7 @@ find . -name "CLAUDE.md" -o -name ".claude.md" -o -name ".claude.local.md" 2>/de
 
 ### Phase 2: Quality Assessment
 
-For each CLAUDE.md file, evaluate against quality criteria. See [references/quality-criteria.md](references/quality-criteria.md) for detailed rubrics.
+For each CLAUDE.md file, evaluate against quality criteria. See [claude-md-improver/quality-criteria.md](claude-md-improver/quality-criteria.md) for detailed rubrics.
 
 **Quick Assessment Checklist:**
 
@@ -139,7 +135,7 @@ After user approval, apply changes using the Edit tool. Preserve existing conten
 
 ## Templates
 
-See [references/templates.md](references/templates.md) for CLAUDE.md templates by project type.
+See [claude-md-improver/templates.md](claude-md-improver/templates.md) for CLAUDE.md templates by project type.
 
 ## Common Issues to Flag
 

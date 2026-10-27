@@ -1,7 +1,4 @@
----
-name: requesting-code-review
-description: Use when completing tasks, implementing major features, or before merging to verify work meets requirements
----
+<!-- Reference for executing-plans and subagent-driven-development (was the requesting-code-review skill). -->
 
 `${CLAUDE_PLUGIN_ROOT}` is the sdlc plugin's folder. Claude Code fills it in; on other agents it stays as written, so use the installed plugin's folder instead: the one above this file that holds `scripts/` and `skills/`.
 

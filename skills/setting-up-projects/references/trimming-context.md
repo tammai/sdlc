@@ -1,7 +1,4 @@
----
-name: trimming-context
-description: Use when the user wants Claude Code to load less into every call for this project, asks which plugins or skills to turn off here, or runs /sdlc:context-diet. Estimates each plugin's and skill's per-call cost and proposes a .claude/settings.local.json that switches off the unrelated ones, after approval.
----
+<!-- Read by /sdlc:context-diet and setup's context-diet step (was the trimming-context skill). -->
 
 `${CLAUDE_PLUGIN_ROOT}` is the sdlc plugin's folder. Claude Code fills it in.
 

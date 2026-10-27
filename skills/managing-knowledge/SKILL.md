@@ -53,6 +53,8 @@ For each candidate (from a retro, a review, a debugging session, or the user say
 
 ## Audit (run when CLAUDE.md > 60 lines, or every few features)
 
+To check a CLAUDE.md's quality and propose targeted edits (the old claude-md-improver), follow [references/claude-md-improver.md](references/claude-md-improver.md).
+
 Go through CLAUDE.md line by line:
 - Only matters for some paths → move to the tier-2 rule for that area.
 - Explanation, example or history → move to a tier-3 doc; leave at most a one-line pointer.

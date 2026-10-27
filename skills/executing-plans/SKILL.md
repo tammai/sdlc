@@ -1,6 +1,6 @@
 ---
 name: executing-plans
-description: Use when executing an implementation plan in the current session as the implementer yourself — your human partner chose native execution, or no subagent tool is available
+description: Runs an implementation plan task by task in this session, test first, with one review of the whole branch at the end. Used by sdlc's Build with Build native on the full flow, or when the user asks to execute a plan natively.
 ---
 
 # Executing Plans
@@ -243,8 +243,8 @@ Run `../subagent-driven-development/scripts/review-package PLAN_FILE MERGE_BASE 
 (`opus`, or `fable` only if the user chose it; see
 sdlc:subagent-driven-development's Model Selection) — the whole-branch
 review is a judgment task — using
-sdlc:requesting-code-review's
-[code-reviewer.md](../requesting-code-review/code-reviewer.md), with the
+the reviewer prompt in
+[references/code-reviewer.md](references/code-reviewer.md), with the
 package path, the plan and spec paths, the plan's Review Focus section
 verbatim if it has one (the input classes and failure modes the plan's
 tests do not exercise — the reviewer checks each deliberately), and a

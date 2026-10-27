@@ -3,7 +3,7 @@
 
 Every enabled skill, agent and command is listed by name and description in each main-session call, and
 plugins can add MCP servers. This estimates that cost per source (plugins, personal skills, claude.ai-synced
-plugins and skills) and reads what the project is, so the trimming-context skill can propose what to switch off.
+plugins and skills) and reads what the project is, so /sdlc:context-diet (skills/setting-up-projects/references/trimming-context.md) can propose what to switch off.
 Only two verdicts are decided here: standalone copies of plugins sdlc bundles, and LSPs by language.
 Read-only. Usage: python3 context_diet.py [--home DIR] [--root DIR]
 Prints one JSON object. Stdlib only, Python 3.9+.

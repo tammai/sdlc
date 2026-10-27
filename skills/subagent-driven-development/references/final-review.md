@@ -11,8 +11,8 @@ branch started from, e.g. `git merge-base main HEAD`) and include the
 printed path in the final review dispatch, so the final reviewer reads
 one file instead of re-deriving the branch diff with git commands. Dispatch
 on the top tier (see SKILL.md's Model Selection), using
-sdlc:requesting-code-review's
-[code-reviewer.md](../../requesting-code-review/code-reviewer.md). Point it at
+the reviewer prompt in
+[code-reviewer.md](../../executing-plans/references/code-reviewer.md). Point it at
 the ledger's deferred-minor and parked lines so it can triage which must be
 fixed before merge.
 

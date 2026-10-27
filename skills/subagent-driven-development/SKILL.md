@@ -1,6 +1,6 @@
 ---
 name: subagent-driven-development
-description: Use when executing implementation plans with independent tasks in the current session
+description: Runs an implementation plan with a fresh implementer subagent and a review per task. Used by sdlc's Build with Build tasks (Track L), or when the user asks for subagent-driven execution.
 ---
 
 # Subagent-Driven Development
