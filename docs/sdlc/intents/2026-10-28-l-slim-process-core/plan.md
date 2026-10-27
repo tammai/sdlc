@@ -212,7 +212,7 @@
 - Rewrite: `templates/intent-template.md`, `spec-template.md`, `plan-template.md` (brainstorm goal 3's sections; an S fills each in a line or two).
 - Delete: `references/prove.md`.
 
-- [ ] **Step 1:** Write each file from the brainstorm, in the repo's plain style (short sentences, no process jargon to the user). SKILL.md names the advisor rule: not called during an sdlc change unless the review step recommends it.
+- [ ] **Step 1:** Write each file from the brainstorm, in the repo's plain style (short sentences, no process jargon to the user). SKILL.md names the advisor rule: not called during an sdlc change unless the review step recommends it. SKILL.md also states the context rule from the brainstorm: read a file only when the context doesn't already hold it (no re-reads of what this session wrote, loaded or edited; read after /clear, a new session, compaction or in a subagent; ask state.py and verify.py status instead of opening state.md or logs; write each record file once; load each phase reference once).
 - [ ] **Step 2:** Self-check against the brainstorm, goal by goal: each goal is said in exactly one reference, and nothing names Prove rounds, the verifier, the ac-checker, the relay, Lite/Full or `Prove: skip`. Check with `grep -rniE "prove round|verifier|ac-checker|relay|flow: lite|prove: skip" skills templates commands agents`. The only hits allowed are 1.x refusal text.
 - [ ] **Step 3:** Run `py -3.10 scripts/hosts.py build && py -3.10 scripts/hosts.py check` and `claude plugin validate .`.
 - [ ] **Step 4: Commit** `feat!: the 2.0 flow (intent before code, reviews recommended after the build, learn before merge)`.
