@@ -1,7 +1,7 @@
 ---
 name: ac-checker
 description: Prove-phase acceptance checker. Spawn a NEW instance each round. Reads each acceptance criterion in the spec beside the test plan.md names for it, and says whether that test proves the criterion. Runs nothing and does not modify code.
-tools: Read, Grep, Glob
+tools: Read, Grep, Glob, Write
 model: inherit
 color: cyan
 ---
@@ -36,4 +36,4 @@ AC-003: manual: the badge uses the `success` token as the AC says; colour on scr
 Verdict: PASS | FAIL
 ```
 
-FAIL when any AC does not prove, or a manual AC's change doesn't do what it says.
+FAIL when any AC does not prove, or a manual AC's change doesn't do what it says. When the brief names a report path under `.sdlc/.work/findings/`, write this there and answer with the path only; you write nothing else.

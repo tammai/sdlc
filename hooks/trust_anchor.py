@@ -12,7 +12,7 @@ check, so this can't prevent a change; it makes one visible. For each active fea
   - `spec.md` changed after the feature entered Stage 5, or, on S (no spec), the state file's `Repro:` line
   - the feature left Stage 5 while code differed from its last full test run, or moved past Stage 5 without it
     (a verifier dispatched in Stage 5 since the last Stop counts, since a turn can run several stages; so does an
-    ac-checker on a passing full run of the current code, and that passing run alone on S, M with `Flow: lite`
+    ac-checker on a passing full run of the current code (on M, the one checker: a code-reviewer), and that passing run alone on S, M with `Flow: lite`
     or `Prove: skip`, which have no Prove)
   - verify.py's record of its last run differs from the freshness hook's own copy (a hand-edited record)
   - on `Flow: lite`, a Stop outside Stages 4-6 finds code that differs from the last full test run (one notice
@@ -132,8 +132,10 @@ def check(root, name, text, anchor, shown):
     m_lite = re.search(r"^Track:\s*m\b", text, re.M | re.I) and re.search(r"^Flow:\s*lite\b", text, re.M | re.I)
     skipped = re.search(r"^Prove:\s*skip\b", text, re.M | re.I)  # the user chose it before Build
     since = anchor.get("stop_time")
+    # M's one checker is a code-reviewer that also reads each AC beside its test; L keeps a separate ac-checker
+    m_checker = re.search(r"^Track:\s*m\b", text, re.M | re.I) and dispatched_since(root, since, "sdlc:code-reviewer")
     if (prev is not None and prev < 5 < (st or 0) and not dispatched_since(root, since, "sdlc:verifier")
-            and not ((s_track or m_lite or skipped or dispatched_since(root, since, "sdlc:ac-checker"))
+            and not ((s_track or m_lite or skipped or m_checker or dispatched_since(root, since, "sdlc:ac-checker"))
                      and suite_passed(root, name))):
         notices.append(f"went from Stage {prev} to Stage {st} without Stage 5")
     # The Lite flow re-verifies fixes in-session, so outside the build-verify-review loop (Stages 4-6) the code must

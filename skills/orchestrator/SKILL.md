@@ -38,7 +38,7 @@ Propose the *smallest* fitting track; size up only for a named signal, written i
 |---|---|---|---|
 | S | `subagent`, standard | no Prove: Build's red record and passing `verify.py` | only when security-touched |
 | M, `Flow: lite` | `native` (or `subagent`, standard) | no Prove: Build's passing `verify.py` | only when security-touched |
-| M, `Flow: full`, either risk | `native` | ac-checker standard; one code-reviewer, standard (top on risk high) | only when security-touched: one, standard |
+| M, `Flow: full`, either risk | `native` | one checker (a code-reviewer that also checks each AC's test), standard (top on risk high) | only when security-touched: one, standard |
 | L | `tasks`, standard implementers | ac-checker standard; one code reviewer, top | only when security-touched: one, top |
 | Backlog (slices) | `native` | none per slice; one Prove at Feature close, on every backlog (reviewer top) | only when security-touched, at Feature close |
 

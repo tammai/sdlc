@@ -155,6 +155,20 @@ class TrustAnchorTest(ProjectTestCase):
         self.state(stage=8, risk="low")
         self.assertIsNone(self.stop())
 
+    def test_on_m_the_one_checker_passes_stage_5_but_on_l_it_does_not(self):
+        # M's checker is a code-reviewer that also reads each AC beside its test; L keeps a separate ac-checker
+        for track, notice in (("M", False), ("L", True)):
+            self.state(stage=4, risk="low", track=track)
+            self.stop()
+            self.write("src/login.ts", f"export const a = '{track}'\n")
+            self.state(stage=5, risk="low", track=track)
+            self.full_run()
+            self.dispatch("sdlc:code-reviewer")
+            self.state(stage=8, risk="low", track=track)
+            out = self.stop()
+            self.assertEqual(bool(out and "without Stage 5" in out.get("systemMessage", "")), notice, track)
+            self.prompt()
+
     def test_m_lite_goes_from_build_to_ship_on_a_passing_verify_but_m_full_needs_prove(self):
         self.state(stage=4, risk="low", flow="lite")
         self.stop()
