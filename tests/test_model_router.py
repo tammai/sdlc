@@ -34,9 +34,13 @@ class ModelRouterTest(ProjectTestCase):
         self.assertEqual(out["hookSpecificOutput"]["permissionDecision"], "deny")
         self.assertIn("sonnet", out["hookSpecificOutput"]["permissionDecisionReason"])
 
-    def test_m_qa_tester_runs_on_sonnet_even_on_high_risk(self):
-        self.write(".sdlc/login/state.md", "# login\nStatus: active\nProcess: 2\nTrack: M\nRisk: high\nTop model: opus\n")
-        self.assertIsNone(self.dispatch(subagent_type="sdlc:qa-tester", model="sonnet"))
+    def test_every_review_runs_on_opus_at_every_size(self):
+        # 2.0: each review the agent recommends runs once, fresh, on the top tier, whatever the track
+        self.write(".sdlc/login/state.md", "# login\nStatus: active\nProcess: 2\nTrack: S\nRisk: low\nTop model: opus\n")
+        for agent in ("sdlc:ui-reviewer", "sdlc:qa-tester", "sdlc:pr-test-analyzer", "sdlc:silent-failure-hunter"):
+            self.assertEqual(self.dispatch(subagent_type=agent, model="sonnet")
+                             ["hookSpecificOutput"]["permissionDecision"], "deny", agent)
+        self.assertIsNone(self.dispatch(subagent_type="sdlc:ui-reviewer", model="opus"))
 
     def test_a_code_reviewer_runs_on_opus_on_every_track_and_risk(self):
         # The user's decision: the review stays on the top tier, M at risk low included (the checker is a code-reviewer)
@@ -45,7 +49,7 @@ class ModelRouterTest(ProjectTestCase):
         self.assertIsNone(self.dispatch(subagent_type="general-purpose", model="sonnet"))  # the maker keeps its tier
 
     def test_dispatch_without_a_model_is_denied(self):
-        out = self.dispatch(subagent_type="sdlc:verifier")
+        out = self.dispatch(subagent_type="sdlc:code-reviewer")
         self.assertEqual(out["hookSpecificOutput"]["permissionDecision"], "deny")
         self.assertIn("name the subagent's model", out["hookSpecificOutput"]["permissionDecisionReason"])
 
@@ -53,18 +57,12 @@ class ModelRouterTest(ProjectTestCase):
         os.remove(self.path(".sdlc/login/state.md"))
         self.write(".sdlc/config.json", json.dumps({"docs_dir": "docs/sdlc"}))
         self.write(".sdlc/state/login.md", "# login\nStatus: active\nProcess: 2\nTrack: M\nRisk: low\nTop model: opus\n")
-        out = self.dispatch(subagent_type="sdlc:verifier")
+        out = self.dispatch(subagent_type="sdlc:code-reviewer")
         self.assertEqual(out["hookSpecificOutput"]["permissionDecision"], "deny")
 
     def test_fable_with_the_users_opt_in_goes_ahead(self):
         self.write(".sdlc/login/state.md", "# login\nStatus: active\nProcess: 2\nTrack: M\nRisk: low\nTop model: fable\n")
         self.assertIsNone(self.dispatch(subagent_type="sdlc:code-reviewer", model="fable"))
-
-    def test_track_l_floor_applies_to_reviewers_only(self):
-        self.write(".sdlc/login/state.md", "# login\nStatus: active\nProcess: 2\nTrack: L\nRisk: low\nTop model: opus\n")
-        self.assertEqual(self.dispatch(subagent_type="sdlc:verifier", model="sonnet")
-                         ["hookSpecificOutput"]["permissionDecision"], "deny")
-        self.assertIsNone(self.dispatch(subagent_type="general-purpose", model="sonnet"))
 
     def test_forks_are_exempt(self):
         self.assertIsNone(self.dispatch(subagent_type="fork"))
@@ -78,7 +76,7 @@ class ModelRouterTest(ProjectTestCase):
 
     def test_no_active_feature_is_silent(self):
         self.write(".sdlc/login/state.md", "# login\nStatus: done\n")
-        self.assertIsNone(self.dispatch(subagent_type="sdlc:verifier"))
+        self.assertIsNone(self.dispatch(subagent_type="sdlc:code-reviewer"))
 
 
 if __name__ == "__main__":

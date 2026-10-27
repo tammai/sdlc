@@ -137,16 +137,6 @@ class VerifyFreshnessTest(ProjectTestCase):
         self.bash("npm test")
         self.assertAllows()
 
-    def test_lite_flow_keeps_tracking_through_stage_6(self):
-        # The Lite flow re-verifies review fixes with an in-session full run instead of a new verifier round
-        self.set_state(flow="lite")
-        self.bash("npm test")
-        self.set_state(stage=6, flow="lite")
-        self.edit("src/login.ts")
-        self.assertIn("src/login.ts", self.assertBlocks()["reason"])
-        self.bash("npm test")
-        self.assertAllows()
-
     def test_full_flow_stage_6_is_noop(self):
         self.set_state(stage=6, flow="full")
         self.edit("src/login.ts")

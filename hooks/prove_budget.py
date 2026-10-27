@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""sdlc prove budget: Prove's command budget, enforced (ADR 0012).
+"""sdlc review budget (file name kept: hooks.json and the host adapters name it): Review's command budget (ADR 0012).
 
-PreToolUse on Bash, PowerShell and Monitor, active only while an .sdlc feature is in Stage 5 (Prove), for every
+PreToolUse on Bash, PowerShell and Monitor, active only while an .sdlc 2.0 feature is in Stage 5 (Review), for every
 caller (session, verifier, reviewers). A command that isn't one of the project's own (`commands` and
 `packages[].commands` in .sdlc/config.json: install, build, lint, typecheck, test; extra arguments, builtins like
 `cd <dir> &&` beside them and a pipe into a filter like `tail` allowed, nothing else chained):
@@ -185,16 +185,16 @@ def main():
         return
     wrapped = bounded(command) if TIMEOUT_BIN else None
     if tool == "Monitor":
-        out = deny("sdlc: in Prove there is no waiting on a run: only the project's own commands run in the "
+        out = deny("sdlc: in Review there is no waiting on a run: only the project's own commands run in the "
                    "background. Run the check once, in the foreground, with Bash (killed at 120 s).")
     elif tool == "PowerShell":
-        out = deny("sdlc: in Prove, run commands other than the project's own with the Bash tool, where they are "
+        out = deny("sdlc: in Review, run commands other than the project's own with the Bash tool, where they are "
                    "killed at 120 s.")
     elif tin.get("run_in_background"):
-        out = deny("sdlc: in Prove, only the project's own commands run in the background. Run this in the "
+        out = deny("sdlc: in Review, only the project's own commands run in the background. Run this in the "
                    "foreground (killed at 120 s) instead of starting it and polling.")
     elif TIMEOUT_BIN and wrapped is None:
-        out = deny("sdlc: in Prove, a command other than the project's own runs one step at a time, killed at 120 s: "
+        out = deny("sdlc: in Review, a command other than the project's own runs one step at a time, killed at 120 s: "
                    "no loops, subshells, `$(...)`, `&` or several chained commands. Split it into separate calls.")
     elif TIMEOUT_BIN:
         out = {"updatedInput": dict(tin, command=wrapped, timeout=TOOL_TIMEOUT_MS)}  # replaces the input
