@@ -62,7 +62,7 @@ Tiers (Model Selection in `sdlc:subagent-driven-development`): cheap and standar
 
 - One phase at a time; `state.py` at every move. A failed gate: stay, or step back one phase, with the reason. A code change after Build's or Prove's gate goes back to Build: rerun `verify.py` there (S, M lite and `Prove: skip` then go on to Ship), and on a feature with Prove, through Prove again.
 - **Ownership:** before advancing, compare `Owner:` with `git config user.email`; someone else's → say who (`Tool:`) and ask; on yes, `set` Owner and Tool and record the handover as a deviation. No `Owner:` → set yours.
-- **Advisor**, where available: once per feature, before Ship's commit. In Define only when stuck on a real decision the files can't settle; never at the other phase gates.
+- **Advisor**, where available: once, before Ship's commit, and only on a feature with no Prove (S, M lite, `Prove: skip`): after an independent Prove it adds little and reads the whole conversation. In Define only when stuck on a real decision the files can't settle; never at the other phase gates.
 - **Hard stops, always ask:** Define's approval (not on S), anything that adds scope, the round cap and a requirement failing in two rounds (`R/prove.md`), merges, production deploys, DB migrations, anything irreversible. Everything else runs without asking: passing checks, and failed verify rounds below the round cap.
 - "Skip" / "just ship it": name the skipped gates, record them as a deviation, comply. Never send the user to install another plugin for a core phase.
 - "Your human partner" in a bundled skill is the user; a bundled skill that would hand off on its own returns here, so the gate runs. Keep artifacts short; link instead of repeating.
