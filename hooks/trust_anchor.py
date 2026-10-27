@@ -9,7 +9,7 @@ check, so this can't prevent a change; it makes one visible. For each active fea
     a backlog feature leaving Lite still blocks
   - `.sdlc/baseline.md` lists a failing test it didn't at the feature's `Base:` commit (it may only shrink)
   - the commands in `.sdlc/config.json` differ from those at `Base:`
-  - `spec.md` changed after the feature entered Stage 5
+  - `spec.md` changed after the feature entered Stage 5, or, on S (no spec), the state file's `Repro:` line
   - the feature left Stage 5 while code differed from its last full test run, or moved past Stage 5 without it
     (a verifier dispatched in Stage 5 since the last Stop counts, since a turn can run several stages; so does an
     ac-checker on a passing full run of the current code, and on Track S that passing run alone)
@@ -117,6 +117,10 @@ def check(root, name, text, anchor, shown):
         first = anchor.setdefault("spec", digest)
         if digest != first:
             notices.append("spec.md changed after the feature entered Stage 5")
+        # S has no spec.md: its one acceptance criterion is the state file's Repro line
+        repro = "\n".join(re.findall(r"^Repro:.*$", text, re.M)) or None  # the whole line: field() keeps one word
+        if anchor.setdefault("repro", repro) != repro:
+            notices.append("Repro changed after the feature entered Stage 5")
     prev = anchor.get("stage")
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")  # the model router's dispatch-log format
     # Stops are samples: a Lite turn can run Stages 3 to 8 between two of them, so Stage 5 counts as passed when a

@@ -143,6 +143,18 @@ class TrustAnchorTest(ProjectTestCase):
         self.state(stage=8, risk="low")
         self.assertIsNone(self.stop())
 
+    def test_changing_an_s_fixs_repro_in_prove_is_a_notice(self):
+        # S has no spec.md: its one acceptance criterion is the Repro line, watched like a spec once Prove starts
+        self.state(stage=5, risk="low", track="S")
+        self.write(".sdlc/login/state.md", self.read_state() + "Repro: `t.js` › removes done | `node --test t.js`\n")
+        self.assertIsNone(self.stop())
+        self.write(".sdlc/login/state.md", self.read_state().replace("removes done", "runs"))
+        self.assertIn("Repro changed after the feature entered Stage 5", self.stop()["systemMessage"])
+
+    def read_state(self):
+        with open(self.path(".sdlc/login/state.md"), encoding="utf-8") as f:
+            return f.read()
+
     def test_hand_edited_verify_record_is_a_notice(self):
         self.state(stage=5)
         self.write(".sdlc/.work/verify-freshness.json",
