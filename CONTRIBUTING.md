@@ -44,7 +44,7 @@ sdlc/
 │   ├── autopilot.py         runs a backlog one fresh headless claude session per slice (opt-in)
 │   └── context_diet.py      per-source estimate of what Claude Code lists every call (/sdlc:context-diet)
 ├── templates/
-│   ├── intent/spec/plan/design/checklist/constitution-template.md   used by Define and its skills
+│   ├── intent/spec/plan/design/constitution-template.md   used by Define and its skills
 │   ├── backlog-template.md  a feature's backlog of slices (orchestrator)
 │   ├── design-system-template.md   setup's design-system step (UI projects)
 │   ├── knowledge/           OKF templates for tier 2/3 knowledge

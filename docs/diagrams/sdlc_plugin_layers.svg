@@ -311,14 +311,12 @@ rect{stroke-width:.5}.sep{stroke-width:.5}
 <text class="tx" x="262.0" y="1409.0" font-size="12">intent-template</text>
 <rect class="ch" x="377.6" y="1399.0" width="108.2" height="20" rx="4"/>
 <text class="tx" x="385.6" y="1409.0" font-size="12">spec-template</text>
-<rect class="ch" x="490.8" y="1399.0" width="143.0" height="20" rx="4"/>
-<text class="tx" x="498.8" y="1409.0" font-size="12">checklist-template</text>
+<rect class="ch" x="490.8" y="1399.0" width="132.0" height="20" rx="4"/>
+<text class="tx" x="498.8" y="1409.0" font-size="12">backlog-template</text>
 <rect class="ch" x="254.0" y="1424.0" width="108.7" height="20" rx="4"/>
 <text class="tx" x="262.0" y="1434.0" font-size="12">plan-template</text>
 <rect class="ch" x="367.7" y="1424.0" width="122.1" height="20" rx="4"/>
 <text class="tx" x="375.7" y="1434.0" font-size="12">design-template</text>
-<rect class="ch" x="494.8" y="1424.0" width="132.0" height="20" rx="4"/>
-<text class="tx" x="502.8" y="1434.0" font-size="12">backlog-template</text>
 <rect class="ch" x="254.0" y="1449.0" width="163.8" height="20" rx="4"/>
 <text class="tx" x="262.0" y="1459.0" font-size="12">constitution-template</text>
 <rect class="ch" x="422.8" y="1449.0" width="175.4" height="20" rx="4"/>
