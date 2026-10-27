@@ -2,7 +2,7 @@
 """sdlc autopilot: run a feature's backlog one fresh headless Claude Code session per slice.
 
 For a backlog too long for one session. Each slice runs as `claude -p "/sdlc:start B<n> --autopilot"`; after the last
-slice, one more session runs feature close, which ends at Ship's (Stage 8) merge, PR or keep question. State is read
+slice, one more session runs feature close, which ends at Ship (Stage 8) with the branch kept. State is read
 from backlog.md, the feature's state file and the trust anchor between runs, never from the sessions' output.
 Stops when:
   - a trust-anchor notice is open (a new -p prompt would accept it without the user seeing it)
@@ -104,7 +104,7 @@ def autopilot(root, feature, mode, ran):
             stages = re.findall(r"^Current:\s*(Stage\s*\d+)", read(state), re.M | re.I)
             if not stages or not re.fullmatch(r"Stage\s*8", stages[-1], re.I):
                 raise Stop(f"feature close stopped at {stages[-1] if stages else 'an unknown stage'}: see {state}")
-            return "feature close ran: answer its Ship question (merge, PR or keep)"
+            return "feature close ran: the branch is kept; say merge or PR to go further"
         slice_id = backlog.next_slice(rows)
         if not slice_id:
             raise Stop("no slice is ready")
