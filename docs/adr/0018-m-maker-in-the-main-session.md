@@ -12,7 +12,7 @@ The context cost that 0017 avoided sits mostly elsewhere. On the `ef7fabd` run t
 ## Decision
 
 1. **M, interactive Claude Code:** the main session does Define and Build itself (`define.md`, `build.md`) and fixes the checker's highs itself, each with a failing test first.
-2. **Prove is unchanged** (`relay.md`'s Prove section): one fresh checker on opus every round, never resumed. Its brief is the fixed text plus paths and the changed-file list, nothing else. Only the checker writes the `VERDICT:` line.
+2. **Prove is unchanged.** The main session reads `prove.md` (evidence, security, the `review.md` round shape, the stop rules) with `relay.md`'s Prove section for the brief, dispatch and moves: one fresh checker on opus every round, never resumed. Its brief is the fixed text plus paths and the changed-file list, nothing else. Only the checker writes the `VERDICT:` line.
 3. **The maker is now also the verdict reader,** so the moves come mechanically from the `grep` of the VERDICT lines, before any report is opened, and the trust anchor still gives a notice when a feature leaves Stage 5 while the latest round has a FAIL. The maker may not downgrade or waive a high; a disagreement goes to the user.
 4. **`## Handoff to Build` stays:** it is the written record, and the checker reads `plan.md`.
 5. **L, S, backlogs, autopilot, headless runs and the other agents:** unchanged.

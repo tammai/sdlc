@@ -17,7 +17,7 @@ sdlc/
 │                            the hooks under Codex, Cursor and Antigravity
 ├── agents/                  subagents: ac-checker, verifier, reviewers, code-explorer/architect, …
 ├── commands/                slash commands (/sdlc:start, setup, upgrade, eject, doctor, status, prune, deploy, context-diet, review-pr, …)
-├── skills/                  skills; orchestrator/ is the conductor (a short core plus references/ read per phase; references/relay.md replaces the phase files for L and Prove's for M in an interactive Claude Code session), setting-up-projects/ runs setup/upgrade/eject
+├── skills/                  skills; orchestrator/ is the conductor (a short core plus references/ read per phase; references/relay.md replaces the phase files for L and sets Prove's brief and moves for M in an interactive Claude Code session), setting-up-projects/ runs setup/upgrade/eject
 │                            (references/trimming-context.md: /sdlc:context-diet); executing-plans/references/ holds requesting-code-review.md
 │                            and code-reviewer.md; managing-knowledge/references/ holds claude-md-improver.md and its folder
 ├── hooks/

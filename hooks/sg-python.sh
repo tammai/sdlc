@@ -27,13 +27,20 @@ set -e
 # asyncRewake hook). Off, nothing below changes: the interpreter still replaces this shell.
 if [ "${SDLC_HOOK_TIMES:-}" = 1 ] && [ -z "${SG_TIMED:-}" ] && [ -n "${EPOCHREALTIME:-}" ]; then
     sg_t0=${EPOCHREALTIME//[!0-9]/}
+    # The event and tool, read with builtins only (no process), then handed to the hook unchanged
+    sg_in=""
+    [ -t 0 ] || IFS= read -r -d '' sg_in || true
+    sg_event=""; sg_tool=""
+    [[ $sg_in =~ \"hook_event_name\"[[:space:]]*:[[:space:]]*\"([A-Za-z]+)\" ]] && sg_event=${BASH_REMATCH[1]}
+    [[ $sg_in =~ \"tool_name\"[[:space:]]*:[[:space:]]*\"([A-Za-z0-9_]+)\" ]] && sg_tool=${BASH_REMATCH[1]}
     sg_rc=0
-    SG_TIMED=1 "$BASH" "$0" "$@" || sg_rc=$?
+    SG_TIMED=1 "$BASH" "$0" "$@" <<< "$sg_in" || sg_rc=$?
     sg_t1=${EPOCHREALTIME//[!0-9]/}
     sg_dir="${CLAUDE_PROJECT_DIR:-$PWD}/.sdlc"
     if [ -d "$sg_dir" ]; then
         mkdir -p "$sg_dir/.work" 2>/dev/null &&
-            printf '{"t": %s, "hook": "%s", "ms": %s, "rc": %s}\n' "$((10#$sg_t0 / 1000000))" "${1##*[/\\]}" \
+            printf '{"t": %s, "hook": "%s", "event": "%s", "tool": "%s", "ms": %s, "rc": %s}\n' \
+                "$((10#$sg_t0 / 1000000))" "${1##*[/\\]}" "$sg_event" "$sg_tool" \
                 "$(((10#$sg_t1 - 10#$sg_t0) / 1000))" "$sg_rc" >> "$sg_dir/.work/hook-times.jsonl" 2>/dev/null || true
     fi
     exit "$sg_rc"

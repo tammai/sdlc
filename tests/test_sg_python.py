@@ -35,7 +35,9 @@ class LauncherTest(ProjectTestCase):
 
 
     def test_opt_in_logs_each_hooks_time_and_keeps_its_output_and_exit_code(self):
-        self.write("h.py", "print('hi')\nraise SystemExit(2)\n")  # 2: an asyncRewake hook's 'wake the model'
+        # The hook still reads its input; 2 is an asyncRewake hook's 'wake the model'
+        self.write("h.py", "import json, sys\nprint(json.load(sys.stdin)['tool_name'])\nraise SystemExit(2)\n")
+        payload = json.dumps({"hook_event_name": "PreToolUse", "tool_name": "Bash", "tool_input": {"command": "ls"}})
         os.makedirs(self.path(".sdlc"))
         log = self.path(".sdlc/.work/hook-times.jsonl")
         for timed in (False, True):
@@ -43,13 +45,13 @@ class LauncherTest(ProjectTestCase):
             env.pop("SDLC_HOOK_TIMES", None)
             if timed:
                 env["SDLC_HOOK_TIMES"] = "1"
-            p = subprocess.run([BASH, LAUNCHER, self.path("h.py")], capture_output=True, encoding="utf-8",
-                               errors="replace", env=env)
-            self.assertEqual((p.stdout.strip(), p.returncode), ("hi", 2), p.stderr)
+            p = subprocess.run([BASH, LAUNCHER, self.path("h.py")], input=payload, capture_output=True,
+                               encoding="utf-8", errors="replace", env=env)
+            self.assertEqual((p.stdout.strip(), p.returncode), ("Bash", 2), p.stderr)
             self.assertEqual(os.path.exists(log), timed)
         with open(log, encoding="utf-8") as f:
             entry = json.loads(f.read())
-        self.assertEqual((entry["hook"], entry["rc"]), ("h.py", 2))
+        self.assertEqual((entry["hook"], entry["event"], entry["tool"], entry["rc"]), ("h.py", "PreToolUse", "Bash", 2))
         self.assertIsInstance(entry["ms"], int)
 
     def test_without_a_plugin_data_folder_it_remembers_per_user_never_in_shared_temp(self):

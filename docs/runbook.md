@@ -161,7 +161,7 @@ The state file is `.sdlc/state/<feature>.md`; beside it, git-ignored, `state.py`
 
 ### R10a. Hooks feel slow
 
-Set `SDLC_HOOK_TIMES=1` in the session's environment (for one project: `"env": {"SDLC_HOOK_TIMES": "1"}` in `.claude/settings.local.json`) and restart the session. Each hook then appends `{"t", "hook", "ms", "rc"}` to the project's `.sdlc/.work/hook-times.jsonl` (only where `.sdlc/` exists): the script name, its wall-clock time including the launcher, and its exit code. It costs one more bash start per hook, so turn it off after measuring. Total time per hook: `python3 -c "import json,collections; c=collections.Counter(); [c.update({e['hook']: e['ms']}) for e in map(json.loads, open('.sdlc/.work/hook-times.jsonl'))]; print(c.most_common())"`.
+Set `SDLC_HOOK_TIMES=1` in the session's environment (for one project: `"env": {"SDLC_HOOK_TIMES": "1"}` in `.claude/settings.local.json`) and restart the session. Each hook then appends `{"t", "hook", "event", "tool", "ms", "rc"}` to the project's `.sdlc/.work/hook-times.jsonl` (only where `.sdlc/` exists): the script name, the hook event and tool, its wall-clock time including the launcher, and its exit code. The security review after a commit, push or Stop runs in the background (`asyncRewake`), so its time doesn't hold up a tool call. It costs one more bash start per hook, so turn it off after measuring. Total time per hook and event: `python3 -c "import json,collections; c=collections.Counter(); [c.update({(e['hook'], e['event']): e['ms']}) for e in map(json.loads, open('.sdlc/.work/hook-times.jsonl'))]; print(c.most_common())"`.
 
 ### R11. A gate is blocking and you disagree
 
