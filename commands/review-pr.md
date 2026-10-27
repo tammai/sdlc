@@ -1,6 +1,6 @@
 ---
-description: "Comprehensive review of the local diff, or of a GitHub PR given its number or URL, using specialized agents"
-argument-hint: "[review-aspects | PR number or URL]"
+description: "Comprehensive PR review using specialized agents"
+argument-hint: "[review-aspects]"
 allowed-tools: ["Bash", "Glob", "Grep", "Read", "Task"]
 ---
 
@@ -13,8 +13,6 @@ Paths: `<intents>` is the feature's documents folder, `<state>` its state file a
 Run a comprehensive pull request review using multiple specialized agents, each focusing on a different aspect of code quality.
 
 **Review Aspects (optional):** "$ARGUMENTS"
-
-**A GitHub pull request instead:** when the arguments are a PR number or URL, follow `${CLAUDE_PLUGIN_ROOT}/skills/orchestrator/references/github-pr-review.md` (needs `gh`) and skip the workflow below.
 
 ## Review Workflow:
 

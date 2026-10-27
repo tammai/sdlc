@@ -21,8 +21,6 @@ Enforcement sits beside the tiers: anything that was corrected twice and can be 
 
 **Never `@import` the knowledge folder or index into CLAUDE.md** — imports load at launch and defeat tier 3.
 
-Run as `/sdlc:managing-knowledge [audit | lessons]`: `audit` runs **Audit**, `lessons` files this session's lessons (**File a lesson**).
-
 ## Set up (once per repo)
 
 1. Create `knowledge/index.md` (template: `${CLAUDE_PLUGIN_ROOT}/templates/knowledge/index.md`) and `knowledge/log.md`.
@@ -32,8 +30,6 @@ Run as `/sdlc:managing-knowledge [audit | lessons]`: `audit` runs **Audit**, `le
 3. Create one `.claude/rules/<area>.md` per real area of the codebase (template: `${CLAUDE_PLUGIN_ROOT}/templates/knowledge/rule.md`). Typical areas: api, db/migrations, frontend, payments, auth, infra, tests.
 
 ## File a lesson
-
-To collect the lessons from the session you are in (the old `/sdlc:revise-claude-md`; run as `/sdlc:managing-knowledge lessons`), follow [references/revise-claude-md.md](references/revise-claude-md.md), then file each one below.
 
 For each candidate (from a retro, a review, a debugging session, or the user saying "remember this"):
 
@@ -67,7 +63,5 @@ Go through CLAUDE.md line by line:
 - Stale or contradicted → delete (log it).
 
 Then check: every tier-3 doc is linked from the index; every rule's `paths` still match real files; no rule exceeds 30 lines.
-
-Show the proposed moves (file → tier, with one-line reasons) and the CLAUDE.md line count before → after. Apply only what the user approves, then update `knowledge/index.md` and `knowledge/log.md`. If `knowledge/` doesn't exist yet, run **Set up** first.
 
 Report: lines before → after for CLAUDE.md, files moved/created/deleted.

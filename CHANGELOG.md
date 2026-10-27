@@ -7,10 +7,7 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 ### Changed
 - **The model security review runs only for security-touched work** (ADR 0019, amends 0015). The turn-end review and the commit review run only while an sdlc feature is active and its change is security-touched; outside a feature they don't run. Pattern warnings, secret blocking, the push review and Prove's security pass are unchanged. `SDLC_SECURITY_REVIEW=always` brings back the old behaviour.
 - **The reviewer's SDK installs lazily:** SessionStart no longer builds the venv. The first edit made while a security-touched feature is active starts the install in the background.
-- **Fewer always-loaded entry points.** Removed commands, with their replacements:
-  - `/sdlc:knowledge-audit` and `/sdlc:revise-claude-md` → `/sdlc:managing-knowledge [audit | lessons]`.
-  - `/sdlc:code-review` → `/sdlc:review-pr <PR number or URL>`.
-  - `dispatching-parallel-agents`, `using-git-worktrees`, `receiving-code-review` and `finishing-a-development-branch` are no longer skills, and `/sdlc:clean_gone` and `/sdlc:commit-push-pr` are no longer commands. All six are now references the flow reads when it needs them (`skills/orchestrator/references/`).
+- **`dispatching-parallel-agents`, `using-git-worktrees`, `receiving-code-review` and `finishing-a-development-branch` are no longer skills:** they are references the flow reads when it needs them (`skills/orchestrator/references/`). Every command people type keeps its name.
 - **`feature-reviewer` moved to sdlc-extras:** nothing in the flow dispatched it.
 - **`/sdlc:hookify` is one skill:** the command and the `writing-hook-rules` skill are merged into the `hookify` skill (rule syntax in its `references/rule-syntax.md`); `/sdlc:hookify` works as before. With shorter skill and agent descriptions, the plugin's always-loaded listing drops from about 2,740 to 1,960 tokens per call.
 - **code-explorer, code-architect and feature-reviewer** list current tool names (the old LS, NotebookRead, KillShell and BashOutput are gone).

@@ -139,9 +139,9 @@ The one code reviewer on every track gets a one-pass brief (on M it also reads e
 | Set up | `setting-up-projects` (setup, upgrade, eject; its `references/trimming-context.md` backs `/sdlc:context-diet`) |
 | Specify and design | `brainstorming`, `writing-specs`, `clarifying-specs`, `designing-solutions`, `project-constitution` |
 | Plan and build | `writing-plans`, `analyzing-consistency`, `subagent-driven-development`, `executing-plans`, `test-driven-development`, `systematic-debugging` |
-| Check | `verification-before-completion` (requesting a review is a reference in `executing-plans`; the entry points are Prove, `/sdlc:review-pr`) |
+| Check | `verification-before-completion` (requesting a review is a reference in `executing-plans`; the entry points are Prove, `/sdlc:review-pr` and `/sdlc:code-review`) |
 | Ship and learn | `managing-knowledge` (with the CLAUDE.md quality check that was `claude-md-improver`), `hookify` (with the rule syntax that was `writing-hook-rules`), `todo` |
-| Orchestrator references (read when the flow needs them, not skills) | `using-git-worktrees.md`, `dispatching-parallel-agents.md`, `receiving-code-review.md`, `finishing-a-development-branch.md`, `commit-push-pr.md`, `clean-gone.md`, `github-pr-review.md` |
+| Orchestrator references (read when the flow needs them, not skills) | `using-git-worktrees.md`, `dispatching-parallel-agents.md`, `receiving-code-review.md`, `finishing-a-development-branch.md` |
 
 ### Subagents
 
@@ -169,9 +169,10 @@ The one code reviewer on every track gets a one-pass brief (on M it also reads e
 | `/sdlc:deploy [feature] [environment]` | Deploy on request through the project's own deploy path, with your go-ahead before production or a DB migration |
 | `/sdlc:prune [--older-than 45d]` | Delete the working files of merged, finished features; keeps intent, spec, design, retro and state. Asks first, one commit |
 | `/sdlc:context-diet` | Propose turning off plugins and skills this project doesn't need, in `.claude/settings.local.json`, after you approve. Any repo, Claude Code only |
-| `/sdlc:review-pr [PR number or URL]` | Local pre-PR review of the diff with the right agents for it, or a review of a GitHub PR (needs `gh`) |
+| `/sdlc:review-pr` | Local pre-PR review of the diff with the right agents for it |
+| `/sdlc:code-review` | Review a GitHub PR (needs `gh`) |
 | `/sdlc:commit`, `/sdlc:commit-push-pr`, `/sdlc:clean_gone` | Git helpers |
-| `/sdlc:managing-knowledge lessons`, `/sdlc:managing-knowledge audit` | Promote lessons; keep always-loaded context small |
+| `/sdlc:revise-claude-md`, `/sdlc:knowledge-audit` | Promote lessons; keep always-loaded context small |
 | `/sdlc:hookify` | Turn repeated corrections into rules |
 | `/sdlc-extras:ralph-loop`, `/sdlc-extras:cancel-ralph`, `/sdlc-extras:ralph-help` | Optional self-iterating loop for one well-specified task (`sdlc-extras` plugin) |
 | `/sdlc-extras:hookify-list`, `/sdlc-extras:hookify-configure`, `/sdlc-extras:hookify-help` | List, toggle and explain hookify rules (`sdlc-extras` plugin) |

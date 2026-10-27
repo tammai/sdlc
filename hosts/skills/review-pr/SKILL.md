@@ -1,6 +1,6 @@
 ---
 name: review-pr
-description: "Comprehensive review of the local diff, or of a GitHub PR given its number or URL, using specialized agents"
+description: "Comprehensive PR review using specialized agents"
 ---
 
 `${CLAUDE_PLUGIN_ROOT}` is the sdlc plugin's folder. Claude Code fills it in; on other agents it stays as written, so use the installed plugin's folder instead: the one above this file that holds `scripts/` and `skills/`.
@@ -12,8 +12,6 @@ Paths: `<intents>` is the feature's documents folder, `<state>` its state file a
 Run a comprehensive pull request review using multiple specialized agents, each focusing on a different aspect of code quality.
 
 **Review Aspects (optional):** "<the user's request>"
-
-**A GitHub pull request instead:** when the arguments are a PR number or URL, follow `${CLAUDE_PLUGIN_ROOT}/skills/orchestrator/references/github-pr-review.md` (needs `gh`) and skip the workflow below.
 
 ## Review Workflow:
 

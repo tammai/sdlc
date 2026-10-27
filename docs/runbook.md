@@ -9,7 +9,7 @@ Operational procedures: install, check health, fix what breaks, maintain the plu
 | Need | For |
 |---|---|
 | `git` | worktrees, freshness hook, commit and PR commands |
-| `gh` | `/sdlc:review-pr` on a GitHub PR, and PR commands |
+| `gh` | `/sdlc:code-review` and PR commands |
 | Python 3.9+ | all hooks (started through `hooks/sg-python.sh`, which finds `python3`, `python` or `py -3`) and `scripts/` (stdlib only; macOS system 3.9 works) |
 | `jq` | the Ralph loop's stop hook (the optional `sdlc-extras` plugin) |
 | Node | brainstorming visual companion |

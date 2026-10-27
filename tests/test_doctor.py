@@ -199,7 +199,7 @@ class DoctorTest(ProjectTestCase):
 
     def test_claude_md_budget(self):
         self.write("CLAUDE.md", "line\n" * 61)
-        self.assertEqual(self.check("CLAUDE.md size")["fix"], "/sdlc:managing-knowledge audit")
+        self.assertEqual(self.check("CLAUDE.md size")["fix"], "/sdlc:knowledge-audit")
         self.write("CLAUDE.md", "line\n" * 60)
         self.assertEqual(self.check("CLAUDE.md size")["status"], "ok")
 

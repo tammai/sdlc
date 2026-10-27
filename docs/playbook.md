@@ -128,7 +128,7 @@ Use `sdlc:receiving-code-review`: check each comment against the code before agr
 |---|---|
 | Local, before the PR | `/sdlc:review-pr` (picks agents for the diff; the comment, type and simplifier agents need the `sdlc-extras` plugin) |
 | Plan versus implementation | Prove's code review, from the plan and spec |
-| On the GitHub PR | `/sdlc:review-pr <PR number or URL>` |
+| On the GitHub PR | `/sdlc:code-review` |
 
 Severity rules: unrequested public surface (an export, file, endpoint, option, config key or dependency not in the plan's Public Surface, with no stated reason) is **high**. Comment noise is **medium** and fixed in Prove, not ticketed. Other medium and low findings go to `review.md` as tickets.
 
@@ -144,7 +144,7 @@ Hard stops (push, PR, merge, production deploy, migrations, anything irreversibl
 
 ## 10. Merge and deploy
 
-1. **Ship:** Learn and one commit on a feature branch first. On every track that's where it stops, with `Branch <name> kept (<commit>); say "merge" or "PR" to go further.`: ask for a push, PR or merge when you want one. The `finishing-a-development-branch.md` reference handles it and cleans up worktrees. The `commit-push-pr.md` reference opens a PR that links `spec.md`, `review.md` and, if the qa-tester ran, `qa-report.md`. `/sdlc:clean_gone` prunes merged local branches afterwards.
+1. **Ship:** Learn and one commit on a feature branch first. On every track that's where it stops, with `Branch <name> kept (<commit>); say "merge" or "PR" to go further.`: ask for a push, PR or merge when you want one. The `finishing-a-development-branch.md` reference handles it and cleans up worktrees. `/sdlc:commit-push-pr` opens a PR that links `spec.md`, `review.md` and, if the qa-tester ran, `qa-report.md`. `/sdlc:clean_gone` prunes merged local branches afterwards.
 2. **CI must be green. The agent never merges without you saying so.**
 3. **Deploy** is a separate request: `/sdlc:deploy [feature] [environment]`.
    - It warns if the feature hasn't reached Ship, and continues only on your word.
@@ -178,8 +178,8 @@ Start with `warn`. Move to `block` once the pattern has no false positives.
 
 ## 13. Keep always-loaded context small
 
-- `CLAUDE.md` over about 60 lines: `/sdlc:managing-knowledge audit` proposes moves (file → tier, with a reason) and shows the line count before and after. Nothing is applied without your OK.
-- After a feature, `/sdlc:managing-knowledge lessons` collects lessons from the session and files each in the right tier.
+- `CLAUDE.md` over about 60 lines: `/sdlc:knowledge-audit` proposes moves (file → tier, with a reason) and shows the line count before and after. Nothing is applied without your OK.
+- After a feature, `/sdlc:revise-claude-md` collects lessons from the session and files each in the right tier.
 - Every call also carries every enabled plugin's skills, agents and commands. `/sdlc:context-diet` estimates the cost per source and, after your OK, turns off what this project doesn't use (this project only), including the standalone copies of plugins sdlc bundles. Personal skills can only be moved into the projects that use them; synced claude.ai plugins are managed in claude.ai. Check `/context` in a new session for the real numbers.
 - Rule of thumb: tier 1 (`CLAUDE.md`) only what nearly every task needs; area guidance in tier 2 (`.claude/rules/` with `paths:`); everything else in tier 3, linked from `knowledge/index.md`.
 

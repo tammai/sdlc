@@ -72,7 +72,7 @@ def check_environment(r, root):
           ("no bash on PATH" if not bash else f"hooks/sg-python.sh found no working Python 3 (exit {code})"),
           None if ok else "install Python 3.10+ from python.org (not the Microsoft Store) and Git Bash on Windows")
     for tool, needed_for, status in (("git", "worktrees, freshness hook, commits", "fail"),
-                                     ("gh", "/sdlc:review-pr on a GitHub PR, and PR commands", "warn"),
+                                     ("gh", "/sdlc:code-review and PR commands", "warn"),
                                      ("jq", "the sdlc-extras Ralph loop's stop hook (it silently stops looping without it)", "warn")):
         found = shutil.which(tool)
         if tool == "jq" and not claude:
@@ -303,7 +303,7 @@ def check_repo(r, root):
     if os.path.exists(cm):
         n = len(open(cm, encoding="utf-8").read().splitlines())
         r.add(g, "CLAUDE.md size", "ok" if n <= CLAUDE_MD_BUDGET else "warn", f"{n} lines (budget {CLAUDE_MD_BUDGET})",
-              None if n <= CLAUDE_MD_BUDGET else "/sdlc:managing-knowledge audit")
+              None if n <= CLAUDE_MD_BUDGET else "/sdlc:knowledge-audit")
 
     idx = os.path.join(root, "knowledge", "index.md")
     if os.path.isdir(os.path.join(root, "knowledge")):

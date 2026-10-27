@@ -1,6 +1,6 @@
-# Clean up gone branches
-
-Removes local branches whose remote branch was deleted ([gone]), and their worktrees.
+---
+description: Deletes local git branches whose remote branch is gone, and their worktrees.
+---
 
 ## Your Task
 
