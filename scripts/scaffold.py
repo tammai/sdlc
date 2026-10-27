@@ -697,12 +697,31 @@ def cmd_allow(p, a):
     return {"added": added, "removed": removed, "owned": ours}
 
 
+def not_the_installed_copy():
+    """Why enabling sdlc in settings.json would be wrong here, or None: the running plugin isn't Claude Code's
+    installed sdlc (loaded with --plugin-dir, or not installed at all), so enabling it would load a second copy."""
+    config = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(os.path.expanduser("~"), ".claude")
+    records = read_json(os.path.join(config, "plugins", "installed_plugins.json"), {})
+    records = records.get("plugins", records) if isinstance(records, dict) else {}
+    entries = records.get(PLUGIN_KEY) if isinstance(records, dict) else None
+    entries = [entries] if isinstance(entries, dict) else entries if isinstance(entries, list) else []
+    here = os.path.normcase(os.path.realpath(PLUGIN_ROOT))
+    if any(isinstance(e, dict) and e.get("installPath")
+           and os.path.normcase(os.path.realpath(e["installPath"])) == here for e in entries):
+        return None
+    return (f"this session runs sdlc from {PLUGIN_ROOT} (--plugin-dir or a checkout), not the installed copy; "
+            "enabling the installed one in .claude/settings.json would load two")
+
+
 def cmd_enable_plugin(p, a):
     """Have Claude Code offer this plugin to everyone who trusts the repo: a keyed merge of the marketplace and the
     enabled flag into settings.json. A key the user already set is theirs and is never recorded or removed."""
     settings_path = p.path(SETTINGS)
     settings = read_json(settings_path, {})
     ours = merged_list(p, PLUGIN_MERGE)
+    skipped = None if a.remove else not_the_installed_copy()
+    if skipped:
+        return {"added": [], "skipped": skipped, "owned": ours}
     changed = []
     wanted = [("extraKnownMarketplaces", MARKETPLACE[0], MARKETPLACE[1]), ("enabledPlugins", PLUGIN_KEY, True)]
     for section, key, value in wanted:

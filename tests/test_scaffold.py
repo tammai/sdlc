@@ -42,10 +42,16 @@ class ScaffoldTest(ProjectTestCase):
 
     def sc(self, *args, expect=0, plugin=None):
         code, out, raw, err = run_hook([sys.executable, SCRIPT, "--root", self.root, *args], "", self.root,
-                                       env_extra={"CLAUDE_PLUGIN_ROOT": plugin or self.plugin})
+                                       env_extra={"CLAUDE_PLUGIN_ROOT": plugin or self.plugin,
+                                                  "CLAUDE_CONFIG_DIR": self.path("claude-config")})
         self.assertEqual(code, expect, f"{args}: {raw}{err}")
         self.assertIsNotNone(out, raw + err)
         return out
+
+    def installed(self):
+        """Claude Code's install record says the running plugin is the installed sdlc."""
+        self.write("claude-config/plugins/installed_plugins.json", json.dumps(
+            {"version": 2, "plugins": {"sdlc@sdlc": [{"scope": "user", "installPath": self.plugin}]}}))
 
     def init(self, kind="brownfield"):
         return self.sc("init", "--kind", kind)
@@ -251,6 +257,12 @@ class ScaffoldTest(ProjectTestCase):
 
     def test_enable_plugin_merges_and_only_removes_its_own_keys(self):
         self.init()
+        # Loaded from a directory (--plugin-dir) rather than installed: enabling the installed copy would load two
+        out = self.sc("enable-plugin")
+        self.assertEqual(out["added"], [])
+        self.assertIn("--plugin-dir", out["skipped"])
+        self.assertFalse(os.path.exists(self.path(".claude/settings.json")))
+        self.installed()
         self.write(".claude/settings.json", json.dumps(
             {"model": "opus", "enabledPlugins": {"other@mkt": True}, "extraKnownMarketplaces": {"sdlc": {"source": "mine"}}}))
         out = self.sc("enable-plugin")
@@ -365,6 +377,7 @@ class ScaffoldTest(ProjectTestCase):
         self.write(".claude/hookify/sdlc-rm.md", "rule, tuned by user")
         self.write(".claude/settings.json", json.dumps({"permissions": {"allow": ["Bash(git status)"]}}))
         self.sc("allow", "--add", "Bash(make test:*)")
+        self.installed()
         self.sc("enable-plugin")
         self.sc("gitignore", "--add", ".sdlc/.work/")
         self.write(".sdlc/constitution.md", "mine")

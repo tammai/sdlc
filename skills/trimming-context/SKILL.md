@@ -39,7 +39,7 @@ One table, plugins first and then the rest, sorted by tokens:
 |---|---|---|---|
 
 Then show:
-- The proposed `.claude/settings.local.json`. It is the file's current content with each "off" plugin added under `enabledPlugins` as `"<key>": false`. Keep every key already there, the user's own `true`s included, and every other setting.
+- The proposed `.claude/settings.local.json`. It is the file's current content with each "off" plugin added under `enabledPlugins` as `"<key>": false`. Keep every key already there, the user's own `true`s included, and every other setting. Never add a `true` yourself, the sdlc plugin's own key included: a session that loaded sdlc with `--plugin-dir` would then load a second, installed copy.
 - The estimated saving per call: the sum of the "off" plugins' `tokens`, plus "and N MCP servers".
 - **Personal skills, commands and agents** that look unrelated to this project, with their tokens. Remedy: move them into `.claude/skills/` of the projects that use them. They can't be switched off per project. Don't move them.
 - **Synced plugins and claude.ai skills**, with their tokens. These are managed in claude.ai and can't be switched here. Report only.
