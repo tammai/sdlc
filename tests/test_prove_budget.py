@@ -40,6 +40,8 @@ class ProveBudgetTest(ProjectTestCase):
         self.assertNotEqual(self.call(5, command=f'python3 "{verify}"; node probe.js'), {})  # not exempt
         self.assertNotEqual(self.call(5, command=f'python3 "{verify}"\nnode probe.js'), {})  # a second line
         self.assertNotEqual(self.call(5, command="cd /elsewhere && python3 scripts/verify.py"), {})  # relative
+        smuggled = os.path.join(PLUGIN_ROOT, "scripts", "$(node probe.js)", "..", "verify.py")
+        self.assertNotEqual(self.call(5, command=f'python3 "{smuggled}"'), {})  # the shell runs $(...) first
 
     def test_background_runs_are_refused_only_in_prove(self):
         out = self.call(5, command="node probe.js", run_in_background=True)

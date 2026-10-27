@@ -329,6 +329,10 @@ def is_plugin_verify(path):
     count): a project script with the same name, or a relative path, isn't it."""
     if path.startswith("${CLAUDE_PLUGIN_ROOT}/") and os.environ.get("CLAUDE_PLUGIN_ROOT"):
         path = os.environ["CLAUDE_PLUGIN_ROOT"] + path[len("${CLAUDE_PLUGIN_ROOT}"):]
+    # The shell expands the path before python sees it: `$(…)`, globs or `..` would make the text resolve here to
+    # the plugin's script while the shell runs something else
+    if re.search(r"[`$;&|<>(){}*?\[\]~!]", path) or ".." in re.split(r"[/\\]", path):
+        return False
     if os.name == "nt" and re.match(r"^/[A-Za-z]/", path):
         path = f"{path[1]}:{path[2:]}"
     return os.path.isabs(path) and (os.path.normcase(os.path.realpath(path))
