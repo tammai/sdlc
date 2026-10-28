@@ -21,21 +21,31 @@ class VerifyTest(ProjectTestCase):
         self.git("commit", "-q", "-m", "base")
         base = subprocess.run(["git", "-C", self.root, "rev-parse", "HEAD"], capture_output=True,
                               encoding="utf-8").stdout.strip()
-        self.write(".sdlc/login/state.md", STATE.format(base=base))
+        self.state = STATE.format(base=base)
+        self.write(".sdlc/login/state.md", self.state)
+        self.acs, self.rows = (), ()
 
     def git(self, *args):
         subprocess.run(["git", "-C", self.root, "-c", "user.email=t@t", "-c", "user.name=t", *args], check=True)
 
+    def change(self):
+        """change.md, the human record: the criteria and the table naming each one's test."""
+        table = "| AC | Test | Run |\n|---|---|---|\n" + "".join(
+            f"| {ac} | {test} | {run if test == 'manual' else '`' + run + '`'} |\n" for ac, test, run in self.rows)
+        self.write(".sdlc/login/change.md", "# Change\n\n## Acceptance criteria\n\n" +
+                   "".join(f"- **{ac}** something observable\n" for ac in self.acs) +
+                   "\n## Acceptance tests\n\n" + table)
+
     def spec(self, *acs):
-        self.write(".sdlc/login/spec.md", "# Spec\n\n## Acceptance criteria\n\n" +
-                   "".join(f"- **{ac}** something observable\n" for ac in acs))
+        self.acs = acs
+        self.change()
 
     def plan(self, rows, tasks=(), deviations=()):
-        table = "| AC | Test | Run |\n|---|---|---|\n" + "".join(
-            f"| {ac} | {test} | {run if test == 'manual' else '`' + run + '`'} |\n" for ac, test, run in rows)
-        self.write(".sdlc/login/plan.md", "# Plan\n\n## Tasks\n\n" + "\n".join(tasks) +
-                   "\n\n## Acceptance tests\n\n" + table + "\n## Public Surface\n\n- none\n\n## Deviations\n\n" +
-                   "\n".join(deviations) + "\n")
+        """The rows go in change.md; the tasks, surface and deviations in the state file, the agent's record."""
+        self.rows = rows
+        self.change()
+        self.write(".sdlc/login/state.md", self.state + "\n## Tasks\n\n" + "\n".join(tasks) +
+                   "\n\n## Public Surface\n\n- none\n\n## Gate log\n-\n\n## Deviations\n\n" + "\n".join(deviations) + "\n")
 
     def record(self):
         try:
@@ -67,22 +77,6 @@ class VerifyTest(ProjectTestCase):
         self.assertEqual(code, 0, out)
         self.assertEqual(rec["last"]["result"], "pass")
         self.assertEqual(rec["last"]["manual"], ["AC-002"])
-
-    def test_a_2_0_spec_carries_each_criterions_test_beside_it(self):
-        # sdlc 2.0: spec.md is permanent and holds the AC → test table; plan.md (tasks) is a working file
-        self.write(".sdlc/login/spec.md", "# Spec\n\n## Acceptance criteria\n\n- **AC-001** something observable\n\n"
-                   "## Acceptance tests\n\n| AC | Test | Run |\n|---|---|---|\n"
-                   "| AC-001 | tests/t.py › ok | `python3 -c \"pass\"` |\n")
-        self.write(".sdlc/login/plan.md", "# Plan\n\n## Tasks\n\n1. **t** — AC-001\n   - Files: `tests/t.py`\n\n"
-                   "## Public Surface\n\n- none\n\n## Deviations\n\n")
-        self.write("tests/t.py", "")
-        code, out, rec = self.verify()
-        self.assertEqual(code, 1)  # the spec's table is read: AC-001 still needs its red record
-        self.assertIn("AC-001: no red run recorded", out)
-        self.write_red("AC-001")
-        code, out, rec = self.verify()
-        self.assertEqual(code, 0, out)
-        self.assertEqual(rec["last"]["result"], "pass")
 
     def test_red_records_a_failing_test_and_refuses_a_passing_or_missing_one(self):
         self.spec("AC-001")
@@ -150,8 +144,8 @@ class VerifyTest(ProjectTestCase):
         self.write(".sdlc/.work/verify-freshness.json",  # the hook's copy of the same run
                    json.dumps({"feature": "login", "verify": {"last": {"tree": tree, "result": "pass"}}}))
         self.assertTrue(self.status()["reuse"])
-        # Writing the record (review.md, a lesson) after the run isn't a code change: the run still counts
-        self.write(".sdlc/login/review.md", "# Review\n")
+        # Writing the record (the review in change.md, a lesson) after the run isn't a code change: the run still counts
+        self.write(".sdlc/login/change.md", "# Change\n\n## Review\n")
         self.write("docs/notes.md", "lesson\n")
         self.assertTrue(self.status()["reuse"])
         self.write("src/late.py", "z = 3\n")  # an edit after verify

@@ -1,10 +1,10 @@
 # Reviewer brief (every review)
 
-Give each reviewer the paths, never a summary: `intent.md`, `spec.md` and `plan.md` (a part: `plan-B<n>.md`), the diff facts (`review.md`'s `diff_stats.py` call), `plan.md`'s `## Deviations`, and where to write its report. It reads them itself.
+Give each reviewer the paths, never a summary: `change.md` and the state file (its plan sections and `## Deviations`; a part: also `plan-B<n>.md`), the diff facts (Review's `diff_stats.py` output), and where to write its report. It reads them itself.
 
 ## Depth (code review)
 
-- **Low:** correctness only: does the code do what each acceptance criterion and must-never-break line says, do the tests prove it, and do its error paths hold (of The edges below, error paths only). Read the diff, `spec.md` and the tests it names; open another file only to follow a call the diff makes. Report in a few lines.
+- **Low:** correctness only: does the code do what each acceptance criterion and must-never-break line says, do the tests prove it, and do its error paths hold (of The edges below, error paths only). Read the diff, `change.md` and the tests it names; open another file only to follow a call the diff makes. Report in a few lines.
 - **Default:** low, plus in one pass: silent failures (swallowed errors, fallbacks that hide a failure, missing error paths); test gaps (a behaviour or failure mode the spec implies that no test would catch, rated 1–10, 8 or more is high); simplifications (needless code, abstraction or dependency, with the smaller version); and security basics (injection, untrusted input reaching a shell, file path or database, secrets in the diff).
 - **High:** default, plus a deeper pass on each failure mode the spec names and the edges below, tracing each through the code and its tests.
 
@@ -22,7 +22,7 @@ Security only: injection, authz, secrets, SSRF, XSS, unsafe deserialization, dep
 
 ## Severity
 
-- **High:** a failing or unproven acceptance criterion; wrong behaviour against the spec or a must-never-break line; data loss or corruption; a security issue; a crash window as above; an error path that breaks the spec's error format or exit code; a test gap rated 8 or more; unrequested public surface (anything not in `plan.md`'s Public Surface, with no stated reason); a broken constitution MUST rule.
+- **High:** a failing or unproven acceptance criterion; wrong behaviour against the spec or a must-never-break line; data loss or corruption; a security issue; a crash window as above; an error path that breaks the spec's error format or exit code; a test gap rated 8 or more; unrequested public surface (anything not in the state file's `## Public Surface`, with no stated reason); a broken constitution MUST rule.
 - **Fix in passing:** code-style rules (comments, naming, formatting, docs wording). Never high.
 - **Medium / low:** everything else; ticketed.
 

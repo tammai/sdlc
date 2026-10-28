@@ -38,7 +38,7 @@ sdlc/
 │   ├── scaffold.py          setup/upgrade/eject bookkeeping: lock, file classes, commands, CI generator
 │   ├── doctor.py            read-only health check
 │   ├── diff_stats.py        review facts for Review, Public Surface check
-│   ├── verify.py            Build's one proof command: verify plan, each AC's red record and test (from spec.md), plan drift; `red`, `status`
+│   ├── verify.py            Build's one proof command: verify plan, each AC's red record and test (from change.md), drift against the state file's plan; `red`, `status`
 │   ├── hosts.py             builds the other agents' manifests from .claude-plugin/ and agents/ (CI checks them)
 │   ├── backlog.py           the next ready part of a feature's backlog.md
 │   ├── state.py             every state change in one call: state.md plus the control contract (beside it, git-ignored)
@@ -46,7 +46,9 @@ sdlc/
 │   ├── prune.py             lists and deletes merged features' working files (/sdlc:prune)
 │   └── context_diet.py      per-source estimate of what Claude Code lists every call (/sdlc:context-diet)
 ├── templates/
-│   ├── intent/spec/plan/review/constitution-template.md   the feature record (Define, Review) and the constitution
+│   ├── change-template.md   the feature's record for people, change.md (Define, Review)
+│   ├── plan-template.md     a part's plan-B<n>.md (work split into parts)
+│   ├── constitution-template.md   the constitution
 │   ├── backlog-template.md  a feature's backlog of parts (orchestrator)
 │   ├── design-system-template.md   setup's design-system step (UI projects)
 │   ├── knowledge/           OKF templates for tier 2/3 knowledge

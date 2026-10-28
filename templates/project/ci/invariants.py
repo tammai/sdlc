@@ -2,8 +2,8 @@
 """Check the shared sdlc files, whichever agent or person changed them (seeded by the sdlc plugin v{{plugin_version}}).
 
 Only active features count (`Status: active` in their state file):
-  - the record matches the phase reached: past Define (Stage 1), spec.md has its `## Acceptance tests` table; in Ship
-    (Stage 8), review.md says what was reviewed (`## Recommended and chosen`).
+  - the record matches the phase reached: past Define (Stage 1), change.md has its `## Acceptance tests` table; in
+    Ship (Stage 8), its `## Review` section says what was reviewed.
   - the baseline: against --base, a new row or a higher lint count needs a feature's Deviations entry naming it.
 
 Usage: python3 .sdlc/ci/invariants.py [--base REF] [--require-ancestor]   (--require-ancestor: accepted, unused since 2.0)
@@ -61,12 +61,12 @@ def section(text, heading):
 
 def check_record(docs, stage):
     problems = []
-    spec = os.path.join(docs, "spec.md")
-    if stage >= 4 and "## Acceptance tests" not in (read(spec) or ""):
-        problems.append(f"{spec}: past Define but no `## Acceptance tests` table naming each AC's test")
-    review = os.path.join(docs, "review.md")
-    if stage >= 8 and "## Recommended and chosen" not in (read(review) or ""):
-        problems.append(f"{review}: in Ship but no record of what was reviewed (`## Recommended and chosen`)")
+    path = os.path.join(docs, "change.md")
+    change = read(path) or ""
+    if stage >= 4 and "## Acceptance tests" not in change:
+        problems.append(f"{path}: past Define but no `## Acceptance tests` table naming each AC's test")
+    if stage >= 8 and not section(change, "Review").strip():
+        problems.append(f"{path}: in Ship but no `## Review` section saying what was reviewed")
     return problems
 
 

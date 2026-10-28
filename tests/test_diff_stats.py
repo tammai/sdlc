@@ -128,6 +128,19 @@ class DiffStatsTest(ProjectTestCase):
         self.assertIn("src/a.ts", r["changed_files"])
         self.assertIn("docs/notes.md", r["changed_files"])  # non-source too: review-pr picks reviewers from it
 
+    def test_a_state_file_as_the_plan_gives_its_own_base(self):
+        # sdlc 2.0 keeps the plan in the state file (.sdlc/state/<feature>.md): its Base: is the diff's base
+        self.git("checkout", "-q", "main")
+        base = subprocess.run(["git", "-C", self.root, "rev-parse", "--short", "HEAD"], capture_output=True,
+                              text=True).stdout.strip()
+        self.write(".sdlc/config.json", json.dumps({"docs_dir": "docs/sdlc"}))
+        state = self.write(".sdlc/state/login.md", f"# login\nStatus: done\nBase: `{base}`\n\n"
+                           "## Public Surface\n\n- none\n")
+        self.write("src/a.ts", "x()\n")
+        self.git("add", "-A")
+        self.git("commit", "-qm", "feat work on main")
+        self.assertTrue(self.stats("--plan", state)["base"].startswith(base))
+
     PLAN = """# Login Plan
 
 ## Global Constraints

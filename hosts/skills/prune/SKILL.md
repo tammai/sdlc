@@ -1,6 +1,6 @@
 ---
 name: prune
-description: Delete the working files of finished, merged features (plan, reports, review, checklists) and keep their record (intent, spec, design, retro, state). Shows the list and asks before deleting
+description: Delete the working files of finished, merged features (parts' plans, reports, checklists) and keep their record (change.md and state; intent, spec, design, retro on older features). Shows the list and asks before deleting
 ---
 
 `${CLAUDE_PLUGIN_ROOT}` is the sdlc plugin's folder. Claude Code fills it in; on other agents it stays as written, so use the installed plugin's folder instead: the one above this file that holds `scripts/` and `skills/`.
@@ -10,6 +10,6 @@ Paths: `<intents>` is the feature's documents folder, `<state>` its state file a
 
 1. Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/prune.py" list <the user's request>`. If it prints an `error`, say it and stop.
 2. Nothing in `prune`: say so, list the `skipped` features with their reason in one line each, and stop.
-3. Show each feature in `prune` with its age and the files that would go. Say that intent, spec, design, retro and state stay, a 2.0 feature's review.md stays (its review record) while its plans go, review.md (with its security section) and security.md stay on high-risk features, and git history keeps every deleted file. Ask which to prune (all, some, none).
+3. Show each feature in `prune` with its age and the files that would go. Say that change.md and the state file stay (a 2.0 feature's whole record), as do intent, spec, design and retro on older features, a 2.0 feature's plans go, review.md (with its security section) and security.md stay on high-risk features, and git history keeps every deleted file. Ask which to prune (all, some, none).
 4. For the chosen features run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/prune.py" apply <the user's request> <feature>...`. Report any `refused` entries with their reason.
 5. Commit the deletions in one commit, `Prune finished feature records: <features>`, staging only those `<intents>/` paths. Don't push.

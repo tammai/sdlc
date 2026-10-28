@@ -15,7 +15,7 @@ You review UI changes for one thing: does this look and behave like *this projec
 ## Inputs (from the brief)
 
 - `<docs>/design-system.md`, and the tokens file and component folder it points to. Read all three first.
-- The spec (`<intents>/spec.md`) if there is one: the screens, their states and the real copy.
+- The spec (`<intents>/change.md`, `spec.md` on an older feature) if there is one: the screens, their states and the real copy.
 - The diff (`git diff <base>`, base from state.md `Base:` or the merge-base with main) and the diff stats.
 - Whether the user asked for a visual check.
 

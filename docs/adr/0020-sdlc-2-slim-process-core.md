@@ -13,13 +13,12 @@ The user set the plugin's goal as process value, not quality above plain Claude:
 
 ## Decision
 
-1. **The same record at every size**, split by lifetime:
-   - `intent.md`: why, decisions, bug proof and root cause. Kept.
-   - `spec.md`: acceptance criteria, each with its test (`## Acceptance tests`), must-never-break lines, out of scope. Kept.
-   - `review.md`: recommended and chosen reviews, verdicts, fixes, tickets, lessons filed. Kept.
-   - `plan.md`: how the build runs, tasks, handoff, deviations. A working file `/sdlc:prune` may delete once merged.
-2. **Intent before code.** The agent judges whether what, why and how are clear. If anything is missing or ambiguous, at any size, it asks first, one question at a time. A bug is proven first, then its root cause, then the fix. S doesn't stop before the build; on M and L the user reads and approves intent, spec and plan.
-3. **The builder works like plain Claude:** no review agents during the build. Tests are recorded failing first (`verify.py red`). The builder works from the must-never-break lines and failure modes, not only the acceptance list; a crash window in a write is must-fix. How the build runs (inline, parts in fresh sessions, or parallel subagents) is the agent's call, written in `plan.md` before the build.
+1. **The same record at every size**, split by reader, both kept and committed with the code (amended for RC3: it was four files, `intent.md`, `spec.md`, `plan.md` and `review.md`):
+   - `change.md`, for people: why, decisions, a bug's proof and root cause; acceptance criteria, each with its test (`## Acceptance tests`), must-never-break lines, failure modes, out of scope; and last, `## Review`: recommended and chosen reviews, verdicts, fixes, tickets, lessons filed. What's above `## Review` is fixed once Review starts.
+   - The state file, for the agent: where the change stands (phase, gates, deviations, open questions) and, from Define, how it's built (how the build runs, handoff, tasks with their files, public surface). Scripts and hooks parse it.
+   One file per reader instead of four: a reviewer or teammate reads one page, the agent writes less, and the scripts keep their tables.
+2. **Intent before code.** The agent judges whether what, why and how are clear. If anything is missing or ambiguous, at any size, it asks first, one question at a time. A bug is proven first, then its root cause, then the fix. S doesn't stop before the build; on M and L the user reads and approves `change.md`.
+3. **The builder works like plain Claude:** no review agents during the build. Tests are recorded failing first (`verify.py red`). The builder works from the must-never-break lines and failure modes, not only the acceptance list; a crash window in a write is must-fix. How the build runs (inline, parts in fresh sessions, or parallel subagents) is the agent's call, written in the state file before the build.
 4. **Reviews are recommended after the build:**
    - The options are security; code at low, default or high depth (low unless a fixed trigger raises it); UI (always when `areas.ui` is touched); the advisor where available; or none.
    - S runs a fixed trigger list instead of judging (high risk, a sensitive, migration or UI path, or a declared public surface; otherwise none), so the same input gets the same process. M and L ask. Autopilot and headless runs take the recommendation.

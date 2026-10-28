@@ -45,9 +45,12 @@ def git(root, *args, check=True):
 
 
 def feature_base(root, plan=None):
-    """`Base:` from the plan's state.md, else from the only active feature's, if that commit exists."""
+    """`Base:` from the plan's state file (the plan itself on sdlc 2.0), else from the only active feature's, if that
+    commit exists."""
     located = sdlc_layout.features(root)
-    if plan:  # the plan sits in the feature's documents folder, named after the feature
+    if plan and os.path.basename(os.path.dirname(os.path.abspath(plan))) == "state":  # .sdlc/state/<feature>.md
+        paths = [os.path.abspath(plan)]
+    elif plan:  # the plan sits in the feature's documents folder, named after the feature
         name = os.path.basename(os.path.dirname(os.path.abspath(plan)))
         state = located[name]["state"] if name in located else sdlc_layout.paths(root, name)["state"]
         paths = [os.path.join(root, state)]

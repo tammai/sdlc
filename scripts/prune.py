@@ -3,7 +3,7 @@
 
 A feature qualifies when its state.md on the main branch says `Status: done` (so it's merged) and
 hasn't changed for --older-than days. Its plans (plan.md and the parts' plan-B<n>.md), reports, review and
-checklists go; intent, spec, design, retro and state stay; review.md stays on a 2.0 feature (`Process: 2`: it is the
+checklists go; change.md (2.0), intent, spec, design, retro and state stay; review.md stays on a 2.0 feature (`Process: 2`: it is the
 review's record) and on Risk: high (its `## Security` section), with an older security.md. Git history keeps
 everything deleted.
 Usage: python3 prune.py [--root DIR] [--main REF] list [--older-than 45d]

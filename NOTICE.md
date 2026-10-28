@@ -12,7 +12,7 @@ Modified: skill cross-references renamed from `superpowers:` to `sdlc:`; output 
 ## GitHub Spec Kit — MIT License, Copyright GitHub, Inc.
 https://github.com/github/spec-kit — `licenses/spec-kit-MIT.txt`
 
-Copied: `templates/spec-template.md` and `templates/constitution-template.md`, with command placeholders and paths updated.
+Copied: `templates/spec-template.md` and `templates/constitution-template.md`, with command placeholders and paths updated. In sdlc 2.0 `spec-template.md` is merged into `templates/change-template.md` (its acceptance criteria, acceptance tests, must-never-break, failure modes and out-of-scope sections).
 
 Adapted (rewritten without the Spec Kit CLI, scripts and extension hooks): skill `project-constitution` (from `constitution`).
 

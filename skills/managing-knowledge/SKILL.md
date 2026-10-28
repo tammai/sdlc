@@ -45,7 +45,7 @@ For each candidate (from a retro, a review, a debugging session, or the user say
    - `knowledge/decisions/<yyyy-mm>-<slug>.md` — `type: decision` (context, decision, alternatives, consequences)
    - `knowledge/gotchas/<slug>.md` — `type: gotcha` (symptom, cause, fix, how to detect)
    - `knowledge/runbooks/<slug>.md` — `type: runbook` (when, steps, verify, rollback)
-   - `knowledge/features/<slug>.md` — `type: feature` (one paragraph + links to `<intents>/intent.md`, `spec.md`, `plan.md`)
+   - `knowledge/features/<slug>.md` — `type: feature` (one paragraph + a link to `<intents>/change.md`)
    Template: `${CLAUDE_PLUGIN_ROOT}/templates/knowledge/doc.md`. Link related docs with relative Markdown links.
 6. **Wire it in:** add one line to `knowledge/index.md` (path + ≤12-word description) and, for path-related docs, a link from the matching tier-2 rule. An unlinked tier-3 doc is invisible — never leave one.
 7. **Log it:** `knowledge/log.md` → `- YYYY-MM-DD <add|update|remove> <path> — <why> (from <feature>)`.

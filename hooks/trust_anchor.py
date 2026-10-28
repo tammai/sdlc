@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """sdlc trust anchor: changes to what verification trusts reach the user instead of happening silently.
 
-The files the other hooks trust (state.md, spec.md, baseline.md, config.json) are writable by the agent they
+The files the other hooks trust (state.md, change.md, baseline.md, config.json) are writable by the agent they
 check, so this can't prevent a change; it makes one visible. For each active feature, on Stop:
   - `Track:`, `Risk:`, `Top model:`, `Base:` or `Process:` differs from the value first seen, unless the change only
     makes the process stricter (Track up, Risk low → high): that becomes the new anchor and is shown to the user
     without blocking, since they approved it already
   - `.sdlc/baseline.md` lists a failing test it didn't at the feature's `Base:` commit (it may only shrink)
   - the commands in `.sdlc/config.json` differ from those at `Base:`
-  - `spec.md` changed after the feature entered Review (Stage 5)
+  - `change.md` above its review sections (its criteria and tests) changed after the feature entered Review (Stage 5)
   - the feature left Review while code differed from its last full test run, or moved past Review without a
     passing full run of the current code, at every size (sdlc 2.0: that run is Review's evidence)
   - leaving Review while the latest round of a review's report says `VERDICT: FAIL`, unless the user waived it
@@ -107,13 +107,16 @@ def check(root, name, text, anchor, shown):
             notices.append("the commands or docs_dir in .sdlc/config.json differ from Base")
         anchor["commands_seen"] = cmds_now
     st = stage(text)
-    spec = read(os.path.join(intents, "spec.md"))
+    # change.md up to its review sections, which Review writes (blank lines before them don't count); else spec.md
+    spec = read(os.path.join(intents, "change.md"))
+    spec = re.split(r"^## Review\b", spec, maxsplit=1, flags=re.M)[0].rstrip() if spec is not None else read(
+        os.path.join(intents, "spec.md"))
     digest = hashlib.sha256(spec.encode("utf-8")).hexdigest() if spec is not None else None
     anchor["spec_seen"] = digest
     if st is not None and st >= 5:
         first = anchor.setdefault("spec", digest)
         if digest != first:
-            notices.append("spec.md changed after the feature entered Stage 5")
+            notices.append("change.md's criteria or tests changed after the feature entered Stage 5")
     prev = anchor.get("stage")
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     # Stops are samples: a turn can run Build, Review and Ship between two of them, so passing Review is judged by

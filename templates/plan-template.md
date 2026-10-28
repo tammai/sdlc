@@ -1,20 +1,9 @@
-# Plan: [FEATURE NAME]
+# Part plan: [FEATURE NAME] B[n]
 
-**Intent:** [intent.md](intent.md) · **Spec:** [spec.md](spec.md)
+**Record:** [change.md](change.md) · **Backlog:** [backlog.md](backlog.md)
 
-<!-- How, written in Define: a working file. The permanent record is intent.md, spec.md and review.md; once the change
-     is merged, /sdlc:prune may delete this. Same sections at every size: S a line or two each. -->
-
-## How the build runs
-
-[inline | parts in fresh sessions | parallel subagents] because [reason]
-
-## Handoff
-
-<!-- What the builder (or the next part's session) needs and wouldn't find in the code: decisions with their reasons,
-     facts found in the code (file:line), risks and how they're proven. Updated at the end of each part. -->
-
-- [decision, fact or risk]
+<!-- One part of work split across sessions (backlog-slices.md), written when the part starts: a working file that
+     /sdlc:prune deletes once merged. The feature's own plan is in its state file; this narrows it to the part. -->
 
 ## Tasks
 
@@ -28,7 +17,3 @@
 <!-- Every new export, endpoint, CLI command, config key, env var and dependency, with its AC. "- none" if none. -->
 
 - none
-
-## Deviations
-
-<!-- Written in Build: what changed from this plan, why, and its effect. -->

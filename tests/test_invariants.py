@@ -9,11 +9,9 @@ from helpers import PLUGIN_ROOT, ProjectTestCase
 SCRIPT = os.path.join(PLUGIN_ROOT, "templates", "project", "ci", "invariants.py")
 STATE = ("# login\nStatus: active\nProcess: 2\nOwner: a@x.dev\nTool: codex\nCurrent: Stage {stage} – Build\n\n"
          "## Deviations\n{deviation}\n\n## Open questions\n-\n")
-SPEC = ("# Spec\n\n## Acceptance criteria\n\n- **AC-001** Sign in.\n\n## Acceptance tests\n\n"
-        "| AC | Test | Run |\n|---|---|---|\n| AC-001 | t.py › test_sign_in | `pytest t.py` |\n")
-REVIEW = ("# Review\n\n## Recommended and chosen\n\n- Recommended: code, default, because a few files changed\n"
-          "- Chosen: code, default, by the user\n\n## Verdicts\n\n| Review | Report | Verdict |\n|---|---|---|\n"
-          "| code, default | `code-reviewer-r1.md` | PASS |\n")
+CHANGE = ("# login\n\n## Acceptance criteria\n\n- **AC-001** Sign in.\n\n## Acceptance tests\n\n"
+          "| AC | Test | Run |\n|---|---|---|\n| AC-001 | t.py › test_sign_in | `pytest t.py` |\n")
+REVIEW = "\n## Review\n\n- Recommended and chosen: code, low (no trigger fired), by the user\n- code, low: PASS\n"
 BASELINE = ("# Known failures baseline\n\n## Failing tests\n\n| Package | Test (file › name) | Failure, one line | Since |\n"
             "|---|---|---|---|\n{rows}\n\n## Lint and type errors\n\n| Package | Tool | Rule | File | Count |\n"
             "|---|---|---|---|---|\n| — | none | | | |\n")
@@ -25,7 +23,7 @@ class InvariantsTest(ProjectTestCase):
         self.git("init", "-q", "-b", "main")
         self.write(".sdlc/config.json", '{"docs_dir": "docs/sdlc"}\n')
         self.state()
-        self.write("docs/sdlc/intents/login/spec.md", SPEC)
+        self.write("docs/sdlc/intents/login/change.md", CHANGE)
 
     def git(self, *args):
         return subprocess.run(["git", "-c", "user.email=t@x.dev", "-c", "user.name=t", *args], cwd=self.root,
@@ -48,17 +46,17 @@ class InvariantsTest(ProjectTestCase):
         self.assertEqual(self.check("--base", base), (0, "sdlc invariants: ok\n"))
 
     def test_the_record_matches_the_phase_reached(self):
-        # sdlc 2.0: past Define each AC names its test in spec.md; in Ship, review.md says what was reviewed
-        self.write("docs/sdlc/intents/login/spec.md", "# Spec\n\n## Acceptance criteria\n\n- **AC-001** Sign in.\n")
+        # sdlc 2.0: past Define each AC names its test in change.md; in Ship, its Review section says what was reviewed
+        self.write("docs/sdlc/intents/login/change.md", "# login\n\n## Acceptance criteria\n\n- **AC-001** Sign in.\n")
         code, out = self.check()
         self.assertEqual(code, 1)
         self.assertIn("## Acceptance tests", out)
-        self.write("docs/sdlc/intents/login/spec.md", SPEC)
+        self.write("docs/sdlc/intents/login/change.md", CHANGE)
         self.state(stage=8)
         code, out = self.check()
         self.assertEqual(code, 1)
-        self.assertIn("review.md", out)
-        self.write("docs/sdlc/intents/login/review.md", REVIEW)
+        self.assertIn("## Review", out)
+        self.write("docs/sdlc/intents/login/change.md", CHANGE + REVIEW)
         self.assertEqual(self.check()[0], 0)
 
     def test_a_grown_baseline_needs_a_deviation(self):

@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """One command that proves a feature: the project's verify plan, then every acceptance criterion against the test
-spec.md names for it (plan.md on a 1.x feature) (ADR 0013).
+change.md names for it (plan.md on a 1.x feature) (ADR 0013, 0020).
 
 Usage: verify.py [--root DIR] [--feature NAME] [--timeout S] [red AC-nnn [AC-nnn ...] | status]
   Runs the verify plan (lint, typecheck, build, test from .sdlc/config.json, per package), then, for every `AC-nnn`
-  in spec.md: a row in spec.md's `## Acceptance tests` table (plan.md's on a 1.x feature), a `manual` row's reason, the test file, a recorded red
-  run, and the row's Run command passing. Writes the result to .sdlc/.work/verify.json and exits 0 on pass, 1 on a
-  failure, 2 when there's no feature to verify. On S (no plan.md), the state file's `Repro: <test file> › <name> |
-  <command>` line is AC-001. A plan without the table, and no Repro line, is an old plan: the AC checks are skipped
-  and the plan is from sdlc 1.x. Then drift from plan.md: a changed file no task or acceptance test names, a task
-  whose files didn't change, an export or dependency the Public Surface doesn't list; each needs a `## Deviations`
-  line naming it, with What:, Why: and Effect:.
+  in change.md: a row in its `## Acceptance tests` table (plan.md's on a 1.x feature), a `manual` row's reason, the
+  test file, a recorded red run, and the row's Run command passing. Writes the result to .sdlc/.work/verify.json and
+  exits 0 on pass, 1 on a failure, 2 when there's no feature to verify. On an old S fix with no record, the state
+  file's `Repro: <test file> › <name> | <command>` line is AC-001. A plan without the table, and no Repro line, is an
+  old plan: the AC checks are skipped and the plan is from sdlc 1.x. Then drift from the plan (the state file's
+  `## Tasks` and `## Public Surface`; plan.md on 1.x): a changed file no task or acceptance test names, a task whose
+  files didn't change, an export or dependency the Public Surface doesn't list; each needs a `## Deviations` line
+  (`state.py deviation`) naming it, with What:, Why: and Effect:.
 `red AC-nnn [AC-nnn ...]`, run before those ACs' code is written: runs each AC's test and records it failing (exit 0).
   A test that passes, can't be found or can't run is refused (exit 1, and none of the named ACs is recorded): it
   would prove nothing.
@@ -51,7 +52,7 @@ def section(text, heading):
 
 
 def acceptance_map(plan_text):
-    """Rows of plan.md's `## Acceptance tests` table, or None when the plan has no such section."""
+    """Rows of a `## Acceptance tests` table, or None when the text has no such section."""
     body = section(plan_text, "Acceptance tests")
     if body is None:
         return None
@@ -108,18 +109,27 @@ def save_record(root, rec, *runs):
 
 
 def docs(root, feature):
-    folder = os.path.join(root, sdlc_layout.paths(root, feature)["intents"])
-    return read(os.path.join(folder, "spec.md")) or "", read(os.path.join(folder, "plan.md")) or ""
+    """(the human record's text, the plan's text, the plan's path): change.md and the state file, which holds the
+    plan from Define on; spec.md and plan.md for a feature whose state file has no `## Tasks` (1.x)."""
+    paths = sdlc_layout.paths(root, feature)
+    folder = os.path.join(root, paths["intents"])
+    human = read(os.path.join(folder, "change.md")) or read(os.path.join(folder, "spec.md")) or ""
+    state_path = os.path.join(root, paths["state"])
+    state = read(state_path) or ""
+    if section(state, "Tasks") is not None:
+        return human, state, state_path
+    plan_path = os.path.join(folder, "plan.md")
+    return human, read(plan_path) or "", plan_path
 
 
 REPRO = re.compile(r"^Repro:\s*(.+?)\s*\|\s*(.+?)\s*$", re.M)
 
 
 def acceptance(root, feature):
-    """(AC ids, rows): from spec.md and its `## Acceptance tests` table (sdlc 2.0; plan.md's table on a 1.x feature),
-    or, on an old S fix (no plan), from the state file's `Repro: <test file> › <name> | <command>` line as AC-001.
+    """(AC ids, rows): from change.md and its `## Acceptance tests` table (plan.md's table on a 1.x feature), or, on
+    an old S fix with no record, from the state file's `Repro: <test file> › <name> | <command>` line as AC-001.
     Rows are None for an old plan with none of them."""
-    spec_text, plan_text = docs(root, feature)
+    spec_text, plan_text, _ = docs(root, feature)
     rows = acceptance_map(spec_text)
     if rows is None:
         rows = acceptance_map(plan_text)
@@ -137,16 +147,15 @@ def covered(item, deviations):
                for line in deviations.splitlines())
 
 
-def drift(root, feature, plan_text):
-    """[{item, kind, covered}] for what the change did that plan.md didn't say, or None without a Base or a plan
-    (S writes none)."""
+def drift(root, feature):
+    """[{item, kind, covered}] for what the change did that the plan didn't say, or None without a Base or a plan."""
+    spec_text, plan_text, plan_path = docs(root, feature)
     if not plan_text.strip():
         return None
     state = read(os.path.join(root, sdlc_layout.paths(root, feature)["state"])) or ""
     m = re.search(r"^Base:\s*`?([0-9a-f]{7,40})\b", state, re.M)
     if not m:
         return None
-    plan_path = os.path.join(root, sdlc_layout.paths(root, feature)["intents"], "plan.md")
     facts = diff_stats.collect(root, m.group(1), [plan_path] if os.path.exists(plan_path) else [])
     docs_dir = sdlc_layout.docs_dir(root)
     changed = [f for f in facts["changed_files"] if not f.startswith(".sdlc/") and not f.lower().endswith(".md")
@@ -159,7 +168,7 @@ def drift(root, feature, plan_text):
         if current:
             tasks.setdefault(current, set()).update(BACKTICKED.findall(line))
     named = set().union(*tasks.values()) if tasks else set()
-    rows = acceptance_map(docs(root, feature)[0])  # sdlc 2.0: the table is spec.md's; 1.x: plan.md's
+    rows = acceptance_map(spec_text)  # sdlc 2.0: the table is change.md's; 1.x: plan.md's
     named |= {r["file"] for r in (rows if rows is not None else acceptance_map(plan_text)) or [] if r["file"]}
     items = [(f, "file") for f in changed if f not in named]
     items += [(f"task {n}", "task") for n, files in tasks.items()
@@ -181,7 +190,6 @@ def full(root, feature, timeout=1800):
         code, out = run(step["run"], os.path.join(root, step["cwd"]), timeout)
         if code:
             failures.append(f"{step['scope'] or scaffold.ROOT_SCOPE} {step['step']}: exit {code}\n{out[-500:]}")
-    _, plan_text = docs(root, feature)
     acs, rows = acceptance(root, feature)
     manual = []
     if rows is None:
@@ -205,9 +213,9 @@ def full(root, feature, timeout=1800):
                 code, out = run(row["run"], root, timeout)
                 if code:
                     failures.append(f"{ac}: its test fails (exit {code})\n{out[-500:]}")
-    drifted = drift(root, feature, plan_text)
+    drifted = drift(root, feature)
     if drifted is None:
-        notes.append("no plan.md (S) or no Base: in state.md, so drift wasn't checked")
+        notes.append("no plan (the state file's ## Tasks) or no Base:, so drift wasn't checked")
     for d in drifted or []:
         if not d["covered"]:
             failures.append(f"drift: {d['item']} has no Deviations entry with What:, Why: and Effect:")
@@ -285,7 +293,7 @@ def status(root, feature):
     elif hook_last.get("tree") != last.get("tree") or set(rec.get("red") or {}) - set(hook.get("red") or {}):
         reason = "records disagree"
     elif current != last.get("tree") and vf.changed_code_files(root, last.get("tree"), current) != []:
-        reason = "code changed since verify"  # docs and the record (review.md, a lesson) don't count; unknown does
+        reason = "code changed since verify"  # docs and the record (change.md, a lesson) don't count; unknown does
     else:
         reason = ""
     # The current tree and HEAD: what `state.py verified` records and Ship checks against (the core's "Verified tree")

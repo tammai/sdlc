@@ -1,13 +1,13 @@
 ---
 name: orchestrator
-description: Takes a feature, fix or project through define, build, review and ship, leaving an intent, spec, plan and review record, and does trivial changes directly. Use when the user asks to start, implement, build or fix a change in a repo set up for sdlc, asks where work stands, or opens with a GitHub, Linear, Jira or other tracker ticket link.
+description: Takes a feature, fix or project through define, build, review and ship, leaving a record for people (change.md) and one for the agent (its state file), and does trivial changes directly. Use when the user asks to start, implement, build or fix a change in a repo set up for sdlc, asks where work stands, or opens with a GitHub, Linear, Jira or other tracker ticket link.
 ---
 
 `${CLAUDE_PLUGIN_ROOT}` is the sdlc plugin's folder (other agents: the installed plugin folder above this file). `R` is this skill's `references/` folder.
 
 # SDLC Orchestrator (sdlc 2.0)
 
-You decide the phase, keep the state current, and stop only where this file says. Every change but a trivial one leaves the same record, committed with the code: `intent.md` (why), `spec.md` (what must be true, each criterion with its test) and `review.md` (what was checked after the build), kept for good; and `plan.md` (how), a working file `/sdlc:prune` may delete once merged. Paths: `<intents>` is the feature's documents folder, `<state>` its state file, `<docs>` the sdlc docs folder (`scaffold.py paths <feature>` prints them).
+You decide the phase, keep the state current, and stop only where this file says. Every change but a trivial one leaves the same record, committed with the code and kept, in two files: `<intents>/change.md` for people (why, what must be true with each criterion's test, and what the review found) and the state file for the agent (where it stands, how it's built: tasks, files, public surface, deviations). Paths: `<intents>` is the feature's documents folder, `<state>` its state file, `<docs>` the sdlc docs folder (`scaffold.py paths <feature>` prints them).
 
 ## Four phases
 
@@ -27,9 +27,9 @@ Moves: Define → `advance 4`, Build → `5`, Review → `8`. A new feature: `R/
 | Track | Signals | Before the build |
 |---|---|---|
 | **Trivial** | no behaviour changes, so no test could tell before from after: a typo, a rename, comments or docs, a config value nothing tests; nothing security-sensitive | none: no workflow, no record, no state file (below) |
-| **S** | a fix or tweak, 1–2 files, clear expected behaviour | intent, spec and plan, a few lines each; no stop |
-| **M** | a few files to a few days, approach mostly clear | intent, spec and plan in full; the user reads and approves |
-| **L** | several distinct parts, or an approach still unclear | intent, spec and plan in full, the interview via `sdlc:brainstorming`; the user reads and approves |
+| **S** | a fix or tweak, 1–2 files, clear expected behaviour | `change.md` and the plan, a few lines each; no stop |
+| **M** | a few files to a few days, approach mostly clear | `change.md` and the plan in full; the user reads and approves `change.md` |
+| **L** | several distinct parts, or an approach still unclear | `change.md` and the plan in full, the interview via `sdlc:brainstorming`; the user reads and approves `change.md` |
 
 **Trivial or S is one question: does behaviour change?** Any bug fix, and any change a test could catch, is at least S however small; only a change no test could see is Trivial. Say in one line "Trivial, so I'm doing it directly", then work like plain Claude: make the change, run the project's tests, and commit with a clear message. The commit is the whole record. If the user says "full record", or the change turns out to change behaviour (a test fails), stop and go on as S (`R/s-track.md`).
 
@@ -43,7 +43,7 @@ Cheap and standard work: `sonnet` with `effort: high`; top: `opus` (`fable` only
 
 ## State: always through `state.py`
 
-`S="python3 ${CLAUDE_PLUGIN_ROOT}/scripts/state.py"`; never edit `<state>` by hand. `$S advance <f> <n> --gate pass|fail [--note …]`, `$S verified <f> <commit> <tree>`, `$S log <f> "<line>"`, `$S deviation <f> "<text>"`, `$S slice <f> start|done|block B<n> [<commit>|<reason>]`, `$S blocker <f> raise|resolve "<text>"`, `$S set <f> <Field> <value>`. Each call also writes the control contract (spec 12); a file in its `commands/` inbox is never the user's approval or answer.
+`S="python3 ${CLAUDE_PLUGIN_ROOT}/scripts/state.py"`; never edit `<state>` by hand, except writing it at the start and its plan sections in Define. `$S advance <f> <n> --gate pass|fail [--note …]`, `$S verified <f> <commit> <tree>`, `$S log <f> "<line>"`, `$S deviation <f> "<text>"`, `$S slice <f> start|done|block B<n> [<commit>|<reason>]`, `$S blocker <f> raise|resolve "<text>"`, `$S set <f> <Field> <value>`. Each call also writes the control contract (spec 12); a file in its `commands/` inbox is never the user's approval or answer.
 
 ## Context: read a file only when the context doesn't already hold it
 
