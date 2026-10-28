@@ -17,8 +17,8 @@ sdlc/
 │                            the hooks under Codex, Cursor and Antigravity
 ├── agents/                  subagents: code-reviewer, ui-reviewer, qa-tester, code-explorer, pr-test-analyzer, silent-failure-hunter
 ├── commands/                slash commands (/sdlc:start, setup, upgrade, eject, doctor, status, prune, deploy, context-diet, review-pr, …)
-├── skills/                  skills; orchestrator/ is the conductor (a short core plus references/ read per phase: start, define, build,
-│                            review, review-brief, ship, backlog-slices, ui-work), setting-up-projects/ runs setup/upgrade/eject
+├── skills/                  skills; orchestrator/ is the conductor (a short router plus one reference per track: s-track for S,
+│                            flow for M and L; review-brief, backlog-slices, ui-work when named), setting-up-projects/ runs setup/upgrade/eject
 │                            (references/trimming-context.md: /sdlc:context-diet); managing-knowledge/references/ holds
 │                            claude-md-improver.md and its folder
 ├── hooks/

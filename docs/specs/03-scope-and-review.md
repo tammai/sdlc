@@ -2,7 +2,7 @@
 
 Every addition is traced to a request from intent to diff, and review gets measured facts so unrequested scope is caught mechanically where possible.
 
-**Entry points:** Define and Review; `/sdlc:review-pr`, `/sdlc:code-review` · **Source:** `skills/orchestrator/references/define.md`, `review.md`, `review-brief.md`, `templates/change-template.md`, the state template in `references/start.md`, `templates/plan-template.md` (a part's plan), `agents/code-reviewer.md`, `commands/review-pr.md`, `plugins/sdlc-extras/agents/` (comment-analyzer, type-design-analyzer, code-simplifier), `scripts/diff_stats.py` · **Decision:** [ADR 0003](../adr/0003-guard-against-over-engineering.md), [ADR 0020](../adr/0020-sdlc-2-slim-process-core.md)
+**Entry points:** Define and Review; `/sdlc:review-pr`, `/sdlc:code-review` · **Source:** `skills/orchestrator/references/flow.md` (Define, Review), `s-track.md`, `review-brief.md`, `templates/change-template.md`, the state template in `references/flow.md`, `templates/plan-template.md` (a part's plan), `agents/code-reviewer.md`, `commands/review-pr.md`, `plugins/sdlc-extras/agents/` (comment-analyzer, type-design-analyzer, code-simplifier), `scripts/diff_stats.py` · **Decision:** [ADR 0003](../adr/0003-guard-against-over-engineering.md), [ADR 0020](../adr/0020-sdlc-2-slim-process-core.md)
 
 ## User scenarios
 

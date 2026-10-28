@@ -77,6 +77,15 @@ class StateTest(ProjectTestCase):
         self.assertEqual(code, 1)
         self.assertIn("no Stage 6", out["error"])
 
+    def test_a_phase_end_records_the_verified_tree_and_the_move_in_one_call(self):
+        code, out = self.state("advance", "login", "5", "--gate", "pass", "--verified", "abc1234", "f00d")
+        self.assertEqual(code, 0, out)
+        with open(self.md, encoding="utf-8") as f:
+            text = f.read()
+        self.assertIn("Verified: abc1234 tree f00d\n", text)
+        self.assertIn("Current: Stage 5 – Review\n", text)
+        self.assertEqual(self.state("advance", "login", "5", "--verified", "abc1234")[0], 2)  # a tree is required
+
     def test_a_1x_feature_is_refused_with_how_to_finish_it(self):
         self.write(".sdlc/state/login.md", STATE.replace("Process: 2\n", ""))
         code, out = self.state("advance", "login", "5")

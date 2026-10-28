@@ -2,7 +2,7 @@
 
 Security feedback runs continuously while code is written. A model security review of the feature, in Review and on the commit, runs only when the change is **security-touched**: `Risk: high`, or the diff since `Base:` touches `areas.sensitive` or `areas.migrations`. In Review it is recommended then, and chosen by the user on M and L ([ADR 0020](../adr/0020-sdlc-2-slim-process-core.md)). The turn-end review runs only then too, and outside an active feature neither runs ([ADR 0019](../adr/0019-model-security-review-only-for-security-touched-work.md)).
 
-**Entry points:** always-on hooks; Review (Stage 5) of the orchestrator · **Source:** `hooks/security_reminder_hook.py` and modules, `hooks/sdlc_review_gate.py`, `templates/project/config.defaults.json` (the default `areas`), `hooks/sg-python.sh`, `hooks/ensure_agent_sdk.py`, `hooks/patterns.py`, `skills/orchestrator/references/review.md`, `review-brief.md`, `templates/project/rules/sensitive.md`, `templates/project/hookify/sdlc-secret-values.md`
+**Entry points:** always-on hooks; Review (Stage 5) of the orchestrator · **Source:** `hooks/security_reminder_hook.py` and modules, `hooks/sdlc_review_gate.py`, `templates/project/config.defaults.json` (the default `areas`), `hooks/sg-python.sh`, `hooks/ensure_agent_sdk.py`, `hooks/patterns.py`, `skills/orchestrator/references/flow.md` (Review), `review-brief.md`, `templates/project/rules/sensitive.md`, `templates/project/hookify/sdlc-secret-values.md`
 
 ## User scenarios
 

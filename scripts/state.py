@@ -9,7 +9,7 @@ file and git-ignored (in either layout):
   .sdlc/state/<feature>.events.jsonl    one event per call, appended, never rewritten
   .sdlc/state/<feature>.commands/       the runner's inbox; never read or executed here
 Advancing to the current stage is refused (it would tick the stage before its gate ran).
-Usage: python3 state.py [--root DIR] advance FEATURE STAGE [--gate pass|fail] [--note TEXT]
+Usage: python3 state.py [--root DIR] advance FEATURE STAGE [--gate pass|fail] [--note TEXT] [--verified COMMIT TREE]
                                      verified FEATURE COMMIT TREE
                                      log FEATURE TEXT [--type note|review_done]
                                      deviation FEATURE TEXT
@@ -247,6 +247,8 @@ def apply(a, text, backlog_raw):
             raise Refused(f"no Stage {a.stage}")
         if a.stage == stage:  # a repeated advance would tick the stage before its gate ran
             raise Refused(f"already at Stage {stage}")
+        if a.verified:  # a phase's end records its passing verify in the same call
+            text = set_line(text, "Verified", f"{a.verified[0]} tree {a.verified[1]}")
         if a.gate:
             text = append_to_section(text, "Gate log", f"{today()} Stage {stage}: {a.gate}"
                                      + (f" — {a.note}" if a.note else ""))
@@ -255,7 +257,7 @@ def apply(a, text, backlog_raw):
         text = re.sub(r"^Current:.*$", lambda _: f"Current: Stage {a.stage} – {STAGES[a.stage]}", text, count=1,
                       flags=re.M)
         return text, None, {"type": "stage_entered", "from": stage, "stage": a.stage, "gate": a.gate,
-                            "note": a.note}
+                            "note": a.note, **({"commit": a.verified[0], "tree": a.verified[1]} if a.verified else {})}
     if a.cmd == "verified":
         return set_line(text, "Verified", f"{a.commit} tree {a.tree}"), None, {
             "type": "verified", "commit": a.commit, "tree": a.tree}
@@ -366,6 +368,7 @@ def main(argv=None):
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("advance"); s.add_argument("feature"); s.add_argument("stage", type=int)
     s.add_argument("--gate", choices=["pass", "fail"]); s.add_argument("--note")
+    s.add_argument("--verified", nargs=2, metavar=("COMMIT", "TREE"))
     s = sub.add_parser("verified"); s.add_argument("feature"); s.add_argument("commit"); s.add_argument("tree")
     s = sub.add_parser("log"); s.add_argument("feature"); s.add_argument("text")
     s.add_argument("--type", choices=["note", "review_done"], default="note")
