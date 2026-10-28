@@ -2,8 +2,8 @@
 """Check the shared sdlc files, whichever agent or person changed them (seeded by the sdlc plugin v{{plugin_version}}).
 
 Only active features count (`Status: active` in their state file):
-  - the record matches the phase reached: past Define (Stage 1), change.md has its `## Acceptance tests` table; in
-    Ship (Stage 8), its `## Review` section says what was reviewed.
+  - the record matches the phase reached: past Define (Stage 1), the change file (<docs>/changes/<feature>.md) has its
+    `## Acceptance tests` table; in Ship (Stage 8), its `## Review` section says what was reviewed.
   - the baseline: against --base, a new row or a higher lint count needs a feature's Deviations entry naming it.
 
 Usage: python3 .sdlc/ci/invariants.py [--base REF] [--require-ancestor]   (--require-ancestor: accepted, unused since 2.0)
@@ -43,14 +43,14 @@ def config():
 
 
 def features():
-    """{name: (state path, documents folder)} in either layout; the new one wins a name in both."""
+    """{name: (state path, change file)} in either layout; the new one wins a name in both."""
     docs = str(config().get("docs_dir") or "docs/sdlc").strip("/")
     found = {}
     for path in sorted(glob.glob(os.path.join(SDLC, "*", "state.md"))):
         name = os.path.basename(os.path.dirname(path))
-        found[name] = (path, os.path.dirname(path))
+        found[name] = (path, os.path.join(os.path.dirname(path), "change.md"))
     for path in sorted(glob.glob(os.path.join(SDLC, "state", "*.md"))):
-        found[os.path.basename(path)[:-3]] = (path, os.path.join(docs, "intents", os.path.basename(path)[:-3]))
+        found[os.path.basename(path)[:-3]] = (path, os.path.join(docs, "changes", os.path.basename(path)))
     return found
 
 
@@ -59,9 +59,8 @@ def section(text, heading):
     return m.group(1) if m else ""
 
 
-def check_record(docs, stage):
+def check_record(path, stage):
     problems = []
-    path = os.path.join(docs, "change.md")
     change = read(path) or ""
     if stage >= 4 and "## Acceptance tests" not in change:
         problems.append(f"{path}: past Define but no `## Acceptance tests` table naming each AC's test")
@@ -115,13 +114,13 @@ def main(argv=None):
     a = ap.parse_args(argv)
     sys.stdout.reconfigure(encoding="utf-8")  # file names and messages aren't ASCII; Windows consoles default to cp1252
     problems, deviations = [], ""
-    for name, (state_path, docs) in features().items():
+    for name, (state_path, change_path) in features().items():
         state = read(state_path) or ""
         deviations += section(state, "Deviations")  # any feature's: one may record it and finish in the same push
         if not re.search(r"^Status:\s*active\b", state, re.M):
             continue
         stage = STAGE.search(state)
-        problems += check_record(docs, int(stage.group(1)) if stage else 0)
+        problems += check_record(change_path, int(stage.group(1)) if stage else 0)
     if a.base:
         problems += check_baseline(a.base, deviations)
     for line in problems:

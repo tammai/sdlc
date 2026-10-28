@@ -327,7 +327,9 @@ def run(a):
     raw = read_raw(path)
     crlf = "\r\n" in raw
     text = raw.replace("\r\n", "\n")
-    backlog_path = os.path.join(a.root, located["intents"], "backlog.md")
+    backlog_path = os.path.join(a.root, located["work"], "backlog.md")  # before 2.0: the documents folder
+    if not os.path.isfile(backlog_path):
+        backlog_path = os.path.join(a.root, located["intents"], "backlog.md")
     backlog_raw = read_raw(backlog_path) if os.path.isfile(backlog_path) else None
     bom = backlog_raw is not None and backlog_raw.startswith("﻿")
     if bom:

@@ -1,8 +1,10 @@
 """Where a set-up repo keeps sdlc feature state and documents.
 
-New layout (the project's own .sdlc/config.json sets `docs_dir`): state in .sdlc/state/<name>.md, documents in
-<docs_dir>/intents/<name>/, constitution and design system in <docs_dir>/. Legacy layout (no `docs_dir`):
-everything under .sdlc/, a feature in .sdlc/<name>/ with its state.md. Readers accept both, so a repo keeps
+New layout (the project's own .sdlc/config.json sets `docs_dir`): a feature's record is two files, its change
+<docs_dir>/changes/<name>.md (for people) and its state .sdlc/state/<name>.md (for the agent); its working files
+(backlog.md, a part's plan-B<n>.md, qa-report.md) go in .sdlc/state/<name>/; constitution and design system in
+<docs_dir>/. Features from before sdlc 2.0 keep their documents in <docs_dir>/intents/<name>/. Legacy layout (no
+`docs_dir`): everything under .sdlc/, a feature in .sdlc/<name>/ with its state.md and change.md. Readers accept both, so a repo keeps
 working between a plugin update and the /sdlc:upgrade that moves it. Paths returned are repo-relative, with `/`.
 """
 import glob
@@ -49,27 +51,33 @@ def paths(root, name=None):
     if docs:
         out = {"layout": "new", "docs_dir": docs, "constitution": f"{docs}/constitution.md",
                "design_system": f"{docs}/design-system.md", "intents_root": f"{docs}/intents/",
-               "state_root": f"{SDLC}/state/"}
+               "changes_root": f"{docs}/changes/", "state_root": f"{SDLC}/state/"}
         if name:
-            out.update(state=f"{SDLC}/state/{name}.md", intents=f"{docs}/intents/{name}/")
+            out.update(state=f"{SDLC}/state/{name}.md", change=f"{docs}/changes/{name}.md",
+                       work=f"{SDLC}/state/{name}/", intents=f"{docs}/intents/{name}/")
     else:
         out = {"layout": "legacy", "docs_dir": SDLC, "constitution": f"{SDLC}/constitution.md",
-               "design_system": f"{SDLC}/design-system.md", "intents_root": f"{SDLC}/", "state_root": f"{SDLC}/"}
+               "design_system": f"{SDLC}/design-system.md", "intents_root": f"{SDLC}/", "changes_root": f"{SDLC}/",
+               "state_root": f"{SDLC}/"}
         if name:
-            out.update(state=f"{SDLC}/{name}/state.md", intents=f"{SDLC}/{name}/")
+            out.update(state=f"{SDLC}/{name}/state.md", change=f"{SDLC}/{name}/change.md", work=f"{SDLC}/{name}/",
+                       intents=f"{SDLC}/{name}/")
     return out
 
 
 def features(root):
-    """Every feature in either layout: {name: {state, intents, layout}}. A name in both: the new one wins."""
+    """Every feature in either layout: {name: {state, change, work, intents, layout}}. A name in both: the new one
+    wins."""
     docs = docs_dir(root) or DOCS_DEFAULT
     found = {}
     for path in sorted(glob.glob(os.path.join(root, SDLC, "*", "state.md"))):
         name = os.path.basename(os.path.dirname(path))
-        found[name] = {"state": f"{SDLC}/{name}/state.md", "intents": f"{SDLC}/{name}/", "layout": "legacy"}
+        found[name] = {"state": f"{SDLC}/{name}/state.md", "change": f"{SDLC}/{name}/change.md", "work": f"{SDLC}/{name}/",
+                       "intents": f"{SDLC}/{name}/", "layout": "legacy"}
     for path in sorted(glob.glob(os.path.join(root, SDLC, "state", "*.md"))):
         name = os.path.basename(path)[:-3]
-        found[name] = {"state": f"{SDLC}/state/{name}.md", "intents": f"{docs}/intents/{name}/", "layout": "new"}
+        found[name] = {"state": f"{SDLC}/state/{name}.md", "change": f"{docs}/changes/{name}.md",
+                       "work": f"{SDLC}/state/{name}/", "intents": f"{docs}/intents/{name}/", "layout": "new"}
     return found
 
 

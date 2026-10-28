@@ -61,13 +61,16 @@ def candidate(root, ref, name, older_than):
     age = int((time.time() - changed) // 86400)
     if age < older_than:
         return {"feature": name, "skip": f"done {age} days ago (under {older_than})"}
+    # sdlc 2.0 keeps its working files beside the state file (the record is the change file and the state);
+    # 1.x kept them with its documents
+    where = loc["work"] if re.search(r"^Process:\s*2", state, re.M) else loc["intents"]
     # Deleting from the working tree is only safe when it matches what git already holds.
-    dirty = git(root, "status", "--porcelain", "--", loc["state"], loc["intents"])
+    dirty = git(root, "status", "--porcelain", "--", loc["state"], where)
     if dirty is None or dirty:
         return {"feature": name, "skip": "uncommitted changes in its folder" if dirty else "git status failed"}
-    folder = os.path.realpath(os.path.join(root, loc["intents"]))
+    folder = os.path.realpath(os.path.join(root, where))
     if not folder.startswith(os.path.realpath(root) + os.sep):
-        return {"feature": name, "skip": f"{loc['intents']} is outside the repo"}
+        return {"feature": name, "skip": f"{where} is outside the repo"}
     local = os.path.join(root, loc["state"])
     with open(local, encoding="utf-8", errors="replace") as f:
         if not re.search(r"^Status:\s*done\b", f.read(), re.M | re.I):
@@ -77,10 +80,10 @@ def candidate(root, ref, name, older_than):
         delete.remove("review.md")  # sdlc 2.0 records every review there; 1.x only its security section
     if not re.search(r"^Risk:\s*high\b", state, re.M | re.I):
         delete.append("security.md")
-    here = [f for f in delete if os.path.exists(os.path.join(root, loc["intents"], f))]
+    here = [f for f in delete if os.path.exists(os.path.join(root, where, f))]
     if os.path.isdir(folder):
         here += sorted(f for f in os.listdir(folder) if SLICE_PLAN.fullmatch(f))
-    return {"feature": name, "age_days": age, "delete": here, "dir": loc["intents"]}
+    return {"feature": name, "age_days": age, "delete": here, "dir": where}
 
 
 def features(root):

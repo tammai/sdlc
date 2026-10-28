@@ -109,11 +109,11 @@ def save_record(root, rec, *runs):
 
 
 def docs(root, feature):
-    """(the human record's text, the plan's text, the plan's path): change.md and the state file, which holds the
-    plan from Define on; spec.md and plan.md for a feature whose state file has no `## Tasks` (1.x)."""
+    """(the human record's text, the plan's text, the plan's path): the change file and the state file, which holds
+    the plan from Define on; spec.md and plan.md for a feature whose state file has no `## Tasks` (1.x)."""
     paths = sdlc_layout.paths(root, feature)
     folder = os.path.join(root, paths["intents"])
-    human = read(os.path.join(folder, "change.md")) or read(os.path.join(folder, "spec.md")) or ""
+    human = read(os.path.join(root, paths["change"])) or read(os.path.join(folder, "spec.md")) or ""
     state_path = os.path.join(root, paths["state"])
     state = read(state_path) or ""
     if section(state, "Tasks") is not None:

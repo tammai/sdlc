@@ -83,7 +83,8 @@ def read(path):
 def check(root, name, text, anchor, shown):
     """Notices for one feature; stricter field changes go to `shown`; updates `anchor` with what was seen."""
     notices = []
-    intents = os.path.join(root, sdlc_layout.features(root).get(name, {}).get("intents", ""))
+    located = sdlc_layout.features(root).get(name, {})
+    intents = os.path.join(root, located.get("intents", ""))
     for f in FIELDS:
         now = field(text, f)
         first = anchor.setdefault("fields", {}).setdefault(f, now)
@@ -107,8 +108,9 @@ def check(root, name, text, anchor, shown):
             notices.append("the commands or docs_dir in .sdlc/config.json differ from Base")
         anchor["commands_seen"] = cmds_now
     st = stage(text)
-    # change.md up to its review sections, which Review writes (blank lines before them don't count); else spec.md
-    spec = read(os.path.join(intents, "change.md"))
+    # The change file up to its review sections, which Review writes (blank lines before them don't count); else
+    # spec.md
+    spec = read(os.path.join(root, located["change"])) if located.get("change") else None
     spec = re.split(r"^## Review\b", spec, maxsplit=1, flags=re.M)[0].rstrip() if spec is not None else read(
         os.path.join(intents, "spec.md"))
     digest = hashlib.sha256(spec.encode("utf-8")).hexdigest() if spec is not None else None

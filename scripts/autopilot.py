@@ -77,7 +77,9 @@ def autopilot(root, feature, mode, ran):
         where = located[feature] if feature in located else sdlc_layout.paths(root, feature)
     except ValueError as e:
         raise Stop(str(e))
-    path = os.path.join(root, where["intents"], "backlog.md")
+    path = os.path.join(root, where["work"], "backlog.md")
+    if not os.path.isfile(path):  # before 2.0: the documents folder
+        path = os.path.join(root, where["intents"], "backlog.md")
     state = os.path.join(root, where["state"])
     if not os.path.isfile(path):
         raise Stop(f"no backlog: {path}")
