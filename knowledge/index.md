@@ -19,6 +19,7 @@ One line per doc: path — what it answers (≤12 words). Keep this file under ~
 - [gotchas/windows-stdout-encoding.md](gotchas/windows-stdout-encoding.md) — why scripts crash printing non-ASCII on Windows; write UTF-8
 - [gotchas/windows-bash-is-wsl.md](gotchas/windows-bash-is-wsl.md) — why a bare "bash" subprocess runs WSL on Windows
 - [gotchas/hook-inputs.md](gotchas/hook-inputs.md) — failed Bash is PostToolUseFailure; agent_type; updatedInput keeps permissions
+- [gotchas/repo-config-is-untrusted.md](gotchas/repo-config-is-untrusted.md) — no-question actions take inputs from the plugin, never repo config
 - [gotchas/hooks-read-command-text.md](gotchas/hooks-read-command-text.md) — commit review needs `git commit` visible; don't widen command parsers
 - [gotchas/host-hook-answers.md](gotchas/host-hook-answers.md) — Antigravity denies on `{}`; Cursor allow skips approval
 - [gotchas/rendering-svg-diagrams.md](gotchas/rendering-svg-diagrams.md) — how to render and check a hand-edited docs diagram
