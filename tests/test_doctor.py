@@ -154,6 +154,12 @@ class DoctorTest(ProjectTestCase):
         self.write(".sdlc/baseline.md", "# baseline\n")
         self.assertEqual(self.check("baseline")["status"], "ok")
 
+    def test_set_up_repo_without_a_prd_warns(self):
+        self.setup_repo()
+        self.assertEqual(self.check("PRD")["status"], "warn")
+        self.write("docs/sdlc/prd.md", "# Product\n")  # the default place: <docs>/prd.md
+        self.assertEqual(self.check("PRD")["status"], "ok")
+
     def test_ui_without_design_system_warns(self):
         self.setup_repo()
         self.write("src/App.tsx", "export const App = () => null\n")

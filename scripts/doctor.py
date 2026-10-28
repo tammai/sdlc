@@ -259,6 +259,11 @@ def check_repo(r, root):
 
     files = repo_files(root)
     if status["setup"] == "complete":
+        prd = sdlc_layout.prd(root)
+        has_prd = os.path.isfile(os.path.join(root, prd))
+        r.add(g, "PRD", "ok" if has_prd else "warn",
+              prd if has_prd else f"no product doc ({prd}): Define has no goals, non-goals or audience to start from",
+              None if has_prd else "run the prd step of /sdlc:setup (or /sdlc:upgrade)")
         ui = scaffold.effective_config(p.config).get("areas", {}).get("ui", [])
         if any(glob_matches(x, files) for x in ui):
             design_system = sdlc_layout.paths(root)["design_system"]

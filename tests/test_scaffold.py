@@ -426,6 +426,14 @@ class ScaffoldTest(ProjectTestCase):
         self.assertNotIn("extraKnownMarketplaces", settings)
         self.assertNotIn(".sdlc/.work/", self.read(".gitignore"))
 
+    def test_eject_keeps_the_prd_where_setup_recorded_it(self):
+        self.setup_for_eject()
+        self.write("product/PRD.md", "# Planner\n")  # one the user already had, used as is
+        self.assertEqual(self.sc("prd", "product/PRD.md")["prd"], "product/PRD.md")
+        self.assertIn("product/PRD.md", self.sc("eject")["keep"])
+        self.sc("eject", "--apply")
+        self.assertEqual(self.read("product/PRD.md"), "# Planner\n")
+
     def test_eject_also_deletes_edited_files_on_request_only(self):
         self.setup_for_eject()
         self.assertIn("ask", self.sc("eject", "--apply", "--also", ".sdlc/constitution.md", expect=1)["error"])

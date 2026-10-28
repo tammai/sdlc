@@ -70,11 +70,11 @@ One row per check (✅ / ⚠️ / ❌) for your machine, the plugin and the curr
 - Works on a `sdlc/setup` branch, one commit per step; rerun it to resume if interrupted. Needs a clean working tree.
 - **New repo:** a few stack questions, then a proposal you approve; the ecosystem's own generators build a skeleton whose commands pass on day one.
 - **Existing repo:** records the commands you already use (`pnpm test`, `go test ./...`, `make lint`, …) per package, writes a **baseline** of what already fails so features aren't blamed for it, and drafts conventions, gotchas and per-area rules from the code and git history. Nothing from that audit is written until you approve it.
-- Both get policy rules, guardrails (hookify), lint snippets, a permission allowlist for your commands, CI generated from those commands, a constitution and a knowledge folder. Projects with UI also get a **design system** record: the library, tokens and components you already use, or a mainstream library and minimal tokens you approve.
+- Both get policy rules, guardrails (hookify), lint snippets, a permission allowlist for your commands, CI generated from those commands, a product doc (PRD: the one you have, or one drafted from an interview or the code, approved before it's written), a constitution and a knowledge folder. Projects with UI also get a **design system** record: the library, tokens and components you already use, or a mainstream library and minimal tokens you approve.
 - On Claude Code, offers `/sdlc:context-diet` to switch off plugins this project doesn't need. That writes only your uncommitted `.claude/settings.local.json`.
 - Ends by asking: open a PR, or merge locally.
 
-What lands in the repo: `.sdlc/config.json` (your commands; to change one later, see [Configuration](docs/guidebook.md#configuration)), `docs/sdlc/constitution.md`, `docs/sdlc/design-system.md` (UI projects), `.claude/rules/sdlc-*.md`, `.claude/hookify/sdlc-*.md`, `.claude/settings.json` (command allowlist; with your approval, the sdlc marketplace and `enabledPlugins` so teammates are offered the plugin), `.github/workflows/sdlc-verify.yml` and `sdlc-invariants.yml` (checks the shared sdlc files, whichever agent changed them), `knowledge/`, and for existing code `.sdlc/baseline.md`. Your `CLAUDE.md` is never touched.
+What lands in the repo: `.sdlc/config.json` (your commands; to change one later, see [Configuration](docs/guidebook.md#configuration)), `docs/sdlc/prd.md` (or your existing PRD, used as is), `docs/sdlc/constitution.md`, `docs/sdlc/design-system.md` (UI projects), `.claude/rules/sdlc-*.md`, `.claude/hookify/sdlc-*.md`, `.claude/settings.json` (command allowlist; with your approval, the sdlc marketplace and `enabledPlugins` so teammates are offered the plugin), `.github/workflows/sdlc-verify.yml` and `sdlc-invariants.yml` (checks the shared sdlc files, whichever agent changed them), `knowledge/`, and for existing code `.sdlc/baseline.md`. Your `CLAUDE.md` is never touched.
 
 ### 3. Start a piece of work
 
@@ -131,7 +131,7 @@ A new session needs no re-explaining; `state.md` carries it. To pause a feature,
 
 - `/sdlc:doctor` names the problem and the [runbook](docs/runbook.md) procedure that fixes it.
 - Blocked at the end of a turn with "re-run tests": you're in Review and code changed. Run the test command the message names.
-- `/sdlc:eject` removes the plugin's files and keeps your specs, knowledge, constitution, commands and baseline. It shows a dry run first.
+- `/sdlc:eject` removes the plugin's files and keeps your specs, PRD, knowledge, constitution, commands and baseline. It shows a dry run first.
 
 ## Commands
 

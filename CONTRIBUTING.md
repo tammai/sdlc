@@ -50,6 +50,7 @@ sdlc/
 ├── templates/
 │   ├── change-template.md   the feature's record for people, its change file (Define, Review)
 │   ├── plan-template.md     a part's plan-B<n>.md (work split into parts)
+│   ├── prd-template.md            the project's product doc (setup's prd step)
 │   ├── constitution-template.md   the constitution
 │   ├── backlog-template.md  a feature's backlog of parts (orchestrator)
 │   ├── design-system-template.md   setup's design-system step (UI projects)

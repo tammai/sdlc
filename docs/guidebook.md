@@ -23,7 +23,7 @@ Before the first feature, `/sdlc:setup` prepares the repo once; `/sdlc:start` of
 
 - **Greenfield** (no source yet): a short stack interview, then a proposal you approve. The ecosystem's own generator builds the skeleton, plus the test runner and one passing smoke test. A linter, toolchain pinning and extra manifest fields are separate choices in the proposal, off unless you say yes.
 - **Brownfield** (existing code): the commands the repo already uses, shown to you before they're written; a **baseline** of what already fails; an audit (conventions, git-history gotchas, decisions, area rules) drafted by explorer agents and written only as you approve each batch; existing AI configs (long CLAUDE.md, AGENTS.md, Cursor rules, ADRs) migrated into the three knowledge tiers, one diff per source.
-- **Common steps, both modes:** policy rules (`.claude/rules/sdlc*.md`); hookify guardrails; sdlc lint snippets, only for a linter the project already has; a permission allowlist for the project's commands; with your approval, the sdlc marketplace and `enabledPlugins` in `.claude/settings.json` so teammates are offered the plugin; with your approval, a context diet (`/sdlc:context-diet`) for this project; a CI workflow from the recorded commands (asked first if the repo already has CI); the sdlc block in `AGENTS.md` when another agent (Codex, Cursor, Antigravity) uses the repo; `.gitignore` entries; a constitution (with the default Simplicity principle); a design system (projects with UI); and the knowledge folder. The steps that write `.claude/` run only under Claude Code.
+- **Common steps, both modes:** policy rules (`.claude/rules/sdlc*.md`); hookify guardrails; sdlc lint snippets, only for a linter the project already has; a permission allowlist for the project's commands; with your approval, the sdlc marketplace and `enabledPlugins` in `.claude/settings.json` so teammates are offered the plugin; with your approval, a context diet (`/sdlc:context-diet`) for this project; a CI workflow from the recorded commands (asked first if the repo already has CI); the sdlc block in `AGENTS.md` when another agent (Codex, Cursor, Antigravity) uses the repo; `.gitignore` entries; a product doc (PRD: an existing one used as is, else drafted from a short interview or from the code with every guess marked "inferred, confirm", approved before it's written to `docs/sdlc/prd.md`); a constitution (with the default Simplicity principle); a design system (projects with UI); and the knowledge folder. The steps that write `.claude/` run only under Claude Code.
 
 Setup runs on an `sdlc/setup` branch with one commit per step, resumes where it stopped, and ends by asking whether to open a PR or merge locally.
 
@@ -34,7 +34,7 @@ Setup runs on an `sdlc/setup` branch with one commit per step, resumes where it 
 | Generated | `.claude/rules/sdlc*.md` | regenerated |
 | Seeded | `.claude/hookify/sdlc-*.md`, `.github/workflows/sdlc-verify.yml`, `sdlc-invariants.yml`, `.sdlc/ci/invariants.py`, `.sdlc/lint/*` | replaced only if you haven't edited it; otherwise you choose: merge, skip, or keep yours for good |
 | Keyed merge | allowlist and plugin-enablement keys in `.claude/settings.json`, `.gitignore` lines, the `<!-- sdlc:begin -->` block in `AGENTS.md` | only the entries the plugin added; your text around the block is never touched |
-| Yours | the commands in `.sdlc/config.json`, `CLAUDE.md`, constitution, design system, `knowledge/`, baseline, your own rules | changed only by migrations you approve |
+| Yours | the commands in `.sdlc/config.json`, `CLAUDE.md`, PRD, constitution, design system, `knowledge/`, baseline, your own rules | changed only by migrations you approve |
 
 Files named `sdlc-*` belong to the plugin; everything else is yours.
 
@@ -223,6 +223,7 @@ In Codex, Cursor and the Antigravity CLI, `hosts/hook.py` runs hookify, verify-f
   ci/contract-check.sh     the API contract check CI runs (multi-app repos that chose it; seeded)
   .work/                   scratch, git-ignored (verify record, freshness, dispatch log, trust anchor, QA runs)
 docs/sdlc/                 docs_dir: the documents people read (default; setup asks when the repo publishes docs/)
+  prd.md                   the product doc: problem, audience, goals, capabilities (yours)
   constitution.md          project principles (yours)
   design-system.md         the design system UI work follows (UI projects; yours)
   recurring-defects.md     defects Review found and Build fixed, one line each: Learn adds, Define and reviewers read

@@ -3,7 +3,8 @@
 `scaffold.py status` or `scaffold.py paths` call (Claude Code; other agents run those two, as flow.md says).
 
 One line, only in a repo with `.sdlc/`: setup, drift, layout, the path pattern of a feature's change file, state
-file and work folder, whether a git remote exists, team rules, and the active features with their stage.
+file and work folder, whether a git remote exists, the PRD's path (or none), team rules, and the active
+features with their stage.
 Outside an sdlc repo, or on any error: no output.
 """
 import json
@@ -32,6 +33,8 @@ def status_line(root):
     parts = [f"setup {st['setup']}", f"drift {st['drift'] or 'n/a'}", f"layout {st['layout']}",
              f"change file {p['change']}", f"state file {p['state']}", f"work folder {p['work']}",
              f"remote {remote[0] if remote else 'none'}", f"active: {', '.join(active) or 'none'}"]
+    prd = sdlc_layout.prd(root)
+    parts.append(f"PRD {prd if os.path.isfile(os.path.join(root, prd)) else 'none'}")
     if st.get("pending_migrations"):
         parts.append(f"pending migrations: {', '.join(st['pending_migrations'])}")
     if st.get("team_rules"):

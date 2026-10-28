@@ -1127,6 +1127,20 @@ def old_features(p):
     return found
 
 
+def cmd_prd(p, a):
+    """The product doc's path; with a path, records it in config (`prd`): a PRD the repo already has, used as is, or
+    the one setup just wrote. User-owned: the plugin never writes it after setup, and eject keeps it."""
+    if a.path:
+        path = sdlc_layout.validate_docs_dir(rel(p.root, a.path))
+        if not os.path.isfile(p.path(path)):
+            raise Refused(f"{path} not found: write the PRD first, then record it")
+        p.config = p.config or {}
+        p.config["prd"] = path
+        p.save()
+    path = sdlc_layout.prd(p.root)
+    return {"prd": path, "exists": os.path.isfile(p.path(path))}
+
+
 def cmd_set_version(p, a):
     lock = p.require_lock()
     if parse_version(a.version)[0] >= 2 and old_features(p):
@@ -1196,7 +1210,8 @@ def cmd_upgrade_plan(p, a):
 def eject_plan(p):
     lock = p.require_lock()
     layout = sdlc_layout.paths(p.root)
-    keep = [CONFIG, layout["constitution"], layout["design_system"], ".sdlc/baseline.md", "knowledge/",
+    keep = [CONFIG, sdlc_layout.prd(p.root), layout["constitution"], layout["design_system"], ".sdlc/baseline.md",
+            "knowledge/",
             layout["state_root"] + ("<feature>.md" if layout["layout"] == "new" else "<feature>/"),
             layout["changes_root"] + ("<feature>.md" if layout["layout"] == "new" else "<feature>/change.md"),
             layout["intents_root"] + "<feature>/"]
@@ -1406,6 +1421,9 @@ def build_parser():
     g.add_argument("--skipped", metavar="REASON")
     s.set_defaults(fn=cmd_migration)
 
+    s = sub.add_parser("prd", help="the product doc's path; with a path, record it in config")
+    s.add_argument("path", nargs="?")
+    s.set_defaults(fn=cmd_prd)
     s = sub.add_parser("set-version", help="set scaffold_version (and raise min_plugin_version)")
     s.add_argument("version")
     s.add_argument("--min-plugin")

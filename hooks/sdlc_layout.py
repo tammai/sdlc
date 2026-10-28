@@ -31,6 +31,19 @@ def docs_dir(root):
         return None
 
 
+def prd(root):
+    """The project's product doc: the in-repo path setup recorded (`prd` in config, an existing PRD used as is), else
+    <docs_dir>/prd.md."""
+    try:
+        with open(os.path.join(root, SDLC, "config.json"), encoding="utf-8") as f:
+            value = json.load(f).get("prd")
+        if isinstance(value, str) and value:
+            return validate_docs_dir(value)
+    except (OSError, ValueError, AttributeError):
+        pass
+    return f"{docs_dir(root) or SDLC}/prd.md"
+
+
 def validate_docs_dir(value):
     raw = str(value or "").replace("\\", "/").strip()
     if not raw or raw.startswith("/") or (len(raw) > 1 and raw[1] == ":"):
