@@ -40,6 +40,66 @@ Files named `sdlc-*` belong to the plugin; everything else is yours.
 
 **Upgrades.** When the plugin is newer than the repo's scaffold, `/sdlc:start` and `/sdlc:status` suggest `/sdlc:upgrade`, which never blocks your work. It runs on its own branch: regenerate, replace untouched files, walk you through edited ones, then apply versioned migrations one diff at a time (declined ones are asked again only with `--revisit`). The repo pins a minimum plugin version, so teammates on an older plugin get a warning. `/sdlc:eject` removes what the plugin owns and keeps your work.
 
+### Setup with impeccable
+
+A project with UI can hand its design work to the [impeccable](https://github.com/pbakaus/impeccable) skill, while sdlc keeps the record, the gates and the review verdict ([ADR 0021](adr/0021-impeccable-for-ui-design.md)). The choice is made in setup's `design-system` step and recorded as `design` in `.sdlc/config.json` (`builtin` or `impeccable`; no key means `builtin`).
+
+```
+/sdlc:setup
+│
+├─ detect … gitignore            (unchanged: commands, CI, rules, guardrails …)
+│    └─ guardrails renders all sdlc-* guardrails, incl. sdlc-ui-hardcoded-values
+│       (the mode isn't known yet)
+│
+├─ prd                            HARD STOP: approve the PRD
+├─ constitution                   HARD STOP: approve it
+│
+├─ design-system                  (only if the project has UI)
+│   ├─ 1. Recommend a mode from the PRD           HARD STOP: you choose
+│   │      impeccable ← user-facing, no design system yet (web or native)
+│   │      builtin    ← internal tool on a stock library, a design team's
+│   │                   system, or offline / no third-party calls
+│   │      + names impeccable.style's network call and the telemetry opt-outs
+│   ├─ 2. scaffold.py design impeccable
+│   │      ├─ records "design": "impeccable"
+│   │      ├─ removes sdlc-ui-hardcoded-values (unchanged → deleted;
+│   │      │   edited by your team → asks first)
+│   │      └─ reports whether impeccable is installed
+│   ├─ 3. Not installed → prints the install command, records builtin;
+│   │      rerun the step once it is (sdlc never installs it)
+│   ├─ 4. /impeccable init, told to read the PRD
+│   │      └─ one round of product questions → PRODUCT.md, whose first line
+│   │         links to the PRD (the PRD wins where they differ)
+│   ├─ 5. Existing styles worth recording → /impeccable document → DESIGN.md;
+│   │      none yet → DESIGN.md comes later, from impeccable's own process
+│   └─ 6. docs/sdlc/design-system.md = a short pointer to DESIGN.md
+│
+├─ knowledge
+└─ finalize                       HARD STOP: PR or local merge
+```
+
+What you end up with:
+
+| File | Owner | Holds |
+|---|---|---|
+| `docs/sdlc/prd.md` | you | the product's source of truth |
+| `PRODUCT.md` | impeccable | the design-relevant part, linking back to the PRD |
+| `DESIGN.md` | impeccable | the design system, once a visual world exists |
+| `docs/sdlc/design-system.md` | you | a pointer to `DESIGN.md` |
+| `.sdlc/config.json` | you | `"design": "impeccable"` |
+| `.claude/hookify/` | sdlc | every guardrail except `sdlc-ui-hardcoded-values`, whose job impeccable's detector hook does |
+
+Each UI change afterwards:
+
+| Phase | In impeccable mode |
+|---|---|
+| Define | `/impeccable shape`; you confirm the brief, which is copied into the state file's `## UI mapping` and its copy into the ACs |
+| Build | built through impeccable; its detector hook reports after UI edits |
+| Review | `sdlc:ui-reviewer` (opus) runs impeccable's `detect` and `audit` as evidence and writes the verdict; a missing `DESIGN.md` is Medium, not High |
+| Ship | as usual |
+
+impeccable missing when a step runs: the step says so in one line and runs builtin; `/sdlc:doctor` warns. A repo set up before 2.1 gets the same question from `/sdlc:upgrade` (migration `2.1.0-design-mode`); with no answer it stays builtin and nothing changes. Switch later with `scaffold.py design <mode>`, which also puts the UI guardrail back or takes it away.
+
 ## Tracks
 
 | Track | Use when | Before the build | After the build |
