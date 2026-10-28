@@ -170,7 +170,7 @@ Set `SDLC_HOOK_TIMES=1` in the session's environment (for one project: `"env": {
 
 A gate is a phase's exit check; it is a decision, not a fault. Say `skip` or `just ship it`: the orchestrator names the skipped gates, records them with `state.py deviation`, and continues. See [playbook 9](playbook.md#9-skip-a-gate-deliberately).
 
-Hard stops are different: they always wait for your answer and aren't skipped. They are the approval before the build and the review choice after it on high-risk M and on L, anything that adds scope, a reviewer and the builder disagreeing on a high finding, CI still red after one fix, merge, production deploy, DB migrations, and anything irreversible.
+Hard stops are different: they always wait for your answer and aren't skipped. They are the approval before the build and the review choice after it on high-risk M (on L only when the agent's own checks leave a doubt), anything that adds scope, a reviewer and the builder disagreeing on a high finding, CI still red after one fix, merge, production deploy, DB migrations, and anything irreversible.
 
 ### R12. Setup stopped halfway
 

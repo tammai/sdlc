@@ -15,7 +15,7 @@ Time and tokens follow the number of turns: every turn re-reads the whole contex
 7. Ship: `ship.py … && git commit … && git push … && gh pr create …`.
 8. `gh pr checks --watch`, and the final message.
 
-High risk and L add a stop after 3 (the approval) and after 5 (the review choice). Don't run `verify.py` again, or `verify.py status`, unless code changed after the last passing run; its passing line already prints `head <h> tree <t>`, and `ship.py` reuses it.
+High-risk M adds a stop after 3 (the approval) and after 5 (the review choice); L stops there only when its own checks leave a doubt. Don't run `verify.py` again, or `verify.py status`, unless code changed after the last passing run; its passing line already prints `head <h> tree <t>`, and `ship.py` reuses it.
 
 ## Rules
 
@@ -27,7 +27,7 @@ High risk and L add a stop after 3 (the approval) and after 5 (the review choice
 - **Verified tree:** the `tree` from `verify.py`'s passing line. Before any commit, code that changed since it (ignoring `.sdlc/`, docs and test-only changes) is unverified: `ship.py` reruns `$V`, and a failure goes back to Build (and Review again if one ran).
 - **Ownership:** before advancing, compare `Owner:` with `git config user.email`; someone else's → say who (`Tool:`) and ask; on yes, `set` Owner and Tool and record the handover as a deviation.
 - **Advisor:** not called unless the review step recommends it and the user chose it.
-- **Stops.** High risk or L: the approval before the build and the review choice after it. Every size: anything that adds scope, a reviewer and the builder disagreeing on a high finding, CI still red after one fix, merges, production deploys, DB migrations, anything irreversible. A low-risk M doesn't stop for the plan or the review choice: it says what it's doing, records it, and goes on; the user can interrupt at any time.
+- **Stops.** High-risk M: the approval before the build and the review choice after it. L: the same two, but you reason through them first (Define step 6, Review step 1) and ask only when a check fails or you doubt the answer; the reasoning goes in the Gate log. Every size: anything that adds scope, a reviewer and the builder disagreeing on a high finding, CI still red after one fix, merges, production deploys, DB migrations, anything irreversible. A low-risk M doesn't stop for the plan or the review choice: it says what it's doing, records it, and goes on; the user can interrupt at any time.
 - "Skip" / "just ship it": name the skipped steps, record them as a deviation, comply.
 - "Your human partner" in a bundled skill is the user; a bundled skill that would hand off on its own returns here.
 
@@ -51,7 +51,8 @@ Before any code, you and the user agree on what, why and how, written in `<chang
    - **One part by default, L included.** Each extra part pays the whole loop again (red step, build, `$V`, state, handoff), so split only when the work truly won't fit one session's context and the parts are independent. Then also `<work>/backlog.md` (`backlog-slices.md`), and `## Tasks` outlines each part. Never for a 1–2-file change.
 6. **Gate,** in the same turn as the writes: one short message (the files hold the detail, so don't restate them): the path to `<change>` (and `<work>/backlog.md`); a small table of the decisions (decision · chosen · ruled out), with how the build runs and any proposals you'd drop unless kept as rows; the acceptance criteria, one line each (`manual` ones marked, with reasons). Every AC has a row in `## Acceptance tests`; out of scope is filled.
    - **Low-risk M:** end the message "Building now; interrupt to change anything." and, after the writes, `$S sync <f> && $S advance <f> 4 --gate pass --note "plan not stopped for approval: low-risk M" && $V red AC-001 AC-002 …` (Build step 1).
-   - **High risk or L:** `$S sync <f>`, end with "Reply 'approved', or change anything.", and stop.
+   - **L: approve it yourself first.** Reason through each check and write the result in the message: (1) every requirement in the request or the linked spec maps to an AC, and every AC traces back to one; (2) `## Open questions` is empty; (3) each decision is settled by the request, the spec, the code or the knowledge, not a pick between options the user would weigh differently; (4) no proposal beyond the request is kept, and nothing is irreversible (a migration, deleting data, removing public API). All four hold → end the message "Building now; interrupt to change anything." and, after the writes, `$S sync <f> && $S advance <f> 4 --gate pass --note "plan self-approved (L): <each check in a few words>"`, then Build step 1. Any doubt → `$S sync <f>`, name the check that failed as one question, end with "Reply 'approved', or change anything.", and stop.
+   - **High-risk M:** `$S sync <f>`, end with "Reply 'approved', or change anything.", and stop.
 
 ### State file template
 
@@ -134,7 +135,8 @@ In Stage 5 the freshness hook blocks finishing on stale test results, and the bu
    The code depth is the highest row that fires; there's no lighter one, since `$V` already proves each AC's test failed and now passes. A `manual` AC is checked by whichever review runs; if none does, check it yourself against the code and say how in `## Review`.
    - **Nothing fires** (a low-risk M; every AC with a test was seen failing, then passing): no review. Stay in Build and Ship with `--review "No review ran: low risk, no trigger fired; every AC red then green (verify.py)." --note "no review: no trigger fired"` (with a `manual` AC, add how you checked it).
    - **Low risk:** run what fires without asking; `$S log <f> "review: ran <reviews> (<rows that fired>), not asked: low risk"`.
-   - **High risk or L:** recommend, one line per review with the row that fired, and stop: the user picks (another depth, or none). Autopilot or a headless run: take the recommendation and record that you did (`$S log`).
+   - **L:** run what fires without asking, as autopilot would, and record it: `$S log <f> "review: ran <reviews> (<rows that fired>), self-chosen: L"`. Stop and ask only when you doubt the table's answer fits (a risk it has no row for, or the Advisor row).
+   - **High-risk M:** recommend, one line per review with the row that fired, and stop: the user picks (another depth, or none). Autopilot or a headless run: take the recommendation and record that you did (`$S log`).
 2. **Run each chosen review once**, together: each a fresh agent on `opus`, never the context that wrote the code. Its prompt, not a summary: read `${CLAUDE_PLUGIN_ROOT}/skills/orchestrator/references/review-brief.md` (the depth, or its security section), `<change>` and `<state>`; the diff is `git diff <Base> -- . ':!.sdlc'`; the ACs are <ids>; write the report to `.sdlc/.work/findings/<feature>/<agent>-r<N>.md`, ending in `VERDICT: PASS` or `VERDICT: FAIL — <high ids>` (the trust anchor reads those lines). Don't read the brief yourself.
    - **Code:** `sdlc:code-reviewer` at the chosen depth.
    - **Security:** `sdlc:code-reviewer` with the brief's security section; meanwhile, in this session, the stack's dependency audit (`npm audit --omit=dev`, `pip-audit`, …) and every finding the security hooks raised. Report file `security-r<N>.md`.

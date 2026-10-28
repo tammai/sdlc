@@ -20,7 +20,7 @@ Every change but a trivial one leaves the same record, committed with the code a
 | **Trivial** | no behaviour changes, so no test could tell before from after: a typo, a rename, comments or docs, a config value nothing tests; nothing security-sensitive | none: no workflow, no record, no state file (below) | nothing |
 | **S** | a fix or tweak, 1–2 files, clear expected behaviour | `<change>` and the plan, a few lines each; no stop | `R/s-track.md` alone |
 | **M** | a few files to a few days, approach mostly clear | `<change>` and the plan in full; at high risk the user reads and approves `<change>`, at low risk the build starts | `R/flow.md` |
-| **L** | several distinct parts, or an approach still unclear | `<change>` and the plan in full (pointing to a written spec when there is one, not restating it), the interview via `sdlc:brainstorming` unless that spec settles it; one part unless it won't fit one session; the user reads and approves `<change>` | `R/flow.md` |
+| **L** | several distinct parts, or an approach still unclear | `<change>` and the plan in full (pointing to a written spec when there is one, not restating it), the interview via `sdlc:brainstorming` unless that spec settles it; one part unless it won't fit one session; the agent checks the plan against the request first and asks you to approve only when a check leaves a doubt | `R/flow.md` |
 
 Read the track's file once, when the work starts or resumes, and no other reference unless it names one. Work split into parts (`<work>/backlog.md`): `R/backlog-slices.md` leads. Deploy only when asked: `/sdlc:deploy`.
 
