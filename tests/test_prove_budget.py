@@ -42,6 +42,13 @@ class ProveBudgetTest(ProjectTestCase):
         # Following a file never ends: still killed at 120 s
         self.assertRegex(self.call(5, command="tail -f log")["updatedInput"]["command"], r"^g?timeout -k 5 120 tail -f log$")
 
+    def test_ships_one_call_runs_whole(self):
+        ship = os.path.join(PLUGIN_ROOT, "scripts", "ship.py")
+        cmd = (f'python3 "{ship}" login --message "feat: x" && git commit -F .sdlc/.work/commit-msg.txt'
+               " && git push -u origin HEAD && gh pr create --fill")
+        self.assertEqual(self.call(5, command=cmd), {})
+        self.assertNotEqual(self.call(5, command=cmd + " && sleep 900"), {})  # nothing else rides along
+
     def test_project_commands_are_left_alone(self):
         self.assertEqual(self.call(5, command="cd app && npm test 2>&1 | tail -5", timeout=600000), {})
         # A project command doesn't carry what is chained after it

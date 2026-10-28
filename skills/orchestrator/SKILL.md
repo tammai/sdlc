@@ -7,9 +7,11 @@ description: Takes a feature, fix or project through define, build, review and s
 
 # SDLC Orchestrator (sdlc 2.0)
 
-Every change but a trivial one leaves the same record, committed with the code and kept, in two files: `<change>` for people (why, what must be true with each criterion's test, and what the review found) and the state file for the agent (where it stands, how it's built). Paths: `<change>` is the feature's change file (`<docs>/changes/<feature>.md`), `<state>` its state file, `<work>` the folder beside it for working files (backlog, part plans, QA report), `<docs>` the sdlc docs folder (`scaffold.py paths <feature>` prints them).
+<!-- commands/start.md carries this text too, so /sdlc:start needs no skill load: change both. -->
 
-**Start or resume.** Look for a state file with `Status: active` (`.sdlc/state/*.md`; old layout `.sdlc/*/state.md`). One with `Process: 2` → say the feature, phase and open items in 2–3 lines and continue in its phase from its file below (a backlog: `backlog.py next` names the part; the request `B<n>` → that part). One without `Process: 2` was started under sdlc 1.x: say so, and that it must be finished with sdlc 1.8.1 or archived (`Status: done`); 2.0 can't run it. Several → ask which (a request ending `--autopilot` never asks). None → size the request (below).
+Every change but a trivial one leaves the same record, committed with the code and kept, in two files: `<change>` for people (why, what must be true with each criterion's test, and what the review found) and the state file for the agent (where it stands, how it's built). Paths: `<change>` is the feature's change file (`<docs>/changes/<feature>.md`), `<state>` its state file, `<work>` the folder beside it for working files (backlog, part plans, QA report), `<docs>` the sdlc docs folder (the `sdlc session status` line in your context gives them; without it, `scaffold.py paths <feature>`).
+
+**Start or resume.** Look for a state file with `Status: active` (the session status line lists them; else `.sdlc/state/*.md`, old layout `.sdlc/*/state.md`). One with `Process: 2` → say the feature, phase and open items in 2–3 lines and continue in its phase from its file below (a backlog: `backlog.py next` names the part; the request `B<n>` → that part). One without `Process: 2` was started under sdlc 1.x: say so, and that it must be finished with sdlc 1.8.1 or archived (`Status: done`); 2.0 can't run it. Several → ask which (a request ending `--autopilot` never asks). None → size the request (below).
 
 ## Size, then read one file
 
@@ -17,7 +19,7 @@ Every change but a trivial one leaves the same record, committed with the code a
 |---|---|---|---|
 | **Trivial** | no behaviour changes, so no test could tell before from after: a typo, a rename, comments or docs, a config value nothing tests; nothing security-sensitive | none: no workflow, no record, no state file (below) | nothing |
 | **S** | a fix or tweak, 1–2 files, clear expected behaviour | `<change>` and the plan, a few lines each; no stop | `R/s-track.md` alone |
-| **M** | a few files to a few days, approach mostly clear | `<change>` and the plan in full; the user reads and approves `<change>` | `R/flow.md` |
+| **M** | a few files to a few days, approach mostly clear | `<change>` and the plan in full; at high risk the user reads and approves `<change>`, at low risk the build starts | `R/flow.md` |
 | **L** | several distinct parts, or an approach still unclear | `<change>` and the plan in full, the interview via `sdlc:brainstorming`; the user reads and approves `<change>` | `R/flow.md` |
 
 Read the track's file once, when the work starts or resumes, and no other reference unless it names one. Work split into parts (`<work>/backlog.md`): `R/backlog-slices.md` leads. Deploy only when asked: `/sdlc:deploy`.

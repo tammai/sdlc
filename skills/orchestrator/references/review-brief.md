@@ -1,6 +1,6 @@
 # Reviewer brief (every review)
 
-Give each reviewer the paths, never a summary: `<change>` and the state file (its plan sections and `## Deviations`; a part: also `plan-B<n>.md`), the diff facts (Review's `diff_stats.py` output), and where to write its report. It reads them itself.
+The reviewer reads this file itself, with `<change>`, the state file (its plan sections and `## Deviations`; a part: also `plan-B<n>.md`) and the diff (`git diff <Base> -- . ':!.sdlc'`, one call). Budget: open other files only to follow a call the diff makes; don't call an advisor; keep the report to about 30 lines.
 
 ## Depth (code review)
 

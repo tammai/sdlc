@@ -15,7 +15,8 @@ caller (session, reviewers). A command that isn't one of the project's own (`com
   - Bash that can't take the prefix (two timed steps, loops, subshells, `$(...)`, `&`), Bash with
     `run_in_background`, PowerShell and Monitor: denied with the reason. Wrapping the first in `bash -c` would hide
     it from the user's deny rules.
-The project's own commands are left alone. Any error: no output.
+The project's own commands are left alone, and so is Ship's one call: the plugin's ship.py followed only by
+`git commit`, `git push` and `gh pr create`, each after `&&`. Any error: no output.
 """
 import json
 import os
@@ -43,6 +44,7 @@ CHAINABLE = UNTIMED - {"source", "."}  # beside a project command: `cd app && np
 QUICK = {"tail", "head", "cat", "wc", "ls"}
 QUICK_GIT = {"status", "log", "diff", "show", "branch", "remote", "rev-parse", "ls-files", "describe"}
 FOLLOW = {"-f", "-F", "--follow", "--retry"}
+SHIP_STEP = re.compile(r"^(git[ \t]+(commit|push)|gh[ \t]+pr[ \t]+create)(\s|$)")
 ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 PLUGIN_VERIFY = re.compile(r"""^python3?(?:\.exe)?[ \t]+(?:"([^"]+)"|([^ \t"]+))(?:[ \t]+[\w.=-]+)*\Z""")
 
@@ -72,12 +74,31 @@ def is_plugin_verify(command):
     return vf.is_plugin_verify(m.group(1) or m.group(2))
 
 
+def is_plugin_ship(step):
+    """The plugin's own scripts/ship.py, spelled exactly as verify.py would be (it runs verify.py and state.py)."""
+    try:
+        words = shlex.split(step)
+    except ValueError:
+        return False
+    if len(words) < 2 or not re.match(r"^python3?(?:\.exe)?$", words[0]) or not re.search(r"[/\\]ship\.py$", words[1]):
+        return False
+    return vf.is_plugin_verify(words[1][:-len("ship.py")] + "verify.py")
+
+
+def is_ship_call(parts):
+    """Ship's one call: the plugin's ship.py, then only the commit, push and PR it readies, each after `&&`."""
+    return (bool(parts) and is_plugin_ship(parts[0][0]) and all(sep == "&&" for _, sep in parts[:-1])
+            and all(SHIP_STEP.match(step) for step, _ in parts[1:]))
+
+
 def is_project_command(command, commands):
     """Every step chained with &&, || or ; is a project command or a builtin like `cd`, piped only into a filter:
     anything else chained after one (`npm test && sleep 900`) would run unbounded under its name."""
     if is_plugin_verify(command):
         return True
     parts = [(step.strip(), sep) for step, sep in split_top_level(command) or []]
+    if is_ship_call(parts):
+        return True
     if not parts or any(sep == "&" for _, sep in parts):
         return False
     # A configured command may itself be a chain (`npm run build && npm test`): matched as a run of steps

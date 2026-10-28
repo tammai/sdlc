@@ -10,6 +10,15 @@
             "timeout": 180
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"$CLAUDE_PLUGIN_DATA/sdlc-hook-python.fast\"; p=; [ -z \"$SDLC_HOOK_TIMES\" ] && [ -O \"$f\" ] && [ ! -L \"$f\" ] && read -r p < \"$f\"; [ -n \"$p\" ] && [ -x \"$p\" ] && { export PYTHONUTF8=1; exec \"$p\" \"${CLAUDE_PLUGIN_ROOT}/hooks/session_status.py\"; }; exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/session_status.py\"",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [
