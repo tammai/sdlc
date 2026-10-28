@@ -27,4 +27,4 @@ Security only: injection, authz, secrets, SSRF, XSS, unsafe deserialization, dep
 - **Fix in passing:** code-style rules (comments, naming, formatting, docs wording). Never high.
 - **Medium / low:** everything else; ticketed.
 
-Severity is impact, not confidence. End the report with `VERDICT: PASS` or `VERDICT: FAIL — <high ids>`.
+Severity is impact, not confidence. Each finding names the requirement it breaks, if any (an AC, a must-never-break line, a section of the spec the change file links, a constitution rule): one that names one is high, whatever else you'd call it. End the report with `VERDICT: PASS` or `VERDICT: FAIL — <high ids>`.
