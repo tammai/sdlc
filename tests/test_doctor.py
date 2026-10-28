@@ -13,9 +13,9 @@ COMMANDS = {k: "git --version" for k in ("install", "test", "lint", "typecheck",
 
 
 class DoctorTest(ProjectTestCase):
-    def doctor(self, expect=None):
+    def doctor(self, expect=None, **env):
         p = subprocess.run([sys.executable, DOCTOR, "--root", self.root], capture_output=True, encoding="utf-8", errors="replace",
-                           env={**os.environ, "CLAUDE_PLUGIN_ROOT": PLUGIN_ROOT})
+                           env={**os.environ, "CLAUDE_PLUGIN_ROOT": PLUGIN_ROOT, **env})
         report = json.loads(p.stdout)
         if expect is not None:
             self.assertEqual(p.returncode, expect, p.stdout)
@@ -153,6 +153,16 @@ class DoctorTest(ProjectTestCase):
         self.assertEqual(self.check("baseline")["status"], "warn")
         self.write(".sdlc/baseline.md", "# baseline\n")
         self.assertEqual(self.check("baseline")["status"], "ok")
+
+    def test_a_companion_enabled_here_but_not_installed_warns(self):
+        self.setup_repo()
+        self.write(".claude/settings.local.json", json.dumps({"enabledPlugins": {"sdlc-extras@sdlc": True}}))
+        config = {"CLAUDE_CONFIG_DIR": self.path("claude-config")}
+        self.write("claude-config/plugins/installed_plugins.json", json.dumps({"version": 2, "plugins": {}}))
+        self.assertEqual(self.doctor(**config)[0][("repo", "companions")]["status"], "warn")
+        self.write("claude-config/plugins/installed_plugins.json", json.dumps(
+            {"version": 2, "plugins": {"sdlc-extras@sdlc": [{"scope": "user", "installPath": "x"}]}}))
+        self.assertEqual(self.doctor(**config)[0][("repo", "companions")]["status"], "ok")
 
     def test_set_up_repo_without_a_prd_warns(self):
         self.setup_repo()

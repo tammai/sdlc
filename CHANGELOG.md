@@ -2,6 +2,14 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
+## 2.0.1 — 2026-10-28
+
+### Changed
+- **sdlc turns itself on in `.claude/settings.local.json`, never the committed `.claude/settings.json`,** so setup no longer asks: the file is this machine's (if git doesn't ignore it yet, `enable-plugin` adds it to `.git/info/exclude`, not the team's `.gitignore`). Teammates are no longer offered sdlc by the repo; each one's own setup or `/sdlc:upgrade` turns it on for them. Upgrading asks whether to keep the `.claude/settings.json` keys an earlier setup added (`enable-plugin --remove-team` takes back only those; migration `2.0.1-local-plugin-keys`).
+
+### Added
+- **Companion plugins, as data:** the plugin's config defaults list `companions` (id, marketplace, a one-line reason, on by default or not), starting with `sdlc-extras`. `enable-plugin` turns on the ones that are on by default, names the rest in one line, and adds one with `--with <id>`; an id that isn't listed is refused. Pairing another plugin is a new entry, not new code. `/sdlc:doctor` warns when a companion is turned on for the repo but not installed on this machine.
+
 ## 2.0.0 — 2026-10-28
 
 **Before you update:** finish every feature in progress with sdlc 1.8.1, or archive it (`Status: done`). 2.0 can't run a feature started under 1.x, and `/sdlc:upgrade` waits until none is active.

@@ -266,26 +266,31 @@ class ScaffoldTest(ProjectTestCase):
         self.assertEqual(json.loads(self.read(".claude/settings.json"))["permissions"]["allow"],
                          ["Bash(make verify:*)"])
 
-    def test_enable_plugin_merges_and_only_removes_its_own_keys(self):
+    def test_enable_plugin_writes_local_settings_and_only_removes_its_own_keys(self):
+        self.template("templates/project/config.defaults.json", json.dumps({"companions": [
+            {"id": "sdlc-extras@sdlc", "marketplace": "sdlc", "why": "extras", "default": False}]}))
         self.init()
         # Loaded from a directory (--plugin-dir) rather than installed: enabling the installed copy would load two
         out = self.sc("enable-plugin")
-        self.assertEqual(out["added"], [])
+        self.assertNotIn("enabledPlugins.sdlc@sdlc", out["added"])
         self.assertIn("--plugin-dir", out["skipped"])
-        self.assertFalse(os.path.exists(self.path(".claude/settings.json")))
         self.installed()
-        self.write(".claude/settings.json", json.dumps(
-            {"model": "opus", "enabledPlugins": {"other@mkt": True}, "extraKnownMarketplaces": {"sdlc": {"source": "mine"}}}))
-        out = self.sc("enable-plugin")
-        self.assertEqual(out["added"], ["enabledPlugins.sdlc@sdlc"])  # the user already had a marketplace named sdlc
-        settings = json.loads(self.read(".claude/settings.json"))
-        self.assertEqual(settings["enabledPlugins"], {"other@mkt": True, "sdlc@sdlc": True})
-        self.assertEqual(self.sc("enable-plugin")["added"], [])  # idempotent
+        local = ".claude/settings.local.json"
+        self.write(local, json.dumps({"enabledPlugins": {"other@mkt": False}, "extraKnownMarketplaces": {"sdlc": {"source": "mine"}}}))
+        # sdlc itself, plus a companion picked by id; the team's committed settings.json is never touched
+        out = self.sc("enable-plugin", "--with", "sdlc-extras@sdlc")
+        self.assertEqual(out["added"], ["enabledPlugins.sdlc@sdlc", "enabledPlugins.sdlc-extras@sdlc"])
+        self.assertIn("sdlc-extras@sdlc", [c["id"] for c in out["companions"]])  # what setup can mention
+        settings = json.loads(self.read(local))
+        self.assertEqual(settings["enabledPlugins"], {"other@mkt": False, "sdlc@sdlc": True, "sdlc-extras@sdlc": True})
+        self.assertFalse(os.path.exists(self.path(".claude/settings.json")))
+        self.assertEqual(self.sc("enable-plugin", "--with", "sdlc-extras@sdlc")["added"], [])  # idempotent
         self.sc("enable-plugin", "--remove")
-        settings = json.loads(self.read(".claude/settings.json"))
-        self.assertEqual(settings["enabledPlugins"], {"other@mkt": True})
-        self.assertEqual(settings["extraKnownMarketplaces"], {"sdlc": {"source": "mine"}})
-        self.assertEqual(settings["model"], "opus")
+        settings = json.loads(self.read(local))
+        self.assertEqual(settings["enabledPlugins"], {"other@mkt": False})
+        self.assertEqual(settings["extraKnownMarketplaces"], {"sdlc": {"source": "mine"}})  # the user's own
+        # Only a listed companion can be enabled: no arbitrary plugin rides in on a typo
+        self.assertIn("unknown@mkt", self.sc("enable-plugin", "--with", "unknown@mkt", expect=1)["error"])
 
     def test_gitignore_merges_and_only_removes_its_own_lines(self):
         self.init()

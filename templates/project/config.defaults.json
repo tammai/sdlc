@@ -57,5 +57,13 @@
     "java_version": "21",
     "dotnet_version": "8.0.x",
     "oasdiff_version": "1.33.0"
-  }
+  },
+  "companions": [
+    {
+      "id": "sdlc-extras@sdlc",
+      "marketplace": "sdlc",
+      "why": "the Ralph loop, hookify list/configure/help, and extra review agents (type design, comments, simplifier)",
+      "default": false
+    }
+  ]
 }

@@ -270,9 +270,10 @@ For changes to the plugin itself, run it from a checkout instead of the marketpl
    - templates of generated or seeded files: nothing to do, `/sdlc:upgrade` regenerates or replaces them;
    - anything a project owns (required commands, config keys, knowledge layout, renamed paths, ignore patterns): add `migrations/<version>-<slug>.md` with frontmatter `version`, `summary` and, if old plugins must stop, `min_plugin_version`, then the steps in prose.
 5. **Distill knowledge** with `sdlc:managing-knowledge` (`CLAUDE.md` ≤ 60 lines, `.claude/rules/<area>.md` with `paths:`, `knowledge/` linked from `knowledge/index.md` and logged in `knowledge/log.md`). Sources: the changelog notes, `git log <last tag>..HEAD` (fix commits especially), smoke-test and review findings, and corrections made more than once. Run its "File a lesson" steps for each durable lesson, then its Audit. Decisions about how the plugin works go to `docs/adr/`, procedures to this runbook, and anything corrected twice and checkable becomes a test or guardrail. `python3 scripts/doctor.py` checks the CLAUDE.md budget and the index links.
-6. Commit (`release: sdlc <version>`), then run the [smoke test](#smoke-test-before-a-release) against that commit. Every **must** item has to pass.
-7. `claude plugin tag . --dry-run`, then `claude plugin tag . --push` (creates and pushes `sdlc--v<version>`). Push the branch too.
-8. Publish the GitHub release; the tag alone doesn't make one. As the `tammai` account (`gh auth switch -u tammai`), with the version's changelog section as the notes:
+6. **Stale-docs round over the whole release:** run the [stale-docs audit](../CONTRIBUTING.md#stale-docs-audit) once more, now for everything since the last tag, not one change. List the names the release added, renamed or removed (`git diff --stat sdlc--v<last>..HEAD`, `git log sdlc--v<last>..HEAD --oneline`, the changelog section), then grep each, and the wording it replaces, across `README.md`, `CONTRIBUTING.md`, `knowledge/`, `.claude/rules/`, `docs/` (guidebook, playbook, runbook, prd, specs, ADRs), the plugin and marketplace descriptions (`.claude-plugin/*.json`, then `python3 scripts/hosts.py build`), and every diagram in `docs/diagrams/*.svg`: its `<desc>` **and** its visible labels (render it, [rendering SVG diagrams](../knowledge/gotchas/rendering-svg-diagrams.md)). Fix what's stale; a diagram that needs relayout rather than a text edit goes in the changelog's notes as a known gap. Commit as `docs: stale-docs round for <version>`.
+7. Commit (`release: sdlc <version>`), then run the [smoke test](#smoke-test-before-a-release) against that commit. Every **must** item has to pass.
+8. `claude plugin tag . --dry-run`, then `claude plugin tag . --push` (creates and pushes `sdlc--v<version>`). Push the branch too.
+9. Publish the GitHub release; the tag alone doesn't make one. As the `tammai` account (`gh auth switch -u tammai`), with the version's changelog section as the notes:
    ```bash
    v=<version>; awk -v v="$v" '/^## /{p=($2==v);next} p' CHANGELOG.md > notes.md
    gh release create "sdlc--v$v" --verify-tag --title "sdlc $v" --notes-file notes.md --latest; rm notes.md
@@ -295,7 +296,7 @@ The test suite runs hooks and scripts as subprocesses; this checks the installed
 1. `/sdlc:setup a tiny TypeScript library that adds two numbers`. It asks a few stack questions and **waits for your approval** before generating anything.
 2. It works on a `sdlc/setup` branch with one commit per step; `.sdlc/config.json` has the five commands; it runs them and they pass.
 3. The repo has `.claude/rules/sdlc*.md`, `.claude/hookify/sdlc-*.md`, `.github/workflows/sdlc-verify.yml` and `sdlc-invariants.yml`, `.sdlc/ci/invariants.py`, `docs/sdlc/prd.md` (written after you approve the interview's draft), `docs/sdlc/constitution.md`, `knowledge/index.md`, `.sdlc/scaffold.lock.json`, and `.gitignore` lists `.sdlc/.work/` and the `.sdlc/state/*.json` contract patterns; `CLAUDE.md` untouched.
-4. `enable-plugin` and context diet (should): run from the installed plugin, setup asks, then writes the sdlc marketplace and `enabledPlugins` to `.claude/settings.json`; run with `--plugin-dir`, it writes nothing and the setup report says it was skipped. After that it asks whether to trim plugins. Accept. It shows a table of plugins with estimated tokens per call, verdicts and reasons, and writes `.claude/settings.local.json` only after you approve; no commit includes that file, and it adds no `true`.
+4. `enable-plugin` and context diet (should): run from the installed plugin, setup doesn't ask and writes the sdlc marketplace and `enabledPlugins` to `.claude/settings.local.json` only (`.claude/settings.json` gets no plugin keys), and names the companions it can add (`sdlc-extras`); run with `--plugin-dir`, sdlc itself isn't written and the setup report says it was skipped. After that it asks whether to trim plugins. Accept. It shows a table of plugins with estimated tokens per call, verdicts and reasons, and writes `.claude/settings.local.json` only after you approve; no commit includes that file, and it adds no `true`.
 5. It asks PR or local merge; pick local merge. `/sdlc:doctor` now shows the repo checks ✅.
 6. Interrupt test (should): in a second throwaway repo, stop setup midway (Esc), run `/sdlc:setup` again; it resumes after the last finished step.
 
@@ -339,7 +340,7 @@ The test suite runs hooks and scripts as subprocesses; this checks the installed
 3. Open the same repo in Claude Code and run `/sdlc:setup`: it joins (`hosts` gains `claude-code`), writes the Claude Code rules and guardrails, doesn't redo the commands or baseline, and `/sdlc:doctor` has no fails.
 4. Antigravity only: its agent list shows the sdlc agents, or the load error, which goes in the notes.
 
-When every must item passes, record the date and commit in the changelog entry's notes and continue with step 7 above.
+When every must item passes, record the date and commit in the changelog entry's notes and continue with step 8 above.
 
 ### Add or change a phase rule
 
@@ -380,7 +381,7 @@ Every command prints one JSON object. Exit codes: 0 ok, 1 error, 2 refused becau
 | `render <template\|builtin:…> <dest> [--class seeded] [--if-unchanged]` | render a plugin template (`{{config.x.y}}`, `{{plugin_version}}`) or a builtin (`ci`, `ci:<package>`, `contract-check`, `invariants`, `codeowners`), and record its hash |
 | `preview <template\|builtin:…>` | render without writing |
 | `record <generated\|seeded> <paths…> [--template T]` / `forget <paths…>` | track files Claude wrote / hand them over to the user |
-| `allow --add/--remove … [--from-commands]`, `gitignore --add/--remove …`, `enable-plugin` | keyed merges; only ever removes entries the plugin added (`enable-plugin`: the sdlc marketplace and `enabledPlugins` in `.claude/settings.json`; returns `skipped` with the reason, writing nothing, when the running plugin isn't Claude Code's installed copy) |
+| `allow --add/--remove … [--from-commands]`, `gitignore --add/--remove …`, `enable-plugin [--with <id>]` | keyed merges; only ever removes entries the plugin added (`enable-plugin`: the sdlc marketplace and `enabledPlugins` for sdlc and its companions, in `.claude/settings.local.json`, kept out of git with `.git/info/exclude` when nothing ignores it; returns `companions` with each one's reason and state, and `skipped` for sdlc itself when the running plugin isn't Claude Code's installed copy) |
 | `host` / `add-host <host>` | the coding agent running (from the plugin's install folder, else the environment), the hosts recorded in the lock, and whether this one is joining / record a joining agent |
 | `agents [--check]` | rebuild the sdlc block in `AGENTS.md` for the recorded hosts (removed when Claude Code is the only one) and `.claude/rules/sdlc-agents-md.md`, Claude Code's copy of the team's own `AGENTS.md` text; `--check` exits 1 when either is out of date |
 | `migrations [--revisit]`, `migration <id> --applied\|--skipped REASON` | pending migrations (scaffold < version ≤ plugin, numeric order) / record the outcome |

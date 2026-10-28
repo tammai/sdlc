@@ -264,6 +264,14 @@ def check_repo(r, root):
         r.add(g, "PRD", "ok" if has_prd else "warn",
               prd if has_prd else f"no product doc ({prd}): Define has no goals, non-goals or audience to start from",
               None if has_prd else "run the prd step of /sdlc:setup (or /sdlc:upgrade)")
+        enabled = scaffold.read_json(os.path.join(root, scaffold.LOCAL_SETTINGS), {}).get("enabledPlugins")
+        enabled = enabled if isinstance(enabled, dict) else {}
+        on = [c["id"] for c in scaffold.companions(p) if enabled.get(c["id"]) is True]
+        if on:
+            missing = [i for i in on if not scaffold.installed_plugins().get(i)]
+            r.add(g, "companions", "warn" if missing else "ok",
+                  f"enabled here but not installed: {', '.join(missing)}" if missing else ", ".join(on),
+                  f"claude plugin install {missing[0]}" if missing else None)
         ui = scaffold.effective_config(p.config).get("areas", {}).get("ui", [])
         if any(glob_matches(x, files) for x in ui):
             design_system = sdlc_layout.paths(root)["design_system"]

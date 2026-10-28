@@ -31,8 +31,10 @@ PLUGIN_ROOT = os.environ.get("CLAUDE_PLUGIN_ROOT") or os.path.dirname(os.path.di
 CONFIG = ".sdlc/config.json"
 LOCK = ".sdlc/scaffold.lock.json"
 SETTINGS = ".claude/settings.json"
+LOCAL_SETTINGS = ".claude/settings.local.json"
 GITIGNORE = ".gitignore"
-PLUGIN_MERGE = SETTINGS + "#plugin"  # lock key for the plugin-enablement keys we add to settings.json
+PLUGIN_MERGE = LOCAL_SETTINGS + "#plugin"  # lock key for the plugin-enablement keys we add to settings.local.json
+TEAM_PLUGIN_MERGE = SETTINGS + "#plugin"  # where setups before 2.0.1 added them; eject still takes those back
 MARKETPLACE = ("sdlc", {"source": {"source": "github", "repo": "tammai/sdlc"}})
 PLUGIN_KEY = "sdlc@sdlc"
 AGENTS = "AGENTS.md"
@@ -701,53 +703,111 @@ def cmd_allow(p, a):
     return {"added": added, "removed": removed, "owned": ours}
 
 
-def not_the_installed_copy():
-    """Why enabling sdlc in settings.json would be wrong here, or None: the running plugin isn't Claude Code's
-    installed sdlc (loaded with --plugin-dir, or not installed at all), so enabling it would load a second copy."""
+def installed_plugins():
+    """Claude Code's install record on this machine: {plugin id: entries}."""
     config = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(os.path.expanduser("~"), ".claude")
     records = read_json(os.path.join(config, "plugins", "installed_plugins.json"), {})
     records = records.get("plugins", records) if isinstance(records, dict) else {}
-    entries = records.get(PLUGIN_KEY) if isinstance(records, dict) else None
+    return records if isinstance(records, dict) else {}
+
+
+def not_the_installed_copy():
+    """Why enabling sdlc for the repo would be wrong here, or None: the running plugin isn't Claude Code's
+    installed sdlc (loaded with --plugin-dir, or not installed at all), so enabling it would load a second copy."""
+    entries = installed_plugins().get(PLUGIN_KEY)
     entries = [entries] if isinstance(entries, dict) else entries if isinstance(entries, list) else []
     here = os.path.normcase(os.path.realpath(PLUGIN_ROOT))
     if any(isinstance(e, dict) and e.get("installPath")
            and os.path.normcase(os.path.realpath(e["installPath"])) == here for e in entries):
         return None
     return (f"this session runs sdlc from {PLUGIN_ROOT} (--plugin-dir or a checkout), not the installed copy; "
-            "enabling the installed one in .claude/settings.json would load two")
+            "enabling the installed one would load two")
+
+
+def companions(p):
+    """The plugins sdlc pairs with (config `companions`): id, its marketplace (and `source` for one other than
+    sdlc's), a one-line `why`, and whether it's on by `default`."""
+    return [c for c in effective_config(p.config).get("companions") or [] if isinstance(c, dict) and c.get("id")]
 
 
 def cmd_enable_plugin(p, a):
-    """Have Claude Code offer this plugin to everyone who trusts the repo: a keyed merge of the marketplace and the
-    enabled flag into settings.json. A key the user already set is theirs and is never recorded or removed."""
-    settings_path = p.path(SETTINGS)
-    settings = read_json(settings_path, {})
-    ours = merged_list(p, PLUGIN_MERGE)
-    skipped = None if a.remove else not_the_installed_copy()
-    if skipped:
-        return {"added": [], "skipped": skipped, "owned": ours}
-    changed = []
-    wanted = [("extraKnownMarketplaces", MARKETPLACE[0], MARKETPLACE[1]), ("enabledPlugins", PLUGIN_KEY, True)]
+    """Turn sdlc, and the companions this machine wants, on for this repo: a keyed merge into
+    .claude/settings.local.json, which is never committed, so nobody else's setup changes and nothing needs asking.
+    A companion is on when its `default` is true or it's named with --with; only listed ones can be. A key the user
+    already set is theirs and is never recorded or removed."""
+    known = {c["id"]: c for c in companions(p)}
+    unknown = [i for i in a.with_ or [] if i not in known]
+    if unknown:
+        raise ValueError(f"not a companion of sdlc: {', '.join(unknown)} (the list: {', '.join(known) or 'none'})")
+    if a.remove:
+        return {"removed": unmerge_plugin_keys(p, LOCAL_SETTINGS, PLUGIN_MERGE), "owned": merged_list(p, PLUGIN_MERGE)}
+    if a.remove_team:  # the keys a setup before 2.0.1 put in the committed settings.json: the team's call (migration)
+        return {"removed": unmerge_plugin_keys(p, SETTINGS, TEAM_PLUGIN_MERGE)}
+    skipped = not_the_installed_copy()
+    wanted = [] if skipped else [("extraKnownMarketplaces", MARKETPLACE[0], MARKETPLACE[1]),
+                                 ("enabledPlugins", PLUGIN_KEY, True)]
+    for c in known.values():
+        if c.get("default") or c["id"] in (a.with_ or []):
+            market = c.get("marketplace")
+            source = MARKETPLACE[1] if market == MARKETPLACE[0] else {"source": c["source"]} if c.get("source") else None
+            if market and source:
+                wanted.append(("extraKnownMarketplaces", market, source))
+            wanted.append(("enabledPlugins", c["id"], True))
+    settings = read_json(p.path(LOCAL_SETTINGS), {})
+    ours, added = merged_list(p, PLUGIN_MERGE), []
     for section, key, value in wanted:
-        node = settings.get(section)
-        tag = f"{section}.{key}"
-        if a.remove:
-            if tag in ours and isinstance(node, dict) and key in node:
-                del node[key]
-                if not node:
-                    del settings[section]
-                changed.append(tag)
-            if tag in ours:
-                ours.remove(tag)
-        elif not isinstance(node, dict) or key not in node:
+        node, tag = settings.get(section), f"{section}.{key}"
+        if (not isinstance(node, dict) or key not in node) and tag not in added:
             settings.setdefault(section, {})[key] = value
-            changed.append(tag)
+            added.append(tag)
             if tag not in ours:
                 ours.append(tag)
-    if changed:
-        write_json(settings_path, settings)
+    if added:
+        excluded = exclude_locally(p, LOCAL_SETTINGS)
+        os.makedirs(os.path.dirname(p.path(LOCAL_SETTINGS)), exist_ok=True)
+        write_json(p.path(LOCAL_SETTINGS), settings)
     p.save()
-    return {"removed" if a.remove else "added": changed, "owned": ours}
+    enabled = settings.get("enabledPlugins") or {}
+    out = {"added": added, "owned": ours,
+           "companions": [{"id": i, "why": c.get("why", ""), "on": enabled.get(i) is True} for i, c in known.items()]}
+    if skipped:
+        out["skipped"] = skipped
+    if added and excluded:
+        out["excluded"] = excluded
+    return out
+
+
+def exclude_locally(p, rel_path):
+    """Keeps a machine-local file out of git without touching the team's .gitignore: a line in .git/info/exclude
+    when git doesn't ignore it yet. Returns the exclude file's path when it added one, else None (or not a repo)."""
+    check = subprocess.run(["git", "-C", p.root, "check-ignore", "-q", rel_path], capture_output=True)
+    if check.returncode != 1:  # 0: already ignored; 128: not a git repo
+        return None
+    path = git_out(p, "rev-parse", "--git-path", "info/exclude").strip()
+    path = path if os.path.isabs(path) else p.path(path)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(f"\n{rel_path}\n")
+    return path.replace(os.sep, "/")
+
+
+def unmerge_plugin_keys(p, path, merge_key):
+    """Takes back the plugin keys sdlc recorded under merge_key from the settings file at path; the user's stay."""
+    ours = merged_list(p, merge_key)
+    settings, removed = read_json(p.path(path), {}), []
+    for tag in list(ours):
+        section, key = tag.split(".", 1)
+        node = settings.get(section)
+        if isinstance(node, dict) and key in node:
+            del node[key]
+            if not node:
+                del settings[section]
+            removed.append(tag)
+        ours.remove(tag)
+    if removed:
+        write_json(p.path(path), settings)
+    p.save()
+    return removed
 
 
 def cmd_gitignore(p, a):
@@ -1247,9 +1307,8 @@ def cmd_eject(p, a):
     allow = plan["unmerge"].get(SETTINGS, [])
     if allow:
         cmd_allow(p, argparse.Namespace(add=[], remove=list(allow)))
-    plugin_keys = list(plan["unmerge"].get(PLUGIN_MERGE, []))
-    if plugin_keys:
-        cmd_enable_plugin(p, argparse.Namespace(remove=True))
+    plugin_keys = unmerge_plugin_keys(p, LOCAL_SETTINGS, PLUGIN_MERGE)
+    team_keys = unmerge_plugin_keys(p, SETTINGS, TEAM_PLUGIN_MERGE)
     ignore = plan["unmerge"].get(GITIGNORE, [])
     if ignore:
         cmd_gitignore(p, argparse.Namespace(add=[], remove=list(ignore)))
@@ -1261,7 +1320,7 @@ def cmd_eject(p, a):
     if scratch_removed:
         shutil.rmtree(work)
     return {"deleted": deleted, "kept_edited": [x for x in plan["ask"] if x not in extra], "scratch_removed": scratch_removed,
-            "unmerged": {SETTINGS: allow + plugin_keys, GITIGNORE: ignore, AGENTS: ["sdlc block"] if agents else []},
+            "unmerged": {SETTINGS: allow + team_keys, LOCAL_SETTINGS: plugin_keys, GITIGNORE: ignore, AGENTS: ["sdlc block"] if agents else []},
             "lock_removed": True}
 
 
@@ -1402,8 +1461,11 @@ def build_parser():
             s.add_argument("--from-commands", action="store_true", help="add Bash(<cmd>:*) for every command in config")
         s.set_defaults(fn=fn)
 
-    s = sub.add_parser("enable-plugin", help="keyed merge of the sdlc marketplace and enabled flag into .claude/settings.json")
+    s = sub.add_parser("enable-plugin", help="turn sdlc and its companions on in .claude/settings.local.json")
+    s.add_argument("--with", dest="with_", action="append", metavar="ID", help="also a companion that's off by default")
     s.add_argument("--remove", action="store_true", help="remove only the keys this command added")
+    s.add_argument("--remove-team", action="store_true",
+                   help="remove the plugin keys a setup before 2.0.1 added to .claude/settings.json")
     s.set_defaults(fn=cmd_enable_plugin)
 
     s = sub.add_parser("agents", help="rebuild AGENTS.md's sdlc block for the recorded hosts, and its Claude Code mirror")
