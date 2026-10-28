@@ -511,8 +511,12 @@ CI_SETUP = {
 def project_stacks(config, package=None):
     """Distinct toolchains, from each package's `stack` (only `package`'s when given), else `project.stack`."""
     cfg = effective_config(config)
-    raw = [sc["stack"] for sc in scopes(config) if sc["stack"] and package in (None, sc["name"])]
-    raw = raw or ([] if package else cfg.get("project", {}).get("stack", []))
+
+    def names(stack):  # one name or a list of them: a lone string is never read as its letters
+        return [stack] if isinstance(stack, str) else list(stack or [])
+
+    raw = [st for sc in scopes(config) if sc["stack"] and package in (None, sc["name"]) for st in names(sc["stack"])]
+    raw = raw or ([] if package else names(cfg.get("project", {}).get("stack")))
     found = []
     for st in raw:
         st = STACK_ALIASES.get(str(st).lower(), str(st).lower())

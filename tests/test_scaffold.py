@@ -551,6 +551,14 @@ class ScaffoldTest(ProjectTestCase):
         self.assertNotIn("working-directory", text)
         self.assertEqual(self.lock()["files"][".github/workflows/sdlc-verify.yml"]["template"], "builtin:ci")
 
+    def test_builtin_ci_takes_a_stack_written_as_one_name(self):
+        # Setup agents write "stack": "node" as often as ["node"]; read as letters it left the CI with # TODO lines
+        self.commands_config(project={"stack": "node"}, commands={"test": "npm test"})
+        self.sc("render", "builtin:ci", ".github/workflows/sdlc-verify.yml", "--class", "seeded")
+        text = self.read(".github/workflows/sdlc-verify.yml")
+        self.assertIn("actions/setup-node@v7", text)
+        self.assertNotIn("TODO", text)
+
     def test_upgrade_offers_the_invariants_check_to_a_repo_with_ci(self):
         self.commands_config(project={"stack": ["typescript"]}, commands={"install": "pnpm install", "test": "pnpm test"})
         offered = lambda: {i["path"]: i["template"] for i in self.sc("upgrade-plan")["add"]}
