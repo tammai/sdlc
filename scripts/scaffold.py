@@ -736,6 +736,33 @@ def companions(p=None):
     return [c for c in shipped if isinstance(c, dict) and PLUGIN_ID.match(str(c.get("id", "")))]
 
 
+def conflicts():
+    """What clashes with sdlc (shipped defaults only, like companions): a `plugin` (by name, any marketplace) that
+    enable-plugin turns off for this repo, or `files` (a tool written into the repo, such as spec-kit's) to report."""
+    shipped = read_json(os.path.join(PLUGIN_ROOT, DEFAULTS), {}).get("conflicts") or []
+    return [c for c in shipped if isinstance(c, dict) and c.get("name") and (c.get("plugin") or c.get("files"))]
+
+
+def enabled_elsewhere(p):
+    """Plugin ids turned on in the user's or the project's committed settings (what this repo's local file would
+    otherwise inherit)."""
+    config = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(os.path.expanduser("~"), ".claude")
+    on = []
+    for path in (os.path.join(config, "settings.json"), p.path(SETTINGS)):
+        plugins = read_json(path, {}).get("enabledPlugins")
+        on += [k for k, v in (plugins.items() if isinstance(plugins, dict) else []) if v is True and k not in on]
+    return on
+
+
+def conflicts_in_repo(p):
+    found = []
+    for c in conflicts():
+        hits = [f for f in c.get("files") or [] if glob.glob(p.path(f.rstrip("/")))]
+        if hits:
+            found.append({"name": c["name"], "found": hits, "why": c.get("why", "")})
+    return found
+
+
 def cmd_enable_plugin(p, a):
     """Turn sdlc, and the companions this machine wants, on for this repo: a keyed merge into
     .claude/settings.local.json, which is never committed, so nobody else's setup changes and nothing needs asking.
@@ -759,6 +786,10 @@ def cmd_enable_plugin(p, a):
             if market and source:
                 wanted.append(("extraKnownMarketplaces", market, source))
             wanted.append(("enabledPlugins", c["id"], True))
+    # A plugin that clashes with sdlc is turned off for this repo only; the user's own setting elsewhere stays
+    clash = {c["plugin"]: c for c in conflicts() if c.get("plugin")}
+    turning_off = [(i, clash[i.split("@", 1)[0]]) for i in enabled_elsewhere(p) if i.split("@", 1)[0] in clash]
+    wanted += [("enabledPlugins", i, False) for i, _ in turning_off]
     settings = read_json(p.path(LOCAL_SETTINGS), {})
     ours, added = merged_list(p, PLUGIN_MERGE), []
     for section, key, value in wanted:
@@ -776,6 +807,13 @@ def cmd_enable_plugin(p, a):
     enabled = settings.get("enabledPlugins") or {}
     out = {"added": added, "owned": ours,
            "companions": [{"id": i, "why": c.get("why", ""), "on": enabled.get(i) is True} for i, c in known.items()]}
+    off = [{"id": i, "why": c.get("why", ""), "scope": "this repo only (.claude/settings.local.json); --remove undoes it"}
+           for i, c in turning_off if f"enabledPlugins.{i}" in ours]
+    if off:
+        out["turned_off"] = off
+    in_repo = conflicts_in_repo(p)
+    if in_repo:
+        out["conflicts_in_repo"] = in_repo
     if skipped:
         out["skipped"] = skipped
     if added and excluded:

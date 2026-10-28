@@ -272,6 +272,16 @@ def check_repo(r, root):
             r.add(g, "companions", "warn" if missing else "ok",
                   f"enabled here but not installed: {', '.join(missing)}" if missing else ", ".join(on),
                   f"claude plugin install {missing[0]}" if missing else None)
+        clash = {c["plugin"]: c for c in scaffold.conflicts() if c.get("plugin")}
+        still_on = [i for i in scaffold.enabled_elsewhere(p)
+                    if i.split("@", 1)[0] in clash and enabled.get(i) is not False]
+        in_repo = scaffold.conflicts_in_repo(p)
+        if still_on or in_repo:
+            r.add(g, "conflicts", "warn",
+                  "; ".join([f"{i} is on for this repo: {clash[i.split('@', 1)[0]]['why']}" for i in still_on]
+                            + [f"{c['name']} ({', '.join(c['found'])}): {c['why']}" for c in in_repo]),
+                  "python3 scripts/scaffold.py enable-plugin turns the plugin off for this repo only"
+                  if still_on else "keep it, or remove its files from the repo (the team's call)")
         ui = scaffold.effective_config(p.config).get("areas", {}).get("ui", [])
         if any(glob_matches(x, files) for x in ui):
             design_system = sdlc_layout.paths(root)["design_system"]

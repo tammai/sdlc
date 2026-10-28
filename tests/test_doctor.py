@@ -154,6 +154,14 @@ class DoctorTest(ProjectTestCase):
         self.write(".sdlc/baseline.md", "# baseline\n")
         self.assertEqual(self.check("baseline")["status"], "ok")
 
+    def test_a_conflicting_plugin_still_on_here_warns_until_turned_off(self):
+        self.setup_repo()
+        config = {"CLAUDE_CONFIG_DIR": self.path("claude-config")}
+        self.write("claude-config/settings.json", json.dumps({"enabledPlugins": {"superpowers@mkt": True}}))
+        self.assertEqual(self.doctor(**config)[0][("repo", "conflicts")]["status"], "warn")
+        self.write(".claude/settings.local.json", json.dumps({"enabledPlugins": {"superpowers@mkt": False}}))
+        self.assertNotIn(("repo", "conflicts"), self.doctor(**config)[0])
+
     def test_a_companion_enabled_here_but_not_installed_warns(self):
         self.setup_repo()
         self.write(".claude/settings.local.json", json.dumps({"enabledPlugins": {"sdlc-extras@sdlc": True}}))

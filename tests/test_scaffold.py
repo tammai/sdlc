@@ -297,6 +297,22 @@ class ScaffoldTest(ProjectTestCase):
         self.sc("enable-plugin")
         self.assertNotIn("evil@evil", json.loads(self.read(local))["enabledPlugins"])
 
+    def test_enable_plugin_turns_a_conflicting_plugin_off_here_and_reports_spec_kit(self):
+        self.template("templates/project/config.defaults.json", json.dumps({"conflicts": [
+            {"name": "superpowers", "plugin": "superpowers", "why": "same skills twice"},
+            {"name": "spec-kit", "files": [".specify/", ".claude/commands/speckit.*"], "why": "two spec flows"}]}))
+        self.init()
+        self.installed()
+        self.write("claude-config/settings.json", json.dumps({"enabledPlugins": {"superpowers@mkt": True}}))
+        self.write(".specify/memory/constitution.md", "x")
+        out = self.sc("enable-plugin")
+        # Off for this repo only, in this machine's file, with a warning naming what and why
+        self.assertEqual(json.loads(self.read(".claude/settings.local.json"))["enabledPlugins"]["superpowers@mkt"], False)
+        self.assertEqual([(c["id"], c["why"]) for c in out["turned_off"]], [("superpowers@mkt", "same skills twice")])
+        self.assertEqual([(c["name"], c["found"]) for c in out["conflicts_in_repo"]], [("spec-kit", [".specify/"])])
+        self.sc("enable-plugin", "--remove")  # taking it back restores the user's own setting
+        self.assertNotIn("superpowers@mkt", json.loads(self.read(".claude/settings.local.json")).get("enabledPlugins", {}))
+
     def test_gitignore_merges_and_only_removes_its_own_lines(self):
         self.init()
         self.write(".gitignore", "node_modules/\n.sdlc/.work/\n")

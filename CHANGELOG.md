@@ -9,6 +9,7 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ### Added
 - **Companion plugins, as data:** the plugin's config defaults list `companions` (id, marketplace, a one-line reason, on by default or not), starting with `sdlc-extras`. `enable-plugin` turns on the ones that are on by default, names the rest in one line, and adds one with `--with <id>`; an id that isn't listed is refused. Pairing another plugin is a new entry, not new code. `/sdlc:doctor` warns when a companion is turned on for the repo but not installed on this machine.
+- **Conflicting tools, as data too:** the shipped `conflicts` list names plugins and repo files that clash with sdlc. A plugin (superpowers, whose skills sdlc carries its own copies of) is turned off for this repo only, in `.claude/settings.local.json`, and setup warns you which and why; it stays on in your other projects, and `enable-plugin --remove` undoes it. Files written into the repo (spec-kit's `.specify/` and `speckit.*` commands) can't be switched off, so setup tells you and asks whether to keep them or remove them. `/sdlc:doctor` warns while either is still in play. Companions and conflicts are read only from the plugin's shipped defaults, never the repo's `.sdlc/config.json`, so a repo can't name a plugin for setup to turn on.
 
 ## 2.0.0 — 2026-10-28
 

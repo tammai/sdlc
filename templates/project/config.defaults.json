@@ -65,5 +65,20 @@
       "why": "the Ralph loop, hookify list/configure/help, and extra review agents (type design, comments, simplifier)",
       "default": false
     }
+  ],
+  "conflicts": [
+    {
+      "name": "superpowers",
+      "plugin": "superpowers",
+      "why": "sdlc carries its own copies of superpowers' skills (brainstorming, test-driven development, systematic debugging, writing plans); with both on, two near-identical sets compete to trigger"
+    },
+    {
+      "name": "spec-kit",
+      "files": [
+        ".specify/",
+        ".claude/commands/speckit.*"
+      ],
+      "why": "spec-kit's specify/plan/tasks commands are a second spec workflow beside sdlc's Define; an existing spec-kit spec.md can stay as the written spec sdlc links to"
+    }
   ]
 }
