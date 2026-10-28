@@ -4,20 +4,21 @@ Entered from Build's gate. In Stage 5 the freshness hook blocks finishing on sta
 
 ## 1. Recommend
 
-Look at what actually changed (`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/diff_stats.py" --format md --base <Base> --plan <intents>/plan.md`) and recommend, each with a one-line reason:
+Look at what actually changed (`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/diff_stats.py" --format md --base <Base> --plan <intents>/plan.md`, run with Build's gate) and recommend, each with a one-line reason:
 
 | Review | Recommend when |
 |---|---|
 | **Security** | `Risk: high`, or the diff touches `areas.sensitive` or `areas.migrations` (`.sdlc/config.json`), or untrusted input reaches a shell, file path or database |
-| **Code, high** | the spec has must-never-break lines or failure modes (concurrency, persisted data, a crash mid-write), a public interface changed, or the diff is large or spread out |
-| **Code, default** | a typical M or L change |
-| **Code, low** | a small, contained change whose tests cover it, when a second look is still worth it |
+| **Code, low** | the starting point on M and L: recommended unless a row below fires |
+| **Code, default** | `plan.md`'s Public Surface isn't `- none`, or the diff is large (diff stats: more than 5 source files or 300 added code lines) |
+| **Code, high** | `Risk: high`, or the spec names a crash mid-write or concurrent use as a failure mode |
 | **UI** | the diff touches `areas.ui`: always recommended |
 | **Advisor** | only where this agent has one, and only for a real open judgment call the reviews can't settle |
-| **None** | a small, contained change, fully covered by its tests, touching nothing above |
 
-- **S:** run what you recommend (or nothing), without stopping, and say in one line what ran and why.
-- **M and L:** stop with the recommendation; the user picks. Autopilot or a headless run: take the recommendation and record that you did (`state.py log`).
+The code depth is the highest row that fires, checked against these facts only, not judged; name the row in the reason.
+
+- **S:** doesn't use this table; `s-track.md` step 5 is a fixed trigger list, none by default.
+- **M and L:** stop with the recommendation, one line per review with its reason, and nothing else; the user picks (another depth, or none). Autopilot or a headless run: take the recommendation and record that you did (`state.py log`).
 
 ## 2. Run each chosen review once
 
@@ -39,4 +40,4 @@ Each review is a fresh agent on `opus`, never the context that wrote the code, d
 
 Write `<intents>/review.md` once, from `${CLAUDE_PLUGIN_ROOT}/templates/review-template.md`: what you recommended and why, what was chosen (and by whom), each review's verdict, the high findings with what fixed them, and the tickets. If nothing ran, one line saying so and why. List every `## Deviations` line and every `manual` AC in your end-of-Review message, so the user sees them without opening the plan.
 
-**Gate:** `$V status` shows `reuse: true` on the current code; every chosen review's latest report ends `VERDICT: PASS`, or its highs are fixed (and re-verified by `$V`) or waived by the user; security-touched: no critical or high security finding open and no secrets in the diff. Then `state.py verified <f> <commit> <tree>` and `state.py advance <f> 8 --gate pass`.
+**Gate:** `$V status` shows `reuse: true` on the current code; every chosen review's latest report ends `VERDICT: PASS`, or its highs are fixed (and re-verified by `$V`) or waived by the user; security-touched: no critical or high security finding open and no secrets in the diff. Then, in one shell call, `state.py verified <f> <head> <tree>` (both from that `$V status`) `&& state.py advance <f> 8 --gate pass`.

@@ -107,6 +107,20 @@ class VerifyTest(ProjectTestCase):
         self.plan([("AC-001", "tests/t.py › ok", 'python3 -c "import sys; sys.exit(4)"')])  # pytest: node id not found
         self.assertEqual(self.verify("red", "AC-001")[0], 1)
 
+    def test_one_red_call_records_every_ac_or_none(self):
+        self.spec("AC-001", "AC-002")
+        fails = 'python3 -c "import sys; sys.exit(1)"'
+        self.write("tests/t.py", "")
+        self.plan([("AC-001", "tests/t.py › a", fails), ("AC-002", "tests/t.py › b", 'python3 -c "pass"')])
+        code, out, rec = self.verify("red", "AC-001", "AC-002")
+        self.assertEqual(code, 1)
+        self.assertIn("AC-002: its test passes", out)
+        self.assertEqual(rec.get("red", {}), {})  # AC-001 failed as it should, but the batch is all or nothing
+        self.plan([("AC-001", "tests/t.py › a", fails), ("AC-002", "tests/t.py › b", fails)])
+        code, out, rec = self.verify("red", "AC-001", "AC-002")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(sorted(rec["red"]), ["AC-001", "AC-002"])
+
     def test_drift_needs_a_deviation_with_what_why_and_effect(self):
         self.spec()  # no ACs: only the commands and the drift check run
         tasks = ["1. **Store** — FR-001\n   - Files: `src/store.py`"]

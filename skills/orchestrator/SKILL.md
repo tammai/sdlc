@@ -1,6 +1,6 @@
 ---
 name: orchestrator
-description: Takes a feature, fix or project through define, build, review and ship, leaving an intent, spec, plan and review record, and does trivial changes directly. Use when the user asks to start, implement, build, fix or brainstorm a change in a repo set up for sdlc, asks where work stands, or opens with a GitHub, Linear, Jira or other tracker ticket link.
+description: Takes a feature, fix or project through define, build, review and ship, leaving an intent, spec, plan and review record, and does trivial changes directly. Use when the user asks to start, implement, build or fix a change in a repo set up for sdlc, asks where work stands, or opens with a GitHub, Linear, Jira or other tracker ticket link.
 ---
 
 `${CLAUDE_PLUGIN_ROOT}` is the sdlc plugin's folder (other agents: the installed plugin folder above this file). `R` is this skill's `references/` folder.
@@ -18,7 +18,7 @@ You decide the phase, keep the state current, and stop only where this file says
 | Review | `Stage 5 – Review` | `R/review.md` |
 | Ship, with Learn | `Stage 8 – Ship` | `R/ship.md` |
 
-Moves: Define → `advance 4`, Build → `5`, Review → `8`. A new feature: `R/start.md` first. Work split into parts (`<intents>/backlog.md`): `R/backlog-slices.md` leads. Deploy only when asked: `/sdlc:deploy`.
+Moves: Define → `advance 4`, Build → `5`, Review → `8`. A new feature: `R/start.md` first. Read references in two batches, each as parallel reads in one turn: `R/start.md` with `R/define.md` at the start, and `R/build.md`, `R/review.md` and `R/ship.md` when Build starts (or when resuming into any of those phases). Work split into parts (`<intents>/backlog.md`): `R/backlog-slices.md` leads. Deploy only when asked: `/sdlc:deploy`.
 
 **Start or resume.** Look for a state file with `Status: active` (`.sdlc/state/*.md`; old layout `.sdlc/*/state.md`). One with `Process: 2` → say the feature, phase and open items in 2–3 lines and continue in its phase (a backlog: `backlog.py next` names the part; the request `B<n>` → that part). One without `Process: 2` was started under sdlc 1.x: say so, and that it must be finished with sdlc 1.8.1 or archived (`Status: done`); 2.0 can't run it. Several → ask which (a request ending `--autopilot` never asks). None → size the request (below): trivial → do it directly; S → `R/s-track.md` alone (the whole S flow in one file: no other reference or template); M or L → `R/start.md`. An S feature resumed mid-way also continues from `R/s-track.md`.
 
@@ -26,12 +26,12 @@ Moves: Define → `advance 4`, Build → `5`, Review → `8`. A new feature: `R/
 
 | Track | Signals | Before the build |
 |---|---|---|
-| **Trivial** | a typo, a one-line fix with an obvious cause, a rename, a config value; no behaviour another feature's spec relies on, nothing security-sensitive | none: no workflow, no record, no state file (below) |
+| **Trivial** | no behaviour changes, so no test could tell before from after: a typo, a rename, comments or docs, a config value nothing tests; nothing security-sensitive | none: no workflow, no record, no state file (below) |
 | **S** | a fix or tweak, 1–2 files, clear expected behaviour | intent, spec and plan, a few lines each; no stop |
 | **M** | a few files to a few days, approach mostly clear | intent, spec and plan in full; the user reads and approves |
 | **L** | several distinct parts, or an approach still unclear | intent, spec and plan in full, the interview via `sdlc:brainstorming`; the user reads and approves |
 
-**Trivial is your call.** Say in one line "Trivial, so I'm doing it directly", then work like plain Claude: make the change, add a test when it changes behaviour, run the project's tests, and commit with a clear message. The commit is the whole record. If the user says "full record", or the change turns out not to be trivial (a second file, an unclear cause, a failing test you didn't expect), stop and go on as S (`R/s-track.md`).
+**Trivial or S is one question: does behaviour change?** Any bug fix, and any change a test could catch, is at least S however small; only a change no test could see is Trivial. Say in one line "Trivial, so I'm doing it directly", then work like plain Claude: make the change, run the project's tests, and commit with a clear message. The commit is the whole record. If the user says "full record", or the change turns out to change behaviour (a test fails), stop and go on as S (`R/s-track.md`).
 
 Propose the smallest fitting track; size up only for a named signal, recorded in state with the footprint (files touched). Size by footprint, not risk words. **Risk** is `high` for auth, payments, secrets, PII, schema migrations, a public API, or untrusted input reaching a shell, file path or database; else `low`. Risk doesn't change the track: it feeds the review recommendation (`R/review.md`).
 
@@ -58,7 +58,7 @@ Cheap and standard work: `sonnet` with `effort: high`; top: `opus` (`fable` only
 - **Documents and the state file** are written with your file-writing tool, never through the shell (`cp`, `cat <<EOF`, `echo`): they hold backticks, `$` and quotes that shell quoting breaks.
 - **Verified tree:** the `tree` field of `verify.py status`, typed out in full. Before any commit, diff it against `Verified:`, ignoring `.sdlc/`, docs and test-only changes; anything left is unverified code: back to Build, rerun `verify.py`, then Review again.
 - **Ownership:** before advancing, compare `Owner:` with `git config user.email`; someone else's → say who (`Tool:`) and ask; on yes, `set` Owner and Tool and record the handover as a deviation.
-- **Advisor:** not called during an sdlc change unless the review step recommends it and it was chosen (by the user, or on S by the recommendation).
+- **Advisor:** not called during an sdlc change unless the review step recommends it and it was chosen by the user (S never calls it).
 - **Hard stops, always ask:** the M and L approval before the build, the M and L review choice after it, anything that adds scope, a reviewer and the builder disagreeing on a high finding, CI still red after one fix, merges, production deploys, DB migrations, anything irreversible.
 - "Skip" / "just ship it": name the skipped steps, record them as a deviation, comply.
 - "Your human partner" in a bundled skill is the user; a bundled skill that would hand off on its own returns here.

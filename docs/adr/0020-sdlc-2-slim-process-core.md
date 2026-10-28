@@ -21,8 +21,8 @@ The user set the plugin's goal as process value, not quality above plain Claude:
 2. **Intent before code.** The agent judges whether what, why and how are clear. If anything is missing or ambiguous, at any size, it asks first, one question at a time. A bug is proven first, then its root cause, then the fix. S doesn't stop before the build; on M and L the user reads and approves intent, spec and plan.
 3. **The builder works like plain Claude:** no review agents during the build. Tests are recorded failing first (`verify.py red`). The builder works from the must-never-break lines and failure modes, not only the acceptance list; a crash window in a write is must-fix. How the build runs (inline, parts in fresh sessions, or parallel subagents) is the agent's call, written in `plan.md` before the build.
 4. **Reviews are recommended after the build:**
-   - The options are security; code at low, default or high depth; UI (always when `areas.ui` is touched); the advisor where available; or none.
-   - S runs the recommendation. M and L ask. Autopilot and headless runs take the recommendation.
+   - The options are security; code at low, default or high depth (low unless a fixed trigger raises it); UI (always when `areas.ui` is touched); the advisor where available; or none.
+   - S runs a fixed trigger list instead of judging (high risk, a sensitive, migration or UI path, or a declared public surface; otherwise none), so the same input gets the same process. M and L ask. Autopilot and headless runs take the recommendation.
    - Each review runs once, on opus. High findings are fixed test-first, at the rule, not the instance. A disagreement goes to the user.
 5. **Learn before merge.** Lessons are distilled into the project's knowledge before the final commit, so they ship with the change.
 6. **Green twice, then stop at the PR.** The full suite passes locally and on CI. The agent fixes a red CI run once, then asks. It merges only on the user's word.

@@ -9,7 +9,7 @@ Paths: `<intents>` is the feature's documents folder, `<state>` its state file a
 
 Deploy runs only on request; it isn't a phase, and no track runs it on its own. `<the user's request>` may name the feature and the environment.
 
-1. **What to deploy.** The named feature, else the only active one (or the one just shipped). If its state file exists and `Current:` is before Stage 8, say that it hasn't passed Prove and Ship, and continue only if the user says so (record it with `state.py deviation`).
+1. **What to deploy.** The named feature, else the only active one (or the one just shipped). If its state file exists and `Current:` is before Stage 8, say that it hasn't passed Review and Ship, and continue only if the user says so (record it with `state.py deviation`).
 2. **How.** Use the project's existing deploy path: scripts, a CI job or the platform CLI. Never invent one. If there is none, say so and stop. For platform integrations see `${CLAUDE_PLUGIN_ROOT}/skills/orchestrator/references/integrations.md`.
 3. **Go-ahead (hard stop).** Before any production deploy or DB migration, show the environment, version or commit, the steps you'll run, the migration (if any) and the rollback command, and wait for the user's explicit yes. A staging or preview deploy the project treats as routine needs no extra stop.
 4. **Deploy and smoke test.** Run the steps, then a smoke test (the project's own, or a request to the main endpoint or screen). If it fails, say what failed and offer the rollback; running the rollback on production is another go-ahead.

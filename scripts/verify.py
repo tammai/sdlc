@@ -2,7 +2,7 @@
 """One command that proves a feature: the project's verify plan, then every acceptance criterion against the test
 spec.md names for it (plan.md on a 1.x feature) (ADR 0013).
 
-Usage: verify.py [--root DIR] [--feature NAME] [--timeout S] [red AC-nnn | status]
+Usage: verify.py [--root DIR] [--feature NAME] [--timeout S] [red AC-nnn [AC-nnn ...] | status]
   Runs the verify plan (lint, typecheck, build, test from .sdlc/config.json, per package), then, for every `AC-nnn`
   in spec.md: a row in spec.md's `## Acceptance tests` table (plan.md's on a 1.x feature), a `manual` row's reason, the test file, a recorded red
   run, and the row's Run command passing. Writes the result to .sdlc/.work/verify.json and exits 0 on pass, 1 on a
@@ -11,8 +11,10 @@ Usage: verify.py [--root DIR] [--feature NAME] [--timeout S] [red AC-nnn | statu
   and the plan is from sdlc 1.x. Then drift from plan.md: a changed file no task or acceptance test names, a task
   whose files didn't change, an export or dependency the Public Surface doesn't list; each needs a `## Deviations`
   line naming it, with What:, Why: and Effect:.
-`red AC-nnn`, run before the AC's code is written: runs that AC's test and records it failing (exit 0). A test that
-  passes, can't be found or can't run is refused (exit 1, nothing recorded): it would prove nothing.
+`red AC-nnn [AC-nnn ...]`, run before those ACs' code is written: runs each AC's test and records it failing (exit 0).
+  A test that passes, can't be found or can't run is refused (exit 1, and none of the named ACs is recorded): it
+  would prove nothing.
+A passing run prints the tree and HEAD that `state.py verified` takes.
 Each run also writes the freshness hook's copy of itself (.sdlc/.work/verify-freshness.json).
 `status`: JSON for Review. `reuse` is true only when the last run passed, the freshness hook's copy of it agrees
   (same tree, every red AC), and the code hasn't changed since; otherwise `reason` says why and Review reruns verify.
@@ -94,7 +96,7 @@ def load_record(root):
         return {}
 
 
-def save_record(root, rec, run):
+def save_record(root, rec, *runs):
     """Writes verify.json, then the freshness hook's copy of the same run, so a run counts whatever spelling ran it
     (a subagent's `verify.py; git status` is one the hook doesn't match). A later hand edit to either still shows as
     "records disagree"."""
@@ -102,7 +104,7 @@ def save_record(root, rec, run):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(rec, f, indent=2)
-    vf.record_verify(root, rec["feature"], [run])
+    vf.record_verify(root, rec["feature"], list(runs))
 
 
 def docs(root, feature):
@@ -225,9 +227,31 @@ NOT_FOUND = re.compile(r"no tests ran|collected 0 items|No tests found|no tests 
                        r"has no attribute '?test\w*", re.I)
 
 
-def red(root, feature, ac, timeout=1800):
-    """(entry, None) when the AC's test fails as it should before its code exists, else (None, reason)."""
-    row = next((r for r in acceptance(root, feature)[1] or [] if r["ac"] == ac), None)
+def red(root, feature, acs, timeout=1800):
+    """({AC: exit code}, []) when every AC's test fails as it should before its code exists, else (None, reasons)
+    and nothing is recorded: a batch is recorded whole or not at all."""
+    rows, codes, reasons = acceptance(root, feature)[1] or [], {}, []
+    for ac in acs:
+        code, reason = red_one(root, rows, ac, timeout)
+        if reason:
+            reasons.append(reason)
+        else:
+            codes[ac] = code
+    if reasons:
+        return None, reasons
+    rec = load_record(root)
+    if rec.get("feature") != feature:
+        rec = {"feature": feature}
+    at, tree = vf.now(), vf.worktree_tree(root)
+    for ac, code in codes.items():
+        rec.setdefault("red", {})[ac] = {"at": at, "tree": tree, "exit": code}
+    save_record(root, rec, *[("red", ac) for ac in codes])
+    return codes, []
+
+
+def red_one(root, rows, ac, timeout):
+    """(exit code, None) when the AC's test fails as it should, else (None, reason)."""
+    row = next((r for r in rows if r["ac"] == ac), None)
     if not row:
         return None, f"{ac}: no row in ## Acceptance tests"
     if row["manual"]:
@@ -239,13 +263,7 @@ def red(root, feature, ac, timeout=1800):
         return None, f"{ac}: its test passes before its code exists, so it proves nothing"
     if code in NOT_RUNNABLE or NOT_FOUND.search(out):
         return None, f"{ac}: the test did not run (exit {code}): check the Test and Run cells\n{out[-500:]}"
-    rec = load_record(root)
-    if rec.get("feature") != feature:
-        rec = {"feature": feature}
-    entry = {"at": vf.now(), "tree": vf.worktree_tree(root), "exit": code}
-    rec.setdefault("red", {})[ac] = entry
-    save_record(root, rec, ("red", ac))
-    return entry, None
+    return code, None
 
 
 def status(root, feature):
@@ -285,7 +303,7 @@ def main(argv=None):
     ap.add_argument("--feature")
     ap.add_argument("--timeout", type=int, default=1800)
     ap.add_argument("action", nargs="?", choices=["red", "status"])
-    ap.add_argument("ac", nargs="?")
+    ap.add_argument("acs", nargs="*")
     a = ap.parse_args(argv)
     root = os.path.abspath(a.root)
     feature = a.feature or active_feature(root)
@@ -296,18 +314,22 @@ def main(argv=None):
         print(json.dumps(status(root, feature), indent=2))
         return 0
     if a.action == "red":
-        if not a.ac or not AC_ID.fullmatch(a.ac):
-            print("verify red: name one acceptance criterion, e.g. AC-001")
+        if not a.acs or not all(AC_ID.fullmatch(ac) for ac in a.acs):
+            print("verify red: name the acceptance criteria, e.g. AC-001 AC-002")
             return 2
-        entry, reason = red(root, feature, a.ac, a.timeout)
-        print(reason or f"{a.ac}: red recorded (exit {entry['exit']}); now write its code")
-        return 1 if reason else 0
+        codes, reasons = red(root, feature, a.acs, a.timeout)
+        for line in reasons or [f"{ac}: red recorded (exit {code})" for ac, code in codes.items()]:
+            print(line)
+        print("nothing recorded: fix those tests and rerun the whole batch" if reasons else "now write their code")
+        return 1 if reasons else 0
     last, notes = full(root, feature, a.timeout)
     for line in notes + last["failures"]:
         print(line)
     if last["manual"]:
         print("checked by reading, not by a test: " + ", ".join(last["manual"]))
     print(f"verify {feature}: {last['result'].upper()} ({last['seconds']}s)")
+    if last["result"] == "pass":
+        print(f"head {last['head']} tree {last['tree']}")
     return 0 if last["result"] == "pass" else 1
 
 

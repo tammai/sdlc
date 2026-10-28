@@ -50,7 +50,7 @@ A feature's documents go in `<docs>/intents/<feature>/` (`<docs>` is `docs/sdlc`
 
 1. **Define:** if anything that would change what gets built is unclear, the agent asks first, one question at a time, each built on your last answer. Then it writes three files, once: `intent.md` (what it's for, why now, the decisions with what was ruled out and why), `spec.md` (about 10 or fewer acceptance criteria numbered `AC-001` onward, each with its test in `## Acceptance tests`; out of scope; must-never-break lines and failure modes) and `plan.md` (how the build runs, the tasks with their files, the Public Surface listing everything new others can see).
 2. **You read and approve.** One message with the three paths, the approach and what was ruled out, each acceptance criterion with its test (`manual` ones apart, with their reasons), how the build runs (inline, parts in fresh sessions, or parallel subagents) and any extras the agent would drop unless you keep them. Reply "approved", or change anything.
-3. **Build:** from the files, in the session by default. Per acceptance criterion: the test, `verify.py red AC-nnn` to record it failing, then the code. `verify.py` once at the end runs the checks, every criterion's test and the drift check. Changes from the plan go under `## Deviations` with what, why and effect; they never stop the build.
+3. **Build:** from the files, in the session by default. Every criterion's test, then one `verify.py red AC-001 AC-002 …` to record them failing, then the code. `verify.py` once at the end runs the checks, every criterion's test and the drift check. Changes from the plan go under `## Deviations` with what, why and effect; they never stop the build.
 4. **Review:** the agent recommends reviews from what actually changed (security, code at low, default or high depth, UI, advisor, or none), each with a reason, and **stops for you to choose**. Each chosen review runs once, fresh, on `opus` ([6](#6-choose-the-reviews-and-act-on-findings)).
 5. **Ship:** Learn, then the final commit, push, PR and CI. It stops with the PR open; the merge waits for your word.
 
@@ -325,6 +325,7 @@ Autopilot won't start a session while a notice is open; its JSON `stopped` reaso
 | Track and risk | The agent proposes; you can override |
 | Whether to ask before writing the record | The agent judges; it asks when what, why or how isn't clear |
 | How the build runs (inline, parts, parallel) | The agent, written in `plan.md`; on M and L shown at the approval |
-| Which reviews to run on S, autopilot and headless runs | The agent's recommendation |
+| Which reviews to run on S | A fixed trigger list (`s-track.md` step 5); none unless one fires |
+| Which reviews to run on autopilot and headless runs | The agent's recommendation |
 | Verify verdict | The latest `verify.py` run on the current code |
 | Fixing high findings, and one CI fix | The agent, without asking |

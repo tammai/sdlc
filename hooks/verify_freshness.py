@@ -372,7 +372,7 @@ def verify_runs(command, root, cwd, feature):
     if not args:
         return [("full", None)], observable
     if args[0] == "red" and len(args) > 1:
-        return [("red", args[1])], observable
+        return [("red", ac) for ac in args[1:]], observable
     return [], False  # status, or something verify.py won't accept
 
 

@@ -9,4 +9,4 @@ conditions:
     pattern: \b(it|test|describe|context)\.(only|skip)\(|\b(fit|fdescribe|xit|xdescribe|xtest)\(|@pytest\.mark\.(skip|xfail)\b|\bt\.Skip\(
 ---
 
-**Focused or skipped test added.** `.only`/`.skip`/`xit`/`@pytest.mark.skip` must not be committed: it hides failures from the full test run and fails Prove.
+**Focused or skipped test added.** `.only`/`.skip`/`xit`/`@pytest.mark.skip` must not be committed: it hides failures from the full test run and fails verify.

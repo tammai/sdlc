@@ -1,6 +1,6 @@
 ---
 name: systematic-debugging
-description: Finds a failure's root cause before any fix by reproducing, isolating and testing one hypothesis at a time. Use when a test or build fails unexpectedly and the cause is not yet known, in sdlc's Build or Prove or when the user asks to debug.
+description: Finds a failure's root cause before any fix by reproducing, isolating and testing one hypothesis at a time. Use when a test or build fails unexpectedly and the cause is not yet known, in sdlc's Build or Review or when the user asks to debug.
 ---
 
 # Systematic Debugging

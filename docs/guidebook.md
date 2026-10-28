@@ -71,7 +71,7 @@ Every track runs the same four phases and leaves the same record; the track sets
 
 **Asking.** If the request, a ticket, the code and `knowledge/` already say what, why and how, Define writes the files and goes on. If anything that would change what gets built is missing or ambiguous, it asks, one question at a time, each built on the last answer, and stops asking once it can write the files without guessing anything that matters. A bug gets a failing test (preferred) or exact steps first, then its root cause (`systematic-debugging`); the proving test becomes AC-001.
 
-**Build** works like plain Claude, from `plan.md`, `spec.md` and `intent.md`. Per acceptance criterion it writes the test, records it failing with `verify.py red AC-nnn`, then writes the code, running only nearby tests; at the end it runs `verify.py` once (the verify plan, every AC's test, and plan drift). It works from the spec's must-never-break lines and failure modes too: a crash window in a write is must-fix when the spec says a killed process must not leave the system unusable. Drift never stops Build: each change from the plan is recorded under `## Deviations` with what, why and effect. How the build runs is Define's call, written in `plan.md`: **inline** (default, this session), **parts in fresh sessions** (the work won't fit one context), or **parallel subagents** (only for truly independent parts).
+**Build** works like plain Claude, from `plan.md`, `spec.md` and `intent.md`. It writes every acceptance criterion's test, records them failing in one call (`verify.py red AC-001 AC-002 …`), then writes the code in batches, running only nearby tests; at the end it runs `verify.py` once (the verify plan, every AC's test, and plan drift). It works from the spec's must-never-break lines and failure modes too: a crash window in a write is must-fix when the spec says a killed process must not leave the system unusable. Drift never stops Build: each change from the plan is recorded under `## Deviations` with what, why and effect. How the build runs is Define's call, written in `plan.md`: **inline** (default, this session), **parts in fresh sessions** (the work won't fit one context), or **parallel subagents** (only for truly independent parts).
 
 **Review** is described [below](#review). **Ship** first runs **Learn**: a lesson goes into the right knowledge tier only when it isn't obvious from the code or the commit, linked from `review.md`'s `## Lessons filed`; each high finding fixed in Review that a reviewer could check next time gets a line in `recurring-defects.md`; nothing to learn is said in one line. Then the final commit, naming the record's path so `git blame` leads from a line to its why; `verify.py` green on that exact code; push and open the PR (it links `intent.md`, `spec.md` and `review.md`); watch CI. CI red because of the code gets one fix, test first; still red, or red for a CI-only reason (a secret, a runner, a flaky test), and it tells you. It stops with the PR open: `PR <url> open, local and CI green; say "merge" to merge.` Without a remote it stops with the branch ready.
 
@@ -101,7 +101,7 @@ Every phase ties additions back to a request:
 
 ## Verification
 
-**`verify.py`.** Build's one command. `verify.py red AC-nnn` records an acceptance test failing before its code; a test that passes, can't be found or can't run is refused. The full run (`verify.py` with no arguments) runs the project's verify plan (lint, typecheck, build, the full suite), each AC's test, and the drift check against `plan.md`. `verify.py status` prints short JSON: Review and Ship reuse the last run only when it passed, both records agree and the code hasn't changed since (`reuse: true`).
+**`verify.py`.** Build's one command. `verify.py red AC-001 AC-002 …` records acceptance tests failing before their code; a test that passes, can't be found or can't run is refused, and then none of the batch is recorded. A passing full run prints the head and tree `state.py verified` takes. The full run (`verify.py` with no arguments) runs the project's verify plan (lint, typecheck, build, the full suite), each AC's test, and the drift check against `plan.md`. `verify.py status` prints short JSON: Review and Ship reuse the last run only when it passed, both records agree and the code hasn't changed since (`reuse: true`).
 
 **The freshness hook.** While `state.md` says `Current: Stage 5 – Review`, Review is the only phase with a hook that blocks you:
 
@@ -126,14 +126,15 @@ Review starts from Build's passing `verify.py`; it doesn't rerun it unless the c
    | Review | Recommended when |
    |---|---|
    | Security | security-touched, or untrusted input reaches a shell, file path or database |
-   | Code, high | the spec has must-never-break lines or failure modes, a public interface changed, or the diff is large or spread out |
-   | Code, default | a typical M or L change |
-   | Code, low | a small, contained change whose tests cover it, when a second look is still worth it |
+   | Code, low | the starting point on M and L, unless a row below fires |
+   | Code, default | a declared Public Surface, or a large diff (more than 5 source files or 300 added code lines) |
+   | Code, high | `Risk: high`, or the spec names a crash mid-write or concurrent use as a failure mode |
    | UI | the diff touches `areas.ui`: always recommended |
    | Advisor | only where the agent has one, for a real judgment call the reviews can't settle |
-   | None | a small, contained change, fully covered by its tests, touching nothing above |
 
-   On S the agent runs the recommendation and says what ran and why. On M and L it stops and you pick. Autopilot and headless runs take the recommendation and log that they did.
+   The code depth is the highest row that fires, from these facts, not judged. You can pick another depth, or none, at the gate.
+
+   S doesn't use this table: it runs a fixed list and says what ran. Security when `Risk: high` or a changed path matches `areas.sensitive` or `areas.migrations`; UI when one matches `areas.ui`; code at low depth when `plan.md`'s Public Surface isn't `- none`; otherwise none. On M and L it stops and you pick. Autopilot and headless runs take the recommendation and log that they did.
 2. **Run each chosen review once**, as a fresh agent on `opus`, never the context that wrote the code, all dispatched together. The code review is a `code-reviewer` with the shared brief at the chosen depth (low: correctness against each AC and must-never-break line; default: also silent failures, test gaps rated 1–10 with 8 or more high, simplifications and security basics; high: also a deeper pass on each failure mode). The security review is a `code-reviewer` with the security-only brief, plus the dependency audit and the security hooks' findings in the session. The UI review is the `ui-reviewer` with `design-system.md`, the spec and the diff. Each writes its report to `.sdlc/.work/findings/<feature>/`, ending `VERDICT: PASS` or `VERDICT: FAIL — <high ids>`.
 3. **Act on the findings.** Each high goes back to Build, fixed with a failing test first, fixing the rule rather than the one instance; then `verify.py` again. The review isn't rerun: the fixes are proven by their tests and the full suite. If the agent thinks a high is wrong, it brings you the finding and its case; a waiver is yours only. Medium and low become tickets in `review.md`.
 4. **Record** `review.md` once: what was recommended and why, what was chosen and by whom, each verdict, the high findings with their fixes, the tickets, the drift and `manual` ACs. The end-of-Review message lists every deviation and `manual` AC, so you see them without opening the plan.
