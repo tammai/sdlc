@@ -17,3 +17,4 @@
 - 2026-10-25 add knowledge/gotchas/host-hook-answers.md, .claude/rules/hosts.md — agy denied every call on `{}`; a Cursor allow skipped approval (from 1.8.0 release distill)
 - 2026-10-25 update knowledge/gotchas/host-hook-answers.md — an exit code read from Codex command output could fake a passing test run (from 1.8.1 release distill)
 - 2026-10-28 update knowledge/conventions/model-tiers-by-name.md — Model selection moved to the orchestrator when 2.0 removed subagent-driven-development
+- 2026-10-28 add knowledge/gotchas/hooks-read-command-text.md — Ship's one call refused by the budget hook; a scripted commit would skip the commit review (from 2.0.0 release distill)

@@ -9,5 +9,6 @@ paths:
 - A hook stays silent outside the state it guards (no `.sdlc/` feature, wrong stage) and never blocks on its own error: catch, exit 0, no output.
 - Deny or block with `hookSpecificOutput.permissionDecisionReason`; `systemMessage` only reaches the user.
 - Output stays ASCII (plain `json.dumps`), or call `sys.stdout.reconfigure(encoding="utf-8")` first — why: [Windows stdout encoding](../../knowledge/gotchas/windows-stdout-encoding.md)
+- A hook that judges a Bash command by its text sees only what the agent typed: keep `git commit` in the visible command, and move work out of a guarded stage rather than widening a parser — why: [hooks read command text](../../knowledge/gotchas/hooks-read-command-text.md)
 - Every behavior change gets a subprocess test through `tests/helpers.py` `run_hook`.
 - Read a subprocess's output (git especially) with `encoding="utf-8", errors="replace"`, never `text=True`: the code page crashes on non-ASCII paths and bytes — why: [Windows stdout encoding](../../knowledge/gotchas/windows-stdout-encoding.md)
