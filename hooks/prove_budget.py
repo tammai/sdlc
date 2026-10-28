@@ -7,7 +7,8 @@ caller (session, reviewers). A command that isn't one of the project's own (`com
 `cd <dir> &&` beside them and a pipe into a filter like `tail` allowed, nothing else chained):
   - Bash: is killed at 120 s. At its own `timeout` Claude Code moves a command to the background instead of killing
     it, which an agent can then poll, so the hook rewrites the command: `timeout -k 5 120 <command>` for one step
-    (each stage of a pipe; leading `cd`, `export`, bare `VAR=value` steps and the like stay as they are), which the user's permission rules
+    (each stage of a pipe; leading `cd`, `export`, bare `VAR=value` steps, quick reads like `git log`, `git remote`
+    or `tail -5` and the like stay as they are, so reads chain freely), which the user's permission rules
     still match through the wrapper. The tool `timeout` becomes 130 s, past the kill. Returned as `updatedInput` with
     no permission decision. Without a `timeout` binary (macOS without coreutils) only the tool `timeout` is lowered,
     to 120 s.
@@ -38,6 +39,10 @@ COMPOUND = {"if", "then", "else", "elif", "fi", "for", "while", "until", "do", "
 # What a project command's output may be piped into and still count as the project's run (`npm test | tail -5`)
 FILTERS = {"tail", "head", "grep", "tee", "cat", "sort", "uniq", "wc", "cut"}
 CHAINABLE = UNTIMED - {"source", "."}  # beside a project command: `cd app && npm test; echo done`
+# Quick reads that need no limit, so several can chain in one call (`git remote -v; tail -5 change.md`)
+QUICK = {"tail", "head", "cat", "wc", "ls"}
+QUICK_GIT = {"status", "log", "diff", "show", "branch", "remote", "rev-parse", "ls-files", "describe"}
+FOLLOW = {"-f", "-F", "--follow", "--retry"}
 ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 PLUGIN_VERIFY = re.compile(r"""^python3?(?:\.exe)?[ \t]+(?:"([^"]+)"|([^ \t"]+))(?:[ \t]+[\w.=-]+)*\Z""")
 
@@ -134,13 +139,20 @@ def split_top_level(command):
     return None if quote else parts + [(cur, "")]
 
 
+def is_quick(words):
+    """A read that ends on its own: `git -c` before the subcommand could run a pager or alias, `tail -f` never ends."""
+    if words[0] == "git":
+        return len(words) > 1 and words[1] in QUICK_GIT
+    return words[0] in QUICK and not (words[0] == "tail" and FOLLOW & set(words))
+
+
 def wrap_step(step):
     """The step with the timeout in front, the step itself when it needs none, or None when it can't take one."""
     try:
         words = shlex.split(step)
     except ValueError:
         return None
-    if not words or words[0] in UNTIMED or all(ASSIGNMENT.match(w) for w in words):
+    if not words or words[0] in UNTIMED or all(ASSIGNMENT.match(w) for w in words) or is_quick(words):
         return step  # bare `S=...` runs nothing: `$(...)` and backticks are refused before this
     if words[0] in COMPOUND or ASSIGNMENT.match(words[0]) or step.lstrip().startswith(("(", "{")):
         return None
@@ -195,7 +207,8 @@ def main():
                    "foreground (killed at 120 s) instead of starting it and polling.")
     elif TIMEOUT_BIN and wrapped is None:
         out = deny("sdlc: in Review, a command other than the project's own runs one step at a time, killed at 120 s: "
-                   "no loops, subshells, `$(...)`, `&` or several chained commands. Split it into separate calls.")
+                   "no loops, subshells, `$(...)`, `&` or two slow steps chained (quick reads like `git log` or "
+                   "`tail -5` chain freely). Split it into separate calls.")
     elif TIMEOUT_BIN:
         out = {"updatedInput": dict(tin, command=wrapped, timeout=TOOL_TIMEOUT_MS)}  # replaces the input
     elif not isinstance(tin.get("timeout"), (int, float)) or tin["timeout"] > CAP_S * 1000:

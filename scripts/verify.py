@@ -171,8 +171,9 @@ def drift(root, feature):
     rows = acceptance_map(spec_text)  # sdlc 2.0: the table is change.md's; 1.x: plan.md's
     named |= {r["file"] for r in (rows if rows is not None else acceptance_map(plan_text)) or [] if r["file"]}
     items = [(f, "file") for f in changed if f not in named]
+    # A task's files count against everything changed: a README-only task did its work
     items += [(f"task {n}", "task") for n, files in tasks.items()
-              if any("/" in f or "." in f for f in files) and not files & set(changed)]
+              if any("/" in f or "." in f for f in files) and not files & set(facts["changed_files"])]
     surface = facts.get("surface") or {}
     items += [(n, "surface") for n in surface.get("undeclared_exports", []) + surface.get("undeclared_dependencies", [])]
     deviations = section(plan_text, "Deviations") or ""

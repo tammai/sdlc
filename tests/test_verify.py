@@ -131,6 +131,15 @@ class VerifyTest(ProjectTestCase):
         self.assertEqual(code, 0, out)
         self.assertEqual(rec["last"]["drift"][0]["covered"], True)
 
+    def test_a_task_that_changes_only_markdown_is_not_drift(self):
+        self.spec()
+        self.plan([], tasks=["1. **Docs** — FR-001\n   - Files: `README.md`"])
+        code, out, _ = self.verify()
+        self.assertIn("drift: task 1", out)  # still drift while the README is untouched
+        self.write("README.md", "usage\n")
+        code, out, _ = self.verify()
+        self.assertEqual(code, 0, out)
+
     def status(self):
         code, out, _ = self.verify("status")
         self.assertEqual(code, 0, out)
@@ -150,7 +159,7 @@ class VerifyTest(ProjectTestCase):
         self.assertTrue(self.status()["reuse"])
         self.write("src/late.py", "z = 3\n")  # an edit after verify
         self.assertEqual(self.status()["reason"], "code changed since verify")
-        # The tree Ship checks against Verified comes from here, since a chained git command is refused in Prove;
+        # The tree Ship checks against Verified comes from here, so Ship needs no git call of its own;
         # it leaves out .sdlc/.work/, so scratch files a repo tracks by mistake don't count as code changes
         tree = self.status()["tree"]
         self.write(".sdlc/.work/trust-anchor.json", "{}")

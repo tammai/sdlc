@@ -34,6 +34,14 @@ class ProveBudgetTest(ProjectTestCase):
         self.assertRegex(out["updatedInput"]["command"],
                          r'^S="python3 state.py"; F=login; g?timeout -k 5 120 \$S round \$F 1 fail "R1"$')
 
+    def test_quick_read_only_steps_chain_untimed(self):
+        cmd = "git remote -v; git branch --show-current; tail -5 docs/change.md"
+        out = self.call(5, command=cmd)
+        self.assertIsNone(out.get("permissionDecision"))
+        self.assertEqual(out["updatedInput"]["command"], cmd)
+        # Following a file never ends: still killed at 120 s
+        self.assertRegex(self.call(5, command="tail -f log")["updatedInput"]["command"], r"^g?timeout -k 5 120 tail -f log$")
+
     def test_project_commands_are_left_alone(self):
         self.assertEqual(self.call(5, command="cd app && npm test 2>&1 | tail -5", timeout=600000), {})
         # A project command doesn't carry what is chained after it
