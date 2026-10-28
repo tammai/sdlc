@@ -51,6 +51,7 @@ class ShipTest(ProjectTestCase):
         self.assertIn("src/store.py", staged)
         self.assertIn(".sdlc/login/change.md", staged)
         self.assertFalse([f for f in staged if "__pycache__" in f])  # what the tests leave behind isn't committed
+        self.assertFalse([f for f in staged if f.endswith((".json", ".jsonl")) and f.startswith(".sdlc/state/")])
         with open(self.path(".sdlc/.work/commit-msg.txt"), encoding="utf-8") as f:
             self.assertEqual(f.read(), "feat: store\n\nRecord: .sdlc/login/change.md\n")
 

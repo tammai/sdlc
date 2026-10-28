@@ -9,8 +9,8 @@ Usage: ship.py [--root DIR] FEATURE --message SUBJECT [--review TEXT] [--note TE
      verify.py runs now, and a failure stops here with nothing moved.
   4. `state.py advance FEATURE 8 --gate pass --verified <head> <tree>`; already at Stage 8 (a rerun) is fine.
   5. On the default branch, switches to a branch named after the feature.
-  6. Stages every changed and untracked file except .sdlc/.work/ and what the tests leave behind (`__pycache__`,
-     caches), and writes the commit message (SUBJECT, then `Record: <change>`) to .sdlc/.work/commit-msg.txt.
+  6. Stages every changed and untracked file except .sdlc/.work/, state.py's control contract and what the tests
+     leave behind (`__pycache__`, caches), and writes the commit message (SUBJECT, then `Record: <change>`) to .sdlc/.work/commit-msg.txt.
 The commit stays in the caller's command, where the commit's security review and the user's permission rules see
 it: `ship.py … && git commit -F .sdlc/.work/commit-msg.txt && git push -u origin HEAD && gh pr create --fill`.
 `Status: done` comes after, in its own call, so that review still sees an active feature.
@@ -30,6 +30,8 @@ import sdlc_layout  # noqa: E402
 import verify  # noqa: E402  (status, the full run, and what the tests leave behind)
 
 MESSAGE = os.path.join(".sdlc", ".work", "commit-msg.txt")
+# state.py's control contract: runtime files, never committed, even where the repo's .gitignore misses them
+CONTRACT = re.compile(r"^\.sdlc/state/[^/]+(\.json|\.events\.jsonl|\.commands/)")
 
 
 class Refused(Exception):
@@ -89,7 +91,7 @@ def to_stage(root):
     tracked = git(root, "diff", "-z", "--name-only", "HEAD").split("\0")
     untracked = git(root, "ls-files", "-z", "--others", "--exclude-standard").split("\0")
     return sorted({f for f in tracked + untracked
-                   if f and not f.startswith(".sdlc/.work/") and not verify.GENERATED.search(f)})
+                   if f and not f.startswith(".sdlc/.work/") and not CONTRACT.search(f) and not verify.GENERATED.search(f)})
 
 
 def ship(root, feature, message, review=None, note=None, timeout=1800):
