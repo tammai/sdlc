@@ -38,9 +38,10 @@ class RoleGuardTest(ProjectTestCase):
 
     def test_qa_tester_works_in_the_docs_folder(self):
         self.write(".sdlc/config.json", '{"docs_dir": "docs/sdlc"}')
-        self.assertEqual(self.call("Edit", "docs/sdlc/intents/login/spec.md", "sdlc:qa-tester"), "deny")
-        self.assertIsNone(self.call("Read", "docs/sdlc/intents/login/spec.md", "sdlc:qa-tester"))
-        self.assertIsNone(self.call("Write", "docs/sdlc/intents/login/qa-report.md", "sdlc:qa-tester"))
+        self.assertEqual(self.call("Edit", "docs/sdlc/changes/login.md", "sdlc:qa-tester"), "deny")
+        self.assertIsNone(self.call("Read", "docs/sdlc/changes/login.md", "sdlc:qa-tester"))
+        self.assertIsNone(self.call("Write", ".sdlc/state/login/qa-report.md", "sdlc:qa-tester"))  # its work folder
+        self.assertIsNone(self.call("Write", "docs/sdlc/intents/login/qa-report.md", "sdlc:qa-tester"))  # pre-2.0
         self.assertEqual(self.call("Write", "docs/sdlc/qa-report.md", "sdlc:qa-tester"), "deny")  # feature folders only
         self.assertEqual(self.call("Write", ".sdlc/state/qa-report.md", "sdlc:qa-tester"), "deny")  # would read as state
         self.assertEqual(self.call("Write", ".sdlc/STATE/qa-report.md", "sdlc:qa-tester"), "deny")

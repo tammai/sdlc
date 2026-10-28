@@ -180,13 +180,13 @@ class TrustAnchorTest(ProjectTestCase):
 
     def test_review_writing_its_section_of_change_md_is_not_a_notice_but_editing_a_criterion_is(self):
         change = "# Change\n\n## Acceptance criteria\n\n- **AC-001** login works\n"
-        self.write("docs/sdlc/intents/login/change.md", change)
+        self.write("docs/sdlc/changes/login.md", change)
         self.write(".sdlc/config.json", json.dumps({"docs_dir": "docs/sdlc"}))
         self.write(".sdlc/state/login.md", STATE.format(track="M", risk="low", base=self.base, stage=5))
         self.stop()
-        self.write("docs/sdlc/intents/login/change.md", change + "\n## Review\n\n- code, low: PASS\n")
+        self.write("docs/sdlc/changes/login.md", change + "\n## Review\n\n- code, low: PASS\n")
         self.assertIsNone(self.stop())
-        self.write("docs/sdlc/intents/login/change.md", change.replace("works", "sometimes works"))
+        self.write("docs/sdlc/changes/login.md", change.replace("works", "sometimes works"))
         self.assertIn("criteria or tests changed", self.stop()["systemMessage"])
 
     def test_only_checker_reports_carry_a_verdict(self):

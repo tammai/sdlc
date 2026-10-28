@@ -6,19 +6,19 @@ Every addition is traced to a request from intent to diff, and review gets measu
 
 ## User scenarios
 
-1. **A proposal nobody asked for.** Given Define would add "audit logging" the user never asked for, when it writes `change.md`, then it lists it under the proposals not asked for, with a reason, and drops it unless the user keeps it.
+1. **A proposal nobody asked for.** Given Define would add "audit logging" the user never asked for, when it writes the change file, then it lists it under the proposals not asked for, with a reason, and drops it unless the user keeps it.
 2. **Undeclared export.** Given a state file whose Public Surface lists `createSession`, when the diff also exports `sneaky`, then `diff_stats.py --plan` flags it as undeclared, which reviewers treat as high severity.
 3. **Review picked from the diff.** Given a change that touches a migration path, when the build ends, then the agent recommends a security review with that reason.
 
 ## Requirements
 
-### The record: `change.md` and the plan
+### The record: the change file and the plan
 
 | ID | Requirement | Guarantee |
 |---|---|---|
-| SCO-FR-002 | Define adds no hardening, stricter validation, options, config or tooling that neither the request nor an applicable failure mode calls for; anything else it would add is listed under `change.md`'s proposals not asked for and dropped unless the user keeps it. | `[instructed]` orchestrator: define, change-template |
+| SCO-FR-002 | Define adds no hardening, stricter validation, options, config or tooling that neither the request nor an applicable failure mode calls for; anything else it would add is listed under the change file's proposals not asked for and dropped unless the user keeps it. | `[instructed]` orchestrator: define, change-template |
 | SCO-FR-027 | The spec lists the failure modes that apply to the change, only those (concurrent use, scale or large inputs, persisted-data migration and compatibility, partial failure or a crash mid-write, untrusted input, I/O errors), each turned into a criterion or a must-never-break line within the ~10-criteria budget; reviewers check the same list. | `[instructed]` change-template, orchestrator: define, `review-brief.md` |
-| SCO-FR-028 | Every feature, at every size, has `<intents>/change.md` from `templates/change-template.md`, under fixed headings a person and a script can both read: `## Why` (the request verbatim, what it's for and who it serves, why now, the user's words), `## Decisions` (what was ruled out and why, a bug's proof and root cause, proposals not asked for), what must be true (each AC with its test), and `## Review` last, written in Review. S fills it in a few lines. On L its Why and Decisions hold the design `brainstorming` returns, and there is no `design.md`. With the state file's plan sections (the how, with a Deviations section `state.py deviation` writes to), it lets a fresh agent build with no conversation. | `[instructed]` orchestrator: define, build; brainstorming, change-template |
+| SCO-FR-028 | Every feature, at every size, has a change file, `<docs>/changes/<feature>.md`, from `templates/change-template.md`, under fixed headings a person and a script can both read: `## Why` (the request verbatim, what it's for and who it serves, why now, the user's words), `## Decisions` (what was ruled out and why, a bug's proof and root cause, proposals not asked for), what must be true (each AC with its test), and `## Review` last, written in Review. S fills it in a few lines. On L its Why and Decisions hold the design `brainstorming` returns, and there is no `design.md`. With the state file's plan sections (the how, with a Deviations section `state.py deviation` writes to), it lets a fresh agent build with no conversation. | `[instructed]` orchestrator: define, build; brainstorming, change-template |
 | SCO-FR-007 | The state file's plan sections, at every size, written once in Define: how the build runs and why, a handoff for the next session, tasks each naming their files in backticks, and a **Public Surface** section declaring every new export, endpoint, command, config key, env var and dependency, or "none"; a part's `plan-B<n>.md` (from `plan-template.md`) the same. | `[instructed]` orchestrator: start, define, s-track, "Backlog slices", plan-template |
 
 ### Review facts (`diff_stats.py`)
@@ -53,7 +53,7 @@ Every addition is traced to a request from intent to diff, and review gets measu
 
 ## Known gaps
 
-- Tracing through `change.md` and the plan is instructions plus, on M and L, the user's approval; on S nobody reads them before the build.
+- Tracing through the change file and the plan is instructions plus, on M and L, the user's approval; on S nobody reads them before the build.
 - Which reviews run is a recommendation; on S a recommendation of none means no reviewer checks the surface flags.
 - Reviewers can't edit files: the code-reviewer has Write only for its report under `.sdlc/.work/findings/`, and the role-guard hook denies every other file edit to every `sdlc:` and `sdlc-extras:` reviewer, `ui-reviewer` included (any file under `.sdlc/.work/findings/` is allowed, so a misnamed report there isn't caught). They keep Bash (for `git diff`, tests and browsers), so a shell edit is still only instructed against; the freshness hook's worktree diff catches one during Review (Stage 5).
 - Export detection is regex-based for TS/JS, Python and Go; other languages get comment counts only.

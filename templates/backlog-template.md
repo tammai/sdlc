@@ -1,6 +1,6 @@
 # Backlog: <feature>
 
-Record: [change.md](change.md) · Branch: `<branch>` · Each slice gets a short `plan-B<n>.md` when it starts and ends as one commit on the branch.
+Record: the feature's change file (`scaffold.py paths <feature>` → `change`) · Branch: `<branch>` · Each slice gets a short `plan-B<n>.md` when it starts and ends as one commit on the branch.
 
 | ID | Slice | FRs | ACs | Deps | Size | Status |
 |---|---|---|---|---|---|---|

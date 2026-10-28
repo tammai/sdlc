@@ -2,7 +2,7 @@
 
 # Eject
 
-Paths: `<intents>` is the feature's documents folder, `<state>` its state file and `<docs>` the sdlc docs folder (`docs_dir`); `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" paths <feature>` prints them for this repo's layout.
+Paths: `<change>` is the feature's change file (its record for people), `<state>` its state file (the agent's), `<work>` the folder beside it for working files (backlog, part plans, QA report) and `<docs>` the sdlc docs folder (`docs_dir`); `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" paths <feature>` prints them for this repo's layout (`intents` is a pre-2.0 feature's documents folder).
 
 Removes what the plugin owns from the project and keeps everything the team made with it.
 
@@ -10,7 +10,7 @@ Removes what the plugin owns from the project and keeps everything the team made
 $S eject           # dry run: delete / ask / already_gone / unmerge / keep
 ```
 
-Show the plan in a few lines. **Keeps:** `.sdlc/config.json` (with the commands), constitution, design system, `knowledge/`, baseline, area rules, and every feature's documents (`<intents>/`) and state (`.sdlc/state/`, or `.sdlc/<feature>/` in the old layout). **Removes:** generated rules, unedited seeded files (guardrails, CI workflow, lint snippets), the allowlist, plugin-enablement and `.gitignore` entries the plugin added, the sdlc block in `AGENTS.md` (the file too if the plugin created it), and the lock.
+Show the plan in a few lines. **Keeps:** `.sdlc/config.json` (with the commands), constitution, design system, `knowledge/`, baseline, area rules, and every feature's record: its change file (`<docs>/changes/`; older features: `<docs>/intents/`) and state (`.sdlc/state/`, or `.sdlc/<feature>/` in the old layout). **Removes:** generated rules, unedited seeded files (guardrails, CI workflow, lint snippets), the allowlist, plugin-enablement and `.gitignore` entries the plugin added, the sdlc block in `AGENTS.md` (the file too if the plugin created it), and the lock.
 
 For each file under `ask` (seeded but edited): ask whether to delete it too.
 

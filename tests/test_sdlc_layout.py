@@ -19,8 +19,9 @@ class LayoutTest(ProjectTestCase):
     def test_new_layout_uses_docs_dir(self):
         self.write(".sdlc/config.json", json.dumps({"docs_dir": "docs/sdlc"}))
         p = sdlc_layout.paths(self.root, "2026-10-23-PROJ-1-x")
-        self.assertEqual((p["layout"], p["state"], p["intents"], p["design_system"]),
-                         ("new", ".sdlc/state/2026-10-23-PROJ-1-x.md", "docs/sdlc/intents/2026-10-23-PROJ-1-x/",
+        self.assertEqual((p["layout"], p["state"], p["change"], p["work"], p["intents"], p["design_system"]),
+                         ("new", ".sdlc/state/2026-10-23-PROJ-1-x.md", "docs/sdlc/changes/2026-10-23-PROJ-1-x.md",
+                          ".sdlc/state/2026-10-23-PROJ-1-x/", "docs/sdlc/intents/2026-10-23-PROJ-1-x/",
                           "docs/sdlc/design-system.md"))
 
     def test_features_reads_both_layouts_and_prefers_the_new_one(self):

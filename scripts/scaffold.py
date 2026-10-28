@@ -1194,6 +1194,7 @@ def eject_plan(p):
     layout = sdlc_layout.paths(p.root)
     keep = [CONFIG, layout["constitution"], layout["design_system"], ".sdlc/baseline.md", "knowledge/",
             layout["state_root"] + ("<feature>.md" if layout["layout"] == "new" else "<feature>/"),
+            layout["changes_root"] + ("<feature>.md" if layout["layout"] == "new" else "<feature>/change.md"),
             layout["intents_root"] + "<feature>/"]
     plan = {"delete": [], "ask": [], "already_gone": [], "unmerge": lock.get("merged", {}),
             "keep": list(dict.fromkeys(keep))}
@@ -1265,7 +1266,9 @@ def relocate_plan(p, docs):
             continue
         src = f".sdlc/{name}"
         tracked = [f for f in git_out(p, "ls-files", "--", src).splitlines() if f != f"{src}/state.md"]
-        planned = [[f, f"{docs}/intents/{name}/{f[len(src) + 1:]}"] for f in sorted(tracked)]
+        # A 2.0 feature's change file goes to changes/; anything else is a pre-2.0 document, kept with its feature
+        planned = [[f, f"{docs}/changes/{name}.md" if f == f"{src}/change.md" else f"{docs}/intents/{name}/{f[len(src) + 1:]}"]
+                   for f in sorted(tracked)]
         planned.append([f"{src}/state.md", f".sdlc/state/{name}.md"])
         if any(os.path.exists(p.path(dst)) for _, dst in planned):
             conflicts.append(name)

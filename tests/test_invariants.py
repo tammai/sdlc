@@ -23,7 +23,7 @@ class InvariantsTest(ProjectTestCase):
         self.git("init", "-q", "-b", "main")
         self.write(".sdlc/config.json", '{"docs_dir": "docs/sdlc"}\n')
         self.state()
-        self.write("docs/sdlc/intents/login/change.md", CHANGE)
+        self.write("docs/sdlc/changes/login.md", CHANGE)
 
     def git(self, *args):
         return subprocess.run(["git", "-c", "user.email=t@x.dev", "-c", "user.name=t", *args], cwd=self.root,
@@ -47,16 +47,16 @@ class InvariantsTest(ProjectTestCase):
 
     def test_the_record_matches_the_phase_reached(self):
         # sdlc 2.0: past Define each AC names its test in change.md; in Ship, its Review section says what was reviewed
-        self.write("docs/sdlc/intents/login/change.md", "# login\n\n## Acceptance criteria\n\n- **AC-001** Sign in.\n")
+        self.write("docs/sdlc/changes/login.md", "# login\n\n## Acceptance criteria\n\n- **AC-001** Sign in.\n")
         code, out = self.check()
         self.assertEqual(code, 1)
         self.assertIn("## Acceptance tests", out)
-        self.write("docs/sdlc/intents/login/change.md", CHANGE)
+        self.write("docs/sdlc/changes/login.md", CHANGE)
         self.state(stage=8)
         code, out = self.check()
         self.assertEqual(code, 1)
         self.assertIn("## Review", out)
-        self.write("docs/sdlc/intents/login/change.md", CHANGE + REVIEW)
+        self.write("docs/sdlc/changes/login.md", CHANGE + REVIEW)
         self.assertEqual(self.check()[0], 0)
 
     def test_a_grown_baseline_needs_a_deviation(self):

@@ -7,7 +7,7 @@ description: Interviews the user one question at a time about what they want, la
 
 # Brainstorming
 
-Paths: `<intents>` is the feature's documents folder, `<state>` its state file and `<docs>` the sdlc docs folder (`docs_dir`); `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" paths <feature>` prints them for this repo's layout.
+Paths: `<change>` is the feature's change file (its record for people), `<state>` its state file (the agent's), `<work>` the folder beside it for working files (backlog, part plans, QA report) and `<docs>` the sdlc docs folder (`docs_dir`); `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" paths <feature>` prints them for this repo's layout (`intents` is a pre-2.0 feature's documents folder).
 
 You are very good at building. You build what you believe your human
 partner wants, and that belief is usually thinner than it feels. This
@@ -34,7 +34,7 @@ Before you start implementing, you must, in order:
 2. Write the design doc, short or full (see Size the Work).
 3. Get their approval of that doc.
 4. If you were started by the sdlc orchestrator, return to it (Define
-   writes the rest of change.md and the state file's plan next). Otherwise suggest
+   writes the rest of the change file and the state file's plan next). Otherwise suggest
    `/sdlc:start` with the design doc, which does the same.
 
 Two things aren't implementing: a spike they said yes to (see Spike to
@@ -53,7 +53,7 @@ project or their context already answers.
 Under the sdlc orchestrator, ask the user nothing: Define puts every
 question, and the choice of approach, in its one approval message. Settle
 open points with your recommended answer (recorded as `[recommended]` in
-`change.md`), lay out the approaches in `change.md` with your
+`<change>`), lay out the approaches in `<change>` with your
 recommendation, write the doc on it, and return to the orchestrator.
 Steps 1 and 3 below are then the orchestrator's approval, not messages of
 your own, and you make no visual companion offer unless the user asks.
@@ -223,7 +223,7 @@ order, and brainstorm them one at a time.
 
 Write a plain document a talented builder in the domain could plan
 from without going back to your human partner. Under the sdlc workflow
-it is the Why and Decisions of `change.md`, written with your file-writing
+it is the Why and Decisions of `<change>`, written with your file-writing
 tool (never a shell heredoc) from
 `${CLAUDE_PLUGIN_ROOT}/templates/change-template.md`, keeping its headings, so a reviewer and a script can both read it:
 
@@ -241,7 +241,7 @@ or two each and goes straight to your human partner, without the
 builder check.
 
 **Where it goes:** in a software repo,
-`<intents>/change.md`, committed (older features have `intent.md` or
+`<change>`, committed (older features have `intent.md` or
 `brainstorm.md`). The orchestrator then fills in its criteria and tests,
 and the plan in the feature's state file.
 Otherwise, ask. Your human partner's preferences override both.

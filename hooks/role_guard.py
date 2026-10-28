@@ -33,11 +33,13 @@ def problem(agent, tool, rel, root):
         return None
     docs = sdlc_layout.docs_dir(root)
     in_sdlc = rel == ".sdlc" or rel.startswith(".sdlc/") or bool(docs) and (rel == docs or rel.startswith(docs + "/"))
-    # Reports go in a feature's folder only: .sdlc/ (old layout) or <docs>/intents/, never elsewhere in the docs
+    # Reports go in a feature's folder only: .sdlc/<feature>/ (old layout), .sdlc/state/<feature>/ (its work folder) or
+    # a pre-2.0 <docs>/intents/<feature>/, never elsewhere in the docs and never beside the state files themselves
     folder, _, _ = rel.rpartition("/")
     # Case-folded, trailing dots and spaces dropped: Windows and macOS would open .sdlc/STATE/ as .sdlc/state/
-    in_reports = (folder.count("/") == 1 and folder.startswith(".sdlc/")
-                  and folder.split("/")[1].rstrip(". ").lower() not in ("state", ".work")
+    parts = [p.rstrip(". ").lower() for p in folder.split("/")]
+    in_reports = (len(parts) == 2 and parts[0] == ".sdlc" and parts[1] not in ("state", ".work")
+                  or len(parts) == 3 and parts[:2] == [".sdlc", "state"] and parts[2] not in ("", ".work")
                   or bool(docs) and folder.startswith(docs + "/intents/") and "/" not in folder[len(docs + "/intents/"):])
     # Windows short names (WORK~1 for .work) and stream syntax (a:b) reach a folder by another spelling
     plain = not any(c in rel for c in "~:")

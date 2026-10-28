@@ -24,7 +24,8 @@ Operational procedures: install, check health, fix what breaks, maintain the plu
 | Known failures from before setup | `.sdlc/baseline.md` |
 | Feature state (committed; written by `scripts/state.py`) | `.sdlc/state/<feature>.md` |
 | Control contract, derived from the state file (git-ignored) | `.sdlc/state/<feature>.json`, `<feature>.events.jsonl`, `<feature>.commands/` |
-| Feature documents (committed) | `docs/sdlc/intents/<feature>/` (`change.md`, plus `backlog.md` and `plan-B<n>.md` for work split into parts; 1.x features hold `intent.md`, `spec.md`, `plan.md`, `review.md` and others); the folder is `docs_dir` in the config |
+| Feature change file, the record for people (committed) | `docs/sdlc/changes/<feature>.md`; 1.x features keep their documents in `docs/sdlc/intents/<feature>/` (`intent.md`, `spec.md`, `plan.md`, `review.md` and others); `docs/sdlc` is `docs_dir` in the config |
+| Feature working files (committed) | `.sdlc/state/<feature>/`: `backlog.md` and `plan-B<n>.md` for work split into parts, `qa-report.md` from a QA round, `release.md` from `/sdlc:deploy`, committed only if you ask |
 | Old layout, before 1.7.0 | `.sdlc/<feature>/state.md` and documents beside it; `/sdlc:upgrade` moves them |
 | Scratch (git-ignored) | `.sdlc/.work/`: `verify.json` (written by `scripts/verify.py`), `verify-freshness.json` (the freshness hook's copy of verify runs, written by the hook and by `verify.py` itself), `trust-anchor.json`, `dispatches.jsonl`, `findings/<feature>/` (each review's report, ending in its `VERDICT:` line) |
 | Ralph loop state (`sdlc-extras`) | `.claude/ralph-loop.local.md` |
@@ -119,7 +120,7 @@ The verify-freshness hook is active only while an active 2.0 feature (`Process: 
 ### R5. `verify.py` gives different answers each time
 
 1. Don't retry until green. A test that passes after failing is flaky, and a retried-until-green test doesn't pass the gate.
-2. Run the failing test a few times in isolation (at most 5 repeats; its row's command in `change.md`'s `## Acceptance tests` runs just that test) and record the results in `change.md`'s `## Review`.
+2. Run the failing test a few times in isolation (at most 5 repeats; its row's command in the change file's `## Acceptance tests` runs just that test) and record the results in the change file's `## Review`.
 3. Fix or quarantine the flaky test with your approval, and record it with `state.py deviation`.
 
 ### R6. Ralph loop won't stop
@@ -155,7 +156,7 @@ The state file is `.sdlc/state/<feature>.md`; beside it, git-ignored, `state.py`
 1. A wrong field: `state.py set <feature> <Field> <value>` (Status, Track, Risk, Top model, Base, Owner, Tool, Slice gates, Process). Changing Track, Risk, Top model, Base or Process raises a trust-anchor notice ([R19](#r19-a-trust-anchor-notice-stops-the-turn)).
 2. A wrong phase: `state.py advance <feature> <n>` without `--gate`, where `<n>` is 1 Define, 4 Build, 5 Review or 8 Ship (a backlog feature stays at 4 between parts).
 3. A hand edit, or a missing or damaged `.json`: `state.py sync <feature>` rewrites the contract from the state file. `state.py` refuses a state file without `Status:` and `Current: Stage <n> – <name>`, and one without `Process: 2` (a 1.x feature: [R20](#r20-upgrade-to-20-with-a-1x-feature-in-progress)).
-4. A lost state file: it held half the record (the plan sections: how the build runs, handoff, tasks, Public Surface, deviations); git history usually has it. Otherwise write a new one from the template in `skills/orchestrator/references/start.md`, rewrite its plan sections from `change.md` and the diff (or `verify.py`'s drift check fails), tick the phases `change.md` shows done (`## Acceptance tests` filled: Define; `## Review` written: Review), set `Current:` to the next phase's stage, then `state.py sync <feature>` and `state.py deviation <feature> "state file reconstructed"`.
+4. A lost state file: it held half the record (the plan sections: how the build runs, handoff, tasks, Public Surface, deviations); git history usually has it. Otherwise write a new one from the template in `skills/orchestrator/references/start.md`, rewrite its plan sections from the change file and the diff (or `verify.py`'s drift check fails), tick the phases the change file shows done (`## Acceptance tests` filled: Define; `## Review` written: Review), set `Current:` to the next phase's stage, then `state.py sync <feature>` and `state.py deviation <feature> "state file reconstructed"`.
 
 ### R10. Hooks error on Windows or with an odd Python
 
@@ -219,7 +220,7 @@ The hook checks Agent/Task dispatches only while a 2.0 feature (`Process: 2`) ha
 
 ### R19. A trust-anchor notice stops the turn
 
-The state, `change.md`, baseline and config the hooks trust are writable by the agent they check, so `hooks/trust_anchor.py` can't prevent a change; at Stop it shows you one. A notice reads "Verification anchors changed: …" and names what moved: `Track:`, `Risk:`, `Top model:`, `Base:` or `Process:`; a failing test added to `.sdlc/baseline.md` or changed commands in `.sdlc/config.json` since `Base:`; `change.md` above `## Review` (its criteria and tests) edited during Review; leaving Review without a passing full run of the current code (at every size), or with code changed since it; leaving Review while a review's latest report says `VERDICT: FAIL` and no `waived round <N>` deviation covers it; an active feature no longer active other than by `Status: done`; "verify records disagree" (`.sdlc/.work/verify.json` differs from the freshness hook's copy of the run, or is missing or damaged while the hook holds one: rerun `verify.py` and say why the record changed); or its own record (`.sdlc/.work/trust-anchor.json`) damaged.
+The state, the change file, baseline and config the hooks trust are writable by the agent they check, so `hooks/trust_anchor.py` can't prevent a change; at Stop it shows you one. A notice reads "Verification anchors changed: …" and names what moved: `Track:`, `Risk:`, `Top model:`, `Base:` or `Process:`; a failing test added to `.sdlc/baseline.md` or changed commands in `.sdlc/config.json` since `Base:`; the change file above `## Review` (its criteria and tests) edited during Review; leaving Review without a passing full run of the current code (at every size), or with code changed since it; leaving Review while a review's latest report says `VERDICT: FAIL` and no `waived round <N>` deviation covers it; an active feature no longer active other than by `Status: done`; "verify records disagree" (`.sdlc/.work/verify.json` differs from the freshness hook's copy of the run, or is missing or damaged while the hook holds one: rerun `verify.py` and say why the record changed); or its own record (`.sdlc/.work/trust-anchor.json`) damaged.
 
 1. **Stricter changes** (Track up, Risk low → high) only add checks: "Stricter process: …", no block. Only 2.0 features (`Process: 2`) are anchored.
 2. **Every other change** blocks the stop once. Claude must tell you what changed and why, without undoing it on its own. Your next message accepts it: the current values become the anchor, and the notice doesn't block again. Autopilot stops at a notice you haven't seen.
@@ -305,9 +306,9 @@ The test suite runs hooks and scripts as subprocesses; this checks the installed
 
 **E. An S fix: Define, Build, Review, Ship (must)**
 1. `/sdlc:start fix: add returns a string when given numeric strings`. It proposes track S and creates `.sdlc/state/<yyyy-mm-dd>-s-<slug>.md` with `Process: 2`.
-2. Define proves the bug with a failing test, names the root cause, writes `change.md` (the proving test as AC-001 in `## Acceptance tests`) and the state file's `## Tasks` and `## Public Surface`, a few lines each, and goes on to Build **without asking for approval**.
+2. Define proves the bug with a failing test, names the root cause, writes the change file (the proving test as AC-001 in `## Acceptance tests`) and the state file's `## Tasks` and `## Public Surface`, a few lines each, and goes on to Build **without asking for approval**.
 3. Build, in the session, records the test failing with `verify.py red AC-001` (in one call with `state.py sync` and `advance 4`), then the fix, then `verify.py`. `.sdlc/.work/verify.json` holds the red record and a passing run.
-4. Review recommends reviews (likely none or a low code review) and runs them **without stopping**, saying what ran and why; any review agent in `.sdlc/.work/dispatches.jsonl` has `model: opus`. `change.md`'s `## Review` records it.
+4. Review recommends reviews (likely none or a low code review) and runs them **without stopping**, saying what ran and why; any review agent in `.sdlc/.work/dispatches.jsonl` has `model: opus`. The change file's `## Review` records it.
 5. While in Review (Stage 5), ask Claude to change a source file **with a shell command** (e.g. `sed -i`), then end the turn: it's **blocked**, and the message names the test command. Run it; the turn then ends normally.
 6. Ship runs the verified-tree check and Learn, makes the final commit on a feature branch and, with a remote, pushes and opens a PR, then stops; without a remote it stops with the branch ready. It never merges. Its security review is skipped (not security-touched): it is recorded as reviewed with no model call. `git status` never shows `.sdlc/state/*.json`.
 7. Trust anchor (should): in a new S feature, ask Claude to run `state.py set <feature> Risk high`: a "Stricter process" message, no block. Then `Risk low`: the stop is blocked once, and your next message clears it.
@@ -348,7 +349,7 @@ Phase behavior lives in `skills/orchestrator/`: the core `SKILL.md` (the phase �
 |---|---|
 | Phase gates or tracks | `docs/diagrams/*.svg`, `docs/guidebook.md`, README phase table, `docs/specs/02-orchestration.md` |
 | A hard stop | the Shared rules in the orchestrator's `SKILL.md`, `docs/playbook.md`, R11 above |
-| The record (`change.md` and the state file's plan sections) | `templates/change-template.md`, the state template in `references/start.md`, `define.md`, `review.md` and `s-track.md`, `scripts/verify.py` (reads `change.md`'s `## Acceptance tests` and the state file's tasks, Public Surface and deviations), `hooks/trust_anchor.py` (what's above `## Review`), `scripts/prune.py` and `tests/test_prune.py` (what it keeps), `templates/project/ci/invariants.py` and `tests/test_invariants.py`, `docs/specs/04-verification.md`, `08-health-and-status.md` |
+| The record (the change file and the state file's plan sections) | `templates/change-template.md`, the state template in `references/start.md`, `define.md`, `review.md` and `s-track.md`, `scripts/verify.py` (reads the change file's `## Acceptance tests` and the state file's tasks, Public Surface and deviations), `hooks/trust_anchor.py` (what's above `## Review`), `scripts/prune.py` and `tests/test_prune.py` (what it keeps), `templates/project/ci/invariants.py` and `tests/test_invariants.py`, `docs/specs/04-verification.md`, `08-health-and-status.md` |
 | The review recommendation or brief (`review.md`, `review-brief.md`) | `agents/code-reviewer.md`, `agents/ui-reviewer.md`, `hooks/trust_anchor.py` (reads each report's `VERDICT:` line), `hooks/model_router.py` (reviews on opus), `docs/specs/03-scope-and-review.md`, `05-security.md` |
 | Verify behavior | `scripts/verify.py`, `tests/test_verify.py`, `hooks/verify_freshness.py` (its own copy of verify runs), `hooks/prove_budget.py` (Review's 120 s kill), `tests/test_verify_freshness.py`, `hooks/trust_anchor.py` (what it watches) |
 | State fields or stage numbers | `scripts/state.py`, `tests/test_state.py`, `docs/specs/12-control-contract.md`, the template in `references/start.md`, every hook that reads the field (`verify_freshness`, `trust_anchor`, `model_router`, `sdlc_review_gate`, `sdlc_layout`) |
@@ -368,8 +369,8 @@ Every command prints one JSON object. Exit codes: 0 ok, 1 error, 2 refused becau
 | Command | Does |
 |---|---|
 | `init --kind greenfield\|brownfield [--docs-dir <d>] [--force]` | start setup: write the lock, plus a minimal `config.json` if none exists, and record `docs_dir` (default `docs/sdlc`; left unset while features from before setup are still in `.sdlc/`, reported as `legacy_features`) |
-| `paths [<feature>]` | where this repo keeps a feature's state and documents, the constitution and the design system (`layout`: `new` or `legacy`) |
-| `relocate [--docs-dir <d>] [--apply]` | move an old-layout repo: state to `.sdlc/state/`, documents to `<d>` with `git mv`; tracked files only; dry run unless `--apply`; clean tree only; all or nothing (any conflict moves nothing); records `docs_dir` |
+| `paths [<feature>]` | where this repo keeps a feature's state, change file and working files (`work`; a pre-2.0 feature's documents: `intents`), the constitution and the design system (`layout`: `new` or `legacy`) |
+| `relocate [--docs-dir <d>] [--apply]` | move an old-layout repo: state to `.sdlc/state/`, a feature's `change.md` to `<d>/changes/<feature>.md` and its other documents to `<d>/intents/<feature>/`, with `git mv`; tracked files only; dry run unless `--apply`; clean tree only; all or nothing (any conflict moves nothing); records `docs_dir` |
 | `status` | setup state, steps done, drift (`current` / `behind` / `ahead` / `plugin_too_old`), pending migrations, file states, `layout`, and `docs_site` (the file that shows `docs/` is published as a site) |
 | `config` | effective config: plugin defaults merged with the project's overrides |
 | `step-done <step> [--complete]` | record setup progress (resumable) |

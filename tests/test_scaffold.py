@@ -649,8 +649,8 @@ class ScaffoldTest(ProjectTestCase):
         self.git("commit", "-q", "-m", "legacy")
 
     def test_relocate_moves_old_layout_and_is_idempotent(self):
-        self.legacy_repo([".sdlc/f1/state.md", ".sdlc/f1/spec.md", ".sdlc/f1/checklists/r.md",
-                          ".sdlc/constitution.md", ".sdlc/baseline.md", ".sdlc/lint/x.mjs"])
+        self.legacy_repo([".sdlc/f1/state.md", ".sdlc/f1/spec.md", ".sdlc/f1/checklists/r.md", ".sdlc/f2/state.md",
+                          ".sdlc/f2/change.md", ".sdlc/constitution.md", ".sdlc/baseline.md", ".sdlc/lint/x.mjs"])
         self.assertNotIn("docs_dir", self.config())
         dry = self.sc("relocate")
         self.assertFalse(dry["applied"])
@@ -658,6 +658,7 @@ class ScaffoldTest(ProjectTestCase):
         self.assertFalse(os.path.exists(self.path(".sdlc/state/f1.md")))
         self.sc("relocate", "--apply")
         for path in (".sdlc/state/f1.md", "docs/sdlc/intents/f1/spec.md", "docs/sdlc/intents/f1/checklists/r.md",
+                     "docs/sdlc/changes/f2.md",  # a 2.0 feature's change file goes to changes/
                      "docs/sdlc/constitution.md", ".sdlc/baseline.md", ".sdlc/lint/x.mjs"):
             self.assertTrue(os.path.exists(self.path(path)), path)
         self.assertFalse(os.path.exists(self.path(".sdlc/f1")))

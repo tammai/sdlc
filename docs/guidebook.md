@@ -9,7 +9,7 @@ What the plugin is, how it works, and where things live. For "what do I do when�
 Its goal is the process, not code quality above plain Claude: a trustworthy record of each change, the same steps across a team, and easier review, onboarding and trace-back. Four ideas carry the design ([ADR 0020](adr/0020-sdlc-2-slim-process-core.md)):
 
 1. **Intent before code.** Before any code, what, why and how are agreed and written down. The agent judges whether the request already makes them clear; if not, at any size, it asks, one question at a time. A bug is proven first, then its root cause found.
-2. **The same record at every size.** Every change leaves two files: `change.md` for people (why, what must be true with each criterion's test, then what Review checked) and the feature's state file for the agent (where it stands, and how it's built: tasks, files, Public Surface, deviations). S fills each section in a few lines; M and L in full. A later session, a reviewer or a teammate months from now works from these two files alone.
+2. **The same record at every size.** Every change leaves two files: the change file for people (why, what must be true with each criterion's test, then what Review checked) and the feature's state file for the agent (where it stands, and how it's built: tasks, files, Public Surface, deviations). S fills each section in a few lines; M and L in full. A later session, a reviewer or a teammate months from now works from these two files alone.
 3. **A builder like plain Claude.** The builder writes the code and its tests with no review agents during the build. `verify.py` checks that each acceptance criterion's test failed before its code and passes after it.
 4. **Reviews the change needs, once.** After the build the agent recommends reviews from what actually changed. Each chosen review runs once, fresh, on `opus`; its high findings go back to the builder.
 
@@ -44,8 +44,8 @@ Files named `sdlc-*` belong to the plugin; everything else is yours.
 
 | Track | Use when | Before the build | After the build |
 |---|---|---|---|
-| **S · fix** | a fix or tweak, 1–2 files, clear expected behaviour | `change.md` and the plan, a few lines each; no stop | the reviews a fixed trigger list names run (none by default), and it tells you |
-| **M · feature** | a few files to a few days, approach mostly clear | `change.md` and the plan in full; you read and approve `change.md` | you pick from the recommended reviews |
+| **S · fix** | a fix or tweak, 1–2 files, clear expected behaviour | the change file and the plan, a few lines each; no stop | the reviews a fixed trigger list names run (none by default), and it tells you |
+| **M · feature** | a few files to a few days, approach mostly clear | the change file and the plan in full; you read and approve the change file | you pick from the recommended reviews |
 | **L · project** | several distinct parts, or an approach still unclear | the same, with the interview run by `brainstorming` | you pick from the recommended reviews |
 
 Every track runs the same four phases and leaves the same record; the track sets only the record's depth and where it stops for you. Size is the footprint (how many files the change touches), recorded on the state file's `Track:` line; the orchestrator proposes the smallest fitting track and sizes up only for a named signal. You can override the size at any time.
@@ -62,18 +62,18 @@ Every track runs the same four phases and leaves the same record; the track sets
 
 | Phase | Produces | Gate |
 |---|---|---|
-| Define | `change.md` up to `## Review`, the state file's plan sections (and `backlog.md` for parts) | S: none, it says what it will do and goes on. M and L: **you approve once**. Every AC has a row in `change.md`'s `## Acceptance tests`, out of scope is filled, the two files stand alone |
+| Define | the change file up to `## Review`, the state file's plan sections (and `backlog.md` for parts) | S: none, it says what it will do and goes on. M and L: **you approve once**. Every AC has a row in the change file's `## Acceptance tests`, out of scope is filled, the two files stand alone |
 | Build | code, tests; each acceptance test's red record and a passing `verify.py` run (`.sdlc/.work/verify.json`); deviations written into the state file with `state.py deviation` | Every task done, `verify.py` passes (every AC's test recorded red and now passing, every drift recorded with what, why and effect) |
-| Review | `change.md`'s `## Review`: what was recommended and chosen, each review's verdict, the fixes, the tickets | `verify.py` passes on the current code; every chosen review's latest report ends `VERDICT: PASS`, or its highs are fixed (and re-verified) or waived by you; security-touched: no critical or high security finding, no secrets in the diff |
+| Review | the change file's `## Review`: what was recommended and chosen, each review's verdict, the fixes, the tickets | `verify.py` passes on the current code; every chosen review's latest report ends `VERDICT: PASS`, or its highs are fixed (and re-verified) or waived by you; security-touched: no critical or high security finding, no secrets in the diff |
 | Ship, with Learn | knowledge and `recurring-defects.md` lines, the final commit, the PR | Verified-tree check clean, Learn done, green locally and on CI (or you told what's red), PR open. **Never merged without you saying so** |
 
-**Define's two files.** `change.md` (from `templates/change-template.md`) answers "why?" and "what must be true?" for a reader months later. `## Why`: the request verbatim, what the change is for and who it serves, why now, your own words where they matter. `## Decisions`: what was chosen and ruled out and why (on L the design too; there is no `design.md`), a bug's proof and root cause, and any proposals nobody asked for (dropped unless you keep them). Then acceptance criteria with ids (`AC-001` onward), and `## Acceptance tests`, the test that proves each one and a command that runs only it (`manual` with a reason when no test can); must-never-break lines; the failure modes that apply; and what's out of scope. Review adds `## Review` last; everything above it is fixed once Review starts. The state file's plan sections are the how, for the agent: how the build runs and why, the handoff, tasks naming their files, the Public Surface, and `## UI mapping` on UI work; `## Deviations` is written by `state.py deviation`. Each is written once, after the questions are settled.
+**Define's two files.** The change file, `docs/sdlc/changes/<feature>.md` (from `templates/change-template.md`), answers "why?" and "what must be true?" for a reader months later. `## Why`: the request verbatim, what the change is for and who it serves, why now, your own words where they matter. `## Decisions`: what was chosen and ruled out and why (on L the design too; there is no `design.md`), a bug's proof and root cause, and any proposals nobody asked for (dropped unless you keep them). Then acceptance criteria with ids (`AC-001` onward), and `## Acceptance tests`, the test that proves each one and a command that runs only it (`manual` with a reason when no test can); must-never-break lines; the failure modes that apply; and what's out of scope. Review adds `## Review` last; everything above it is fixed once Review starts. The state file's plan sections are the how, for the agent: how the build runs and why, the handoff, tasks naming their files, the Public Surface, and `## UI mapping` on UI work; `## Deviations` is written by `state.py deviation`. Each is written once, after the questions are settled.
 
 **Asking.** If the request, a ticket, the code and `knowledge/` already say what, why and how, Define writes the files and goes on. If anything that would change what gets built is missing or ambiguous, it asks, one question at a time, each built on the last answer, and stops asking once it can write the files without guessing anything that matters. A bug gets a failing test (preferred) or exact steps first, then its root cause (`systematic-debugging`); the proving test becomes AC-001.
 
-**Build** works like plain Claude, from `change.md` and the state file's plan sections. It writes every acceptance criterion's test, records them failing in one call (`verify.py red AC-001 AC-002 …`), then writes the code in batches, running only nearby tests; at the end it runs `verify.py` once (the verify plan, every AC's test, and plan drift). It works from the spec's must-never-break lines and failure modes too: a crash window in a write is must-fix when the spec says a killed process must not leave the system unusable. Drift never stops Build: each change from the plan is one `state.py deviation` line in the state file's `## Deviations`, "What: … Why: … Effect: …". How the build runs is Define's call, written in the state file: **inline** (default, this session), **parts in fresh sessions** (the work won't fit one context), or **parallel subagents** (only for truly independent parts).
+**Build** works like plain Claude, from the change file and the state file's plan sections. It writes every acceptance criterion's test, records them failing in one call (`verify.py red AC-001 AC-002 …`), then writes the code in batches, running only nearby tests; at the end it runs `verify.py` once (the verify plan, every AC's test, and plan drift). It works from the spec's must-never-break lines and failure modes too: a crash window in a write is must-fix when the spec says a killed process must not leave the system unusable. Drift never stops Build: each change from the plan is one `state.py deviation` line in the state file's `## Deviations`, "What: … Why: … Effect: …". How the build runs is Define's call, written in the state file: **inline** (default, this session), **parts in fresh sessions** (the work won't fit one context), or **parallel subagents** (only for truly independent parts).
 
-**Review** is described [below](#review). **Ship** first runs **Learn**: a lesson goes into the right knowledge tier only when it isn't obvious from the code or the commit, linked from the Lessons filed line of `change.md`'s `## Review`; each high finding fixed in Review that a reviewer could check next time gets a line in `recurring-defects.md`; nothing to learn is said in one line. Then `verify.py` green on that exact code, and one shell call that commits (code, tests, `change.md` and the state file, naming the record's path so `git blame` leads from a line to its why), pushes and opens the PR with git and `gh` (it links `change.md`); watch CI. CI red because of the code gets one fix, test first; still red, or red for a CI-only reason (a secret, a runner, a flaky test), and it tells you. It stops with the PR open: `PR <url> open, local and CI green; say "merge" to merge.` Without a remote it stops with the branch ready.
+**Review** is described [below](#review). **Ship** first runs **Learn**: a lesson goes into the right knowledge tier only when it isn't obvious from the code or the commit, linked from the Lessons filed line of the change file's `## Review`; each high finding fixed in Review that a reviewer could check next time gets a line in `recurring-defects.md`; nothing to learn is said in one line. Then `verify.py` green on that exact code, and one shell call that commits (code, tests, the change file and the state file, naming the record's path so `git blame` leads from a line to its why), pushes and opens the PR with git and `gh` (it links the change file); watch CI. CI red because of the code gets one fix, test first; still red, or red for a CI-only reason (a secret, a runner, a flaky test), and it tells you. It stops with the PR open: `PR <url> open, local and CI green; say "merge" to merge.` Without a remote it stops with the branch ready.
 
 Internally each phase keeps a stage number, because the hooks read it: `Stage 1 – Define`, `Stage 4 – Build`, `Stage 5 – Review`, `Stage 8 – Ship`. A part rests at Stage 4 once committed. **Deploy** is not a phase: `/sdlc:deploy`, on request, uses the project's existing deploy path, asks your go-ahead before a production deploy or DB migration, runs a smoke test and writes `release.md`.
 
@@ -88,20 +88,20 @@ The whole loop, with hard stops, is in [sdlc_orchestrator_decision_tree.svg](dia
 
 ### Hard stops
 
-The orchestrator always asks you before: the build on M and L (approving `change.md` and the plan), the reviews on M and L (choosing from the recommendation), anything that adds scope, a reviewer and the builder disagreeing on a high finding, CI still red after one fix, merges, production deploys, DB migrations, and anything irreversible. Everything else runs without asking. The advisor, where the agent has one, is called only when the review step recommends it and it was chosen. If you say "skip" or "just ship it", it names the steps being skipped, records them under Deviations in `state.md`, then complies.
+The orchestrator always asks you before: the build on M and L (approving the change file and the plan), the reviews on M and L (choosing from the recommendation), anything that adds scope, a reviewer and the builder disagreeing on a high finding, CI still red after one fix, merges, production deploys, DB migrations, and anything irreversible. Everything else runs without asking. The advisor, where the agent has one, is called only when the review step recommends it and it was chosen. If you say "skip" or "just ship it", it names the steps being skipped, records them under Deviations in `state.md`, then complies.
 
 ## Scope tracing
 
 Every phase ties additions back to a request:
 
-- **Proposals are dropped by default.** Define adds no hardening, options, config or tooling that neither the request nor an applicable failure mode calls for. Anything else it would add is listed under `change.md`'s proposals not asked for and dropped unless you keep it.
-- **`change.md`** has acceptance criteria a test can prove, each with its test, and an out-of-scope section.
+- **Proposals are dropped by default.** Define adds no hardening, options, config or tooling that neither the request nor an applicable failure mode calls for. Anything else it would add is listed under the change file's proposals not asked for and dropped unless you keep it.
+- **The change file** has acceptance criteria a test can prove, each with its test, and an out-of-scope section.
 - **The state file's plan sections** name each task's files and declare a **Public Surface** (every new export, endpoint, command, config key, env var, dependency). `verify.py` reports a changed file no task names as drift until it has a deviation line.
 - **Review** runs `scripts/diff_stats.py --plan` to flag exports and dependencies missing from the Public Surface; unrequested public surface is high severity. Every reviewer also checks the spec's failure modes and the recurring-defects list (the plugin's seed plus the project's own).
 
 ## Verification
 
-**`verify.py`.** Build's one command. `verify.py red AC-001 AC-002 …` records acceptance tests failing before their code; a test that passes, can't be found or can't run is refused, and then none of the batch is recorded. A passing full run prints the head and tree `state.py verified` takes. The full run (`verify.py` with no arguments) runs the project's verify plan (lint, typecheck, build, the full suite), each AC's test (from `change.md`'s `## Acceptance tests`), and the drift check against the state file's tasks, Public Surface and deviations (a 1.x feature: `spec.md` and `plan.md`). `verify.py status` prints short JSON: Review and Ship reuse the last run only when it passed, both records agree and the code hasn't changed since (`reuse: true`).
+**`verify.py`.** Build's one command. `verify.py red AC-001 AC-002 …` records acceptance tests failing before their code; a test that passes, can't be found or can't run is refused, and then none of the batch is recorded. A passing full run prints the head and tree `state.py verified` takes. The full run (`verify.py` with no arguments) runs the project's verify plan (lint, typecheck, build, the full suite), each AC's test (from the change file's `## Acceptance tests`), and the drift check against the state file's tasks, Public Surface and deviations (a 1.x feature: `spec.md` and `plan.md`). `verify.py status` prints short JSON: Review and Ship reuse the last run only when it passed, both records agree and the code hasn't changed since (`reuse: true`).
 
 **The freshness hook.** While `state.md` says `Current: Stage 5 – Review`, Review is the only phase with a hook that blocks you:
 
@@ -136,8 +136,8 @@ Review starts from Build's passing `verify.py`; it doesn't rerun it unless the c
 
    S doesn't use this table: it runs a fixed list and says what ran. Security when `Risk: high` or a changed path matches `areas.sensitive` or `areas.migrations`; UI when one matches `areas.ui`; code at low depth when the state file's Public Surface isn't `- none`; otherwise none. On M and L it stops and you pick. Autopilot and headless runs take the recommendation and log that they did.
 2. **Run each chosen review once**, as a fresh agent on `opus`, never the context that wrote the code, all dispatched together. The code review is a `code-reviewer` with the shared brief at the chosen depth (low: correctness against each AC and must-never-break line; default: also silent failures, test gaps rated 1–10 with 8 or more high, simplifications and security basics; high: also a deeper pass on each failure mode). The security review is a `code-reviewer` with the security-only brief, plus the dependency audit and the security hooks' findings in the session. The UI review is the `ui-reviewer` with `design-system.md`, the spec and the diff. Each writes its report to `.sdlc/.work/findings/<feature>/`, ending `VERDICT: PASS` or `VERDICT: FAIL — <high ids>`.
-3. **Act on the findings.** Each high goes back to Build, fixed with a failing test first, fixing the rule rather than the one instance; then `verify.py` again. The review isn't rerun: the fixes are proven by their tests and the full suite. If the agent thinks a high is wrong, it brings you the finding and its case; a waiver is yours only. Medium and low become tickets in `change.md`'s `## Review`.
-4. **Record** `## Review` once, as the last section of `change.md`: what was recommended and why, what was chosen and by whom, each verdict, the high findings with their fixes, the tickets, the drift and `manual` ACs. Everything above it stays as Define wrote it; the trust anchor reports a change there. The end-of-Review message lists every deviation and `manual` AC, so you see them without opening the files.
+3. **Act on the findings.** Each high goes back to Build, fixed with a failing test first, fixing the rule rather than the one instance; then `verify.py` again. The review isn't rerun: the fixes are proven by their tests and the full suite. If the agent thinks a high is wrong, it brings you the finding and its case; a waiver is yours only. Medium and low become tickets in the change file's `## Review`.
+4. **Record** `## Review` once, as the last section of the change file: what was recommended and why, what was chosen and by whom, each verdict, the high findings with their fixes, the tickets, the drift and `manual` ACs. Everything above it stays as Define wrote it; the trust anchor reports a change there. The end-of-Review message lists every deviation and `manual` AC, so you see them without opening the files.
 
 The trust anchor gives a notice when a feature leaves Review without a passing full run of the current code, or while a review's latest report says `VERDICT: FAIL` that you didn't waive. You can ask for a QA round (`qa-tester`) any time; you decide what its failures mean.
 
@@ -178,7 +178,7 @@ The trust anchor gives a notice when a feature leaves Review without a passing f
 | `/sdlc:doctor` | Health check of the machine, the plugin and the repo, with a fix for each problem. Changes nothing |
 | `/sdlc:status` | Setup state and version drift, then one line per feature: track, phase, last gate, open questions. Changes nothing |
 | `/sdlc:deploy [feature] [environment]` | Deploy on request through the project's own deploy path, with your go-ahead before production or a DB migration |
-| `/sdlc:prune [--older-than 45d]` | Delete the working files of merged, finished features; keeps `change.md` and state (1.x features: intent, spec, design, retro, and review on high risk). Asks first, one commit |
+| `/sdlc:prune [--older-than 45d]` | Delete the working files of merged, finished features; keeps the change file and state (1.x features: intent, spec, design, retro, and review on high risk). Asks first, one commit |
 | `/sdlc:context-diet` | Propose turning off plugins and skills this project doesn't need, in `.claude/settings.local.json`, after you approve. Any repo, Claude Code only |
 | `/sdlc:review-pr` | Local pre-PR review of the diff with the right agents for it |
 | `/sdlc:code-review` | Review a GitHub PR (needs `gh`) |
@@ -197,7 +197,7 @@ The trust anchor gives a notice when a feature leaves Review without a passing f
 | verify-freshness | PostToolUse, PostToolUseFailure (Bash, PowerShell, edits), Stop | Stage 5 (Review): stale/fresh test tracking; Stages 4–5: its own copy of each `verify.py` run (which `verify.py` also writes itself), also inside a chained command, copied from `verify.json` when its tree is the current code, which Review's reuse checks ([above](#verification)) |
 | prove-budget | PreToolUse (Bash, PowerShell, Monitor) | In Review (Stage 5; the name is kept from 1.x): a Bash command other than the project's own (`.sdlc/config.json` commands) is rewritten to run under `timeout -k 5 120`, with the tool timeout at 130 s; one that can't take the prefix (loops, subshells, chained commands) is refused, as are `run_in_background`, Monitor and PowerShell for such commands; the project's own commands are untouched (with builtins like `cd` beside them and a pipe into a filter like `tail`; anything else chained after one is not one) |
 | model-router | PreToolUse (Agent, Task) | While a 2.0 feature is active: denies a dispatch that names no model or names `haiku`, asks for Fable without `Top model: fable`, or runs any review agent below Opus, at every size; logs every dispatch to `.sdlc/.work/dispatches.jsonl` |
-| trust-anchor | Stop, UserPromptSubmit | Tells you when what verification trusts changes: Track, Risk, Top model, Base or Process; new baseline failures; changed commands; `change.md` above `## Review` (its criteria and tests) after Review began; a feature leaving Review without a passing full run of the current code, at every size, or while a review's latest `VERDICT: FAIL` isn't waived; a `verify.json` that disagrees with the hook's copy ("verify records disagree"). It blocks once; your next message accepts it. A change that only adds checks (Track up, Risk low → high) is shown without blocking |
+| trust-anchor | Stop, UserPromptSubmit | Tells you when what verification trusts changes: Track, Risk, Top model, Base or Process; new baseline failures; changed commands; the change file above `## Review` (its criteria and tests) after Review began; a feature leaving Review without a passing full run of the current code, at every size, or while a review's latest `VERDICT: FAIL` isn't waived; a `verify.json` that disagrees with the hook's copy ("verify records disagree"). It blocks once; your next message accepts it. A change that only adds checks (Track up, Risk low → high) is shown without blocking |
 | role-guard | PreToolUse (file tools) | Holds the plugin's agents to their role: reviewers (the `sdlc-extras:` ones too) and the code-explorer can't edit files but their report under `.sdlc/.work/findings/`; the qa-tester can't read or search code. Bash stays open to them |
 | SessionStart | SessionStart | Creates a Python environment for the security reviewer on first run |
 
@@ -212,21 +212,22 @@ In Codex, Cursor and the Antigravity CLI, `hosts/hook.py` runs hookify, verify-f
   config.json              the project's commands (per package in a monorepo) and overrides on the plugin's defaults (yours)
   scaffold.lock.json       what the plugin placed, versions, migrations (machine-only)
   baseline.md              known failures from before setup (yours)
-  state/<feature>.md       the agent's record: track, phase, the plan (tasks, Public Surface), gate log, deviations, open questions, and the feature's Docs: folder
+  state/<feature>.md       the agent's record: track, phase, the plan (tasks, Public Surface), gate log, deviations, open questions, and the path of the feature's change file
+  state/<feature>/         the feature's work folder:
+    backlog.md  plan-B<n>.md                          work split into parts (/sdlc:prune may delete the plans once merged)
+    qa-report.md                                      when a QA round ran
+    release.md                                        /sdlc:deploy
   state/<feature>.json, <feature>.events.jsonl   control contract for a runner or control app (git-ignored)
   lint/                    sdlc lint snippets your ESLint/Ruff config imports (seeded)
-  ci/invariants.py         checks test reports, the baseline and active features' change.md in CI (seeded)
+  ci/invariants.py         checks test reports, the baseline and active features' change files in CI (seeded)
   ci/contract-check.sh     the API contract check CI runs (multi-app repos that chose it; seeded)
   .work/                   scratch, git-ignored (verify record, freshness, dispatch log, trust anchor, QA runs)
 docs/sdlc/                 docs_dir: the documents people read (default; setup asks when the repo publishes docs/)
   constitution.md          project principles (yours)
   design-system.md         the design system UI work follows (UI projects; yours)
   recurring-defects.md     defects Review found and Build fixed, one line each: Learn adds, Define and reviewers read
-  intents/<feature>/
-    change.md                                         the record for people: Define writes it, Review adds ## Review; kept
-    backlog.md  plan-B<n>.md                          work split into parts (/sdlc:prune may delete the plans once merged)
-    qa-report.md                                      when a QA round ran
-    release.md                                        /sdlc:deploy
+  changes/<feature>.md     the change file, the record for people: Define writes it, Review adds ## Review; kept
+  intents/<feature>/       features from before sdlc 2.0: their intent, spec, plan and other documents
 knowledge/                 tier 3, on-demand docs (index.md links everything)
 .claude/rules/<area>.md    tier 2, loads when matching paths are touched (yours)
 .claude/rules/sdlc*.md     plugin policy rules: workflow, code style, tests, migrations, sensitive areas, CI, UI (generated)
@@ -236,7 +237,7 @@ knowledge/                 tier 3, on-demand docs (index.md links everything)
 CLAUDE.md                  tier 1, at most 60 lines (never touched by the plugin)
 ```
 
-Each feature is named `<yyyy-mm-dd>-<s|m|l>-<slug>`, or `<yyyy-mm-dd>-<s|m|l>-<ticket>-<slug>` with a ticket (e.g. `2026-10-22-m-PROJ-123-month-filter`). The letter is the track it started on; a later size-up doesn't rename it. The branch uses the same name. Commit the state file and everything under `docs/sdlc/intents/<feature>/`. A repo set up before 1.7.0 keeps everything in `.sdlc/<feature>/` until `/sdlc:upgrade` moves it; the hooks read both layouts meanwhile ([ADR 0006](adr/0006-split-sdlc-docs-from-machinery.md)).
+Each feature is named `<yyyy-mm-dd>-<s|m|l>-<slug>`, or `<yyyy-mm-dd>-<s|m|l>-<ticket>-<slug>` with a ticket (e.g. `2026-10-22-m-PROJ-123-month-filter`). The letter is the track it started on; a later size-up doesn't rename it. The branch uses the same name. Commit the state file, the change file `docs/sdlc/changes/<feature>.md` and the working files in `.sdlc/state/<feature>/` (`release.md` only if you want it); features from before sdlc 2.0 keep their documents in `docs/sdlc/intents/<feature>/`. A repo set up before 1.7.0 keeps everything in `.sdlc/<feature>/` until `/sdlc:upgrade` moves it; the hooks read both layouts meanwhile ([ADR 0006](adr/0006-split-sdlc-docs-from-machinery.md)).
 
 ### `state.md`
 
@@ -246,7 +247,7 @@ Resume depends on this file. The orchestrator looks for `.sdlc/state/*.md` with 
 # <feature>
 Status: active
 Process: 2
-Docs: <intents>   (this feature's documents folder)
+Change: <change>   (this feature's record for people)
 Track: S | M | L   (sized up because: <named signal, or "—">; footprint: <n> files)
 Risk: low | high   (<signal: auth, payments, secrets, PII, migration, public API>)
 Top model: opus   (fable only if you chose it)
@@ -270,7 +271,7 @@ Current: Stage 1 – Define   (then Stage 4 – Build, Stage 5 – Review, Stage
 ## Open questions
 ```
 
-It is the agent's record of the change, beside `change.md` for people. The orchestrator writes this file once from the template and fills its plan sections once in Define, then never edits it by hand: `scripts/state.py` makes each change in one call and writes the control contract beside it ([spec 12](specs/12-control-contract.md)). Before advancing someone else's feature (`Owner:`), it asks and records the handover.
+It is the agent's record of the change, beside the change file for people. The orchestrator writes this file once from the template and fills its plan sections once in Define, then never edits it by hand: `scripts/state.py` makes each change in one call and writes the control contract beside it ([spec 12](specs/12-control-contract.md)). Before advancing someone else's feature (`Owner:`), it asks and records the handover.
 
 ### Three-tier knowledge
 
@@ -280,7 +281,7 @@ It is the agent's record of the change, beside `change.md` for people. The orche
 | 2 | `.claude/rules/<area>.md` with `paths:` | automatically, when matching files are touched |
 | 3 | `knowledge/**.md` | on demand, via `knowledge/index.md` and links from tier 2 |
 
-Learn, before the final commit, files a lesson in the right tier only when the feature found one that isn't obvious from the code or the commit, and links it from the Lessons filed line of `change.md`'s `## Review`, so it ships in the same PR. A decision later features must follow (a library, a data shape, a boundary) becomes a record in `knowledge/decisions/`, which Define treats as a constraint. Something corrected twice and checkable by machine becomes a hookify rule instead of more text.
+Learn, before the final commit, files a lesson in the right tier only when the feature found one that isn't obvious from the code or the commit, and links it from the Lessons filed line of the change file's `## Review`, so it ships in the same PR. A decision later features must follow (a library, a data shape, a boundary) becomes a record in `knowledge/decisions/`, which Define treats as a constraint. Something corrected twice and checkable by machine becomes a hookify rule instead of more text.
 
 ### Configuration
 
@@ -313,7 +314,7 @@ After changing commands or `ci`, run `/sdlc:upgrade` so the generated CI workflo
 | Stale / fresh | Whether test results predate the latest code change |
 | Part (slice) | One piece of work too big for one session, built, verified with `verify.py` and committed on its own; all parts land together |
 | Feature close | The one Review over the whole branch, and Ship, after the last part |
-| Record | `change.md` for people and the state file for the agent, both kept for good |
+| Record | the change file for people and the state file for the agent, both kept for good |
 | `Process: 2` | The state-file line that marks a 2.0 feature; the hooks act only on those |
 | Public Surface | Declared list of everything new that callers or users can see |
 | Deviation | A step you chose to skip, or another departure, recorded in `state.md` with `state.py deviation` (Build's drift too) |

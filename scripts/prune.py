@@ -63,7 +63,7 @@ def candidate(root, ref, name, older_than):
         return {"feature": name, "skip": f"done {age} days ago (under {older_than})"}
     # sdlc 2.0 keeps its working files beside the state file (the record is the change file and the state);
     # 1.x kept them with its documents
-    where = loc["work"] if re.search(r"^Process:\s*2", state, re.M) else loc["intents"]
+    where = loc["work"] if re.search(r"^Process:\s*2\b", state, re.M) else loc["intents"]
     # Deleting from the working tree is only safe when it matches what git already holds.
     dirty = git(root, "status", "--porcelain", "--", loc["state"], where)
     if dirty is None or dirty:

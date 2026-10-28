@@ -14,7 +14,7 @@ updated: <YYYY-MM-DD>
 <!-- gotcha:    ## Symptom / ## Cause / ## Fix / ## How to detect early -->
 <!-- runbook:   ## When to use / ## Steps / ## Verify / ## Rollback -->
 <!-- convention: the rule, the reason, one good and one bad example -->
-<!-- feature:   one paragraph, then links to the feature's change.md (`scaffold.py paths <slug>` gives the folder) -->
+<!-- feature:   one paragraph, then a link to the feature's change file (`scaffold.py paths <slug>` gives it) -->
 
 ## Related
 -

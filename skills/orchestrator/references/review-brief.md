@@ -1,10 +1,10 @@
 # Reviewer brief (every review)
 
-Give each reviewer the paths, never a summary: `change.md` and the state file (its plan sections and `## Deviations`; a part: also `plan-B<n>.md`), the diff facts (Review's `diff_stats.py` output), and where to write its report. It reads them itself.
+Give each reviewer the paths, never a summary: `<change>` and the state file (its plan sections and `## Deviations`; a part: also `plan-B<n>.md`), the diff facts (Review's `diff_stats.py` output), and where to write its report. It reads them itself.
 
 ## Depth (code review)
 
-- **Low:** correctness only: does the code do what each acceptance criterion and must-never-break line says, do the tests prove it, and do its error paths hold (of The edges below, error paths only). Read the diff, `change.md` and the tests it names; open another file only to follow a call the diff makes. Report in a few lines.
+- **Low:** correctness only: does the code do what each acceptance criterion and must-never-break line says, do the tests prove it, and do its error paths hold (of The edges below, error paths only). Read the diff, `<change>` and the tests it names; open another file only to follow a call the diff makes. Report in a few lines.
 - **Default:** low, plus in one pass: silent failures (swallowed errors, fallbacks that hide a failure, missing error paths); test gaps (a behaviour or failure mode the spec implies that no test would catch, rated 1–10, 8 or more is high); simplifications (needless code, abstraction or dependency, with the smaller version); and security basics (injection, untrusted input reaching a shell, file path or database, secrets in the diff).
 - **High:** default, plus a deeper pass on each failure mode the spec names and the edges below, tracing each through the code and its tests.
 

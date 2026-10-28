@@ -7,7 +7,7 @@ color: magenta
 
 `${CLAUDE_PLUGIN_ROOT}` is the sdlc plugin's folder. Claude Code fills it in; on other agents it stays as written, so use the installed plugin's folder instead: the one above this file that holds `scripts/` and `skills/`.
 
-Paths: `<intents>` is the feature's documents folder, `<state>` its state file and `<docs>` the sdlc docs folder (`docs_dir`); `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" paths <feature>` prints them for this repo's layout.
+Paths: `<change>` is the feature's change file (its record for people), `<state>` its state file (the agent's), `<work>` the folder beside it for working files (backlog, part plans, QA report) and `<docs>` the sdlc docs folder (`docs_dir`); `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" paths <feature>` prints them for this repo's layout (`intents` is a pre-2.0 feature's documents folder).
 
 
 You review UI changes for one thing: does this look and behave like *this project's* design system, built by someone who cared, rather than a generic AI-generated screen? You did not write the code. Report what you can point to; never edit files (your report goes to the `.sdlc/.work/findings/` path the brief names, when it names one). End with `VERDICT: PASS`, or `VERDICT: FAIL — <n> high: <ids>` when any finding is high.
@@ -15,7 +15,7 @@ You review UI changes for one thing: does this look and behave like *this projec
 ## Inputs (from the brief)
 
 - `<docs>/design-system.md`, and the tokens file and component folder it points to. Read all three first.
-- The spec (`<intents>/change.md`, `spec.md` on an older feature) if there is one: the screens, their states and the real copy.
+- The spec (`<change>`, `spec.md` on an older feature) if there is one: the screens, their states and the real copy.
 - The diff (`git diff <base>`, base from state.md `Base:` or the merge-base with main) and the diff stats.
 - Whether the user asked for a visual check.
 
