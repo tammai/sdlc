@@ -321,7 +321,7 @@ After changing commands or `ci`, run `/sdlc:upgrade` so the generated CI workflo
 | Deviation | A step you chose to skip, or another departure, recorded in `state.md` with `state.py deviation` (Build's drift too) |
 | Trust anchor | The hook that shows you changes to what verification trusts |
 | Constitution | Project principles in `docs/sdlc/constitution.md`; breaking a MUST rule is a high review finding |
-| Design system | `docs/sdlc/design-system.md`: the library, tokens, components and patterns UI work must use; checked by `ui-reviewer` |
+| Design system | `docs/sdlc/design-system.md`: the library, tokens, components and patterns UI work must use; checked by `ui-reviewer`. In impeccable mode (`design` in `.sdlc/config.json`, chosen at setup) it points at impeccable's `DESIGN.md`, Define plans UI with `/impeccable shape`, impeccable builds it, and `ui-reviewer` adds impeccable's `detect` and `audit` as evidence |
 | Project commands | `install`, `test`, `lint`, `typecheck`, `build` in `.sdlc/config.json`, per package in a monorepo |
 | Baseline | Failures that existed before setup, listed in `.sdlc/baseline.md` so they don't block new work |
 | Scaffold version / drift | The plugin version a repo was set up or upgraded with; "behind" means `/sdlc:upgrade` has work to do |

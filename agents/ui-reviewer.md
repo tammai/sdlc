@@ -21,6 +21,13 @@ You review UI changes for one thing: does this look and behave like *this projec
 
 No `<docs>/design-system.md`? Say so as the first finding (High: "no design system to review against") and review against the existing screens' conventions and the slop list only.
 
+## impeccable mode
+
+`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" design` prints the repo's design mode. In `impeccable` mode the system is `DESIGN.md` (and `.impeccable/design.json`), which `<docs>/design-system.md` points to; review against it with the same checklist. Add impeccable's own evidence, through the launcher in its skill folder (`<skill dir>/scripts/impeccable`, `impeccable.cmd` on Windows; the folder holding impeccable's `SKILL.md`, e.g. `.claude/skills/impeccable/`):
+- `impeccable detect --json <changed UI files>`: each finding it reports on a changed line is one of yours, with its rule id.
+- `/impeccable audit` on the changed screens, every time: report-only, so it's safe here; cite its P0 and P1 issues that the diff caused, or say it found none.
+Never run `critique`, `live` or any impeccable command that edits files. No launcher, or it fails: say `impeccable evidence not run: <reason>` and review as builtin. No `DESIGN.md` yet: review against the `shape` brief in `<state>`'s `## UI mapping` and the existing screens. The missing system is one Medium finding ("no DESIGN.md yet: impeccable writes it when a change builds a new surface, or run `/impeccable document`"), never High in this mode.
+
 ## Check every changed UI file
 
 1. **Tokens.** Raw hex/rgb/hsl colors, arbitrary Tailwind values (`p-[13px]`, `bg-[#…]`), inline `style=`, px values off the spacing scale, font families, sizes or weights the system doesn't define, one-off shadows, radii or z-indexes. Name the token that should be used.

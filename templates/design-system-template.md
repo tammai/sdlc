@@ -34,3 +34,13 @@ Project-specific, on top of the AI-slop list in `.claude/rules/sdlc-ui.md`:
 
 ## Changing the system
 A new token, component or variant is proposed in the feature's design (Complexity Tracking) or in review, approved by the user, then added here and to the tokens or component files in the same change.
+
+<!-- impeccable form: in impeccable mode (`scaffold.py design`), replace everything above the comment with the lines
+     below. impeccable owns DESIGN.md; this file only says where it is. -->
+<!--
+# Design system
+
+impeccable mode: the design system is [`DESIGN.md`](<path from here>/DESIGN.md) and `.impeccable/design.json`, written
+and kept by the impeccable skill (`/impeccable document`, or after the first build). Product context: `PRODUCT.md`,
+which follows the PRD (<prd path>). sdlc reads them; it never edits them.
+-->

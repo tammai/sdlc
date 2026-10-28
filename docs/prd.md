@@ -56,7 +56,7 @@ Teams that try to fix this assemble several plugins and conventions by hand, eac
 | 07 | Three-tier knowledge; Learn on every feature, recurring defects | [07-knowledge](specs/07-knowledge.md) | `/sdlc:revise-claude-md`, `/sdlc:knowledge-audit`, Define (reads), Learn in Ship (writes) |
 | 08 | Health check, status, cleanup and context diet | [08-health-and-status](specs/08-health-and-status.md) | `/sdlc:doctor`, `/sdlc:status`, `/sdlc:prune`, `/sdlc:context-diet` |
 | 09 | Autonomous loop for one well-specified task | [09-autonomous-loop](specs/09-autonomous-loop.md) | `/sdlc-extras:ralph-loop`, `/sdlc-extras:cancel-ralph` (the optional `sdlc-extras` plugin) |
-| 10 | UI follows the project's design system, without AI slop | [10-ui-design-system](specs/10-ui-design-system.md) | setup, the UI review after the build (`ui-reviewer`), `/sdlc:review-pr ui` |
+| 10 | UI follows the project's design system, without AI slop; or the design work goes to impeccable | [10-ui-design-system](specs/10-ui-design-system.md) | setup, the UI review after the build (`ui-reviewer`), `/sdlc:review-pr ui` |
 | 11 | Runs in Claude Code, Codex, Cursor and Antigravity; a second agent joins a set-up repo | [11-multi-agent](specs/11-multi-agent.md) | setup (detects the agent), `scripts/scaffold.py host`/`add-host`/`agents`, `scripts/hosts.py`, `hosts/` |
 | 12 | State changes in one call; control contract v2 (`state.json` with `phase`, `events.jsonl`) | [12-control-contract](specs/12-control-contract.md) | `scripts/state.py` |
 

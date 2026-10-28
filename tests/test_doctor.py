@@ -178,6 +178,19 @@ class DoctorTest(ProjectTestCase):
         self.write("docs/sdlc/prd.md", "# Product\n")  # the default place: <docs>/prd.md
         self.assertEqual(self.check("PRD")["status"], "ok")
 
+    def test_impeccable_mode_without_impeccable_warns(self):
+        self.setup_repo()
+        self.configure(design="impeccable")
+        home = self.path("home")  # impeccable_installed also looks in ~/.agents: keep this machine's out
+        config = {"CLAUDE_CONFIG_DIR": self.path("claude-config"), "HOME": home, "USERPROFILE": home}
+        check = self.doctor(**config)[0][("repo", "impeccable")]
+        self.assertEqual(check["status"], "warn")
+        self.assertIn("npx impeccable install", check["fix"])
+        self.write(".claude/skills/impeccable/SKILL.md", "---\nname: impeccable\n---\n")  # a project install
+        self.assertEqual(self.doctor(**config)[0][("repo", "impeccable")]["status"], "ok")
+        self.configure(design="builtin")
+        self.assertNotIn(("repo", "impeccable"), self.doctor(**config)[0])
+
     def test_ui_without_design_system_warns(self):
         self.setup_repo()
         self.write("src/App.tsx", "export const App = () => null\n")

@@ -2,7 +2,7 @@
 
 When a project has UI, every UI change follows the project's design system and avoids the generic "AI look". The design system is recorded once at setup, applied while writing (policy rule, guardrail) and checked in review.
 
-**Entry points:** setup (`design-system` step), Define and Review, `/sdlc:review-pr ui`, `/sdlc:doctor` · **Source:** `templates/project/rules/ui.md`, `templates/project/hookify/sdlc-ui-hardcoded-values.md`, `templates/design-system-template.md`, `agents/ui-reviewer.md`, `skills/setting-up-projects/SKILL.md`, `skills/orchestrator/references/ui-work.md`, `migrations/1.4.0-design-system.md` · **Decision:** [ADR 0004](../adr/0004-ui-follows-the-design-system.md)
+**Entry points:** setup (`design-system` step), Define and Review, `/sdlc:review-pr ui`, `/sdlc:doctor` · **Source:** `templates/project/rules/ui.md`, `templates/project/hookify/sdlc-ui-hardcoded-values.md`, `templates/design-system-template.md`, `agents/ui-reviewer.md`, `skills/setting-up-projects/SKILL.md`, `skills/orchestrator/references/ui-work.md`, `migrations/1.4.0-design-system.md`, `migrations/2.1.0-design-mode.md`, `scripts/scaffold.py` (`design`, `guardrails`), `hooks/model_router.py` · **Decision:** [ADR 0004](../adr/0004-ui-follows-the-design-system.md), [ADR 0021](../adr/0021-impeccable-for-ui-design.md) (impeccable mode)
 
 ## User scenarios
 
@@ -26,6 +26,10 @@ When a project has UI, every UI change follows the project's design system and a
 | UI-FR-008 | Visual check only when the user asks: with a browser tool and a dev server command, screenshots at desktop and mobile width (and dark mode if the system has one); otherwise "Visual check not run: <reason>". Never installs tools for it. | `[instructed]` ui-reviewer.md |
 | UI-FR-009 | `/sdlc:doctor` warns when a set-up repo has UI files and no `docs/sdlc/design-system.md`. | `[enforced]` test_doctor › test_ui_without_design_system_warns |
 | UI-FR-010 | Existing repos get the rule and guardrail from the upgrade's *add* step, and the design system from migration `1.4.0-design-system` (skipped when the repo has no UI). | add step `[enforced]` test_scaffold › test_upgrade_adds_rules_and_guardrails_new_in_this_version; migration `[instructed]` |
+| UI-FR-011 | Design mode, config `design`: `builtin` (default; UI-FR-001 to 010 as written) or `impeccable` (ADR 0021). `scaffold.py design [<mode>]` prints or records it and refuses any other value. Setup's `design-system` step asks for it, recommending from the PRD; sdlc never installs impeccable (chosen but missing → builtin and the install command). | key `[enforced]` test_scaffold › test_design_mode_records_and_refuses_unknown; the step `[instructed]` setting-up-projects |
+| UI-FR-012 | impeccable mode leaves `sdlc-ui-hardcoded-values` out of the guardrails setup and upgrade install (`scaffold.py guardrails`); its detector hook does that job. Setting the mode swaps an installed copy: impeccable deletes an unchanged one (untracked, not declined), an edited one is asked about; builtin renders it again unless declined. | `[enforced]` test_scaffold › test_impeccable_mode_drops_ui_guardrail, test_switching_design_mode_swaps_the_ui_guardrail |
+| UI-FR-013 | impeccable mode: `design-system.md` points at `DESIGN.md`; Define runs `/impeccable shape` and copies its brief into `## UI mapping`; Build goes through impeccable; `sdlc:ui-reviewer` keeps the verdict, with `detect` and `audit` as evidence and no `critique`; with no `DESIGN.md` yet, Define maps against the brief and the existing screens, no task writes it (impeccable does, in its own process), and the review reports it as Medium, never High. impeccable missing at run time → that step runs builtin, said in one line. | `[instructed]` ui-work.md, ui-reviewer.md |
+| UI-FR-014 | The model router lets impeccable's own agents (`impeccable-*`) through without a model; every other rule stands. | `[enforced]` test_model_router › test_impeccable_agents_pass_without_model |
 
 ## Edge cases
 
@@ -35,7 +39,7 @@ When a project has UI, every UI change follows the project's design system and a
 
 ## Non-goals
 
-- Generating designs, mockups or Figma files; choosing a visual style for the user.
+- Generating designs, mockups or Figma files; choosing a visual style for the user. (In impeccable mode impeccable does design work; sdlc still doesn't.)
 - Automatic screenshots or visual regression on every change.
 - Pixel-level checks of native mobile UI.
 

@@ -24,5 +24,6 @@ Decisions about how the plugin itself is built: what was decided, why, and what 
 | [0018](0018-m-maker-in-the-main-session.md) | On M the main session is the maker; the checker stays a fresh subagent | Superseded by 0020 |
 | [0019](0019-model-security-review-only-for-security-touched-work.md) | The model security review runs only for security-touched work; the reviewer SDK installs lazily | Accepted |
 | [0020](0020-sdlc-2-slim-process-core.md) | sdlc 2.0: the slim process core (same record at every size, intent before code, reviews recommended after the build) | Accepted |
+| [0021](0021-impeccable-for-ui-design.md) | UI design work can go to impeccable (config `design`); sdlc keeps the record, gates and review verdict | Accepted |
 
 New ADR: copy the shape of an existing one (Status, Context, Decision, Consequences), take the next number, and add a row here.

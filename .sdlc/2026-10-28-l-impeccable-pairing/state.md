@@ -1,5 +1,5 @@
 # 2026-10-28-l-impeccable-pairing
-Status: active
+Status: done
 Process: 2
 Change: .sdlc/2026-10-28-l-impeccable-pairing/change.md   (this feature's record for people)
 Track: L   (sized up because: several distinct parts (setup, Define, Build guardrail, Review, model router, doctor, migration, docs); footprint: ~22 files)
@@ -10,13 +10,13 @@ Started: 2026-10-28
 Base: b899e51
 Owner: tammai.it@gmail.com
 Tool: claude-code
-Verified:
-Current: Stage 4 – Build
+Verified: db8a066 tree 4c94c081dd1e5e18ad11ae30bdb1311a43e3796f
+Current: Stage 8 – Ship
 
 ## Stages
 - [x] 1 Define   — the change file, the plan sections below
-- [ ] 4 Build
-- [ ] 5 Review   — the change file's ## Review
+- [x] 4 Build
+- [x] 5 Review   — the change file's ## Review
 - [ ] 8 Ship     — PR: (Learn: knowledge, recurring-defects.md)
 
 ## How the build runs
@@ -64,11 +64,23 @@ inline, because one session holds it: mostly instruction text plus four small sc
 - 2026-10-28 Stage 1: open — record written; stopped before Build at the user's request ("run the define stage … and stop"); one question open (below)
 - 2026-10-28 Greenfield before DESIGN.md: user approved the recommendation (map against the shape brief; first UI feature's Build writes DESIGN.md; no High for a missing system on that feature)
 - 2026-10-28 Stage 1: pass — plan approved by the user
+- 2026-10-28 Stage 4: pass
+- 2026-10-28 review: ran code default (L; Public Surface not none), self-chosen: L. UI and security don't fire (no areas.ui path, risk low, no sensitive path)
+- 2026-10-28 Stage 4: pass
+- 2026-10-28 Stage 5: pass
 
 ## Deviations
 - 2026-10-28 Repo not set up for sdlc (`scaffold.py status`: setup none, layout legacy); the plugin repo runs its features this way (as the slim feature did). Paths follow `scaffold.py paths` (`.sdlc/<feature>/`), not `docs/sdlc/intents/` where the slim feature's files are.
 - 2026-10-28 Run with the repo's 2.0 orchestrator (`skills/orchestrator/references/flow.md`) and scripts, not the installed 1.8.1 plugin's.
 - 2026-10-28 Base What: moved from 1eaaeab to b899e51 (sdlc 2.0.1). Why: the user waited for 2.0.1 before building. Effect: Build reads 2.0.1's companions and settings.local.json changes first.
+- 2026-10-28 change.md Acceptance tests What: Run cells now run from the repo root (unittest discover -k <test>). Why: the old cells only worked from tests/ and verify.py runs them from the root. Effect: none on scope.
+- 2026-10-28 migrations/2.1.0-design-tool.md What: named migrations/2.1.0-design-mode.md. Why: matches the config key's wording. Effect: none.
+- 2026-10-28 Task 8 What: commands/review-pr.md, hosts/skills/review-pr/SKILL.md, flow.md and design-system mapping in flow left unchanged; s-track.md gained a pointer to ui-work.md. Why: ui-reviewer reads the mode itself, and S had no route to ui-work.md. Effect: fewer copies to keep in step.
+- 2026-10-28 task 6 What: the migration file is migrations/2.1.0-design-mode.md, not 2.1.0-design-tool.md. Why: matches the config key's wording. Effect: none.
+- 2026-10-28 scaffold.py functions What: new design_mode, impeccable_installed, cmd_design, cmd_guardrails; shipped_files takes the project. Why: they back the declared design and guardrails subcommands (AC-001, AC-002) and doctor's check (AC-004). Effect: module-level helpers inside scaffold.py, not a new public API.
+- 2026-10-28 Task 9 What: the stale-docs audit also changed docs/prd.md and docs/playbook.md. Why: their capability table and setup walkthrough name the design-system step. Effect: docs only.
+- 2026-10-28 Review r1 H1/H2 What: scaffold.py swap_ui_guardrail, called by cmd_design, removes or restores the UI guardrail whenever the mode is set; new test test_switching_design_mode_swaps_the_ui_guardrail (AC-002). Why: setup renders guardrails before the mode is asked, and forget declined the file so builtin never restored it. Effect: the migration no longer forgets the file.
+- 2026-10-28 Decisions row 'design record' What: superseded after the live check, with the user's approval: no task writes DESIGN.md; impeccable writes it in its own process; a missing DESIGN.md is Medium in the UI review, not High; the reviewer always runs audit. Why: a small first UI change deferred it, since impeccable's no-styles path is a multi-round design interview. Effect: ui-work.md, ui-reviewer.md (and its Cursor copy), setup SKILL.md, ADR 0021, spec 10 amended.
 
 ## Open questions
 -

@@ -6,7 +6,8 @@ PreToolUse on Agent/Task. Denies, with the reason Claude sees:
   - `model: haiku`                               (the cheap tier is sonnet)
   - `model: fable` unless every active state.md says `Top model: fable`
   - a review agent below opus, on every track and risk (sdlc 2.0: each review runs once, fresh, on the top tier)
-Forks are exempt: they always run on the session model. Picking the tier for other work stays with
+Forks are exempt: they always run on the session model. So are impeccable's own agents (impeccable-*), which it
+spawns without a model (their frontmatter says `model: inherit`). Picking the tier for other work stays with
 Model selection in sdlc:orchestrator; this only enforces its floor and ceiling.
 No active feature, or any error: no output, the dispatch goes ahead.
 While a feature is active, every dispatch is logged to .sdlc/.work/dispatches.jsonl (time, the features' current
@@ -32,7 +33,7 @@ def active_states(root):
 
 def problem(tool_input, states):
     agent = str(tool_input.get("subagent_type") or "").split(":")[-1]
-    if agent == "fork":
+    if agent == "fork" or agent.startswith("impeccable-"):  # impeccable spawns its own agents with no model
         return None
     model = str(tool_input.get("model") or "").strip().lower()
     if not model:

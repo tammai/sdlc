@@ -460,6 +460,42 @@ class ScaffoldTest(ProjectTestCase):
         self.sc("eject", "--apply")
         self.assertEqual(self.read("product/PRD.md"), "# Planner\n")
 
+    def test_design_mode_records_and_refuses_unknown(self):
+        self.init()
+        self.assertEqual(self.sc("design")["design"], "builtin")  # no key: today's behaviour
+        self.assertEqual(self.sc("design", "impeccable")["design"], "impeccable")
+        self.assertEqual(json.loads(self.read(".sdlc/config.json"))["design"], "impeccable")
+        self.assertIn("builtin", self.sc("design", "figma", expect=2)["refused"])
+        self.assertEqual(self.sc("design")["design"], "impeccable")  # the refused value changed nothing
+
+    def test_impeccable_mode_drops_ui_guardrail(self):
+        # impeccable's detector hook does this job; both would report the same value on every edit
+        self.template("templates/project/hookify/sdlc-ui-hardcoded-values.md", "ui\n")
+        self.template("templates/project/hookify/sdlc-rm.md", "rm\n")
+        self.init()
+        self.sc("design", "impeccable")
+        self.assertEqual([g["dest"] for g in self.sc("guardrails")["guardrails"]], [".claude/hookify/sdlc-rm.md"])
+        self.assertEqual([i["path"] for i in self.sc("upgrade-plan")["add"]], [".claude/hookify/sdlc-rm.md"])
+        self.sc("design", "builtin")
+        self.assertEqual([g["dest"] for g in self.sc("guardrails")["guardrails"]],
+                         [".claude/hookify/sdlc-rm.md", ".claude/hookify/sdlc-ui-hardcoded-values.md"])
+
+    def test_switching_design_mode_swaps_the_ui_guardrail(self):
+        # setup renders guardrails before it asks the mode, so the switch itself must swap the file, both ways
+        tpl, dest = "templates/project/hookify/sdlc-ui-hardcoded-values.md", ".claude/hookify/sdlc-ui-hardcoded-values.md"
+        self.template(tpl, "ui\n")
+        self.init()
+        self.sc("render", tpl, dest, "--class", "seeded")
+        self.assertEqual(self.sc("design", "impeccable")["guardrail"], {"removed": dest})
+        self.assertFalse(os.path.exists(self.path(dest)))
+        self.assertNotIn(dest, self.lock()["files"])
+        self.assertNotIn(dest, self.lock().get("declined", []))  # untracked, not handed to the user for good
+        self.assertEqual(self.sc("design", "builtin")["guardrail"], {"added": dest})
+        self.assertEqual(self.read(dest), "ui\n")
+        self.write(dest, "the team's edit\n")
+        self.assertEqual(self.sc("design", "impeccable")["guardrail"]["ask"], dest)  # edited: never deleted
+        self.assertEqual(self.read(dest), "the team's edit\n")
+
     def test_eject_also_deletes_edited_files_on_request_only(self):
         self.setup_for_eject()
         self.assertIn("ask", self.sc("eject", "--apply", "--also", ".sdlc/constitution.md", expect=1)["error"])

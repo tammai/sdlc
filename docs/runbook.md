@@ -75,7 +75,7 @@ Run `/sdlc:doctor` when something feels off, after installing or upgrading, or b
 |---|---|
 | environment | Python ≥ 3.9, a Python 3 the hooks' launcher (`hooks/sg-python.sh`) finds, git, gh, jq, the security reviewer's environment (built in the state directory on first session) |
 | plugin | version; every script `hooks.json` references exists |
-| repo | setup state and version drift; config and lock parse; plugin files missing or hand-edited; project commands defined (per package), their tools on PATH, and whether they have run; the `AGENTS.md` block; baseline present (brownfield); old layout; `.sdlc/.work/` and the contract files git-ignored; design system present when the repo has UI files; rules whose `paths:` match no files; hookify rules that don't parse or have a bad regex; CLAUDE.md over 60 lines; broken links in `knowledge/index.md`; state files missing `Status:`/`Current:`, or several active; corrupt freshness state, or a freshness hook run that failed |
+| repo | setup state and version drift; config and lock parse; plugin files missing or hand-edited; project commands defined (per package), their tools on PATH, and whether they have run; the `AGENTS.md` block; baseline present (brownfield); old layout; `.sdlc/.work/` and the contract files git-ignored; design system present when the repo has UI files; impeccable installed when the design mode is impeccable; rules whose `paths:` match no files; hookify rules that don't parse or have a bad regex; CLAUDE.md over 60 lines; broken links in `knowledge/index.md`; state files missing `Status:`/`Current:`, or several active; corrupt freshness state, or a freshness hook run that failed |
 
 Not covered by doctor: whether the plugin is enabled (`/plugin`), and the plugin's own test suite (`py -3.10 -m unittest discover -s tests -t tests` in the plugin repo; macOS/Linux: `python3.10`).
 
@@ -212,7 +212,7 @@ Hard stops are different: they always wait for your answer and aren't skipped. T
 
 The hook checks Agent/Task dispatches only while a 2.0 feature (`Process: 2`) has `Status: active`; the deny reason says which check failed. Every dispatch, denied or not, is logged to `.sdlc/.work/dispatches.jsonl`.
 
-1. **No model:** the dispatch must name `sonnet` or `opus` (Model selection in `sdlc:orchestrator`). Commands that launch agents, such as `/sdlc:review-pr`, name one too.
+1. **No model:** the dispatch must name `sonnet` or `opus` (Model selection in `sdlc:orchestrator`). Commands that launch agents, such as `/sdlc:review-pr`, name one too. Exempt: forks, and impeccable's own agents (`impeccable-*`), which impeccable spawns without a model.
 2. **Fable:** used only on your request. `state.py set <feature> "Top model" fable` on every active feature (one active feature without it keeps Fable denied). This raises a trust-anchor notice ([R19](#r19-a-trust-anchor-notice-stops-the-turn)).
 3. **Haiku:** denied everywhere; the cheap tier is `sonnet`. Pass `effort: high` with it.
 4. **Reviewer below Opus:** every review agent (code-reviewer, feature-reviewer, ui-reviewer, qa-tester, pr-test-analyzer, silent-failure-hunter; the security review is a code-reviewer) needs `opus` (or `fable`), on every track and risk. Name `opus` in the dispatch.
@@ -386,6 +386,8 @@ Every command prints one JSON object. Exit codes: 0 ok, 1 error, 2 refused becau
 | `agents [--check]` | rebuild the sdlc block in `AGENTS.md` for the recorded hosts (removed when Claude Code is the only one) and `.claude/rules/sdlc-agents-md.md`, Claude Code's copy of the team's own `AGENTS.md` text; `--check` exits 1 when either is out of date |
 | `migrations [--revisit]`, `migration <id> --applied\|--skipped REASON` | pending migrations (scaffold < version ≤ plugin, numeric order) / record the outcome |
 | `prd [<path>]` | where the product doc is and whether it exists; with a path, records it in config (`prd`) |
+| `design [builtin\|impeccable]` | who does UI design work (config `design`, default builtin) and whether impeccable is installed; with a mode, records it |
+| `guardrails` | the guardrails setup renders for the design mode (impeccable mode leaves out `sdlc-ui-hardcoded-values`) |
 | `set-version <v> [--min-plugin m]` | advance `scaffold_version`; raises the pin, never lowers it |
 | `upgrade-plan` | regenerate / replace / review / restore / template_gone, `agents` (off, in_sync or stale), plus pending migrations |
 | `eject [--apply] [--also <edited files>]` | dry run by default; applying deletes plugin files, removes recorded entries and the lock |

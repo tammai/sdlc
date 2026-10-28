@@ -51,10 +51,10 @@ sdlc owns the process: gates, the record, team consistency. Its UI spec (`docs/s
 
 | AC | Test | Run |
 |---|---|---|
-| AC-001 | tests/test_scaffold.py › test_design_mode_records_and_refuses_unknown | `py -3.10 -m unittest test_scaffold.ScaffoldTest.test_design_mode_records_and_refuses_unknown` (from `tests/`) |
-| AC-002 | tests/test_scaffold.py › test_impeccable_mode_drops_ui_guardrail | `py -3.10 -m unittest test_scaffold.ScaffoldTest.test_impeccable_mode_drops_ui_guardrail` (from `tests/`) |
-| AC-003 | tests/test_model_router.py › test_impeccable_agents_pass_without_model | `py -3.10 -m unittest test_model_router.ModelRouterTest.test_impeccable_agents_pass_without_model` (from `tests/`) |
-| AC-004 | tests/test_doctor.py › test_impeccable_mode_without_impeccable_warns | `py -3.10 -m unittest test_doctor.DoctorTest.test_impeccable_mode_without_impeccable_warns` (from `tests/`) |
+| AC-001 | tests/test_scaffold.py › test_design_mode_records_and_refuses_unknown | `py -3.10 -m unittest discover -s tests -t tests -k test_design_mode_records_and_refuses_unknown` |
+| AC-002 | tests/test_scaffold.py › test_impeccable_mode_drops_ui_guardrail | `py -3.10 -m unittest discover -s tests -t tests -k test_impeccable_mode_drops_ui_guardrail` |
+| AC-003 | tests/test_model_router.py › test_impeccable_agents_pass_without_model | `py -3.10 -m unittest discover -s tests -t tests -k test_impeccable_agents_pass_without_model` |
+| AC-004 | tests/test_doctor.py › test_impeccable_mode_without_impeccable_warns | `py -3.10 -m unittest discover -s tests -t tests -k test_impeccable_mode_without_impeccable_warns` |
 | AC-005 | manual | Instruction text in the setup skill; checked with one headless setup on a scratch UI repo with impeccable installed |
 | AC-006 | manual | Instruction text in `ui-work.md`; checked in the same scratch run, one M UI change through Define |
 | AC-007 | manual | Agent instructions; checked by the same change's Review in the scratch run |
@@ -84,3 +84,14 @@ sdlc owns the process: gates, the record, team consistency. Its UI spec (`docs/s
 - impeccable's live mode, `critique` in Review, and its telemetry settings.
 - Changing what builtin mode does.
 - Native (iOS/Android) detector coverage: impeccable has none; the design commands still apply.
+
+## Review
+
+- **Recommended and chosen:** code at default depth, because the track is L and `## Public Surface` isn't `- none`; chosen by the trigger list (L runs what fires without asking). UI and security didn't fire: no `areas.ui` path in the diff, risk low, no sensitive path.
+- **Verdicts:** code-reviewer → `.sdlc/.work/findings/2026-10-28-l-impeccable-pairing/code-reviewer-r1.md` → FAIL — H1, H2.
+- **Fixed:** H1: setup renders guardrails before it asks the mode, so a fresh impeccable setup still installed `sdlc-ui-hardcoded-values`. H2: the migration's `forget` declined the file, so switching back to builtin never restored it. Fixed at the rule, not the instance: setting the mode (`scaffold.py design`, used by setup, the migration and a manual switch) now swaps the file itself (impeccable: an unchanged copy deleted and untracked, not declined; an edited one asked about; builtin: rendered again unless declined). Proven by `tests/test_scaffold.py › test_switching_design_mode_swaps_the_ui_guardrail`, failing first.
+- **Also fixed (medium and low):** M1: the doctor test now points the home folder at a temp dir, so an impeccable install on the machine can't make it fail. M2: the run-time fallback maps against `DESIGN.md` if present, else the neighbouring screens. L1: the router exempts `impeccable-` agents only. Duplicate spec id HLT-FR-015 renumbered to HLT-FR-016; setup's telemetry line names `DO_NOT_TRACK=1` too.
+- **Tickets:** None.
+- **Drift and manual checks:** the Deviations lines in the state file (Base moved to 2.0.1; Run cells from the repo root; migration named `2.1.0-design-mode`; review-pr and flow.md unchanged, s-track.md pointer added; stale-docs audit touched prd.md and playbook.md; the new scaffold helpers; the guardrail swap). AC-005 to AC-008 (`manual`) were checked by the reviewer against the instruction files, then live on a scratch React repo (consumer PRD, impeccable 4.8.0 copied in, this checkout via `--plugin-dir`, headless sessions): AC-005 pass (setup recommended impeccable from the PRD, stopped for the choice, `design impeccable` removed the rendered UI guardrail, `init` read the PRD and `PRODUCT.md` links to it, the pointer was written); AC-006 pass (an S UI change ran `shape`, stopped for the brief, and copied it into `## UI mapping` and the ACs); AC-007 partly (ui-reviewer ran on opus against the brief, cited `detect`, no High for the missing system; no sign it ran `audit`); AC-008 pass (impeccable removed: Define said so in one line and mapped against the existing screen). Open: the first UI feature didn't write `DESIGN.md` as the Decisions row says; it deferred it as a deviation, since with no styles impeccable's visual-world interview is far bigger than a small change. AC-003 wasn't exercised live (no impeccable agent was spawned).
+- **After the live check (user's decision):** the Decisions row on the design record is superseded: no feature carries a task to write `DESIGN.md`; impeccable writes it in its own process (a change that builds a new surface with it, or `/impeccable document`); until then a missing `DESIGN.md` is one Medium finding in the UI review, never High; and the reviewer runs `audit` every time. See the state file's Deviations and ADR 0021 §4.
+- **Lessons filed:** None (the step-order trap is specific to this change and its fix is tested).

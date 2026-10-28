@@ -48,6 +48,13 @@ class ModelRouterTest(ProjectTestCase):
         self.assertEqual(out["hookSpecificOutput"]["permissionDecision"], "deny")
         self.assertIsNone(self.dispatch(subagent_type="general-purpose", model="sonnet"))  # the maker keeps its tier
 
+    def test_impeccable_agents_pass_without_model(self):
+        # impeccable spawns its own agents with no model (their frontmatter says `model: inherit`)
+        for agent in ("impeccable-documenter", "impeccable:impeccable-asset-producer"):
+            self.assertIsNone(self.dispatch(subagent_type=agent), agent)
+        self.assertEqual(self.dispatch(subagent_type="general-purpose")
+                         ["hookSpecificOutput"]["permissionDecision"], "deny")
+
     def test_dispatch_without_a_model_is_denied(self):
         out = self.dispatch(subagent_type="sdlc:code-reviewer")
         self.assertEqual(out["hookSpecificOutput"]["permissionDecision"], "deny")

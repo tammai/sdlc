@@ -264,6 +264,12 @@ def check_repo(r, root):
         r.add(g, "PRD", "ok" if has_prd else "warn",
               prd if has_prd else f"no product doc ({prd}): Define has no goals, non-goals or audience to start from",
               None if has_prd else "run the prd step of /sdlc:setup (or /sdlc:upgrade)")
+        if scaffold.design_mode(p) == "impeccable":
+            ok = scaffold.impeccable_installed(root)
+            r.add(g, "impeccable", "ok" if ok else "warn",
+                  "installed: UI design work goes through it" if ok
+                  else "design is impeccable but impeccable isn't installed: UI work falls back to builtin",
+                  None if ok else "npx impeccable install (or /plugin marketplace add pbakaus/impeccable)")
         enabled = scaffold.read_json(os.path.join(root, scaffold.LOCAL_SETTINGS), {}).get("enabledPlugins")
         enabled = enabled if isinstance(enabled, dict) else {}
         on = [c["id"] for c in scaffold.companions(p) if enabled.get(c["id"]) is True]

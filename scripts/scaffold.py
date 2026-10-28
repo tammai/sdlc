@@ -280,9 +280,22 @@ def cmd_forget(p, a):
     return {"forgotten": forgotten, "declined": declined}
 
 
-def shipped_files():
+DESIGN_MODES = ("builtin", "impeccable")
+# impeccable's detector hook checks the same thing after every UI edit, so in that mode this one isn't installed
+IMPECCABLE_REPLACES = "sdlc-ui-hardcoded-values.md"
+
+
+def design_mode(p):
+    """Who does UI design work (config `design`): `builtin` (sdlc's design system, rule and guardrail, the default)
+    or `impeccable` (the impeccable skill, with sdlc keeping the gates)."""
+    mode = (p.config or {}).get("design") if p else None
+    return mode if mode in DESIGN_MODES else "builtin"
+
+
+def shipped_files(p=None):
     """(template, dest, class) for every plugin file setup always installs: policy rules and guardrails.
     Lint snippets and CI are left out: setup adds those only by choice."""
+    skip = IMPECCABLE_REPLACES if design_mode(p) == "impeccable" else None
     out = []
     rules = os.path.join(PLUGIN_ROOT, "templates", "project", "rules")
     for name in sorted(os.listdir(rules)) if os.path.isdir(rules) else []:
@@ -291,9 +304,66 @@ def shipped_files():
             out.append((f"templates/project/rules/{name}", f".claude/rules/{dest}", "generated"))
     hookify = os.path.join(PLUGIN_ROOT, "templates", "project", "hookify")
     for name in sorted(os.listdir(hookify)) if os.path.isdir(hookify) else []:
-        if name.startswith("sdlc-") and name.endswith(".md"):
+        if name.startswith("sdlc-") and name.endswith(".md") and name != skip:
             out.append((f"templates/project/hookify/{name}", f".claude/hookify/{name}", "seeded"))
     return out
+
+
+def cmd_guardrails(p, a):
+    """The guardrails setup renders for this repo's design mode."""
+    return {"design": design_mode(p), "guardrails": [{"template": t, "dest": d} for t, d, cls in shipped_files(p)
+                                                     if t.startswith("templates/project/hookify/")]}
+
+
+def impeccable_installed(root):
+    """Whether the impeccable skill is installed for this repo: in the project's or the user's agent skill folders,
+    or as a Claude Code plugin. File existence only."""
+    config = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(os.path.expanduser("~"), ".claude")
+    dirs = [os.path.join(root, d) for d in (".claude", ".agents", ".cursor", ".agent")]
+    dirs += [config, os.path.join(os.path.expanduser("~"), ".agents")]
+    return any(os.path.isfile(os.path.join(d, "skills", "impeccable", "SKILL.md")) for d in dirs) \
+        or any(k.split("@")[0] == "impeccable" for k in installed_plugins())
+
+
+def cmd_design(p, a):
+    """Who does UI design work; with a mode, records it in config (`design`). sdlc never installs impeccable."""
+    if a.mode:
+        if a.mode not in DESIGN_MODES:
+            raise Refused(f"design is one of {', '.join(DESIGN_MODES)}, not {a.mode!r}")
+        p.config = p.config or {}
+        p.config["design"] = a.mode
+        p.save()
+        return {"design": design_mode(p), "impeccable_installed": impeccable_installed(p.root),
+                "guardrail": swap_ui_guardrail(p)}
+    return {"design": design_mode(p), "impeccable_installed": impeccable_installed(p.root)}
+
+
+def swap_ui_guardrail(p):
+    """Make the installed UI guardrail match the mode, whenever the mode is set (setup renders guardrails before it
+    asks the mode). impeccable: an unchanged copy is deleted and untracked, not declined, so builtin can bring it
+    back; an edited one is the user's call. builtin: rendered again unless the user declined it."""
+    tpl, dest = f"templates/project/hookify/{IMPECCABLE_REPLACES}", f".claude/hookify/{IMPECCABLE_REPLACES}"
+    if p.lock is None or "claude-code" not in hosts(p) or not template_exists(tpl):
+        return None
+    files = p.lock.setdefault("files", {})
+    entry = files.get(dest)
+    if design_mode(p) == "impeccable":
+        if not entry:
+            return None
+        if p.file_state(dest, entry) == "modified":
+            return {"ask": dest, "why": "edited since the plugin wrote it: delete it only if the user agrees"}
+        if os.path.exists(p.path(dest)):
+            os.remove(p.path(dest))
+        files.pop(dest)
+        p.save()
+        return {"removed": dest}
+    if dest in p.lock.get("declined", []) or (entry and os.path.exists(p.path(dest))):
+        return None
+    try:
+        cmd_render(p, argparse.Namespace(template=tpl, dest=dest, cls="seeded", if_unchanged=True))
+    except Refused as e:
+        return {"ask": dest, "why": str(e)}
+    return {"added": dest}
 
 
 def format_value(node, flt):
@@ -1272,7 +1342,7 @@ def cmd_upgrade_plan(p, a):
             "add": [], "regenerate": [], "replace": [], "review": [], "restore": [], "template_gone": []}
     tracked, declined = lock.get("files", {}), set(lock.get("declined", []))
     # new in this plugin version; the rules and guardrails are Claude Code's, the other hosts get them in AGENTS.md
-    for tpl, dest, cls in shipped_files() if "claude-code" in hosts(p) else []:
+    for tpl, dest, cls in shipped_files(p) if "claude-code" in hosts(p) else []:
         if dest not in tracked and dest not in declined:
             item = {"path": dest, "template": tpl, "class": cls}
             if os.path.exists(p.path(dest)):
@@ -1533,6 +1603,11 @@ def build_parser():
     s = sub.add_parser("prd", help="the product doc's path; with a path, record it in config")
     s.add_argument("path", nargs="?")
     s.set_defaults(fn=cmd_prd)
+    s = sub.add_parser("design", help="who does UI design work (builtin or impeccable); with a mode, record it")
+    s.add_argument("mode", nargs="?")
+    s.set_defaults(fn=cmd_design)
+    sub.add_parser("guardrails", help="the guardrails setup renders for this repo's design mode") \
+        .set_defaults(fn=cmd_guardrails)
     s = sub.add_parser("set-version", help="set scaffold_version (and raise min_plugin_version)")
     s.add_argument("version")
     s.add_argument("--min-plugin")
