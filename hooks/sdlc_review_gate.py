@@ -17,6 +17,7 @@ branch left the default branch (a point `Base:` can't move; on the default branc
 review then widens. The widened diff starts at
 `Base:` only when every commit it covers descends from it, else at that branch point. MAX_WIDEN or more unreviewed
 commits: no widening (the push review still sees them).
+The commit that takes a feature from active to done (Ship's, which carries `Status: done`) counts as that feature's.
 With no active feature the commit gets no model review and isn't recorded as reviewed (`off`), so the push review
 still covers it; review_wanted() tells the Stop review the same (ADR 0019); SDLC_SECURITY_REVIEW=always restores the review outside the flow.
 Anything else, or any error: the commits are reviewed exactly as given. The push review is untouched.
@@ -46,7 +47,18 @@ def _git(root, *args):
     return p.stdout.strip() if p.returncode == 0 else None
 
 
-def _active_features(root):
+def _finished_by(root, state, shas):
+    """One of these commits is the one that took the feature from active to done (Ship's own commit)."""
+    for s in shas:
+        out = _git(root, "show", "--format=", "--unified=0", s, "--", state) or ""
+        if re.search(r"^-Status:[ \t]*active", out, re.M | re.I) and re.search(r"^\+Status:[ \t]*done", out, re.M | re.I):
+            return True
+    return False
+
+
+def _active_features(root, shas=()):
+    """The 2.0 features still active, and one the given commits themselves finish: Ship commits `Status: done`
+    with the change, and that commit is reviewed as the active feature's it closes."""
     found = []
     for f in sdlc_layout.features(root).values():
         try:
@@ -54,13 +66,16 @@ def _active_features(root):
                 text = fh.read()
         except OSError:
             continue
-        if re.search(r"^Status:[ \t]*active[ \t]*(\(|$)", text, re.M | re.I) and re.search(r"^Process:\s*2\b", text, re.M):
-            found.append(text)  # a 1.x feature (no `Process: 2`) is finished on 1.8.1, not gated here
+        if not re.search(r"^Process:\s*2\b", text, re.M):
+            continue  # a 1.x feature (no `Process: 2`) is finished on 1.8.1, not gated here
+        if (re.search(r"^Status:[ \t]*active[ \t]*(\(|$)", text, re.M | re.I)
+                or shas and re.search(r"^Status:[ \t]*done", text, re.M | re.I) and _finished_by(root, f["state"], shas)):
+            found.append(text)
     return found
 
 
-def _active_feature(root):
-    found = _active_features(root)
+def _active_feature(root, shas=()):
+    found = _active_features(root, shas)
     return found[0] if len(found) == 1 else None
 
 
@@ -193,9 +208,9 @@ def decide(repo_root, shas, reviewed):
     gate applied, so an amend is reviewed whole, never as a delta. Never raises."""
     given = {"defer": False, "shas": list(shas), "own": list(shas), "range": None, "active": False}
     try:
-        if not _always() and not _active_features(repo_root):
+        if not _always() and not _active_features(repo_root, shas):
             return {"defer": True, "off": True, "shas": [], "own": [], "range": None, "active": False}
-        text = _active_feature(repo_root)
+        text = _active_feature(repo_root, shas)
         stage = re.search(r"^Current:\s*Stage\s*(\d+)\b", text or "", re.M)
         base = re.search(r"^Base:\s*`?([0-9a-f]{7,40})\b", text or "", re.M)
         if not (stage and base) or _git(repo_root, "merge-base", "--is-ancestor", base.group(1), "HEAD") is None:

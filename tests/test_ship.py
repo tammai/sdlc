@@ -35,15 +35,16 @@ class ShipTest(ProjectTestCase):
         return subprocess.run(["git", "-C", self.root, *args], capture_output=True, encoding="utf-8").stdout
 
     def ship(self):
-        p = subprocess.run([sys.executable, SCRIPT, "--root", self.root, "login", "--message", "feat: store",
-                            "--review", "No review ran: low risk."], capture_output=True, encoding="utf-8")
+        p = subprocess.run([sys.executable, SCRIPT, "--root", self.root, "login", "--review", "No review ran: low risk."], capture_output=True, encoding="utf-8")
         return p.returncode, p.stdout + p.stderr
 
     def test_readies_the_commit_in_one_call(self):
         code, out = self.ship()
         self.assertEqual(code, 0, out)
         with open(self.path(".sdlc/login/state.md"), encoding="utf-8") as f:
-            self.assertIn("Current: Stage 8", f.read())
+            text = f.read()
+        self.assertIn("Current: Stage 8", text)
+        self.assertIn("Status: done", text)  # committed with the change, so the kept record says done
         with open(self.path(".sdlc/login/change.md"), encoding="utf-8") as f:
             self.assertIn("## Review\n\nNo review ran: low risk.", f.read())
         self.assertEqual(self.out("branch", "--show-current").strip(), "login")
@@ -53,7 +54,7 @@ class ShipTest(ProjectTestCase):
         self.assertFalse([f for f in staged if "__pycache__" in f])  # what the tests leave behind isn't committed
         self.assertFalse([f for f in staged if f.endswith((".json", ".jsonl")) and f.startswith(".sdlc/state/")])
         with open(self.path(".sdlc/.work/commit-msg.txt"), encoding="utf-8") as f:
-            self.assertEqual(f.read(), "feat: store\n\nRecord: .sdlc/login/change.md\n")
+            self.assertEqual(f.read(), "Change\n\nRecord: .sdlc/login/change.md\n")  # the change file's title
 
     def test_a_failing_verify_moves_nothing(self):
         self.write(".sdlc/config.json", json.dumps({"commands": {"test": "python3 -c \"raise SystemExit(1)\""}}))

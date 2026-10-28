@@ -103,6 +103,19 @@ class ReviewGateTest(ProjectTestCase):
         self.commit("a.ts", "one\non main\n")
         self.assertFalse(sdlc_review_gate.decide(self.root, [self.head()[:7]], set())["defer"])
 
+    def test_ships_commit_that_marks_the_feature_done_is_still_reviewed(self):
+        self.stage(8)
+        self.commit(".sdlc/state/login.md", STATE.format(base=self.base, stage=8, risk="high"))
+        self.write("src/auth/login.ts", "token\n")
+        self.write(".sdlc/state/login.md", STATE.format(base=self.base, stage=8, risk="high")
+                   .replace("Status: active", "Status: done"))
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "ship")
+        plan = sdlc_review_gate.decide(self.root, [self.head()[:7]], set())
+        self.assertFalse(plan.get("off") or plan["defer"])
+        self.commit("src/auth/later.ts", "x\n")  # a later commit of the finished feature: no longer gated
+        self.assertTrue(sdlc_review_gate.decide(self.root, [self.head()[:7]], set()).get("off"))
+
     def test_without_an_active_feature_a_commit_gets_no_model_review_unless_asked(self):
         # ADR 0019: no review and nothing recorded as reviewed, so the push review still covers it
         self.commit("src/auth/b.ts", "2")

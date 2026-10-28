@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
 """Ship's one command: everything before the commit, so Ship is a single shell call (ADR 0020).
 
-Usage: ship.py [--root DIR] FEATURE --message SUBJECT [--review TEXT] [--note TEXT] [--timeout S]
+Usage: ship.py [--root DIR] FEATURE [--message SUBJECT] [--review TEXT] [--note TEXT] [--timeout S]
   1. `Owner:` must be `git config user.email`; someone else's is refused (the user decides a handover).
   2. `--review TEXT`: when the change file has no `## Review` yet, appends one holding TEXT (an S change, or an M no
      review ran on); one written already is left as it is.
   3. The last passing verify.py run is reused when the code hasn't changed since (`verify.py status`); otherwise
      verify.py runs now, and a failure stops here with nothing moved.
-  4. `state.py advance FEATURE 8 --gate pass --verified <head> <tree>`; already at Stage 8 (a rerun) is fine.
+  4. `state.py advance FEATURE 8 --gate pass --verified <head> <tree>` (already at Stage 8 is fine), then
+     `state.py set FEATURE Status done`, so the kept record says done; the commit review still reviews this commit
+     as the feature's (hooks/sdlc_review_gate.py: the commit that finishes a feature).
   5. On the default branch, switches to a branch named after the feature.
   6. Stages every changed and untracked file except .sdlc/.work/, state.py's control contract and what the tests
-     leave behind (`__pycache__`, caches), and writes the commit message (SUBJECT, then `Record: <change>`) to .sdlc/.work/commit-msg.txt.
+     leave behind (`__pycache__`, caches), and writes the commit message (SUBJECT, by default the change file's
+     title, then `Record: <change>`) to .sdlc/.work/commit-msg.txt.
 The commit stays in the caller's command, where the commit's security review and the user's permission rules see
 it: `ship.py … && git commit -F .sdlc/.work/commit-msg.txt && git push -u origin HEAD && gh pr create --fill`.
-`Status: done` comes after, in its own call, so that review still sees an active feature.
 Exit 0 ready to commit, 1 refused or verify failed, 2 usage. Stdlib only, Python 3.9+.
 """
 import argparse
@@ -72,12 +74,16 @@ def verified(root, feature, timeout):
     return last["head"], last["tree"]
 
 
-def advance(root, feature, head, tree, note):
-    cmd = [sys.executable, os.path.join(HERE, "state.py"), "--root", root, "advance", feature, "8", "--gate", "pass",
-           "--verified", head, tree] + (["--note", note] if note else [])
-    p = subprocess.run(cmd, capture_output=True, encoding="utf-8", errors="replace")
-    if p.returncode and "already at Stage 8" not in p.stdout:
-        raise Refused(f"state.py advance: {p.stdout.strip()}")
+def state_py(root, *args, ok=None):
+    p = subprocess.run([sys.executable, os.path.join(HERE, "state.py"), "--root", root, *args], capture_output=True,
+                       encoding="utf-8", errors="replace")
+    if p.returncode and not (ok and ok in p.stdout):
+        raise Refused(f"state.py {args[0]}: {p.stdout.strip()}")
+
+
+def title(root, change):
+    m = re.search(r"^#[ \t]+(.+?)\s*$", verify.read(os.path.join(root, change)) or "", re.M)
+    return m.group(1) if m else None
 
 
 def on_default_branch(root):
@@ -100,12 +106,15 @@ def ship(root, feature, message, review=None, note=None, timeout=1800):
     if state is None:
         raise Refused(f"no state file for {feature}")
     owner, me = field(state, "Owner"), git(root, "config", "user.email", check=False).strip()
+    message = message or title(root, paths["change"]) or feature
     if owner and me and owner != me:
         raise Refused(f"Owner is {owner}, not {me}: ask the user before taking it over")
     if review:
         add_review(root, paths["change"], review)
     head, tree = verified(root, feature, timeout)
-    advance(root, feature, head, tree, note)
+    state_py(root, "advance", feature, "8", "--gate", "pass", "--verified", head, tree, *(["--note", note] if note else []),
+          ok="already at Stage 8")
+    state_py(root, "set", feature, "Status", "done")
     branch = None
     if on_default_branch(root):
         branch = feature
@@ -123,7 +132,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--root", default=".")
     ap.add_argument("feature")
-    ap.add_argument("--message", required=True)
+    ap.add_argument("--message")
     ap.add_argument("--review")
     ap.add_argument("--note")
     ap.add_argument("--timeout", type=int, default=1800)
