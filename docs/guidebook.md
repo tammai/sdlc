@@ -148,7 +148,7 @@ The trust anchor gives a notice when a feature leaves Review without a passing f
 |---|---|
 | Conductor | `orchestrator` |
 | Set up | `setting-up-projects` (setup, upgrade, eject; its `references/trimming-context.md` backs `/sdlc:context-diet`) |
-| Define | `brainstorming` (the interview on L), `project-constitution` |
+| Define | `brainstorming` (the interview on L, unless a written spec settles the design), `project-constitution` |
 | Build | `test-driven-development`, `systematic-debugging` |
 | Check | `verification-before-completion` (the review entry points are Review, `/sdlc:review-pr` and `/sdlc:code-review`) |
 | Ship and learn | `managing-knowledge` (with the CLAUDE.md quality check that was `claude-md-improver`), `hookify` (with the rule syntax that was `writing-hook-rules`), `todo` |

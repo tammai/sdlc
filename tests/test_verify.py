@@ -78,6 +78,17 @@ class VerifyTest(ProjectTestCase):
         self.assertEqual(rec["last"]["result"], "pass")
         self.assertEqual(rec["last"]["manual"], ["AC-002"])
 
+    def test_one_test_proving_several_acs_runs_once(self):
+        self.spec("AC-001", "AC-002")
+        count = "python3 -c \"open('runs.txt', 'a').write('x'); import os, sys; sys.exit(0 if os.path.exists('done') else 1)\""
+        self.plan([("AC-001", "tests/t.py › flow", count), ("AC-002", "tests/t.py › flow", count)])
+        self.write("tests/t.py", "")
+        code, out, rec = self.verify("red", "AC-001", "AC-002")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(sorted(rec["red"]), ["AC-001", "AC-002"])  # red is recorded for each AC it proves
+        with open(self.path("runs.txt"), encoding="utf-8") as f:
+            self.assertEqual(f.read(), "x")
+
     def test_red_records_a_failing_test_and_refuses_a_passing_or_missing_one(self):
         self.spec("AC-001")
         self.plan([("AC-001", "tests/t.py › ok", 'python3 -c "import sys; sys.exit(1)"')])

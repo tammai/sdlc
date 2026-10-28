@@ -197,6 +197,7 @@ def full(root, feature, timeout=1800):
         notes.append("no acceptance tests section: every 2.0 plan has one")
     else:
         by_ac = {r["ac"]: r for r in rows}
+        ran = {}
         for ac in acs:
             row = by_ac.get(ac)
             if not row:
@@ -211,7 +212,7 @@ def full(root, feature, timeout=1800):
             elif ac not in rec.get("red", {}):
                 failures.append(f"{ac}: no red run recorded (run `verify.py red {ac}` before writing its code)")
             else:
-                code, out = run(row["run"], root, timeout)
+                code, out = run_once(ran, row["run"], root, timeout)
                 if code:
                     failures.append(f"{ac}: its test fails (exit {code})\n{out[-500:]}")
     drifted = drift(root, feature)
@@ -239,9 +240,9 @@ NOT_FOUND = re.compile(r"no tests ran|collected 0 items|No tests found|no tests 
 def red(root, feature, acs, timeout=1800):
     """({AC: exit code}, []) when every AC's test fails as it should before its code exists, else (None, reasons)
     and nothing is recorded: a batch is recorded whole or not at all."""
-    rows, codes, reasons = acceptance(root, feature)[1] or [], {}, []
+    rows, codes, reasons, ran = acceptance(root, feature)[1] or [], {}, [], {}
     for ac in acs:
-        code, reason = red_one(root, rows, ac, timeout)
+        code, reason = red_one(root, rows, ac, timeout, ran)
         if reason:
             reasons.append(reason)
         else:
@@ -258,7 +259,14 @@ def red(root, feature, acs, timeout=1800):
     return codes, []
 
 
-def red_one(root, rows, ac, timeout):
+def run_once(ran, cmd, root, timeout):
+    """One test may prove several ACs (their rows share its Run command): it runs once per verify call."""
+    if cmd not in ran:
+        ran[cmd] = run(cmd, root, timeout)
+    return ran[cmd]
+
+
+def red_one(root, rows, ac, timeout, ran):
     """(exit code, None) when the AC's test fails as it should, else (None, reason)."""
     row = next((r for r in rows if r["ac"] == ac), None)
     if not row:
@@ -267,7 +275,7 @@ def red_one(root, rows, ac, timeout):
         return None, f"{ac}: a manual row has no test to run"
     if not os.path.exists(os.path.join(root, row["file"])):
         return None, f"{ac}: {row['file']} not found"
-    code, out = run(row["run"], root, timeout)
+    code, out = run_once(ran, row["run"], root, timeout)
     if code == 0:
         return None, f"{ac}: its test passes before its code exists, so it proves nothing"
     if code in NOT_RUNNABLE or NOT_FOUND.search(out):
