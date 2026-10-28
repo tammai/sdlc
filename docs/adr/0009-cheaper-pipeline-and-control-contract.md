@@ -1,6 +1,7 @@
 # ADR 0009: A cheaper pipeline, a control contract, and fewer commit reviews
 
 - **Status:** Accepted, 2026-10-26. Amends [ADR 0008](0008-lite-flow-for-low-risk-m.md): the Lite flow's verify and review now run as one parallel round, with the qa-tester in a single-session feature.
+- **Superseded in part** by [ADR 0020](0020-sdlc-2-slim-process-core.md): the Lite flow's parallel round and `Build: subagent` are gone. Still current: one reference per phase, failure modes in the spec, `state.py` and the control contract, one commit security review per review-ready diff, and setup leaving the product alone.
 - **Deciders:** Tâm Mai.
 
 ## Context

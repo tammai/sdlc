@@ -1,6 +1,7 @@
 # ADR 0018: On M the main session is the maker
 
 - **Status:** Accepted, 2026-10-27. Amends [ADR 0017](0017-thin-main-session-and-stage-agents.md): on M, Define and Build run in the main session, not in a kept-alive maker agent. L is unchanged.
+- **Superseded** by [ADR 0020](0020-sdlc-2-slim-process-core.md): no maker and checker split; the main session builds and reviews run after the build.
 - **Deciders:** Tâm Mai, on the eval session's proposal.
 
 ## Context

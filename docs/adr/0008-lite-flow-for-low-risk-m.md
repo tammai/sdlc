@@ -1,6 +1,7 @@
 # ADR 0008: Low-risk M features run the Lite flow by default
 
 - **Status:** Accepted, 2026-10-25.
+- **Superseded** by [ADR 0020](0020-sdlc-2-slim-process-core.md): sdlc 2.0 has no Lite flow.
 - **Deciders:** Tâm Mai.
 
 ## Context

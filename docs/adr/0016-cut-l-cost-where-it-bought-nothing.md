@@ -1,6 +1,7 @@
 # ADR 0016: Cut L's cost where it bought nothing
 
 - **Status:** Accepted, 2026-10-27. Amends [ADR 0015](0015-prove-only-where-it-pays.md): Ship no longer asks on any track, and Prove runs one code reviewer and one security reviewer. Amends [ADR 0011](0011-track-cost.md): the advisor runs once per feature.
+- **Superseded in part** by [ADR 0020](0020-sdlc-2-slim-process-core.md): Prove's two reviewers, the advisor rule and the one-piece Define files are gone. Still current: `verify.py` writing the hook's copy, the comparison-proof budget, sizing by footprint, Ship not asking, and one flakiness loop.
 - **Deciders:** Tâm Mai.
 
 ## Context

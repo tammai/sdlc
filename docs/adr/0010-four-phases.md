@@ -24,7 +24,7 @@ Two of the touches were avoidable: a trust-anchor confirmation right after the u
 - **Ship:** Learn adds Prove's fixed defects to `recurring-defects.md`, which Define and every reviewer read.
 - **Deploy** becomes `/sdlc:deploy`. **Operate** is removed and kept as a reference.
 - The contract snapshot gains `phase`; the renamed stage names bump `contract_version` to 2.
-- The full gate mapping is in the feature spec: [four-phases spec](../sdlc/intents/2026-10-26-four-phases/spec.md).
+- The full gate mapping is in the feature spec: the four-phases spec, now only in git history: `git show e23efa17a5de:docs/sdlc/intents/2026-10-26-four-phases/spec.md`.
 
 ### Alternatives considered
 

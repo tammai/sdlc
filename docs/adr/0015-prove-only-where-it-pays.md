@@ -1,6 +1,7 @@
 # ADR 0015: Prove only where it pays
 
 - **Status:** Accepted, 2026-10-27. Amends [ADR 0013](0013-build-proves-prove-judges.md): Prove no longer runs on S or on M with `Flow: lite`, a backlog gets one Prove at Feature close instead of one per slice, and Prove's high findings are fixed back in Build. Amends [ADR 0014](0014-lighter-s-and-a-companion-plugin.md): S has no Prove step at all (it already dispatched nothing), and a security review runs only on a security-touched change, in Prove and at commit.
+- **Superseded in part** by [ADR 0020](0020-sdlc-2-slim-process-core.md): Prove and skipping it are gone. Still current: the security review only for security-touched work, and high findings fixed back in Build, test first.
 - **Deciders:** Tâm Mai.
 
 ## Context

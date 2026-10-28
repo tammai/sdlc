@@ -6,6 +6,7 @@
   - M's Prove is one checker.
   
   Built before it was measured, at the user's request.
+- **Superseded** by [ADR 0020](0020-sdlc-2-slim-process-core.md): no thin main session, kept-alive stage agents or relay; the main session builds at every size.
 - **Deciders:** Tâm Mai.
 
 ## Context

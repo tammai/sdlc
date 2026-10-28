@@ -1,6 +1,7 @@
 # ADR 0013: Build proves, Prove judges
 
 - **Status:** Accepted, 2026-10-27. Amends [ADR 0011](0011-track-cost.md) and [ADR 0012](0012-enforced-prove-budget.md): the verifier round in Prove, its red-green check on Base and the fresh re-verifier are replaced by Build's recorded evidence, reused in Prove, and a small agent that reads each acceptance test against its criterion. Amended by [ADR 0014](0014-lighter-s-and-a-companion-plugin.md): the hook copies `verify.json`'s entry for a run it recognises (the command itself, after `cd … &&`, followed only by output filters or `; echo`), so other hosts get a copy too; S's AC-001 is the state file's `Repro:` line. Amended by [ADR 0015](0015-prove-only-where-it-pays.md): S and M lite have no Prove (Build's passing `verify.py` goes to Ship), a backlog gets one Prove at Feature close instead of one per slice, and Prove's findings are fixed back in Build before the one re-verification.
+- **Superseded in part** by [ADR 0020](0020-sdlc-2-slim-process-core.md): Prove, the ac-checker and its re-verification are gone. Still current: `verify.py`, red before code, drift recorded and never a stop, and the hook's own copy of each run.
 - **Deciders:** Tâm Mai.
 
 ## Context
