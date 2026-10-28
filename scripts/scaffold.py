@@ -724,10 +724,16 @@ def not_the_installed_copy():
             "enabling the installed one would load two")
 
 
-def companions(p):
-    """The plugins sdlc pairs with (config `companions`): id, its marketplace (and `source` for one other than
-    sdlc's), a one-line `why`, and whether it's on by `default`."""
-    return [c for c in effective_config(p.config).get("companions") or [] if isinstance(c, dict) and c.get("id")]
+PLUGIN_ID = re.compile(r"^[a-z0-9][a-z0-9-]*@[a-z0-9][a-z0-9-]*$")
+
+
+def companions(p=None):
+    """The plugins sdlc pairs with: id, its marketplace (and `source` for one other than sdlc's), a one-line `why`,
+    and whether it's on by `default`. Read from the plugin's own shipped defaults only, never the repo's
+    .sdlc/config.json: that file is committed, and enable-plugin doesn't ask, so a repo must not be able to name a
+    plugin or marketplace for it to turn on."""
+    shipped = read_json(os.path.join(PLUGIN_ROOT, DEFAULTS), {}).get("companions") or []
+    return [c for c in shipped if isinstance(c, dict) and PLUGIN_ID.match(str(c.get("id", "")))]
 
 
 def cmd_enable_plugin(p, a):
@@ -796,7 +802,10 @@ def unmerge_plugin_keys(p, path, merge_key):
     ours = merged_list(p, merge_key)
     settings, removed = read_json(p.path(path), {}), []
     for tag in list(ours):
-        section, key = tag.split(".", 1)
+        section, _, key = str(tag).partition(".")
+        if section not in ("extraKnownMarketplaces", "enabledPlugins") or not key:
+            ours.remove(tag)  # not a shape sdlc writes: drop the record, touch nothing
+            continue
         node = settings.get(section)
         if isinstance(node, dict) and key in node:
             del node[key]

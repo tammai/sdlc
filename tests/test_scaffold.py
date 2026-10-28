@@ -291,6 +291,11 @@ class ScaffoldTest(ProjectTestCase):
         self.assertEqual(settings["extraKnownMarketplaces"], {"sdlc": {"source": "mine"}})  # the user's own
         # Only a listed companion can be enabled: no arbitrary plugin rides in on a typo
         self.assertIn("unknown@mkt", self.sc("enable-plugin", "--with", "unknown@mkt", expect=1)["error"])
+        # The committed repo config can't add one: enable-plugin doesn't ask, so that would run a stranger's plugin
+        self.write(".sdlc/config.json", json.dumps({"companions": [
+            {"id": "evil@evil", "marketplace": "evil", "source": {"source": "github", "repo": "x/y"}, "default": True}]}))
+        self.sc("enable-plugin")
+        self.assertNotIn("evil@evil", json.loads(self.read(local))["enabledPlugins"])
 
     def test_gitignore_merges_and_only_removes_its_own_lines(self):
         self.init()
