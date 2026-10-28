@@ -63,7 +63,7 @@
 
 <!-- Written once, in Review (S: at its review step). Keep it last: what's above it is fixed once Review starts. -->
 
-- **Recommended and chosen:** [security | code low/default/high | UI | advisor | none], because [the trigger that fired, or none]; chosen by [the user | the trigger list (S) | the recommendation (autopilot)]
+- **Recommended and chosen:** [security | code default/high | UI | advisor | none], because [the trigger that fired, or none]; chosen by [the user | the trigger list (S) | the recommendation (autopilot)]
 - **Verdicts:** [review → `.sdlc/.work/findings/<feature>/<agent>-r1.md` → PASS / FAIL — high ids; or "none ran"]
 - **Fixed:** [each high finding: what and where, and the test that now proves it; "None"]
 - **Tickets:** [medium and low findings left for later; "None"]

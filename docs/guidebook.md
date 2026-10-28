@@ -126,15 +126,14 @@ Review starts from Build's passing `verify.py`; it doesn't rerun it unless the c
    | Review | Recommended when |
    |---|---|
    | Security | security-touched, or untrusted input reaches a shell, file path or database |
-   | Code, low | `Risk: high`, L, or a `manual` AC |
-   | Code, default | a declared Public Surface, or a large diff (more than 5 source files or 300 added code lines) |
+   | Code, default | a declared Public Surface, a large diff (more than 5 source files or 300 added code lines), or L |
    | Code, high | `Risk: high`, or the spec names a crash mid-write or concurrent use as a failure mode |
    | UI | the diff touches `areas.ui`: always recommended |
    | Advisor | only where the agent has one, for a real judgment call the reviews can't settle |
 
-   The code depth is the highest row that fires, from these facts, not judged. Nothing fires (a low-risk M whose every AC was seen failing, then passing): no review, and the change goes from Build straight to Ship. At low risk what fires runs without asking; on high-risk M and on L it stops and you pick another depth, or none. Autopilot and headless runs take the recommendation and log that they did.
+   The code depth is the highest row that fires, from these facts, not judged. There's no lighter depth: `verify.py` already proves each acceptance test failed and now passes. A `manual` AC is checked by whichever review runs, or by the session when none does. Nothing fires (a low-risk M whose every AC was seen failing, then passing): no review, and the change goes from Build straight to Ship. At low risk what fires runs without asking; on high-risk M and on L it stops and you pick another depth, or none. Autopilot and headless runs take the recommendation and log that they did.
 
-   S doesn't use this table: it runs a fixed list and says what ran. Security when `Risk: high` or a changed path matches `areas.sensitive` or `areas.migrations`; UI when one matches `areas.ui`; code at low depth when the state file's Public Surface isn't `- none`; otherwise none.
+   S doesn't use this table: it runs a fixed list and says what ran. Security when `Risk: high` or a changed path matches `areas.sensitive` or `areas.migrations`; UI when one matches `areas.ui`; code at default depth when the state file's Public Surface isn't `- none`; otherwise none.
 2. **Run each chosen review once**, as a fresh agent on `opus`, never the context that wrote the code, all dispatched together. The code review is a `code-reviewer` with the shared brief at the chosen depth (low: correctness against each AC and must-never-break line; default: also silent failures, test gaps rated 1–10 with 8 or more high, simplifications and security basics; high: also a deeper pass on each failure mode). The security review is a `code-reviewer` with the security-only brief, plus the dependency audit and the security hooks' findings in the session. The UI review is the `ui-reviewer` with `design-system.md`, the spec and the diff. Each writes its report to `.sdlc/.work/findings/<feature>/`, ending `VERDICT: PASS` or `VERDICT: FAIL — <high ids>`.
 3. **Act on the findings.** Each high goes back to Build, fixed with a failing test first, fixing the rule rather than the one instance; then `verify.py` again. The review isn't rerun: the fixes are proven by their tests and the full suite. If the agent thinks a high is wrong, it brings you the finding and its case; a waiver is yours only. Medium and low become tickets in the change file's `## Review`.
 4. **Record** `## Review` once, as the last section of the change file: what was recommended and why, what was chosen and by whom, each verdict, the high findings with their fixes, the tickets, the drift and `manual` ACs. Everything above it stays as Define wrote it; the trust anchor reports a change there. The end-of-Review message lists every deviation and `manual` AC, so you see them without opening the files.
@@ -160,7 +159,7 @@ The trust anchor gives a notice when a feature leaves Review without a passing f
 | Agent | Used for |
 |---|---|
 | `code-explorer` | Brownfield setup's audit: trace existing code |
-| `code-reviewer` | Review: the code review at low, default or high depth with the shared reviewer brief; the security review with the security-only brief |
+| `code-reviewer` | Review: the code review at default or high depth with the shared reviewer brief; the security review with the security-only brief |
 | `ui-reviewer` | Review, when the diff touches UI files: design-system conformance, AI-slop styling, states, accessibility; screenshots on request |
 | `qa-tester` | On request: runs the feature as a user would, without reading the code |
 | `pr-test-analyzer`, `silent-failure-hunter` | `/sdlc:review-pr`, chosen by the diff |

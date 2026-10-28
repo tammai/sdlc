@@ -125,14 +125,13 @@ In Stage 5 the freshness hook blocks finishing on stale test results, and the bu
    | Review | Fires when |
    |---|---|
    | **Security** | `Risk: high`, or the diff touches `areas.sensitive` or `areas.migrations` (`.sdlc/config.json`), or untrusted input reaches a shell, file path or database |
-   | **Code, low** | `Risk: high`, L, or any `manual` AC |
-   | **Code, default** | `## Public Surface` isn't `- none`, or the diff is large (more than 5 source files or 300 added code lines) |
+   | **Code, default** | `## Public Surface` isn't `- none`, the diff is large (more than 5 source files or 300 added code lines), or L |
    | **Code, high** | `Risk: high`, or the spec names a crash mid-write or concurrent use as a failure mode |
    | **UI** | the diff touches `areas.ui` |
    | **Advisor** | only where this agent has one, and only for a real open judgment call the reviews can't settle |
 
-   The code depth is the highest row that fires.
-   - **Nothing fires** (a low-risk M whose every AC is proven by a test it saw fail, `$V`): no review. Stay in Build and Ship with `--review "No review ran: low risk, no trigger fired; every AC red then green (verify.py)." --note "no review: no trigger fired"`.
+   The code depth is the highest row that fires; there's no lighter one, since `$V` already proves each AC's test failed and now passes. A `manual` AC is checked by whichever review runs; if none does, check it yourself against the code and say how in `## Review`.
+   - **Nothing fires** (a low-risk M; every AC with a test was seen failing, then passing): no review. Stay in Build and Ship with `--review "No review ran: low risk, no trigger fired; every AC red then green (verify.py)." --note "no review: no trigger fired"` (with a `manual` AC, add how you checked it).
    - **Low risk:** run what fires without asking; `$S log <f> "review: ran <reviews> (<rows that fired>), not asked: low risk"`.
    - **High risk or L:** recommend, one line per review with the row that fired, and stop: the user picks (another depth, or none). Autopilot or a headless run: take the recommendation and record that you did (`$S log`).
 2. **Run each chosen review once**, together: each a fresh agent on `opus`, never the context that wrote the code. Its prompt, not a summary: read `${CLAUDE_PLUGIN_ROOT}/skills/orchestrator/references/review-brief.md` (the depth, or its security section), `<change>` and `<state>`; the diff is `git diff <Base> -- . ':!.sdlc'`; the ACs are <ids>; write the report to `.sdlc/.work/findings/<feature>/<agent>-r<N>.md`, ending in `VERDICT: PASS` or `VERDICT: FAIL — <high ids>` (the trust anchor reads those lines). Don't read the brief yourself.
