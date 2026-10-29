@@ -4,9 +4,13 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
+## 2.1.0 — 2026-10-29
+
 ### Added
 - **UI design work can go to impeccable** (ADR 0021): setup's design step asks who does UI design, sdlc's builtin design system or the [impeccable](https://github.com/pbakaus/impeccable) skill, recommending from the PRD, and records it (`design` in `.sdlc/config.json`, `scaffold.py design`). In impeccable mode `design-system.md` points at `DESIGN.md`, Define plans UI with `/impeccable shape` and keeps its brief in the state file, impeccable's detector hook replaces the hard-coded-values guardrail, and `ui-reviewer` keeps the verdict with impeccable's `detect` and `audit` as evidence. sdlc never installs impeccable; missing, each step falls back to builtin and `/sdlc:doctor` warns. Existing repos are offered the choice by migration `2.1.0-design-mode`; without it nothing changes.
 - **impeccable's own agents get through the model router** while a feature is active (they're spawned with no model).
+
+Migration `2.1.0-design-mode` offers set-up repos the design choice; declining it changes nothing. Checked live on 2026-10-28 and 2026-10-29 in headless sessions on Windows with impeccable 4.8.0 installed by `npx impeccable install`, in a small React app: setup in impeccable mode, an S UI change through Define (`shape`), Build (impeccable's detector hook fired) and Review (`detect` and the audit checks cited), and the fallback with impeccable missing. Not exercised live: impeccable's own agents passing the model router (covered by the suite), and a new screen that makes impeccable write `DESIGN.md`. The full release smoke test (parts A–J) wasn't rerun; the suite and `claude plugin validate .` pass.
 
 ## 2.0.1 — 2026-10-28
 

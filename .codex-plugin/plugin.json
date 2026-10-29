@@ -1,6 +1,6 @@
 {
   "name": "sdlc",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "One Claude Code plugin for the whole software lifecycle: an orchestrator sizes each piece of work (trivial, S, M or L) and walks it through four phases (define, build, review, ship), leaving one record with the code (a change file for people, a state file for the agent): test-first builds that prove each acceptance criterion with one verify command, reviews recommended from the diff after the build (security only where security is touched), then ship and learn, plus guardrail hooks, design-system-aware UI review and setup/upgrade for any stack or monorepo.",
   "author": {
     "name": "Tâm Mai",
