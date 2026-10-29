@@ -95,7 +95,7 @@ Each UI change afterwards:
 |---|---|
 | Define | `/impeccable shape`; you confirm the brief, which is copied into the state file's `## UI mapping` and its copy into the ACs |
 | Build | built through impeccable; its detector hook reports after UI edits |
-| Review | `sdlc:ui-reviewer` (opus) runs impeccable's `detect` and `audit` as evidence and writes the verdict; a missing `DESIGN.md` is Medium, not High |
+| Review | `sdlc:ui-reviewer` (opus) runs impeccable's `detect` and applies its `audit` checks (read from `reference/audit.md`) as evidence and writes the verdict; a missing `DESIGN.md` is Medium, not High |
 | Ship | as usual |
 
 impeccable missing when a step runs: the step says so in one line and runs builtin; `/sdlc:doctor` warns. A repo set up before 2.1 gets the same question from `/sdlc:upgrade` (migration `2.1.0-design-mode`); with no answer it stays builtin and nothing changes. Switch later with `scaffold.py design <mode>`, which also puts the UI guardrail back or takes it away.

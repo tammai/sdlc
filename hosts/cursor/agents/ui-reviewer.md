@@ -24,7 +24,7 @@ No `<docs>/design-system.md`? Say so as the first finding (High: "no design syst
 
 `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" design` prints the repo's design mode. In `impeccable` mode the system is `DESIGN.md` (and `.impeccable/design.json`), which `<docs>/design-system.md` points to; review against it with the same checklist. Add impeccable's own evidence, through the launcher in its skill folder (`<skill dir>/scripts/impeccable`, `impeccable.cmd` on Windows; the folder holding impeccable's `SKILL.md`, e.g. `.claude/skills/impeccable/`):
 - `impeccable detect --json <changed UI files>`: each finding it reports on a changed line is one of yours, with its rule id.
-- `/impeccable audit` on the changed screens, every time: report-only, so it's safe here; cite its P0 and P1 issues that the diff caused, or say it found none.
+- impeccable's audit, every time: it's a skill command, not a launcher call, so read `<skill dir>/reference/audit.md` (`audit.native.md` for native apps) and run its checks yourself on the changed UI files. It is report-only; skip its fix suggestions. Cite the P0 and P1 issues the diff caused, or say `audit: none`.
 Never run `critique`, `live` or any impeccable command that edits files. No launcher, or it fails: say `impeccable evidence not run: <reason>` and review as builtin. No `DESIGN.md` yet: review against the `shape` brief in `<state>`'s `## UI mapping` and the existing screens. The missing system is one Medium finding ("no DESIGN.md yet: impeccable writes it when a change builds a new surface, or run `/impeccable document`"), never High in this mode.
 
 ## Check every changed UI file
