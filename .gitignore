@@ -1,3 +1,8 @@
 __pycache__/
 *.pyc
 .DS_Store
+
+# sdlc working files from features built in this repo with sdlc itself
+.sdlc/.work/
+.sdlc/state/*.json
+.sdlc/state/*.jsonl
