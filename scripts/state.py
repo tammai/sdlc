@@ -17,6 +17,7 @@ Usage: python3 state.py [--root DIR] advance FEATURE STAGE [--gate pass|fail] [-
                                      blocker FEATURE raise|resolve TEXT
                                      set FEATURE FIELD VALUE
                                      sync FEATURE
+                                     new FEATURE --track S|M|L --risk low|high --task "<title> | <ACs> | <files>" ...
 Everything is computed before anything is written; then backlog.md, state.md, state.json and the event are
 written in that order, each file atomically. Prints one JSON object. Exit 0 ok, 1 refused (unknown feature,
 malformed state.md, a failed write; nothing written unless the error says so), 2 usage. Stdlib only, Python 3.9+.
@@ -318,6 +319,93 @@ def read_raw(path):
         return f.read()
 
 
+def git_line(root, *args):
+    try:
+        out = subprocess.run(["git", "-C", root, *args], capture_output=True, encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+    return out.stdout.strip() if out.returncode == 0 else ""
+
+
+def test_command(root):
+    try:
+        with open(os.path.join(root, ".sdlc", "config.json"), encoding="utf-8") as f:
+            commands = json.load(f).get("commands") or {}
+    except (OSError, ValueError, AttributeError):
+        return ""
+    return commands.get("test") or "" if isinstance(commands, dict) else ""
+
+
+def task_lines(specs):
+    """`--task "<title> | <ACs> | <files>"` → the numbered `## Tasks` entries (files space- or comma-separated)."""
+    out = []
+    for n, spec in enumerate(specs, 1):
+        parts = [p.strip() for p in spec.split("|")]
+        if len(parts) != 3 or not parts[0] or not parts[2]:
+            raise Refused(f"--task is \"<title> | <ACs> | <files>\", not {spec!r}")
+        title, acs, files = parts
+        out.append(f"{n}. **{title}**" + (f" — {acs}" if acs else ""))
+        out.append("   - Files: " + ", ".join(f"`{f}`" for f in re.split(r"[,\s]+", files) if f))
+    return out
+
+
+def new_state(a):
+    """The state file's text from Define's answers: the header lines (Base, Owner, the test command and the date looked
+    up here) and the plan sections, so the agent writes only the change file."""
+    paths = sdlc_layout.paths(a.root, a.feature)
+    footprint = f"footprint: {a.footprint} files" if a.footprint is not None else "footprint: ? files"
+    risk = f"Risk: {a.risk}" + (f"   ({a.risk_why})" if a.risk_why else "")
+    tasks = task_lines(a.task)
+    surface = [f"- {s}" for s in a.surface] or ["- none"]
+    head = [f"# {a.feature}", "Status: active", "Process: 2"]
+    if a.track == "S":
+        head += [f"Track: S   ({footprint})", risk, "Top model: opus",
+                 f"Base: {git_line(a.root, 'rev-parse', '--short', 'HEAD')}",
+                 f"Owner: {git_line(a.root, 'config', 'user.email')}", f"Tool: {a.tool}", "Current: Stage 1 – Define"]
+        body = ["## Tasks", *tasks, "", "## Public Surface", *surface]
+    else:
+        test = test_command(a.root)
+        head += [f"Change: {paths['change']}   (this feature's record for people)",
+                 f"Track: {a.track}   (sized up because: {a.sized or '—'}; {footprint})", risk,
+                 "Top model: opus   (fable only if the user chose it)",
+                 f"Commands: test: `{test}`" if test else "Commands: test: (none recorded)",
+                 f"Started: {datetime.now().strftime('%Y-%m-%d')}",
+                 f"Base: {git_line(a.root, 'rev-parse', '--short', 'HEAD')}",
+                 f"Owner: {git_line(a.root, 'config', 'user.email')}", f"Tool: {a.tool}",
+                 "Current: Stage 1 – Define", "", "## Stages",
+                 "- [ ] 1 Define   — the change file, the plan sections below", "- [ ] 4 Build",
+                 "- [ ] 5 Review   — the change file's ## Review",
+                 "- [ ] 8 Ship     — PR: (Learn: knowledge, recurring-defects.md)"]
+        body = ["## How the build runs", a.build, "", "## Handoff", *([f"- {h}" for h in a.handoff] or ["-"]), "",
+                "## Tasks", *tasks, "", "## Public Surface", *surface]
+    tail = ["## Gate log", "- (oldest first: each new line goes at the bottom of this list)", "", "## Deviations", "-",
+            "", "## Open questions", "-"]
+    return paths["state"], "\n".join(head + [""] + body + [""] + tail) + "\n"
+
+
+def create(a):
+    if not a.task:
+        raise Refused("new needs at least one --task")
+    for value in [a.feature, a.risk_why, a.sized, a.build, *a.task, *a.surface, *a.handoff]:
+        if isinstance(value, str) and ("\n" in value or "\r" in value):
+            raise Refused("values can't contain line breaks")
+    if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", a.feature):
+        raise Refused("a feature name is lowercase letters, digits and dashes")
+    if a.feature in sdlc_layout.features(a.root):
+        raise Refused(f"{a.feature} already has a state file: pick another name (add -2) or resume it")
+    rel, text = new_state(a)
+    path = os.path.join(a.root, rel)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    write_atomic(path, text)
+    a.cmd = "sync"  # the control contract, as every call writes it
+    run(a)
+    event = {"type": "feature_started", "state": rel}
+    with open(contract_paths(a.root, a.feature)[1], "a", encoding="utf-8") as f:
+        f.write(json.dumps({"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "feature": a.feature,
+                            **event}, ensure_ascii=False) + "\n")
+    return event
+
+
 def run(a):
     located = sdlc_layout.features(a.root).get(a.feature)
     if not located:
@@ -380,13 +468,22 @@ def main(argv=None):
     s.add_argument("text")
     s = sub.add_parser("set"); s.add_argument("feature"); s.add_argument("field"); s.add_argument("value")
     s = sub.add_parser("sync"); s.add_argument("feature")
+    s = sub.add_parser("new"); s.add_argument("feature")
+    s.add_argument("--track", choices=["S", "M", "L"], required=True)
+    s.add_argument("--risk", choices=["low", "high"], required=True); s.add_argument("--risk-why")
+    s.add_argument("--sized", help="M/L: the signal that sized it up"); s.add_argument("--footprint", type=int)
+    s.add_argument("--tool", default="claude-code")
+    s.add_argument("--build", default="inline: this session builds it, one part")
+    s.add_argument("--handoff", action="append", default=[])
+    s.add_argument("--task", action="append", default=[], help='"<title> | <ACs> | <files>"')
+    s.add_argument("--surface", action="append", default=[])
     for p in sub.choices.values():
         p.error = ap.error
     a = ap.parse_args(argv)
     sys.stdout.reconfigure(encoding="utf-8")
     a.root = os.path.abspath(a.root)
     try:
-        event = run(a)
+        event = create(a) if a.cmd == "new" else run(a)
     except Refused as e:
         print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
         return 1

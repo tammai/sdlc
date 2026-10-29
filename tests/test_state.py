@@ -68,6 +68,25 @@ class StateTest(ProjectTestCase):
         _, out, _, _ = run_hook(FRESHNESS, {"hook_event_name": "Stop", "cwd": self.root}, self.root)
         self.assertEqual(out["decision"], "block")
 
+    def test_new_writes_the_state_file_from_defines_answers(self):
+        self.write(".sdlc/config.json", json.dumps({"docs_dir": "docs/sdlc", "commands": {"test": "npm test"}}))
+        code, out = self.state("new", "2026-10-30-m-prio", "--track", "M", "--risk", "high", "--risk-why", "public API",
+                               "--footprint", "3", "--task", "Priority command | AC-001 AC-002 | bin/planner.js, README.md",
+                               "--surface", "command `priority <id> <level>` — AC-002")
+        self.assertEqual(code, 0, out)
+        with open(self.path(".sdlc/state/2026-10-30-m-prio.md"), encoding="utf-8") as f:
+            text = f.read()
+        for line in ("Process: 2\n", "Change: docs/sdlc/changes/2026-10-30-m-prio.md", "Risk: high   (public API)\n",
+                     "Commands: test: `npm test`\n", "Current: Stage 1 – Define\n",
+                     "1. **Priority command** — AC-001 AC-002\n   - Files: `bin/planner.js`, `README.md`\n",
+                     "## Public Surface\n- command `priority <id> <level>` — AC-002\n"):
+            self.assertIn(line, text)
+        self.assertEqual(self.state("advance", "2026-10-30-m-prio", "4", "--gate", "pass")[0], 0)  # the flow goes on
+        # A name already in use is refused, so a resumed feature's record is never overwritten
+        code, out = self.state("new", "login", "--track", "S", "--risk", "low", "--task", "x | AC-001 | a.js")
+        self.assertEqual(code, 1)
+        self.assertIn("already has a state file", out["error"])
+
     def test_a_2_0_feature_moves_through_four_phases(self):
         for stage, name in (("5", "Review"), ("8", "Ship")):
             self.assertEqual(self.state("advance", "login", stage, "--gate", "pass")[0], 0)
