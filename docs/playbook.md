@@ -111,7 +111,7 @@ Each chosen review runs **once**, as a fresh agent on `opus`, and ends its repor
 
 - **High findings** go back to Build, each fixed with a failing test first, then `verify.py` again. The review isn't rerun: the fixes are proven by their tests and the full suite.
 - **You disagree, or the agent does:** a high finding the agent thinks is wrong comes to you with its case. Only you can waive one, recorded as a deviation.
-- **Medium and low** findings are ticketed in the change file's `## Review`.
+- **Medium and low** findings that are bugs in code the change touched (wrong behaviour, a crash, an unhandled error, a missing test) are fixed too, test first, without asking you. The rest (improvements, code the change didn't touch) are ticketed in the change file's `## Review`.
 
 **A failure that existed before your change:** `verify.py` doesn't read `.sdlc/baseline.md`. When only the test step fails and every failure is listed there, the agent logs it and passes the gate. A new failure is reported; baselining it is your call, recorded as a deviation.
 
@@ -135,7 +135,7 @@ Use `sdlc:receiving-code-review`: check each comment against the code before agr
 | Spec versus implementation | Review's code review, from the change file and the state file's plan sections |
 | On the GitHub PR | `/sdlc:code-review` |
 
-Severity rules: unrequested public surface (an export, file, endpoint, option, config key or dependency not in the state file's Public Surface, with no stated reason) is **high**. Code-style issues (comments, naming, formatting) are fixed in passing, never high. Other medium and low findings go to the change file's `## Review` as tickets.
+Severity rules: unrequested public surface (an export, file, endpoint, option, config key or dependency not in the state file's Public Surface, with no stated reason) is **high**. Code-style issues (comments, naming, formatting) are fixed in passing, never high. Other medium and low findings are fixed when they're bugs in the change, else go to the change file's `## Review` as tickets.
 
 ## 9. Skip a gate deliberately
 

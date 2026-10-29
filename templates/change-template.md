@@ -68,7 +68,7 @@
 - **Recommended and chosen:** [security | code default/high | UI | advisor | none], because [the trigger that fired, or none]; chosen by [the user | the trigger list (S) | the recommendation (autopilot)]
 - **Verdicts:** [review → `.sdlc/.work/findings/<feature>/<agent>-r1.md` → PASS / FAIL — high ids; or "none ran"]
 - **Fixed:** [each high finding: what and where, and the test that now proves it; "None"]
-- **Tickets:** [medium and low findings left for later; "None"]
+- **Tickets:** [findings left for later because they aren't bugs in this change: improvements, code it didn't touch; "None"]
 - **Drift and manual checks:** [each Deviations line from the state file, and each `manual` AC with how it was checked; "None"]
 - **Security:** [only when a security review ran: findings, the dependency audit, the hooks' findings; else delete this line]
 - **Lessons filed:** [links to the knowledge or rule each lesson went into; "None"]
