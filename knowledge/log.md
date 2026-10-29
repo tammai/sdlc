@@ -21,3 +21,4 @@
 - 2026-10-28 add knowledge/gotchas/repo-config-is-untrusted.md — repo config could name a plugin for setup to enable without asking (from 2.0.1 release distill)
 - 2026-10-29 add knowledge/gotchas/subagents-cant-run-skill-commands.md — ui-reviewer skipped `/impeccable audit` in live checks (from 2.1.0 release distill)
 - 2026-10-29 add knowledge/gotchas/headless-plugin-tests.md — slash commands mangled by Git Bash; the run's prompt lifted the planted round cap (from 2.2.0 release distill)
+- 2026-10-29 add knowledge/gotchas/cloud-sessions-see-only-committed-files.md — cloud sessions ran without sdlc, its keys only in settings.local.json (from 2.3.0 release distill)
