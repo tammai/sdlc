@@ -12,6 +12,7 @@ class ReviewRoundsTest(ProjectTestCase):
     def setUp(self):
         super().setUp()
         self.write(".sdlc/state/login.md", STATE)
+        self.write(".sdlc/config.json", '{"commands": {"test": "npm test"}}')
 
     def report(self, n, verdict):
         self.write(f".sdlc/.work/findings/login/code-reviewer-r{n}.md", f"# r{n}\n\nVERDICT: {verdict}\n")
@@ -21,12 +22,19 @@ class ReviewRoundsTest(ProjectTestCase):
                                          "tool_input": {"file_path": self.path(path)}}, self.root)
         return (out or {}).get("hookSpecificOutput", {}).get("permissionDecision")
 
+    def bash(self, command):
+        _, out, _, _ = run_hook(HOOK, {"hook_event_name": "PreToolUse", "cwd": self.root, "tool_name": "Bash",
+                                       "tool_input": {"command": command}}, self.root)
+        return (out or {}).get("hookSpecificOutput", {}).get("permissionDecision")
+
     def test_a_third_failing_round_stops_the_fixing_until_the_user_answers(self):
         self.report(1, "FAIL — 1 high: H1")
         self.report(2, "FAIL — 1 high: H1")
         self.assertIsNone(self.edit())  # round 2's bugs are still fixed without asking
         self.report(3, "FAIL — 1 high: H1")
         self.assertEqual(self.edit(), "deny")
+        self.assertIsNone(self.bash("npm test"))  # the project's tests change no code
+        self.assertEqual(self.bash("npm test && git commit -am x"), "deny")
         self.assertIsNone(self.edit(".sdlc/.work/findings/login/security-r3.md"))  # a reviewer finishing its report
         os.remove(self.path(".sdlc/.work/findings/login/code-reviewer-r3.md"))  # deleting the report doesn't reset it
         self.assertEqual(self.edit(), "deny")

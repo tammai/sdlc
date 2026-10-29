@@ -5,7 +5,9 @@ A round is one set of review reports, `.sdlc/.work/findings/<feature>/<reviewer>
 fixed test first, then round N+1 checks the fixes. When an active feature's round 3 (or later) still ends
 `VERDICT: FAIL` and the user hasn't waived it (`waived round <N>`), PreToolUse denies every edit, shell command,
 subagent and skill, so the agent can only read and ask the user: one more round, waive, or stop. Writes to
-`.sdlc/.work/findings/` stay open, so a round-3 reviewer still finishing its report isn't cut off.
+`.sdlc/.work/findings/` stay open, so a round-3 reviewer still finishing its report isn't cut off, and so do the
+project's test command and the plugin's verify.py, which change no code (the freshness hook asks for a run before
+Review's turn ends).
 The user's next prompt grants one more round; nothing the agent writes can, since only the user sends a prompt. The
 highest round seen is kept in `.sdlc/.work/review-rounds.json`, so deleting a report doesn't reset the count.
 Silent outside an active 2.0 feature; any error: no output.
@@ -15,6 +17,7 @@ import os
 import re
 import sys
 
+import prove_budget as pb  # sibling hook: what counts as the project's own command
 import sdlc_layout  # sibling module: where feature state and sdlc documents live
 import trust_anchor  # sibling hook: the latest round's failed reports and the user's waiver
 import verify_freshness as vf  # sibling hook: project root
@@ -47,6 +50,19 @@ def latest_round(root, name):
     except OSError:
         return 0
     return max((int(re.search(r"-r(\d+)\.md$", f).group(1)) for f in files), default=0)
+
+
+def runs_tests(root, command):
+    """verify.py or the project's test command alone (Ship's call isn't one: it commits)."""
+    try:
+        with open(os.path.join(root, ".sdlc", "config.json"), encoding="utf-8") as f:
+            config = json.load(f)
+    except (OSError, ValueError):
+        config = {}
+    sets = [config.get("commands")] + [p.get("commands") for p in config.get("packages") or [] if isinstance(p, dict)]
+    tests = [s["test"].strip() for s in sets if isinstance(s, dict) and isinstance(s.get("test"), str) and s["test"].strip()]
+    parts = [(step.strip(), sep) for step, sep in pb.split_top_level(command) or []]
+    return pb.is_plugin_verify(command) or bool(tests) and not pb.is_ship_call(parts) and pb.is_project_command(command, tests)
 
 
 def capped(root, saved):
@@ -82,6 +98,8 @@ def main():
     rel = os.path.relpath(os.path.abspath(os.path.join(data.get("cwd") or root, path)), root).replace(os.sep, "/")
     if path and rel.startswith(".sdlc/.work/findings/") and not any(c in rel for c in "~:"):
         return  # a reviewer finishing its report
+    if tool in ("Bash", "PowerShell") and runs_tests(root, (data.get("tool_input") or {}).get("command") or ""):
+        return
     rounds = ", ".join(f"{n} (round {r})" for n, r in over.items())
     reason = (f"sdlc: {rounds}: the review still finds bugs after {CAP} rounds, so the fixing stops here. Tell the "
               "user which findings are left (the latest reports in .sdlc/.work/findings/) and ask: one more round, "
