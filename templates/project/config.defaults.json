@@ -64,6 +64,11 @@
       "marketplace": "sdlc",
       "why": "the Ralph loop, hookify list/configure/help, and extra review agents (type design, comments, simplifier)",
       "default": false
+    },
+    {
+      "skill": "security-audit",
+      "install": "npx skills add https://github.com/cloudflare/security-audit-skill --skill security-audit",
+      "why": "Cloudflare's security audit: a full multi-agent audit when you ask for one (before a release, or an L change touching auth, payments or personal data); not part of each change's review"
     }
   ],
   "conflicts": [

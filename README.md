@@ -28,7 +28,7 @@ From the marketplace that hosts it:
 /plugin install sdlc@sdlc
 ```
 
-Optional: `/plugin install sdlc-extras@sdlc` adds the companion plugin: the Ralph loop, hookify's list, configure and help commands, and four extra review agents `/sdlc:review-pr` and `/sdlc:hookify` use when present.
+Optional: `/plugin install sdlc-extras@sdlc` adds the companion plugin: the Ralph loop, hookify's list, configure and help commands, and four extra review agents `/sdlc:review-pr` and `/sdlc:hookify` use when present. Optional companion skill: Cloudflare's [security-audit](https://github.com/cloudflare/security-audit-skill) (`npx skills add https://github.com/cloudflare/security-audit-skill --skill security-audit`), a full multi-agent security audit you run when you want one, for example before a release; sdlc mentions it on L changes to sensitive paths and never runs it unasked.
 
 Restart the session afterward so the commands and hooks load. To work on the plugin from a checkout instead, see [Contributing](#contributing).
 

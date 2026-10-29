@@ -40,10 +40,10 @@ class ScaffoldTest(ProjectTestCase):
         fm = f"version: {version}\n" if version else ""
         self.plugin_file(f"migrations/{name}.md", f"---\n{fm}summary: {summary}\n---\n\nSteps.\n")
 
-    def sc(self, *args, expect=0, plugin=None):
+    def sc(self, *args, expect=0, plugin=None, env=None):
         code, out, raw, err = run_hook([sys.executable, SCRIPT, "--root", self.root, *args], "", self.root,
                                        env_extra={"CLAUDE_PLUGIN_ROOT": plugin or self.plugin,
-                                                  "CLAUDE_CONFIG_DIR": self.path("claude-config")})
+                                                  "CLAUDE_CONFIG_DIR": self.path("claude-config"), **(env or {})})
         self.assertEqual(code, expect, f"{args}: {raw}{err}")
         self.assertIsNotNone(out, raw + err)
         return out
@@ -296,6 +296,19 @@ class ScaffoldTest(ProjectTestCase):
             {"id": "evil@evil", "marketplace": "evil", "source": {"source": "github", "repo": "x/y"}, "default": True}]}))
         self.sc("enable-plugin")
         self.assertNotIn("evil@evil", json.loads(self.read(local))["enabledPlugins"])
+
+    def test_enable_plugin_lists_a_skill_companion_without_installing_it(self):
+        self.template("templates/project/config.defaults.json", json.dumps({"companions": [
+            {"skill": "security-audit", "install": "npx skills add x --skill security-audit", "why": "audits"}]}))
+        self.init()
+        self.installed()
+        home = {"HOME": self.path("home"), "USERPROFILE": self.path("home")}  # skills also install to ~/.agents
+        out = self.sc("enable-plugin", env=home)
+        self.assertEqual(out["skills"], [{"skill": "security-audit", "why": "audits",
+                                          "install": "npx skills add x --skill security-audit", "installed": False}])
+        self.assertNotIn("security-audit", json.dumps(json.loads(self.read(".claude/settings.local.json"))))
+        self.write(".claude/skills/security-audit/SKILL.md", "---\nname: security-audit\n---\n")  # a project install
+        self.assertTrue(self.sc("enable-plugin", env=home)["skills"][0]["installed"])
 
     def test_enable_plugin_turns_a_conflicting_plugin_off_here_and_reports_spec_kit(self):
         self.template("templates/project/config.defaults.json", json.dumps({"conflicts": [

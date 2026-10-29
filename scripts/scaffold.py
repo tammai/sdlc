@@ -315,14 +315,18 @@ def cmd_guardrails(p, a):
                                                      if t.startswith("templates/project/hookify/")]}
 
 
-def impeccable_installed(root):
-    """Whether the impeccable skill is installed for this repo: in the project's or the user's agent skill folders,
-    or as a Claude Code plugin. File existence only."""
+def skill_installed(root, name):
+    """Whether a skill is installed for this repo: in the project's or the user's agent skill folders, or as a
+    Claude Code plugin of that name. File existence only."""
     config = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(os.path.expanduser("~"), ".claude")
     dirs = [os.path.join(root, d) for d in (".claude", ".agents", ".cursor", ".agent")]
     dirs += [config, os.path.join(os.path.expanduser("~"), ".agents")]
-    return any(os.path.isfile(os.path.join(d, "skills", "impeccable", "SKILL.md")) for d in dirs) \
-        or any(k.split("@")[0] == "impeccable" for k in installed_plugins())
+    return any(os.path.isfile(os.path.join(d, "skills", name, "SKILL.md")) for d in dirs) \
+        or any(k.split("@")[0] == name for k in installed_plugins())
+
+
+def impeccable_installed(root):
+    return skill_installed(root, "impeccable")
 
 
 def cmd_design(p, a):
@@ -806,6 +810,18 @@ def companions(p=None):
     return [c for c in shipped if isinstance(c, dict) and PLUGIN_ID.match(str(c.get("id", "")))]
 
 
+SKILL_NAME = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+
+
+def skill_companions(root):
+    """The skills sdlc pairs with (a `skill` entry in the shipped `companions`): sdlc never installs one, it reports
+    whether it's installed and the command that installs it, for the user to run. Shipped defaults only."""
+    shipped = read_json(os.path.join(PLUGIN_ROOT, DEFAULTS), {}).get("companions") or []
+    return [{"skill": c["skill"], "why": c.get("why", ""), "install": c.get("install", ""),
+             "installed": skill_installed(root, c["skill"])}
+            for c in shipped if isinstance(c, dict) and SKILL_NAME.match(str(c.get("skill", "")))]
+
+
 def conflicts():
     """What clashes with sdlc (shipped defaults only, like companions): a `plugin` (by name, any marketplace) that
     enable-plugin turns off for this repo, or `files` (a tool written into the repo, such as spec-kit's) to report."""
@@ -884,6 +900,9 @@ def cmd_enable_plugin(p, a):
     in_repo = conflicts_in_repo(p)
     if in_repo:
         out["conflicts_in_repo"] = in_repo
+    skills = skill_companions(p.root)
+    if skills:
+        out["skills"] = skills
     if skipped:
         out["skipped"] = skipped
     if added and excluded:
