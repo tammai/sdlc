@@ -26,6 +26,7 @@ One line per doc: path — what it answers (≤12 words). Keep this file under ~
 - [gotchas/rendering-svg-diagrams.md](gotchas/rendering-svg-diagrams.md) — how to render and check a hand-edited docs diagram
 - [gotchas/frontmatter-colon-breaks-yaml.md](gotchas/frontmatter-colon-breaks-yaml.md) — why a colon in a description drops agent metadata
 - [gotchas/fake-plugin-root-in-tests.md](gotchas/fake-plugin-root-in-tests.md) — scripts import siblings by __file__: tests fake the plugin root
+- [gotchas/headless-plugin-tests.md](gotchas/headless-plugin-tests.md) — Git Bash path conversion; a run's own prompt lifts planted hook state
 
 ## Runbooks
 - [../docs/runbook.md](../docs/runbook.md) — maintainer and user procedures, including releases

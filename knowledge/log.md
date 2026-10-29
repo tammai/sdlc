@@ -20,3 +20,4 @@
 - 2026-10-28 add knowledge/gotchas/hooks-read-command-text.md — Ship's one call refused by the budget hook; a scripted commit would skip the commit review (from 2.0.0 release distill)
 - 2026-10-28 add knowledge/gotchas/repo-config-is-untrusted.md — repo config could name a plugin for setup to enable without asking (from 2.0.1 release distill)
 - 2026-10-29 add knowledge/gotchas/subagents-cant-run-skill-commands.md — ui-reviewer skipped `/impeccable audit` in live checks (from 2.1.0 release distill)
+- 2026-10-29 add knowledge/gotchas/headless-plugin-tests.md — slash commands mangled by Git Bash; the run's prompt lifted the planted round cap (from 2.2.0 release distill)

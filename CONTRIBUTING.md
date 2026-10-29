@@ -40,6 +40,7 @@ sdlc/
 │   ├── scaffold.py          setup/upgrade/eject bookkeeping: lock, file classes, commands, CI generator
 │   ├── doctor.py            read-only health check
 │   ├── diff_stats.py        review facts for Review, Public Surface check
+│   ├── brief.py             everything Define reads before the code, printed in one call when a request is sized
 │   ├── verify.py            Build's one proof command: verify plan, each AC's red record and test (from the change file), drift against the state file's plan; `red`, `status`
 │   ├── hosts.py             builds the other agents' manifests from .claude-plugin/ and agents/ (CI checks them)
 │   ├── backlog.py           the next ready part of a feature's backlog.md
