@@ -109,7 +109,7 @@ After Build's passing `verify.py`, the agent looks at what actually changed and 
 
 Each chosen review runs **once**, as a fresh agent on `opus`, and ends its report with `VERDICT: PASS` or `VERDICT: FAIL — <ids>`.
 
-- **High findings** go back to Build, each fixed with a failing test first, then `verify.py` again. Then the review that failed runs again on the fixed change: that's round 2. **3 rounds at most:** when round 3 still finds bugs, the agent stops and asks you (one more round, a waiver, or stop), and a hook holds every edit and command until you reply. Each reply allows one more round.
+- **High findings** go back to Build, each fixed with a failing test first, then `verify.py` again. Then round 2 checks only the fixes: the review that failed runs again on just the files they touched, confirming each finding is gone and no fix added a bug; anything new elsewhere is a ticket. **When round 2 still fails,** the agent stops and asks you (one more fix round, a waiver, or stop), and a hook holds every edit and command until you reply. Each reply allows one more round.
 - **You disagree, or the agent does:** a high finding the agent thinks is wrong comes to you with its case. Only you can waive one, recorded as a deviation.
 - **Medium and low** findings that are bugs in code the change touched (wrong behaviour, a crash, an unhandled error, a missing test) are fixed too, test first, without asking you. The rest (improvements, code the change didn't touch) are ticketed in the change file's `## Review`.
 

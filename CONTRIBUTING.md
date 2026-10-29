@@ -29,7 +29,7 @@ sdlc/
 │   ├── prove_budget.py      kills non-project shell commands at 120 s in Review (Stage 5), no background runs; the file keeps its 1.x name (original)
 │   ├── session_status.py    SessionStart: the sdlc setup, paths and active features in one line (original)
 │   ├── trust_anchor.py      shows the user changes to what verification trusts (original)
-│   ├── review_rounds.py     after 3 review rounds that still fail, holds every edit and command until the user replies (original)
+│   ├── review_rounds.py     when round 2 (the check of the fixes) still fails, holds every edit and command until the user replies (original)
 │   ├── pretooluse.py, stop.py, userpromptsubmit.py   hookify entry points (vendored)
 │   ├── security_reminder_hook.py + modules, sg-python.sh   security-guidance (vendored; patched to ask sdlc_review_gate.py)
 │   └── sdlc_review_gate.py  while a feature is active: one commit security review per review-ready diff, skipped unless security-touched (original)

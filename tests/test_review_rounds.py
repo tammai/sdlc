@@ -1,4 +1,4 @@
-"""hooks/review_rounds.py: after 3 review rounds that still find bugs, only the user's reply lets work go on."""
+"""hooks/review_rounds.py: when the check of a review's fixes still fails, only the user's reply lets work go on."""
 import os
 import unittest
 
@@ -27,20 +27,19 @@ class ReviewRoundsTest(ProjectTestCase):
                                        "tool_input": {"command": command}}, self.root)
         return (out or {}).get("hookSpecificOutput", {}).get("permissionDecision")
 
-    def test_a_third_failing_round_stops_the_fixing_until_the_user_answers(self):
+    def test_a_failing_check_of_the_fixes_stops_until_the_user_answers(self):
         self.report(1, "FAIL — 1 high: H1")
+        self.assertIsNone(self.edit())  # round 1's bugs are fixed without asking
         self.report(2, "FAIL — 1 high: H1")
-        self.assertIsNone(self.edit())  # round 2's bugs are still fixed without asking
-        self.report(3, "FAIL — 1 high: H1")
         self.assertEqual(self.edit(), "deny")
         self.assertIsNone(self.bash("npm test"))  # the project's tests change no code
         self.assertEqual(self.bash("npm test && git commit -am x"), "deny")
-        self.assertIsNone(self.edit(".sdlc/.work/findings/login/security-r3.md"))  # a reviewer finishing its report
-        os.remove(self.path(".sdlc/.work/findings/login/code-reviewer-r3.md"))  # deleting the report doesn't reset it
+        self.assertIsNone(self.edit(".sdlc/.work/findings/login/security-r2.md"))  # a reviewer finishing its report
+        os.remove(self.path(".sdlc/.work/findings/login/code-reviewer-r2.md"))  # deleting the report doesn't reset it
         self.assertEqual(self.edit(), "deny")
         run_hook(HOOK, {"hook_event_name": "UserPromptSubmit", "cwd": self.root, "prompt": "one more round"}, self.root)
         self.assertIsNone(self.edit())
-        self.report(4, "FAIL — 1 high: H1")
+        self.report(3, "FAIL — 1 high: H1")
         self.assertEqual(self.edit(), "deny")  # the granted round failed too: ask again
 
 

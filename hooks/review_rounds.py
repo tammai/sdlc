@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""sdlc review rounds: at most 3 review rounds fix their own findings; after that, only the user says what happens.
+"""sdlc review rounds: one review fixes its own findings, one round checks the fixes; then only the user decides.
 
-A round is one set of review reports, `.sdlc/.work/findings/<feature>/<reviewer>-r<N>.md`: the review, then its bugs
-fixed test first, then round N+1 checks the fixes. When an active feature's round 3 (or later) still ends
+A round is one set of review reports, `.sdlc/.work/findings/<feature>/<reviewer>-r<N>.md`: round 1 reviews the change
+and its bugs are fixed test first, round 2 checks the fixes. When an active feature's round 2 (or later) still ends
 `VERDICT: FAIL` and the user hasn't waived it (`waived round <N>`), PreToolUse denies every edit, shell command,
 subagent and skill, so the agent can only read and ask the user: one more round, waive, or stop. Writes to
 `.sdlc/.work/findings/` stay open, so a round-3 reviewer still finishing its report isn't cut off, and so do the
@@ -22,7 +22,7 @@ import sdlc_layout  # sibling module: where feature state and sdlc documents liv
 import trust_anchor  # sibling hook: the latest round's failed reports and the user's waiver
 import verify_freshness as vf  # sibling hook: project root
 
-CAP = 3
+CAP = 2  # the review, then the check of its fixes
 STATE = os.path.join(".sdlc", ".work", "review-rounds.json")
 GUARDED = {"Edit", "Write", "MultiEdit", "NotebookEdit", "Bash", "PowerShell", "Agent", "Task", "Skill"}
 
@@ -101,8 +101,8 @@ def main():
     if tool in ("Bash", "PowerShell") and runs_tests(root, (data.get("tool_input") or {}).get("command") or ""):
         return
     rounds = ", ".join(f"{n} (round {r})" for n, r in over.items())
-    reason = (f"sdlc: {rounds}: the review still finds bugs after {CAP} rounds, so the fixing stops here. Tell the "
-              "user which findings are left (the latest reports in .sdlc/.work/findings/) and ask: one more round, "
+    reason = (f"sdlc: {rounds}: the check of the review's fixes (round {CAP}) still fails, so the fixing stops here. Tell the "
+              "user which findings are left (the latest reports in .sdlc/.work/findings/) and ask: one more fix round, "
               "waive them (`waived round <N>` deviation), or stop. Their reply lifts this for one round.")
     print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
                                              "permissionDecisionReason": reason}}))
