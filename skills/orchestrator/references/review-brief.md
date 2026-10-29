@@ -25,6 +25,6 @@ Security only: injection, authz, secrets, SSRF, XSS, unsafe deserialization, dep
 
 - **High:** a failing or unproven acceptance criterion; wrong behaviour against the spec or a must-never-break line; data loss or corruption; a security issue; a crash window as above; an error path that breaks the spec's error format or exit code; a test gap rated 8 or more; unrequested public surface (anything not in the state file's `## Public Surface`, with no stated reason); a broken constitution MUST rule.
 - **Fix in passing:** code-style rules (comments, naming, formatting, docs wording). Never high.
-- **Medium / low:** everything else. One that's a bug in code this change touched is fixed before Ship like a high; the rest are ticketed.
+- **Medium / low:** everything else. Mark one that's a bug in code this change touched (wrong behaviour, a crash, an unhandled error, a missing test for something it does) `(bug)`: it's fixed before Ship like a high; the rest are ticketed.
 
-Severity is impact, not confidence. Each finding names the requirement it breaks, if any (an AC, a must-never-break line, a section of the spec the change file links, a constitution rule): one that names one is high, whatever else you'd call it. End the report with `VERDICT: PASS` or `VERDICT: FAIL — <high ids>`.
+Severity is impact, not confidence. Each finding names the requirement it breaks, if any (an AC, a must-never-break line, a section of the spec the change file links, a constitution rule): one that names one is high, whatever else you'd call it. End the report with `VERDICT: PASS` or `VERDICT: FAIL — <ids>`, naming every high and every `(bug)`. A later round: check the previous round's findings first, then the change again.

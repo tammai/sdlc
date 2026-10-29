@@ -48,7 +48,7 @@ Rate each issue from 0-100:
 
 - **High**: a failing or unproven acceptance criterion; wrong behaviour against the spec or a "Must not break" invariant; data loss or corruption; a security issue; a crash window where the spec says a killed or interrupted process must not leave the system unusable (a lock or file created and then written, a write then a rename), whatever the stated cause; an error path that breaks the spec's error format or exit code; a test gap rated 8 or more; a broken constitution MUST rule.
 - **Fix in passing**: code-style rules (comments, naming, formatting, docs wording), from CLAUDE.md, `.claude/rules/` or anywhere else. Never high, whatever the confidence: the maker fixes them with the other fixes, without a new round.
-- **Medium / low**: everything else; the ones that are bugs in code the change touched get fixed before Ship, the rest ticketed.
+- **Medium / low**: everything else. Mark one that's a bug in code the change touched (wrong behaviour, a crash, an unhandled error, a missing test for something it does) `(bug)`: it gets fixed before Ship; the rest are ticketed.
 
 ## Output Format
 
@@ -63,6 +63,6 @@ Group issues by severity: High, Medium, Low, then Fix in passing. Give each its 
 
 If no high-confidence issues exist, confirm the code meets standards with a brief summary.
 
-End every review with one verdict line, as its last line: `VERDICT: PASS`, or `VERDICT: FAIL — <n> high: <ids>` when any finding is high (above). Fix-in-passing, medium and low findings never make it FAIL. Only you write it; whoever fixes the code doesn't get to change it.
+End every review with one verdict line, as its last line: `VERDICT: PASS`, or `VERDICT: FAIL — <ids>` when any finding is high or marked `(bug)` (above). Fix-in-passing findings and medium or low ones that aren't bugs never make it FAIL. Only you write it; whoever fixes the code doesn't get to change it.
 
 Be thorough but filter aggressively - quality over quantity. Focus on issues that truly matter.

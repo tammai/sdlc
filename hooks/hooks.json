@@ -1,5 +1,5 @@
 {
-  "description": "sdlc: security-guidance (pattern warnings; turn-end and commit model review only while a security-touched feature is active, ADR 0019), hookify (rules from .claude/hookify.*.local.md and committed .claude/hookify/*.md; evaluated before tool use, on prompts and on stop); verify-freshness (Review, Stage 5, only: blocks finishing on stale test results); prove-budget (Review, Stage 5, only: commands other than the project's own are killed at 120 s and never run in the background); model-router (active 2.0 feature only: subagent dispatches name a model, fable needs the user's opt-in, every review runs on opus), with role-guard (the plugin's agents stay in their role) and trust-anchor (changes to what verification trusts reach the user)",
+  "description": "sdlc: security-guidance (pattern warnings; turn-end and commit model review only while a security-touched feature is active, ADR 0019), hookify (rules from .claude/hookify.*.local.md and committed .claude/hookify/*.md; evaluated before tool use, on prompts and on stop); verify-freshness (Review, Stage 5, only: blocks finishing on stale test results); prove-budget (Review, Stage 5, only: commands other than the project's own are killed at 120 s and never run in the background); model-router (active 2.0 feature only: subagent dispatches name a model, fable needs the user's opt-in, every review runs on opus), with role-guard (the plugin's agents stay in their role) trust-anchor (changes to what verification trusts reach the user) and review-rounds (after 3 review rounds that still find bugs, only the user's reply lets work go on)",
   "hooks": {
     "SessionStart": [
       {
@@ -44,6 +44,15 @@
           {
             "type": "command",
             "command": "f=\"$CLAUDE_PLUGIN_DATA/sdlc-hook-python.fast\"; p=; [ -z \"$SDLC_HOOK_TIMES\" ] && [ -O \"$f\" ] && [ ! -L \"$f\" ] && read -r p < \"$f\"; [ -n \"$p\" ] && [ -x \"$p\" ] && { export PYTHONUTF8=1; exec \"$p\" \"${CLAUDE_PLUGIN_ROOT}/hooks/trust_anchor.py\"; }; exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/trust_anchor.py\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"$CLAUDE_PLUGIN_DATA/sdlc-hook-python.fast\"; p=; [ -z \"$SDLC_HOOK_TIMES\" ] && [ -O \"$f\" ] && [ ! -L \"$f\" ] && read -r p < \"$f\"; [ -n \"$p\" ] && [ -x \"$p\" ] && { export PYTHONUTF8=1; exec \"$p\" \"${CLAUDE_PLUGIN_ROOT}/hooks/review_rounds.py\"; }; exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/review_rounds.py\"",
             "timeout": 10
           }
         ]
@@ -188,6 +197,16 @@
           {
             "type": "command",
             "command": "f=\"$CLAUDE_PLUGIN_DATA/sdlc-hook-python.fast\"; p=; [ -z \"$SDLC_HOOK_TIMES\" ] && [ -O \"$f\" ] && [ ! -L \"$f\" ] && read -r p < \"$f\"; [ -n \"$p\" ] && [ -x \"$p\" ] && { export PYTHONUTF8=1; exec \"$p\" \"${CLAUDE_PLUGIN_ROOT}/hooks/model_router.py\"; }; exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/model_router.py\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell|Agent|Task|Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"$CLAUDE_PLUGIN_DATA/sdlc-hook-python.fast\"; p=; [ -z \"$SDLC_HOOK_TIMES\" ] && [ -O \"$f\" ] && [ ! -L \"$f\" ] && read -r p < \"$f\"; [ -n \"$p\" ] && [ -x \"$p\" ] && { export PYTHONUTF8=1; exec \"$p\" \"${CLAUDE_PLUGIN_ROOT}/hooks/review_rounds.py\"; }; exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/review_rounds.py\"",
             "timeout": 10
           }
         ]

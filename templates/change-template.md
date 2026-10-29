@@ -66,7 +66,7 @@
 <!-- Written once, in Review (S: at its review step). Keep it last: what's above it is fixed once Review starts. -->
 
 - **Recommended and chosen:** [security | code default/high | UI | advisor | none], because [the trigger that fired, or none]; chosen by [the user | the trigger list (S) | the recommendation (autopilot)]
-- **Verdicts:** [review → `.sdlc/.work/findings/<feature>/<agent>-r1.md` → PASS / FAIL — high ids; or "none ran"]
+- **Verdicts:** [review → `.sdlc/.work/findings/<feature>/<agent>-r<N>.md` → PASS / FAIL — ids, each round; or "none ran"]
 - **Fixed:** [each high finding: what and where, and the test that now proves it; "None"]
 - **Tickets:** [findings left for later because they aren't bugs in this change: improvements, code it didn't touch; "None"]
 - **Drift and manual checks:** [each Deviations line from the state file, and each `manual` AC with how it was checked; "None"]
