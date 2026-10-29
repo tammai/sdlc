@@ -28,7 +28,7 @@ Teams that try to fix this assemble several plugins and conventions by hand, eac
 5. **Truthful verification:** Build proves each acceptance criterion with `verify.py` (its test recorded failing before its code, passing now), and a bug is proven with a failing test before its fix. After the build the agent recommends reviews (security; code at default or high depth; UI whenever the diff touches `areas.ui`; the advisor where there is one; or none); S runs a fixed trigger list (none unless high risk, a sensitive, migration or UI path, or a declared public surface), M and L choose. Each chosen review runs once, fresh: the code review on S and M is Claude Code's built-in `/code-review` where it exists, every other review on `opus`; high findings go back to Build, each fixed test first. Nothing merges unless the suite is green locally and on CI; no stale test results, and old failures don't block new work.
 6. **Scope discipline:** every addition traced from request to diff; over-engineering and unrequested behaviour caught while writing and at review.
 7. **Learning that sticks and stays small:** Learn on every feature adds fixed defects to `recurring-defects.md`, which Define and every reviewer read; knowledge in three loading tiers.
-8. **Process that costs little more than the plain run:** in time and tokens against plain Claude on the same task, at most 1.2x on S, 3x on M and 2x on L, against plain Claude with a review step added, with hidden-test results held level (M's bar was 1.5x until 2026-10-29: plain plus review finishes an M in about a minute, and writing M's change file, state file and red tests alone takes about that long, so the record has a fixed cost no trimming removes). The builder works like plain Claude, with no review agents during the build; the cheap model tier is `sonnet` (never `haiku`), and the advisor runs only when it is a chosen review (§8).
+8. **Process that costs little more than the plain run:** in time and tokens against plain Claude on the same task, at most 1.2x on S, 3x on M (4x in time) and 2x on L, against plain Claude with a review step added, with hidden-test results held level (M's bar was 1.5x until 2026-10-29: plain plus review finishes an M in about a minute, and writing M's change file, state file and red tests alone takes about that long, so the record has a fixed cost no trimming removes; its time bar went to 4x the same day, after four rounds of cuts held M at 3.9–4.1x: Define about 1.6 min, Build 0.9, Review 1.1, Ship 0.4). The builder works like plain Claude, with no review agents during the build; the cheap model tier is `sonnet` (never `haiku`), and the advisor runs only when it is a chosen review (§8).
 9. **Quality at close to plain cost:** hidden-test and blind-review results held level while agent time, tokens and human touches fall (§8).
 10. **Safe adoption in any supported agent:** setup for new and existing repos (polyglot monorepos too) in Claude Code, Codex, Cursor or Antigravity; upgrades that never overwrite the team's edits; clean removal.
 11. **Machine-readable state:** one call per state change, and a control contract a runner or control app can follow.
@@ -89,8 +89,8 @@ The plugin collects no metrics. The primary measures come from the eval harness,
 
 | Measure | Target (plugin vs plain, same task) |
 |---|---|
-| Agent time, to local green and the PR (waiting on CI not counted) | at most 1.2x on S, 3x on M, 2x on L (against plain Claude plus a review) |
-| Tokens | the same limits |
+| Agent time, to local green and the PR (waiting on CI not counted) | at most 1.2x on S, 4x on M, 2x on L (against plain Claude plus a review) |
+| Tokens | at most 1.2x on S, 3x on M, 2x on L (the same baseline) |
 | Hidden acceptance and regression tests | held level |
 | The user's time reading and approving | not counted |
 

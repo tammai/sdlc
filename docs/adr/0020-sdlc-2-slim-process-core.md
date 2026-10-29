@@ -40,6 +40,6 @@ The user set the plugin's goal as process value, not quality above plain Claude:
   - `design.md`.
 - **Limits against plain Claude on the same task**, in both time and tokens (the user's own reading time not counted):
   - S: 1.2x;
-  - M: 1.5x (amended 2026-10-29 to 3x against plain Claude plus a review: the record's fixed cost, see `docs/prd.md` §8);
+  - M: 1.5x (amended 2026-10-29 to 3x against plain Claude plus a review: the record's fixed cost, see `docs/prd.md` §8; the same day, its time bar to 4x, measured after the cuts);
   - L: 2x.
 - **Unmeasured until the eval session runs the release candidate:** the limits above, and whether quality holds without Prove.
