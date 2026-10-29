@@ -4,6 +4,9 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
+### Changed
+- **The code review on S and M uses Claude Code's built-in `/code-review`** where the agent has it: `medium` for default depth, `high` for high, the level always passed (it is sticky otherwise) and no `--fix`. It runs in its own subagent, mostly on Sonnet, in about 40–90 s against the plugin reviewer's minutes on Opus; the agent rates each finding against the change file (high when it would fail an AC, break a must-never-break line or the spec, lose data or be a security issue) and fixes highs test first as before. L, and Codex, Cursor and Antigravity (no built-in review an agent can call), keep the plugin's `code-reviewer`; security and UI reviews are unchanged. Tested on pre-review code from the eval: on M (abc87f5) the built-in review found the high the plugin's reviewer found (a stored `"priority": null` read as `normal`); on L (c925268) it missed both highs the plugin's reviewers found (TRACE answered 500, charts stuck on "Loading chart..." after an error) in three runs at `medium` and `high`, so L keeps them.
+
 ## 2.1.0 — 2026-10-29
 
 ### Added

@@ -11,7 +11,7 @@ Its goal is the process, not code quality above plain Claude: a trustworthy reco
 1. **Intent before code.** Before any code, what, why and how are agreed and written down. The agent judges whether the request already makes them clear; if not, at any size, it asks, one question at a time. A bug is proven first, then its root cause found.
 2. **The same record at every size.** Every change leaves two files: the change file for people (why, what must be true with each criterion's test, then what Review checked) and the feature's state file for the agent (where it stands, and how it's built: tasks, files, Public Surface, deviations). S fills each section in a few lines; M and L in full. A later session, a reviewer or a teammate months from now works from these two files alone.
 3. **A builder like plain Claude.** The builder writes the code and its tests with no review agents during the build. `verify.py` checks that each acceptance criterion's test failed before its code and passes after it.
-4. **Reviews the change needs, once.** After the build the agent recommends reviews from what actually changed. Each chosen review runs once, fresh, on `opus`; its high findings go back to the builder.
+4. **Reviews the change needs, once.** After the build the agent recommends reviews from what actually changed. Each chosen review runs once, fresh: the code review on S and M is Claude Code's built-in `/code-review` (other agents, and L, use the plugin's reviewer), the rest on `opus`; its high findings go back to the builder.
 
 ## Project setup
 
