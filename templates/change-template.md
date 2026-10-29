@@ -1,9 +1,11 @@
 # [FEATURE NAME]
 
 <!-- The change's record for people: why it exists, what must be true, and what was checked after the build. Kept for
-     good and committed with the code. Same headings at every size: S a line or two each, M about a page, L the full
-     interview's design. A heading that doesn't apply: one line saying so. How it's built (tasks, files, surface,
-     deviations) is the agent's, in the state file. Define writes everything above `## Review`; Review writes that. -->
+     good and committed with the code. S: a line or two each. Low-risk M, the short form: Why, the ACs and their tests,
+     must-never-break; Decisions, Failure modes and Out of scope only when there's something to say, else no heading.
+     High-risk M: about a page, every heading (one that doesn't apply: one line saying so). L: the full interview's
+     design. How it's built (tasks, files, surface, deviations) is the agent's, in the state file. Define writes
+     everything above `## Review`; Review writes that. -->
 
 ## Why
 
