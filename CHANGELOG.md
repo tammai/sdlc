@@ -2,6 +2,11 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
+## Unreleased
+
+### Changed
+- **Setup asks where the keys that turn sdlc on go: this machine, or the team's committed `.claude/settings.json`** (user feedback: `.claude/settings.local.json` is never committed, so a cloud session, which starts from a fresh clone, ran without sdlc and its companions). `scaffold.py enable-plugin --team` writes the sdlc marketplace and `enabledPlugins` for sdlc and the companions that are on (`sdlc-extras` when picked) to `.claude/settings.json`, recorded so `--remove-team` and eject take back only those; once the team file holds them, a later `--with` and upgrade's re-run add there too. Turning a conflicting plugin off (superpowers) stays in the local file: it's one machine's setting. A local run never shadows a key the committed file already has. `/sdlc:doctor`'s companion check reads both files. Migration `2.3.0-team-plugin-keys` offers the switch to repos already set up.
+
 ## 2.2.0 — 2026-10-29
 
 ### Added

@@ -34,7 +34,7 @@ SETTINGS = ".claude/settings.json"
 LOCAL_SETTINGS = ".claude/settings.local.json"
 GITIGNORE = ".gitignore"
 PLUGIN_MERGE = LOCAL_SETTINGS + "#plugin"  # lock key for the plugin-enablement keys we add to settings.local.json
-TEAM_PLUGIN_MERGE = SETTINGS + "#plugin"  # where setups before 2.0.1 added them; eject still takes those back
+TEAM_PLUGIN_MERGE = SETTINGS + "#plugin"  # the ones enable-plugin --team (or a setup before 2.0.1) added there
 MARKETPLACE = ("sdlc", {"source": {"source": "github", "repo": "tammai/sdlc"}})
 PLUGIN_KEY = "sdlc@sdlc"
 AGENTS = "AGENTS.md"
@@ -852,15 +852,17 @@ def conflicts_in_repo(p):
 def cmd_enable_plugin(p, a):
     """Turn sdlc, and the companions this machine wants, on for this repo: a keyed merge into
     .claude/settings.local.json, which is never committed, so nobody else's setup changes and nothing needs asking.
+    With --team (asked at setup: the team's call) the keys that turn plugins on go to the committed
+    .claude/settings.json instead, so a cloud session's fresh clone and every teammate who trusts the repo get them.
     A companion is on when its `default` is true or it's named with --with; only listed ones can be. A key the user
-    already set is theirs and is never recorded or removed."""
+    already set, in either file, is theirs and is never recorded or removed."""
     known = {c["id"]: c for c in companions(p)}
     unknown = [i for i in a.with_ or [] if i not in known]
     if unknown:
         raise ValueError(f"not a companion of sdlc: {', '.join(unknown)} (the list: {', '.join(known) or 'none'})")
     if a.remove:
         return {"removed": unmerge_plugin_keys(p, LOCAL_SETTINGS, PLUGIN_MERGE), "owned": merged_list(p, PLUGIN_MERGE)}
-    if a.remove_team:  # the keys a setup before 2.0.1 put in the committed settings.json: the team's call (migration)
+    if a.remove_team:  # the keys --team (or a setup before 2.0.1) put in the committed settings.json
         return {"removed": unmerge_plugin_keys(p, SETTINGS, TEAM_PLUGIN_MERGE)}
     skipped = not_the_installed_copy()
     wanted = [] if skipped else [("extraKnownMarketplaces", MARKETPLACE[0], MARKETPLACE[1]),
@@ -872,27 +874,32 @@ def cmd_enable_plugin(p, a):
             if market and source:
                 wanted.append(("extraKnownMarketplaces", market, source))
             wanted.append(("enabledPlugins", c["id"], True))
-    # A plugin that clashes with sdlc is turned off for this repo only; the user's own setting elsewhere stays
+    # A plugin that clashes with sdlc is turned off for this repo only, on this machine; the user's setting elsewhere stays
     clash = {c["plugin"]: c for c in conflicts() if c.get("plugin")}
     turning_off = [(i, clash[i.split("@", 1)[0]]) for i in enabled_elsewhere(p) if i.split("@", 1)[0] in clash]
-    wanted += [("enabledPlugins", i, False) for i, _ in turning_off]
-    settings = read_json(p.path(LOCAL_SETTINGS), {})
-    ours, added = merged_list(p, PLUGIN_MERGE), []
-    for section, key, value in wanted:
-        node, tag = settings.get(section), f"{section}.{key}"
-        if (not isinstance(node, dict) or key not in node) and tag not in added:
-            settings.setdefault(section, {})[key] = value
-            added.append(tag)
-            if tag not in ours:
-                ours.append(tag)
-    if added:
+    off = [("enabledPlugins", i, False) for i, _ in turning_off]
+    team, local = read_json(p.path(SETTINGS), {}), read_json(p.path(LOCAL_SETTINGS), {})
+    # A repo whose plugin keys are already the team's keeps adding there (a later --with, upgrade's re-run)
+    if a.team or p.require_lock().get("merged", {}).get(TEAM_PLUGIN_MERGE):
+        added_team = merge_plugin_keys(p, team, TEAM_PLUGIN_MERGE, wanted)
+        added_local = merge_plugin_keys(p, local, PLUGIN_MERGE, off)
+    else:
+        added_team = []
+        added_local = merge_plugin_keys(p, local, PLUGIN_MERGE, wanted + off, also_set=team)
+    if added_team:
+        os.makedirs(os.path.dirname(p.path(SETTINGS)), exist_ok=True)
+        write_json(p.path(SETTINGS), team)
+    if added_local:
         excluded = exclude_locally(p, LOCAL_SETTINGS)
         os.makedirs(os.path.dirname(p.path(LOCAL_SETTINGS)), exist_ok=True)
-        write_json(p.path(LOCAL_SETTINGS), settings)
+        write_json(p.path(LOCAL_SETTINGS), local)
     p.save()
-    enabled = settings.get("enabledPlugins") or {}
-    out = {"added": added, "owned": ours,
+    enabled = dict(team.get("enabledPlugins") or {}, **(local.get("enabledPlugins") or {}))
+    ours = merged_list(p, PLUGIN_MERGE)
+    out = {"added": added_team + added_local, "owned": ours + merged_list(p, TEAM_PLUGIN_MERGE),
            "companions": [{"id": i, "why": c.get("why", ""), "on": enabled.get(i) is True} for i, c in known.items()]}
+    if added_team:
+        out["commit"] = SETTINGS  # the team's file: setup commits it with the step
     off = [{"id": i, "why": c.get("why", ""), "scope": "this repo only (.claude/settings.local.json); --remove undoes it"}
            for i, c in turning_off if f"enabledPlugins.{i}" in ours]
     if off:
@@ -905,9 +912,24 @@ def cmd_enable_plugin(p, a):
         out["skills"] = skills
     if skipped:
         out["skipped"] = skipped
-    if added and excluded:
+    if added_local and excluded:
         out["excluded"] = excluded
     return out
+
+
+def merge_plugin_keys(p, settings, merge_key, wanted, also_set=None):
+    """Adds each (section, key, value) missing from settings, and from also_set (the committed file, which a
+    local write never shadows), recording it under merge_key. Returns the tags it added."""
+    ours, added = merged_list(p, merge_key), []
+    for section, key, value in wanted:
+        tag = f"{section}.{key}"
+        if tag in added or any(isinstance(s.get(section), dict) and key in s[section] for s in (settings, also_set or {})):
+            continue
+        settings.setdefault(section, {})[key] = value
+        added.append(tag)
+        if tag not in ours:
+            ours.append(tag)
+    return added
 
 
 def exclude_locally(p, rel_path):
@@ -1599,9 +1621,11 @@ def build_parser():
 
     s = sub.add_parser("enable-plugin", help="turn sdlc and its companions on in .claude/settings.local.json")
     s.add_argument("--with", dest="with_", action="append", metavar="ID", help="also a companion that's off by default")
+    s.add_argument("--team", action="store_true",
+                   help="write the keys that turn plugins on to the committed .claude/settings.json (cloud sessions, teammates)")
     s.add_argument("--remove", action="store_true", help="remove only the keys this command added")
     s.add_argument("--remove-team", action="store_true",
-                   help="remove the plugin keys a setup before 2.0.1 added to .claude/settings.json")
+                   help="remove only the plugin keys this command added to .claude/settings.json")
     s.set_defaults(fn=cmd_enable_plugin)
 
     s = sub.add_parser("agents", help="rebuild AGENTS.md's sdlc block for the recorded hosts, and its Claude Code mirror")

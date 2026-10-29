@@ -297,6 +297,37 @@ class ScaffoldTest(ProjectTestCase):
         self.sc("enable-plugin")
         self.assertNotIn("evil@evil", json.loads(self.read(local))["enabledPlugins"])
 
+    def test_enable_plugin_team_commits_the_on_keys_and_keeps_turn_offs_local(self):
+        self.template("templates/project/config.defaults.json", json.dumps({
+            "companions": [{"id": "sdlc-extras@sdlc", "marketplace": "sdlc", "why": "extras", "default": True}],
+            "conflicts": [{"name": "superpowers", "plugin": "superpowers", "why": "same skills twice"}]}))
+        self.init()
+        self.installed()
+        self.write("claude-config/settings.json", json.dumps({"enabledPlugins": {"superpowers@mkt": True}}))
+        self.write(".claude/settings.json", json.dumps({"permissions": {"allow": ["Bash(make:*)"]}}))
+        # A cloud session clones the repo: only the committed file reaches it, so --team puts the on keys there
+        out = self.sc("enable-plugin", "--team")
+        self.assertEqual(out["commit"], ".claude/settings.json")
+        team = json.loads(self.read(".claude/settings.json"))
+        self.assertEqual(team["enabledPlugins"], {"sdlc@sdlc": True, "sdlc-extras@sdlc": True})
+        self.assertIn("sdlc", team["extraKnownMarketplaces"])
+        self.assertEqual(team["permissions"], {"allow": ["Bash(make:*)"]})
+        # Turning a teammate's plugin off isn't the team's file's job: that stays this machine's
+        self.assertEqual(json.loads(self.read(".claude/settings.local.json"))["enabledPlugins"], {"superpowers@mkt": False})
+        self.assertTrue(all(c["on"] for c in out["companions"]))
+        # Run again without --team (upgrade's keyed merge): the committed keys aren't shadowed locally
+        self.assertEqual(self.sc("enable-plugin")["added"], [])
+        # A companion added later joins the team's file too, so a cloud session gets it as well
+        self.template("templates/project/config.defaults.json", json.dumps({"companions": [
+            {"id": "sdlc-extras@sdlc", "marketplace": "sdlc", "why": "extras"},
+            {"id": "other@sdlc", "marketplace": "sdlc", "why": "other"}]}))
+        self.assertEqual(self.sc("enable-plugin", "--with", "other@sdlc")["added"], ["enabledPlugins.other@sdlc"])
+        self.assertTrue(json.loads(self.read(".claude/settings.json"))["enabledPlugins"]["other@sdlc"])
+        self.assertEqual(sorted(self.sc("enable-plugin", "--remove-team")["removed"]), sorted([
+            "extraKnownMarketplaces.sdlc", "enabledPlugins.sdlc@sdlc", "enabledPlugins.sdlc-extras@sdlc",
+            "enabledPlugins.other@sdlc"]))
+        self.assertEqual(json.loads(self.read(".claude/settings.json")), {"permissions": {"allow": ["Bash(make:*)"]}})
+
     def test_enable_plugin_lists_a_skill_companion_without_installing_it(self):
         self.template("templates/project/config.defaults.json", json.dumps({"companions": [
             {"skill": "security-audit", "install": "npx skills add x --skill security-audit", "why": "audits"}]}))

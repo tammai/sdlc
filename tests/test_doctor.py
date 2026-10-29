@@ -172,6 +172,13 @@ class DoctorTest(ProjectTestCase):
             {"version": 2, "plugins": {"sdlc-extras@sdlc": [{"scope": "user", "installPath": "x"}]}}))
         self.assertEqual(self.doctor(**config)[0][("repo", "companions")]["status"], "ok")
 
+    def test_a_companion_enabled_for_the_team_counts_too(self):
+        self.setup_repo()
+        self.write(".claude/settings.json", json.dumps({"enabledPlugins": {"sdlc-extras@sdlc": True}}))
+        config = {"CLAUDE_CONFIG_DIR": self.path("claude-config")}
+        self.write("claude-config/plugins/installed_plugins.json", json.dumps({"version": 2, "plugins": {}}))
+        self.assertEqual(self.doctor(**config)[0][("repo", "companions")]["status"], "warn")
+
     def test_set_up_repo_without_a_prd_warns(self):
         self.setup_repo()
         self.assertEqual(self.check("PRD")["status"], "warn")
