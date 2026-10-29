@@ -229,7 +229,8 @@ def main():
     elif TIMEOUT_BIN and wrapped is None:
         out = deny("sdlc: in Review, a command other than the project's own runs one step at a time, killed at 120 s: "
                    "no loops, subshells, `$(...)`, `&` or two slow steps chained (quick reads like `git log` or "
-                   "`tail -5` chain freely). Split it into separate calls.")
+                   "`tail -5` chain freely). Split it into separate calls; write a file with the Edit or Write tool, not a "
+                   "heredoc.")
     elif TIMEOUT_BIN:
         out = {"updatedInput": dict(tin, command=wrapped, timeout=TOOL_TIMEOUT_MS)}  # replaces the input
     elif not isinstance(tin.get("timeout"), (int, float)) or tin["timeout"] > CAP_S * 1000:

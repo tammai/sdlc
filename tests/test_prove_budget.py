@@ -29,6 +29,10 @@ class ProveBudgetTest(ProjectTestCase):
         self.assertEqual(out["updatedInput"]["timeout"], 130000)  # past the kill, so Claude Code never backgrounds it
         # A loop can't take the prefix, and hiding it in `bash -c` would slip past the user's deny rules
         self.assertEqual(self.call(5, command="until grep -q done log; do sleep 3; done").get("permissionDecision"), "deny")
+        # A heredoc append to the change file is refused too, and the reason points at the file tools instead
+        out = self.call(5, command="cd app && cat >> docs/sdlc/changes/f.md <<'EOF'\n## Review\nEOF")
+        self.assertEqual(out.get("permissionDecision"), "deny")
+        self.assertIn("Edit or Write tool", out["permissionDecisionReason"])
         # Variables set first, as the relay's state.py calls do: the assignments run nothing, the call is timed
         out = self.call(5, command='S="python3 state.py"; F=login; $S round $F 1 fail "R1"')
         self.assertRegex(out["updatedInput"]["command"],

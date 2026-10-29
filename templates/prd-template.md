@@ -19,7 +19,8 @@
 - <!-- An outcome the product is for, observable from outside. -->
 
 **Non-goals**
-- <!-- What it deliberately won't do, so features don't drift into it. -->
+- <!-- What it deliberately won't do, so features don't drift into it. Only what someone decided: what the code
+     doesn't do yet isn't a non-goal. -->
 
 ## Core capabilities
 
