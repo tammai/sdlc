@@ -99,7 +99,7 @@ python3 scripts/doctor.py --format md             # health check against the cur
 | Anything a set-up repo receives (`templates/project/`, generated CI, config defaults) | `tests/test_project_templates.py`; a migration if projects own the affected file (see Releasing) |
 | A decision about how the plugin works | a new ADR in `docs/adr/` (never rewrite an accepted one) |
 | User-visible behavior | `README.md`, the relevant doc, the capability's spec in `docs/specs/`, and `CHANGELOG.md` under Unreleased |
-| Vendored code | re-copy from upstream, re-apply the renames (`superpowers:` → `sdlc:`, paths → `.sdlc/`) and the patches listed in `NOTICE.md`, run the tests |
+| Vendored code | re-copy from upstream, re-apply the renames (`superpowers:` → `sdlc:`, paths → `.sdlc/`) and the patches listed in `NOTICE.md`, record the upstream commit you compared in its "Upstream sync record", run the tests |
 
 ### Stale-docs audit
 

@@ -34,6 +34,15 @@ Modified: command and skill references renamed to the `sdlc:` namespace (`sdlc-e
 
 Not included: Anthropic's `claude-security` plugin (its license reserves all rights). Install it separately if you want deep vulnerability scans.
 
+## Upstream sync record
+Compared line by line on 2026-11-02 (#8). These are the upstream commits last compared, not necessarily the ones the copies were taken from: the copies predate this record. Record the commit again whenever you re-compare.
+
+- **Superpowers** v7.0.1, `2ce8aa1` (2026-10-21): in sync, apart from the patches above.
+- **anthropics/claude-plugins-official**, `a7ba5b9` (2026-10-30): the files differ only as follows.
+  - *Local patches, beyond the ones above:* every agent's `tools` list is narrowed and its description shortened (`comment-analyzer`, `type-design-analyzer`, `pr-test-analyzer`, `silent-failure-hunter`, `code-reviewer`, `feature-reviewer`, `code-explorer`); `silent-failure-hunter` keeps its "When to invoke" examples in the body, not the description; `comment-analyzer` treats a comment as noise unless it carries what code, names, types and history can't; `code-reviewer` and `feature-reviewer` review from the feature's base, not unstaged changes, and `code-reviewer` is read-only with severities and a verdict line; `review-pr` adds the diff stats, the ui-reviewer, a model per agent and the unrequested-surface rule; `clean_gone` has a shorter description. hookify's `rule_engine.py` abandons a regex after 1 s (a committed rule is repo content), truncates a rule message at 2,000 characters, handles `NotebookEdit`, reads `prompt` for UserPromptSubmit, can stop on a prompt, and records skipped rules as problems; its `pretooluse.py` stays silent on its own error and treats `PowerShell` like `Bash`.
+  - *Not taken:* the `security_reminder_hook.py` additions since the copy are Anthropic's own telemetry (token prices, usage and reviewer-effort metrics, slow-prompt and network-error rows), which sdlc does not send. `commands/code-review.md` is behind: upstream now gates on a `haiku` agent (the model router denies `haiku`, ADR 0011), runs two `opus` bug agents, comments only with `--comment`, and posts inline comments through `mcp__github_inline_comment__create_inline_comment`, a tool sdlc users may not have. Only upstream's "agent assumptions" block is taken. Take the rest only with an ADR.
+- **GitHub Spec Kit**: adapted, not tracked against a commit.
+
 ## Everything else
 The orchestrator, setting-up-projects and managing-knowledge skills (with `skills/orchestrator/references/` and `skills/setting-up-projects/references/trimming-context.md`), the `qa-tester` and `ui-reviewer` agents, `hooks/verify_freshness.py`, `sdlc_review_gate.py`, `model_router.py`, `role_guard.py`, `prove_budget.py` and `trust_anchor.py`, `hooks/review_rounds.py`, the `start`, `status`, `knowledge-audit` and `deploy` commands, everything in `scripts/`, `templates/knowledge/`, `templates/project/`, `templates/design-system-template.md`, `templates/backlog-template.md`, `migrations/` and `tests/` are original to this plugin, MIT licensed (`LICENSE`).
 

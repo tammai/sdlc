@@ -6,6 +6,10 @@ disable-model-invocation: false
 
 Provide a code review for the given pull request.
 
+**Agent assumptions (applies to all agents and subagents):**
+- All tools are functional and will work without error. Do not test tools or make exploratory calls. Make sure this is clear to every subagent that is launched.
+- Only call a tool if it is required to complete the task. Every tool call should have a clear purpose.
+
 To do this, follow these steps precisely:
 
 1. Use a Sonnet agent to check if the pull request (a) is closed, (b) is a draft, (c) does not need a code review (eg. because it is an automated pull request, or is very simple and obviously ok), or (d) already has a code review from you from earlier. If so, do not proceed.
