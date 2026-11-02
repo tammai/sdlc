@@ -2,6 +2,11 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
+## Unreleased
+
+### Added
+- **product-rebuild is in the sdlc marketplace** (`/plugin install product-rebuild@sdlc`). The entry points at github.com/tammai/product-rebuild, which declares sdlc and sdlc-extras (`^2.4`) as dependencies, so installing it brings both. It's Claude Code only: the Codex, Cursor and Antigravity marketplace files that `scripts/hosts.py` builds still list sdlc alone.
+
 ## 2.4.1 — 2026-11-02
 
 ### Fixed

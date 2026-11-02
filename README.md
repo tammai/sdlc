@@ -32,6 +32,8 @@ From the marketplace that hosts it:
 
 Optional: `/plugin install sdlc-extras@sdlc` adds the companion plugin: the Ralph loop, hookify's list, configure and help commands, and four extra review agents `/sdlc:review-pr` and `/sdlc:hookify` use when present. Optional companion skill: Cloudflare's [security-audit](https://github.com/cloudflare/security-audit-skill) (`npx skills add https://github.com/cloudflare/security-audit-skill --skill security-audit`), a full multi-agent security audit you run when you want one, for example before a release; sdlc mentions it on L changes to sensitive paths and never runs it unasked.
 
+Also in this marketplace: `/plugin install product-rebuild@sdlc` adds [product-rebuild](https://github.com/tammai/product-rebuild), a gated pipeline that rebuilds an existing product on top of sdlc (Claude Code only; it installs sdlc and sdlc-extras with it).
+
 Restart the session afterward so the commands and hooks load. To work on the plugin from a checkout instead, see [Contributing](#contributing).
 
 **Other coding agents** (setup detects the agent and writes its own files; [spec 11](docs/specs/11-multi-agent.md)). **Experimental until the phases have run in each:** setup is smoke-tested in Codex and Antigravity on Windows and in Cursor in WSL, and nothing more:
