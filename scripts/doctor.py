@@ -270,10 +270,20 @@ def check_repo(r, root):
                   "installed: UI design work goes through it" if ok
                   else "design is impeccable but impeccable isn't installed: UI work falls back to builtin",
                   None if ok else "npx impeccable install (or /plugin marketplace add pbakaus/impeccable)")
-        enabled = {}
+        enabled, sdlc_set_in = {}, None
         for rel in (scaffold.SETTINGS, scaffold.LOCAL_SETTINGS):  # the local file overrides the committed one
             plugins = scaffold.read_json(os.path.join(root, rel), {}).get("enabledPlugins")
             enabled.update(plugins if isinstance(plugins, dict) else {})
+            if isinstance(plugins, dict) and scaffold.PLUGIN_KEY in plugins:
+                sdlc_set_in = rel
+        if enabled.get(scaffold.PLUGIN_KEY) is False:
+            # Off here means no sdlc hook runs in this repo, guardrails included; doctor itself still runs from
+            # the command line, so it's the one place that can say so
+            elsewhere = scaffold.not_the_installed_copy()
+            r.add(g, "sdlc plugin", "ok" if elsewhere else "warn",
+                  f"off in {sdlc_set_in}, as expected: {elsewhere}" if elsewhere else
+                  f"turned off for this repo in {sdlc_set_in}: no sdlc hook or guardrail runs here",
+                  None if elsewhere else f'set "{scaffold.PLUGIN_KEY}": true in {sdlc_set_in}, then /reload-plugins')
         on = [c["id"] for c in scaffold.companions(p) if enabled.get(c["id"]) is True]
         if on:
             missing = [i for i in on if not scaffold.installed_plugins().get(i)]

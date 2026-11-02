@@ -162,6 +162,36 @@ class DoctorTest(ProjectTestCase):
         self.write(".claude/settings.local.json", json.dumps({"enabledPlugins": {"superpowers@mkt": False}}))
         self.assertNotIn(("repo", "conflicts"), self.doctor(**config)[0])
 
+    def test_sdlc_turned_off_for_the_repo_warns(self):
+        # A `false` key leaves the repo with no sdlc hooks at all, and nothing else says so
+        self.setup_repo()
+        config = {"CLAUDE_CONFIG_DIR": self.path("claude-config")}
+        self.write("claude-config/plugins/installed_plugins.json", json.dumps(
+            {"version": 2, "plugins": {"sdlc@sdlc": [{"scope": "user", "installPath": PLUGIN_ROOT}]}}))
+        self.assertNotIn(("repo", "sdlc plugin"), self.doctor(**config)[0])
+        for rel in (".claude/settings.local.json", ".claude/settings.json"):
+            self.write(rel, json.dumps({"enabledPlugins": {"sdlc@sdlc": False}}))
+            c = self.doctor(**config)[0][("repo", "sdlc plugin")]
+            self.assertEqual(c["status"], "warn")
+            self.assertIn(rel, c["detail"])
+            self.assertIn(rel, c["fix"])
+            os.remove(self.path(rel))
+        # The local file overrides the committed one
+        self.write(".claude/settings.json", json.dumps({"enabledPlugins": {"sdlc@sdlc": False}}))
+        self.write(".claude/settings.local.json", json.dumps({"enabledPlugins": {"sdlc@sdlc": True}}))
+        self.assertNotIn(("repo", "sdlc plugin"), self.doctor(**config)[0])
+
+    def test_sdlc_off_for_the_repo_is_expected_with_plugin_dir(self):
+        # The headless-test recipe turns the installed copy off so only the --plugin-dir checkout loads
+        self.setup_repo()
+        config = {"CLAUDE_CONFIG_DIR": self.path("claude-config")}
+        self.write("claude-config/plugins/installed_plugins.json", json.dumps(
+            {"version": 2, "plugins": {"sdlc@sdlc": [{"scope": "user", "installPath": self.path("elsewhere")}]}}))
+        self.write(".claude/settings.local.json", json.dumps({"enabledPlugins": {"sdlc@sdlc": False}}))
+        c = self.doctor(**config)[0][("repo", "sdlc plugin")]
+        self.assertEqual(c["status"], "ok")
+        self.assertIn("--plugin-dir", c["detail"])
+
     def test_a_companion_enabled_here_but_not_installed_warns(self):
         self.setup_repo()
         self.write(".claude/settings.local.json", json.dumps({"enabledPlugins": {"sdlc-extras@sdlc": True}}))

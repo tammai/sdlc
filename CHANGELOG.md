@@ -2,6 +2,11 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
+## Unreleased
+
+### Fixed
+- **`/sdlc:doctor` warns when sdlc is turned off for the repo** (found by the 2.4.0 smoke test). With `"sdlc@sdlc": false` in `.claude/settings.local.json` (or the committed `.claude/settings.json`), no sdlc hook runs, so a force push to main and a real-looking API key both went through unflagged, and doctor still reported the plugin as `ok`. Doctor now warns, naming the file and the fix. When it runs from a checkout (`--plugin-dir`), the `false` that the headless-test recipe sets is expected and reported as `ok`. Setup's `enable-plugin` still leaves a `false` the user set in place, without a warning; doctor is where it shows.
+
 ## 2.4.0 — 2026-11-02
 
 ### Added
