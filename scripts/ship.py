@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Ship's one command: everything before the commit, so Ship is a single shell call (ADR 0020).
 
-Usage: ship.py [--root DIR] FEATURE [--message SUBJECT] [--review TEXT] [--note TEXT] [--timeout S]
+Usage: ship.py [--root DIR] FEATURE [--message SUBJECT] [--review TEXT] [--note TEXT] [--waive-baseline] [--timeout S]
   1. `Owner:` must be `git config user.email`; someone else's is refused (the user decides a handover).
   2. `--review TEXT`: when the change file has no `## Review` yet, appends one holding TEXT (an S change, or an M no
      review ran on); one written already is left as it is.
   3. The last passing verify.py run is reused when the code hasn't changed since (`verify.py status`); otherwise
-     verify.py runs now, and a failure stops here with nothing moved.
+     verify.py runs now, and a failure stops here with nothing moved, unless `--waive-baseline` and only the test
+     step failed while .sdlc/baseline.md lists failing tests: the user's brownfield repo then ships past failures it
+     already had. verify.py doesn't read the baseline, so the caller has checked that every failure is listed; the
+     waiver is written to the Gate log.
   4. `state.py advance FEATURE 8 --gate pass --verified <head> <tree>` (already at Stage 8 is fine), then
      `state.py set FEATURE Status done`, so the kept record says done; the commit review still reviews this commit
      as the feature's (hooks/sdlc_review_gate.py: the commit that finishes a feature).
@@ -64,14 +67,32 @@ def add_review(root, change, text):
     return True
 
 
-def verified(root, feature, timeout):
+def baseline_failures(root):
+    """The failing tests .sdlc/baseline.md lists: its Failing tests rows, not the template's 'none' row."""
+    text = verify.read(os.path.join(root, ".sdlc", "baseline.md")) or ""
+    section = re.search(r"^## Failing tests\s*$(.*?)(?=^## |\Z)", text, re.M | re.S)
+    listed = []
+    for line in (section.group(1) if section else "").splitlines():
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if line.startswith("|") and len(cells) >= 2 and not set(cells[0]) <= set("-: ") \
+                and cells[0] not in ("Package", "—", "-") and cells[1].lower() != "none":
+            listed.append(cells[1])
+    return listed
+
+
+def verified(root, feature, timeout, waive_baseline=False):
+    """(head, tree, waiver): waiver is a Gate log line when a failed run was let through on the baseline, else None."""
     st = verify.status(root, feature)
     if st["reuse"]:
-        return st["head"], st["tree"]
+        return st["head"], st["tree"], None
     last, notes = verify.full(root, feature, timeout)
-    if last["result"] != "pass":
-        raise Refused("verify failed:\n" + "\n".join(notes + last["failures"]))
-    return last["head"], last["tree"]
+    if last["result"] == "pass":
+        return last["head"], last["tree"], None
+    listed = baseline_failures(root)
+    if waive_baseline and listed and all(re.match(r"[^\n]*\btest: exit", f) for f in last["failures"]):
+        return last["head"], last["tree"], f"Stage 8: baseline failures waived: only the test step failed; {len(listed)} listed in .sdlc/baseline.md"
+    hint = "\nIf only the test step failed and every failure is in .sdlc/baseline.md, rerun with --waive-baseline." if listed else ""
+    raise Refused("verify failed:\n" + "\n".join(notes + last["failures"]) + hint)
 
 
 def state_py(root, *args, ok=None):
@@ -100,7 +121,7 @@ def to_stage(root):
                    if f and not f.startswith(".sdlc/.work/") and not CONTRACT.search(f) and not verify.GENERATED.search(f)})
 
 
-def ship(root, feature, message, review=None, note=None, timeout=1800):
+def ship(root, feature, message, review=None, note=None, timeout=1800, waive_baseline=False):
     paths = sdlc_layout.paths(root, feature)
     state = verify.read(os.path.join(root, paths["state"]))
     if state is None:
@@ -111,7 +132,9 @@ def ship(root, feature, message, review=None, note=None, timeout=1800):
         raise Refused(f"Owner is {owner}, not {me}: ask the user before taking it over")
     if review:
         add_review(root, paths["change"], review)
-    head, tree = verified(root, feature, timeout)
+    head, tree, waiver = verified(root, feature, timeout, waive_baseline)
+    if waiver:
+        state_py(root, "log", feature, waiver)
     state_py(root, "advance", feature, "8", "--gate", "pass", "--verified", head, tree, *(["--note", note] if note else []),
           ok="already at Stage 8")
     state_py(root, "set", feature, "Status", "done")
@@ -135,11 +158,13 @@ def main(argv=None):
     ap.add_argument("--message")
     ap.add_argument("--review")
     ap.add_argument("--note")
+    ap.add_argument("--waive-baseline", action="store_true",
+                    help="ship past a failed test step when .sdlc/baseline.md lists failing tests")
     ap.add_argument("--timeout", type=int, default=1800)
     a = ap.parse_args(argv)
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     try:
-        out = ship(os.path.abspath(a.root), a.feature, a.message, a.review, a.note, a.timeout)
+        out = ship(os.path.abspath(a.root), a.feature, a.message, a.review, a.note, a.timeout, a.waive_baseline)
     except Refused as e:
         print(f"ship: {e}")
         return 1

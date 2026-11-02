@@ -34,9 +34,22 @@ class ShipTest(ProjectTestCase):
     def out(self, *args):
         return subprocess.run(["git", "-C", self.root, *args], capture_output=True, encoding="utf-8").stdout
 
-    def ship(self):
-        p = subprocess.run([sys.executable, SCRIPT, "--root", self.root, "login", "--review", "No review ran: low risk."], capture_output=True, encoding="utf-8")
+    def ship(self, *extra):
+        p = subprocess.run([sys.executable, SCRIPT, "--root", self.root, "login", "--review", "No review ran: low risk.", *extra],
+                           capture_output=True, encoding="utf-8")
         return p.returncode, p.stdout + p.stderr
+
+    def baseline(self, row):
+        self.write(".sdlc/baseline.md", "# Known failures baseline\n\n## Failing tests\n\n"
+                   "| Package | Test (file › name) | Failure, one line | Since |\n|---|---|---|---|\n" + row + "\n\n"
+                   "## Lint and type errors\n\n| Package | Tool | Rule | File | Count |\n|---|---|---|---|---|\n| — | none | | | |\n")
+
+    def failing(self, step="test"):
+        self.write(".sdlc/config.json", json.dumps({"commands": {step: "python3 -c \"raise SystemExit(1)\""}}))
+
+    def state_text(self):
+        with open(self.path(".sdlc/login/state.md"), encoding="utf-8") as f:
+            return f.read()
 
     def test_readies_the_commit_in_one_call(self):
         code, out = self.ship()
@@ -64,6 +77,37 @@ class ShipTest(ProjectTestCase):
         with open(self.path(".sdlc/login/state.md"), encoding="utf-8") as f:
             self.assertIn("Current: Stage 4", f.read())
         self.assertEqual(self.out("diff", "--cached", "--name-only"), "")
+
+    def test_a_baseline_listed_test_failure_ships_only_when_waived_and_is_logged(self):
+        self.failing()
+        self.baseline("| (root) | src/div.test.js › div by zero throws | returns Infinity | b8392a3 |")
+        code, out = self.ship()  # without the flag the failure still stops Ship, and says how to proceed
+        self.assertEqual(code, 1)
+        self.assertIn("--waive-baseline", out)
+        self.assertIn("Current: Stage 4", self.state_text())
+        code, out = self.ship("--waive-baseline")
+        self.assertEqual(code, 0, out)
+        text = self.state_text()
+        self.assertIn("Current: Stage 8", text)
+        self.assertRegex(text, r"Stage 8: baseline failures waived: only the test step failed; 1 listed in \.sdlc/baseline\.md")
+
+    def test_the_waiver_needs_the_baseline_to_list_a_failing_test(self):
+        self.failing()
+        self.baseline("| — | none | | |")  # the template's empty row lists nothing
+        code, out = self.ship("--waive-baseline")
+        self.assertEqual(code, 1)
+        self.assertNotIn("--waive-baseline", out.split("verify failed", 1)[1])  # no hint where a waiver can't apply
+        self.assertIn("Current: Stage 4", self.state_text())
+        os.remove(self.path(".sdlc/baseline.md"))
+        self.assertEqual(self.ship("--waive-baseline")[0], 1)  # nor with no baseline file
+
+    def test_the_waiver_covers_the_test_step_only(self):
+        self.write(".sdlc/config.json", json.dumps({"commands": {
+            "test": "python3 -c \"print('ok')\"", "lint": "python3 -c \"raise SystemExit(1)\""}}))
+        self.baseline("| (root) | src/div.test.js › div by zero throws | returns Infinity | b8392a3 |")
+        code, out = self.ship("--waive-baseline")
+        self.assertEqual(code, 1, out)
+        self.assertIn("Current: Stage 4", self.state_text())
 
 
 if __name__ == "__main__":

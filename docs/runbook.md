@@ -201,7 +201,7 @@ Hard stops are different: they always wait for your answer and aren't skipped. T
 1. Check `.sdlc/baseline.md`: failing tests by file › name, lint/type errors as counts per rule and file. A count that went **up** counts as new.
 2. No baseline in a brownfield repo: rerun `/sdlc:setup`'s baseline step.
 3. A pre-existing failure missing from the baseline: adding it is your decision. Add it with a note and record it with `state.py deviation` naming the test; nothing adds items on its own. A baseline that gains a failure during a feature raises a trust-anchor notice ([R19](#r19-a-trust-anchor-notice-stops-the-turn)).
-4. `verify.py` doesn't read the baseline: a baselined failure fails it. When only the test step fails and every failure is listed there, Build logs it with `state.py log` and passes the gate; nothing checks that mechanically yet ([spec 04 Known gaps](specs/04-verification.md#known-gaps)).
+4. `verify.py` doesn't read the baseline: a baselined failure fails it. When only the test step fails and every failure is listed there, Build logs it with `state.py log` and passes the gate; nothing checks that mechanically yet ([spec 04 Known gaps](specs/04-verification.md#known-gaps)). Ship needs `ship.py <feature> --waive-baseline` for the same case, which refuses unless `.sdlc/baseline.md` lists a failing test and only the test step failed, and logs the waiver.
 
 ### R17. Eject left something behind or broke the build
 
