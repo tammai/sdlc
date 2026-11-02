@@ -2,6 +2,13 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
+## Unreleased
+
+### Added
+- **Hookify and the role guard work in a session started above the repo** (requested for product-rebuild, which starts in a workbench folder holding several repos and worktrees, each set up for sdlc). Before, both read only the session's folder (`CLAUDE_PROJECT_DIR`): its guardrails never loaded (`cd api && git push --force origin main` was allowed), and the role guard judged paths against the wrong root (a code-reviewer writing `api/.sdlc/.work/findings/r.md` was denied). Now `sdlc_layout.target_repo` finds the repo a call acts in, the nearest folder strictly inside the session folder with `.sdlc/config.json`, from a file tool's path or a command's leading `cd`/`pushd`, `git -C`, `--git-dir` or `--work-tree`, else the call's cwd. Hookify adds that repo's rules to the session's (an enabled rule of the same name in the repo replaces the session's); the role guard judges the path against that repo and its `docs_dir`.
+
+  Exactly what changes: only a session whose folder has no `.sdlc/` at all, and only for a PreToolUse call into a folder below it that has `.sdlc/config.json`. A session started in a repo with `.sdlc/` (set up or not) is unchanged, and a nested sdlc repo below it is never read: checked by running 396 hook calls through 2.3.1 and this change in a set-up repo, a `.sdlc/`-without-config repo and a plain folder, each holding a nested sdlc repo with its own rules; the first two gave identical output, the plain folder differed only on calls into the nested repo. Not covered: Codex (its hooks get no project folder), commands that change folder inside `bash -c` or a script, more than one repo per command (the first named wins), and the other sdlc hooks (freshness, prove budget, model router, review rounds, trust anchor, stop), which still read only the session folder's features and so stay silent there.
+
 ## 2.3.1 — 2026-11-02
 
 ### Fixed

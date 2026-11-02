@@ -21,6 +21,16 @@ except ImportError:
     sys.exit(0)  # never blocks or speaks on its own error (.claude/rules/hooks.md)
 
 
+def _target_repo(input_data):
+    """The sdlc repo below a session started above it that this call acts in, or None (sdlc_layout.target_repo)."""
+    try:
+        import sdlc_layout
+        return sdlc_layout.target_repo(os.environ.get('CLAUDE_PROJECT_DIR'), input_data.get('tool_name', ''),
+                                       input_data.get('tool_input'), input_data.get('cwd'))
+    except Exception:
+        return None
+
+
 def main():
     """Main entry point for PreToolUse hook."""
     try:
@@ -40,7 +50,7 @@ def main():
 
         # Load rules
         problems = []
-        rules = load_rules(event=event, problems=problems)
+        rules = load_rules(event=event, problems=problems, extra_root=_target_repo(input_data))
 
         # Evaluate rules
         engine = RuleEngine()

@@ -264,20 +264,30 @@ def find_project_root() -> str:
         here = parent
 
 
-def load_rules(event: Optional[str] = None, problems: Optional[List[str]] = None) -> List[Rule]:
+def load_rules(event: Optional[str] = None, problems: Optional[List[str]] = None,
+               extra_root: Optional[str] = None) -> List[Rule]:
     """Load all hookify rules from .claude directory.
 
     Args:
         event: Optional event filter ("bash", "file", "stop", etc.)
         problems: Optional list that receives one line per rule that is broken
             (see rule_problems), so the caller can report it instead of failing open silently.
+        extra_root: Optional repo whose rules apply too (a call into an sdlc repo below a session started above
+            it). Its enabled rules replace the project's enabled rules of the same name.
 
     Returns:
         List of enabled Rule objects matching the event.
     """
-    rules = []
+    rules = _load_rule_files(_rule_files(find_project_root()), event, problems)
+    if extra_root:
+        extra = _load_rule_files(_rule_files(extra_root), event, problems)
+        names = {r.name for r in extra}
+        rules = [r for r in rules if r.name not in names] + extra
+    return rules
 
-    files = _rule_files(find_project_root())
+
+def _load_rule_files(files: List[str], event: Optional[str], problems: Optional[List[str]]) -> List[Rule]:
+    rules = []
 
     for file_path in files:
         try:

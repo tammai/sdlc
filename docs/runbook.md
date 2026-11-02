@@ -134,7 +134,7 @@ The Ralph loop comes with the optional `sdlc-extras` plugin.
 
 ### R7. A hookify rule doesn't fire, or fires too much
 
-1. Is the file in the right place? `.claude/hookify.<name>.local.md` (personal) or `.claude/hookify/<name>.md` (team).
+1. Is the file in the right place? `.claude/hookify.<name>.local.md` (personal) or `.claude/hookify/<name>.md` (team), under the folder the session started in. A session started above the repo (a workbench of repos) also gets the repo's rules for a file tool on a path in it, or a command that starts with `cd <repo>` (or `git -C <repo>`, or runs with its cwd there), but only when that folder has no `.sdlc/` and the repo has `.sdlc/config.json`; `bash -c "cd ..."` and scripts don't count.
 2. Frontmatter: `enabled: true`, a valid `event` (`bash`, `file`, `stop`, `prompt`, `all`), `action` (`warn` or `block`).
 3. Parser limits: never put `---` inside a pattern (write `-{3}`), keep each `pattern:` on its own line, don't quote patterns. Matching is case-insensitive.
 4. Fields: bash rules use `command`; file rules use `file_path`, `new_text` (falls back to `content` on Write), `old_text` or `content`; prompt rules use `user_prompt`. Operators: `regex_match`, `not_regex_match`, `contains`, `not_contains`, `equals`, `starts_with`, `ends_with`.

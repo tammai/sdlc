@@ -6,7 +6,8 @@ from the main session or other plugins' agents get no output. Denies, with the r
   - a reviewer editing any file but its report under .sdlc/.work/findings/: reviewers report, they don't fix
   - the qa-tester reading or searching project files other than .sdlc/, the docs folder (docs_dir) and READMEs, or
     writing anything but qa-report.md and .sdlc/.work/qa/
-Paths outside the project (scratch dirs) are left alone. Bash stays open to all of them: they need it for git,
+Paths outside the project (scratch dirs) are left alone. A session started in a folder above sdlc repos is judged
+against the repo a call's path is in (sdlc_layout.target_repo). Bash stays open to all of them: they need it for git,
 tests and running the software, so that part of each role is still instructions. Any error: no output.
 """
 import json
@@ -65,6 +66,8 @@ def main():
         if not agent.startswith(("sdlc:", "sdlc-extras:")):  # sdlc-extras: the companion plugin's reviewers
             return
         root = os.path.abspath(os.environ.get("CLAUDE_PROJECT_DIR") or data.get("cwd") or os.getcwd())
+        # A session started above the repo (a workbench of repos): judge the call against the repo it acts in
+        root = sdlc_layout.target_repo(root, data.get("tool_name", ""), data.get("tool_input"), data.get("cwd")) or root
         rel = rel_path(root, data.get("tool_input") or {}, data.get("cwd"))
         reason = problem(agent.split(":", 1)[1], data.get("tool_name", ""), rel, root)
         if reason:

@@ -31,6 +31,56 @@ def docs_dir(root):
         return None
 
 
+FILE_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit", "Read", "Grep", "Glob"}
+SHELL_TOOLS = {"Bash", "PowerShell"}
+
+
+def target_repo(project_dir, tool_name, tool_input, cwd):
+    """The sdlc repo a tool call acts in when the session started in a folder above it (a workbench holding several
+    repos or worktrees), else None. None whenever project_dir has its own .sdlc/, so a session started in a repo
+    behaves exactly as before; only a repo strictly inside project_dir counts. Any error: None."""
+    try:
+        if not project_dir:
+            return None
+        project = os.path.abspath(project_dir)
+        if os.path.lexists(os.path.join(project, SDLC)):
+            return None
+        tool_input = tool_input if isinstance(tool_input, dict) else {}
+        base = os.path.join(project, cwd) if isinstance(cwd, str) and cwd else project
+        if tool_name in FILE_TOOLS:
+            path = tool_input.get("file_path") or tool_input.get("notebook_path") or tool_input.get("path")
+            starts = [os.path.join(base, path) if isinstance(path, str) and path else base]
+        elif tool_name in SHELL_TOOLS:
+            import reporesolve  # lazy: it pulls in git helpers no gated call needs
+            command = tool_input.get("command")
+            starts = reporesolve.dirs_from_command(command, base) + reporesolve.cd_dirs_from_command(command, base)
+            starts.append(base)
+        else:
+            return None
+        for start in starts:
+            found = _sdlc_repo_inside(project, start)
+            if found:
+                return found
+    except Exception:
+        pass
+    return None
+
+
+def _sdlc_repo_inside(project, start):
+    """Nearest folder at or above start, and strictly below project, that has .sdlc/config.json."""
+    top = os.path.normcase(project)
+    inside = top.rstrip(os.sep) + os.sep
+    d = os.path.normpath(os.path.abspath(start))
+    while os.path.normcase(d) != top and os.path.normcase(d).startswith(inside):
+        if os.path.isfile(os.path.join(d, SDLC, "config.json")):
+            return d
+        parent = os.path.dirname(d)
+        if parent == d:
+            break
+        d = parent
+    return None
+
+
 def prd(root):
     """The project's product doc: the in-repo path setup recorded (`prd` in config, an existing PRD used as is), else
     <docs_dir>/prd.md."""

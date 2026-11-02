@@ -142,6 +142,27 @@ def dirs_from_command(command, cwd, subcommands=None):
     return list(dict.fromkeys(d for d in out if d))
 
 
+def cd_dirs_from_command(command, cwd):
+    """Each directory a command `cd`s or `pushd`es into at the start of a segment, in order."""
+    if not isinstance(command, str) or not command.strip():
+        return []
+    tokens = _tokenize(command)
+    out = []
+    cur = cwd or ""
+    at_start = True
+    for i, t in enumerate(tokens):
+        if _is_sep(t):
+            at_start = True
+            continue
+        if at_start and t in ("cd", "pushd") and i + 1 < len(tokens):
+            nxt = tokens[i + 1]
+            if not _is_sep(nxt) and not nxt.startswith("-"):
+                cur = _abs(cur, nxt) or cur
+                out.append(cur)
+        at_start = False
+    return list(dict.fromkeys(d for d in out if d))
+
+
 def toplevel_from_command(command, cwd, subcommands=None, cwd_root=None):
     cwd_abs = _abs(None, cwd) if cwd else None
     for d in dirs_from_command(command, cwd, subcommands):
