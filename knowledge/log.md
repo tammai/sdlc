@@ -22,3 +22,5 @@
 - 2026-10-29 add knowledge/gotchas/subagents-cant-run-skill-commands.md — ui-reviewer skipped `/impeccable audit` in live checks (from 2.1.0 release distill)
 - 2026-10-29 add knowledge/gotchas/headless-plugin-tests.md — slash commands mangled by Git Bash; the run's prompt lifted the planted round cap (from 2.2.0 release distill)
 - 2026-10-29 add knowledge/gotchas/cloud-sessions-see-only-committed-files.md — cloud sessions ran without sdlc, its keys only in settings.local.json (from 2.3.0 release distill)
+- 2026-11-02 add knowledge/gotchas/macos-stock-bash-and-no-timeout.md — three tests failed on a stock Mac, two for no timeout and one for bash 3.2 (from 2.3.1 release distill)
+- 2026-11-02 update knowledge/gotchas/cloud-sessions-see-only-committed-files.md — a cloud session also installs no plugin a repo's settings.json turns on (from 2.3.1 release distill)

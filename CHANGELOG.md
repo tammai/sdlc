@@ -2,13 +2,16 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
-## Unreleased
+## 2.3.1 — 2026-11-02
 
 ### Fixed
 - **Setup no longer says the committed `.claude/settings.json` gives cloud sessions sdlc** (#7). Per the Claude Code docs a cloud session doesn't install the plugins a repo's settings turn on, so `enable-plugin --team` only helps teammates on their own machines. Setup stops recommending the team file for cloud work and, for a user who works in cloud sessions, points to the guidebook's new "Cloud sessions" section: organization-wide server-managed settings, or a setup script on the cloud environment. This corrects the 2.3.0 notes below; the README, guidebook, playbook, SET-FR-012, spec 11, the setup diagram's description, the `2.3.0-team-plugin-keys` migration and the cloud-sessions gotcha say the same. Not run in a real cloud session.
 - **The suite is green on a stock Intel Mac** (#8). Three tests failed there for two reasons the 2.3.0 notes ran together. `test_prove_budget`'s two wrapped-command tests need a `timeout` or `gtimeout` binary, which macOS has without coreutils; they now skip without one, and a new test covers the no-binary path (only the tool `timeout` is lowered). `test_sg_python`'s hook-times test needs bash 5 for `EPOCHREALTIME`, and macOS's `/bin/bash` is 3.2, so it skips there. The runbook's R10a now says `SDLC_HOOK_TIMES` logs nothing under bash 3.2.
+- **A brownfield repo can ship past the failures its baseline lists** (found by the 2.3.1 smoke test). `ship.py` reruns `verify.py`, which never read `.sdlc/baseline.md`, so a repo with a known failing test could pass Build's gate (logged by hand) and then never finish Ship. `ship.py --waive-baseline` now lets a failed run through when only the test step failed and the baseline lists failing tests, and writes the waiver to the Gate log. It does not check that each failure is the listed one; the agent does, as at Build's gate.
 - **`NOTICE.md` records the upstream commits the vendored code was last compared with, and every local patch** (#8). Superpowers v7.0.1 is in sync. Anthropic's plugins differ only by sdlc's patches (several were unlisted: narrowed agent tools, hookify's regex timeout, `NotebookEdit` and message limits) and by what sdlc leaves out on purpose: the security hook's telemetry and `code-review`'s new `haiku` gate, `--comment` default and inline-comment MCP tool. `/sdlc:code-review` takes upstream's agent-assumptions block. Re-syncing means updating that record (CONTRIBUTING).
 - **A test fails any `SKILL.md` that reaches 20,000 characters** (#8), the size at which Claude Code truncates a skill after compaction. The largest is `setting-up-projects` at about 17,900.
+
+Smoke test, 2026-11-02, run headlessly (`claude -p` with the checkout as `--plugin-dir`, throwaway repos, approvals given in the prompt) against the commit before this one: parts A, B, C, D, E and H passed; G passed its setup and baseline steps and found the Ship bug above, whose fix was checked by running `ship.py` on that stuck feature, not by a second full session. Not run: F (security hooks), G.4 (monorepo), I (Windows) and J (other agents), and nobody has run the cloud-session fix in a real cloud session. Setup's "where do the plugin keys go" question was not exercised, because a `--plugin-dir` run skips that step.
 
 ## 2.3.0 — 2026-10-29
 
