@@ -2,7 +2,7 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
-## Unreleased
+## 2.4.0 — 2026-11-02
 
 ### Added
 - **Hookify and the role guard work in a session started above the repo** (requested for product-rebuild, which starts in a workbench folder holding several repos and worktrees, each set up for sdlc). Before, both read only the session's folder (`CLAUDE_PROJECT_DIR`): its guardrails never loaded (`cd api && git push --force origin main` was allowed), and the role guard judged paths against the wrong root (a code-reviewer writing `api/.sdlc/.work/findings/r.md` was denied). Now `sdlc_layout.target_repo` finds the repo a call acts in, the nearest folder strictly inside the session folder with `.sdlc/config.json`, from a file tool's path or a command's leading `cd`/`pushd`, `git -C`, `--git-dir` or `--work-tree`, else the call's cwd. Hookify adds that repo's rules to the session's (an enabled rule of the same name in the repo replaces the session's); the role guard judges the path against that repo and its `docs_dir`.

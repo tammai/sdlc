@@ -3,7 +3,7 @@ type: gotcha
 title: What Claude Code sends hooks, checked live
 description: A failed Bash call is PostToolUseFailure; subagent calls carry agent_type; updatedInput alone keeps permissions.
 tags: [hooks, claude-code]
-updated: 2026-10-26
+updated: 2026-11-02
 ---
 
 # What Claude Code sends hooks, checked live
@@ -16,8 +16,10 @@ A non-zero exit arrives as `PostToolUseFailure`, with `error` ("Exit code 1") an
 
 A Bash call's `tool_input` carries `command`, `description`, `timeout` (ms, when given) and `run_in_background`. A PreToolUse hook can return `hookSpecificOutput.updatedInput` with no `permissionDecision`: the call runs with the new input and the user's permission rules still decide (checked live on 2.1.310: a lowered `timeout` reached PostToolUse, and an unallowed `touch` was still refused in `-p`). `updatedInput` replaces the whole input, so copy every field. Adding `permissionDecision: "allow"` would skip the permission prompt. A command that runs past its `timeout` isn't killed: the call returns and the command moves to the background. To kill it, prefix `timeout -k 5 <s>` in `updatedInput`: permission rules match the command through that wrapper (an allow-listed `python` ran unprompted), but not through `bash -c '…'`, which asks, and slips past the user's deny rules, so never rewrite to that.
 
+`CLAUDE_PROJECT_DIR` is the folder the session started in, not the repo a call acts in: a session started in a workbench folder above several repos gets that folder, so a hook reading `.sdlc/` or `.claude/hookify/` from it finds nothing. Under `hosts/hook.py`, Codex hooks get no `CLAUDE_PROJECT_DIR` at all; Cursor and Antigravity get the workspace root. And `.sdlc/config.json` doesn't mark every repo using sdlc: features run without `/sdlc:setup` leave `.sdlc/` with no config, so "is this an sdlc repo" means `.sdlc/` exists.
+
 ## Fix
-Register a hook that cares about failures on `PostToolUseFailure` too (`hooks/hooks.json`). Key role checks on `agent_type` (`hooks/role_guard.py`). Change a call's input with `updatedInput` alone (`hooks/prove_budget.py`). The exit is the tests' only when nothing runs after them: `| tail` or `; echo $?` report their own (`verify_freshness.exit_is_the_tests`).
+Register a hook that cares about failures on `PostToolUseFailure` too (`hooks/hooks.json`). Key role checks on `agent_type` (`hooks/role_guard.py`). Find the repo a call acts in with `sdlc_layout.target_repo` rather than trusting `CLAUDE_PROJECT_DIR`. Change a call's input with `updatedInput` alone (`hooks/prove_budget.py`). The exit is the tests' only when nothing runs after them: `| tail` or `; echo $?` report their own (`verify_freshness.exit_is_the_tests`).
 
 ## How to detect early
 Log raw hook input with a throwaway `--settings` file in a scratch repo and run one headless session (`claude -p … --settings`), as done on 2026-10-23; then check the plugin's own registrations in a `--plugin-dir` session.
