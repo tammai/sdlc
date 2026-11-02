@@ -10,6 +10,12 @@ from helpers import BASH, HOOKS, ProjectTestCase
 LAUNCHER = os.path.join(HOOKS, "sg-python.sh")
 
 
+def bash_has_epochrealtime():
+    p = subprocess.run([BASH, "-c", 'printf %s "${EPOCHREALTIME:-}"'], capture_output=True, encoding="utf-8",
+                       errors="replace")
+    return bool(p.stdout)
+
+
 class LauncherTest(ProjectTestCase):
     def launch(self):
         env = dict(os.environ, CLAUDE_PLUGIN_DATA=self.root)
@@ -35,6 +41,7 @@ class LauncherTest(ProjectTestCase):
             self.assertEqual(f.read().strip(), remembered)
 
 
+    @unittest.skipUnless(bash_has_epochrealtime(), "bash older than 5 (macOS /bin/bash 3.2) has no EPOCHREALTIME: the timing stays off")
     def test_opt_in_logs_each_hooks_time_and_keeps_its_output_and_exit_code(self):
         # The hook still reads its input; 2 is an asyncRewake hook's 'wake the model'
         self.write("h.py", "import json, sys\nprint(json.load(sys.stdin)['tool_name'])\nraise SystemExit(2)\n")

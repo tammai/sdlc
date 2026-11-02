@@ -1,11 +1,18 @@
 """hooks/prove_budget.py: in Prove (Stage 5), non-project shell commands are killed at 120 s and never run in the background."""
 import json
 import os
+import shutil
+import sys
+import tempfile
 import unittest
 
 from helpers import HOOKS, PLUGIN_ROOT, ProjectTestCase, run_hook
 
 HOOK = ["python3", os.path.join(HOOKS, "prove_budget.py")]
+# The hook wraps a command in timeout/gtimeout when one exists (always on Windows, where Git Bash ships it); macOS
+# without coreutils has neither, so the wrapped-command tests can't run there
+HAS_TIMEOUT = os.name == "nt" or any(shutil.which(t) for t in ("timeout", "gtimeout"))
+NEEDS_TIMEOUT = unittest.skipUnless(HAS_TIMEOUT, "no timeout/gtimeout binary (macOS without coreutils)")
 STATE = "# Feature: login\nStatus: active\nProcess: 2\nCurrent: Stage {stage} – Prove\n"
 
 
@@ -14,13 +21,14 @@ class ProveBudgetTest(ProjectTestCase):
         super().setUp()
         self.write(".sdlc/config.json", json.dumps({"commands": {"test": "npm test"}}))
 
-    def call(self, stage, tool="Bash", **tool_input):
+    def call(self, stage, tool="Bash", hook=HOOK, env_extra=None, **tool_input):
         self.write(".sdlc/login/state.md", STATE.format(stage=stage))
         payload = {"hook_event_name": "PreToolUse", "cwd": self.root, "tool_name": tool, "tool_input": tool_input}
-        code, out, raw, err = run_hook(HOOK, payload, self.root)
+        code, out, raw, err = run_hook(hook, payload, self.root, env_extra)
         self.assertEqual(code, 0, err)
         return (out or {}).get("hookSpecificOutput", {})
 
+    @NEEDS_TIMEOUT
     def test_non_project_commands_are_killed_at_120_seconds(self):
         out = self.call(5, command="node probe.js", description="probe", timeout=600000)
         self.assertIsNone(out.get("permissionDecision"))  # the user's permission rules still decide
@@ -38,6 +46,7 @@ class ProveBudgetTest(ProjectTestCase):
         self.assertRegex(out["updatedInput"]["command"],
                          r'^S="python3 state.py"; F=login; g?timeout -k 5 120 \$S round \$F 1 fail "R1"$')
 
+    @NEEDS_TIMEOUT
     def test_quick_read_only_steps_chain_untimed(self):
         cmd = "git remote -v; git branch --show-current; tail -5 docs/change.md"
         out = self.call(5, command=cmd)
@@ -45,6 +54,18 @@ class ProveBudgetTest(ProjectTestCase):
         self.assertEqual(out["updatedInput"]["command"], cmd)
         # Following a file never ends: still killed at 120 s
         self.assertRegex(self.call(5, command="tail -f log")["updatedInput"]["command"], r"^g?timeout -k 5 120 tail -f log$")
+
+    @unittest.skipIf(os.name == "nt", "Windows always has timeout through Git Bash")
+    def test_without_a_timeout_binary_only_the_tool_timeout_is_lowered(self):
+        # An empty PATH finds neither timeout nor gtimeout; the interpreter is named by path so the hook still starts
+        hook = [sys.executable, HOOK[1]]
+        empty = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, empty, True)
+        out = self.call(5, hook=hook, env_extra={"PATH": empty}, command="node probe.js", timeout=600000)
+        self.assertIsNone(out.get("permissionDecision"))
+        self.assertEqual(out["updatedInput"]["command"], "node probe.js")  # nothing to wrap it with
+        self.assertEqual(out["updatedInput"]["timeout"], 120000)  # so Claude Code's own limit does the work
+        self.assertEqual(self.call(5, hook=hook, env_extra={"PATH": empty}, command="node probe.js", timeout=5000), {})
 
     def test_ships_one_call_runs_whole(self):
         ship = os.path.join(PLUGIN_ROOT, "scripts", "ship.py")

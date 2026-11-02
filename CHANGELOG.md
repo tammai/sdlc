@@ -6,6 +6,7 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ### Fixed
 - **Setup no longer says the committed `.claude/settings.json` gives cloud sessions sdlc** (#7). Per the Claude Code docs a cloud session doesn't install the plugins a repo's settings turn on, so `enable-plugin --team` only helps teammates on their own machines. Setup stops recommending the team file for cloud work and, for a user who works in cloud sessions, points to the guidebook's new "Cloud sessions" section: organization-wide server-managed settings, or a setup script on the cloud environment. This corrects the 2.3.0 notes below; the README, guidebook, playbook, SET-FR-012, spec 11, the setup diagram's description, the `2.3.0-team-plugin-keys` migration and the cloud-sessions gotcha say the same. Not run in a real cloud session.
+- **The suite is green on a stock Intel Mac** (#8). Three tests failed there for two reasons the 2.3.0 notes ran together. `test_prove_budget`'s two wrapped-command tests need a `timeout` or `gtimeout` binary, which macOS has without coreutils; they now skip without one, and a new test covers the no-binary path (only the tool `timeout` is lowered). `test_sg_python`'s hook-times test needs bash 5 for `EPOCHREALTIME`, and macOS's `/bin/bash` is 3.2, so it skips there. The runbook's R10a now says `SDLC_HOOK_TIMES` logs nothing under bash 3.2.
 
 ## 2.3.0 — 2026-10-29
 
