@@ -8,6 +8,8 @@ Docs: [guidebook](docs/guidebook.md) (how it works) · [playbook](docs/playbook.
 
 ## What you get
 
+**What it is for:** a process you can trust and review, not better code than plain Claude Code. The evals behind 2.0 showed no gain in code quality, and the earlier heavy flow cost 10 to 18 times the time and tokens ([ADR 0016](docs/adr/0016-cut-l-cost-where-it-bought-nothing.md), [0020](docs/adr/0020-sdlc-2-slim-process-core.md)). 2.x aims for the same quality as plain Claude at a bounded cost (S 1.2x, M 3x, L 2x its time and tokens, M's time 4x). Those limits have not been measured on a release yet.
+
 - **A record of every change.** S, M or L, every change leaves the same two files, committed with the code and kept for good: the change file for people (why, what must be true with each criterion's test, and what was checked after the build) and the feature's state file for the agent (where it stands and how it's built: tasks, files, Public Surface, deviations). Each commit names the record, so `git blame` leads from a line to its why.
 - **Intent before code.** Nothing is built until what, why and how are written down. The agent asks only when something is unclear, one question at a time. A bug is proven first (a failing test or exact steps), then its root cause is found.
 - **Gates you can trust.** You decide at the hard stops (on M and L, approving the change file and the plan, then choosing the reviews; anything that adds scope; merge; deploy; migrations). S runs straight through.
@@ -32,7 +34,7 @@ Optional: `/plugin install sdlc-extras@sdlc` adds the companion plugin: the Ralp
 
 Restart the session afterward so the commands and hooks load. To work on the plugin from a checkout instead, see [Contributing](#contributing).
 
-**Other coding agents** (setup detects the agent and writes its own files; [spec 11](docs/specs/11-multi-agent.md)). Setup is smoke-tested in Codex and Antigravity on Windows and in Cursor in WSL:
+**Other coding agents** (setup detects the agent and writes its own files; [spec 11](docs/specs/11-multi-agent.md)). **Experimental until the phases have run in each:** setup is smoke-tested in Codex and Antigravity on Windows and in Cursor in WSL, and nothing more:
 
 | Agent | Install |
 |---|---|
@@ -191,6 +193,7 @@ The other part of the per-call floor is the listings of every enabled plugin, sk
 - **Generated CI is GitHub Actions only.** On other CI systems, run the same commands from `.sdlc/config.json` yourself.
 - **Most gates are instructions plus your approval.** Machine-checked: each acceptance test recorded red before its code and plan drift (`verify.py`), test freshness and Review's 120 s command limit (hooks), undeclared public surface (`diff_stats.py --plan`), the subagent model rules (model router), leaving Review only on a passing full run with no unwaived `VERDICT: FAIL` (trust anchor) and hookify guardrails. Which reviews run is the agent's judgment (yours on M and L); an S change whose recommendation is none gets no reviewer.
 - **Freshness detection is heuristic.** It catches edits by any tool and filtered runs (file, name or package arguments), but not every possible filter, and not `.only` inside a test file (a guardrail warns on that instead).
+- **The 2.x line moves fast and makes no compatibility promise yet.** 2.0.0 shipped on 2026-10-28 and 2.3.0 the next day, and 2.0 broke features in flight (finish them on 1.8.1 first). `/sdlc:upgrade` migrates a repo, but read the [changelog](CHANGELOG.md) before updating a team.
 - **Windows:** Claude Code runs commands in Git Bash, so project commands must work there; generated CI runs every step with `shell: bash`.
 
 ## Contributing
