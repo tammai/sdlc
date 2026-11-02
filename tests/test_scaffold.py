@@ -305,7 +305,7 @@ class ScaffoldTest(ProjectTestCase):
         self.installed()
         self.write("claude-config/settings.json", json.dumps({"enabledPlugins": {"superpowers@mkt": True}}))
         self.write(".claude/settings.json", json.dumps({"permissions": {"allow": ["Bash(make:*)"]}}))
-        # A cloud session clones the repo: only the committed file reaches it, so --team puts the on keys there
+        # A teammate's clone gets only the committed file, so --team puts the on keys there
         out = self.sc("enable-plugin", "--team")
         self.assertEqual(out["commit"], ".claude/settings.json")
         team = json.loads(self.read(".claude/settings.json"))
@@ -317,7 +317,7 @@ class ScaffoldTest(ProjectTestCase):
         self.assertTrue(all(c["on"] for c in out["companions"]))
         # Run again without --team (upgrade's keyed merge): the committed keys aren't shadowed locally
         self.assertEqual(self.sc("enable-plugin")["added"], [])
-        # A companion added later joins the team's file too, so a cloud session gets it as well
+        # A companion added later joins the team's file too, so teammates get it as well
         self.template("templates/project/config.defaults.json", json.dumps({"companions": [
             {"id": "sdlc-extras@sdlc", "marketplace": "sdlc", "why": "extras"},
             {"id": "other@sdlc", "marketplace": "sdlc", "why": "other"}]}))

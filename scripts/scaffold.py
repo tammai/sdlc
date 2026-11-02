@@ -853,7 +853,8 @@ def cmd_enable_plugin(p, a):
     """Turn sdlc, and the companions this machine wants, on for this repo: a keyed merge into
     .claude/settings.local.json, which is never committed, so nobody else's setup changes and nothing needs asking.
     With --team (asked at setup: the team's call) the keys that turn plugins on go to the committed
-    .claude/settings.json instead, so a cloud session's fresh clone and every teammate who trusts the repo get them.
+    .claude/settings.json instead, so every teammate who trusts the repo gets them (a cloud session doesn't install
+    plugins from that file, so it needs the guidebook's "Cloud sessions" routes).
     A companion is on when its `default` is true or it's named with --with; only listed ones can be. A key the user
     already set, in either file, is theirs and is never recorded or removed."""
     known = {c["id"]: c for c in companions(p)}
@@ -1622,7 +1623,7 @@ def build_parser():
     s = sub.add_parser("enable-plugin", help="turn sdlc and its companions on in .claude/settings.local.json")
     s.add_argument("--with", dest="with_", action="append", metavar="ID", help="also a companion that's off by default")
     s.add_argument("--team", action="store_true",
-                   help="write the keys that turn plugins on to the committed .claude/settings.json (cloud sessions, teammates)")
+                   help="write the keys that turn plugins on to the committed .claude/settings.json (teammates; not cloud sessions)")
     s.add_argument("--remove", action="store_true", help="remove only the keys this command added")
     s.add_argument("--remove-team", action="store_true",
                    help="remove only the plugin keys this command added to .claude/settings.json")

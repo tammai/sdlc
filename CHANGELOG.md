@@ -2,6 +2,11 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
+## Unreleased
+
+### Fixed
+- **Setup no longer says the committed `.claude/settings.json` gives cloud sessions sdlc** (#7). Per the Claude Code docs a cloud session doesn't install the plugins a repo's settings turn on, so `enable-plugin --team` only helps teammates on their own machines. Setup stops recommending the team file for cloud work and, for a user who works in cloud sessions, points to the guidebook's new "Cloud sessions" section: organization-wide server-managed settings, or a setup script on the cloud environment. This corrects the 2.3.0 notes below; the README, guidebook, playbook, SET-FR-012, spec 11, the setup diagram's description, the `2.3.0-team-plugin-keys` migration and the cloud-sessions gotcha say the same. Not run in a real cloud session.
+
 ## 2.3.0 — 2026-10-29
 
 ### Changed

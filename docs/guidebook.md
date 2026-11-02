@@ -23,7 +23,7 @@ Before the first feature, `/sdlc:setup` prepares the repo once; `/sdlc:start` of
 
 - **Greenfield** (no source yet): a short stack interview, then a proposal you approve. The ecosystem's own generator builds the skeleton, plus the test runner and one passing smoke test. A linter, toolchain pinning and extra manifest fields are separate choices in the proposal, off unless you say yes.
 - **Brownfield** (existing code): the commands the repo already uses, shown to you before they're written; a **baseline** of what already fails; an audit (conventions, git-history gotchas, decisions, area rules) drafted by explorer agents and written only as you approve each batch; existing AI configs (long CLAUDE.md, AGENTS.md, Cursor rules, ADRs) migrated into the three knowledge tiers, one diff per source.
-- **Common steps, both modes:** policy rules (`.claude/rules/sdlc*.md`); hookify guardrails; sdlc lint snippets, only for a linter the project already has; a permission allowlist for the project's commands; sdlc and its companion plugins turned on, asked where: `.claude/settings.local.json`, this machine's file, never committed, or the committed `.claude/settings.json`, so cloud sessions (a fresh clone) and teammates get them too (companions such as `sdlc-extras` are listed in one line and added on request, and the companion skill Cloudflare's `security-audit` with its install command when it isn't installed, which sdlc never runs for you; a conflicting plugin such as superpowers is turned off for this repo only, with a warning, and spec-kit's files are reported, with removal asked); with your approval, a context diet (`/sdlc:context-diet`) for this project; a CI workflow from the recorded commands (asked first if the repo already has CI); the sdlc block in `AGENTS.md` when another agent (Codex, Cursor, Antigravity) uses the repo; `.gitignore` entries; a product doc (PRD: an existing one used as is, else drafted from a short interview or from the code with every guess marked "inferred, confirm", approved before it's written to `docs/sdlc/prd.md`); a constitution (with the default Simplicity principle); a design system (projects with UI); and the knowledge folder. The steps that write `.claude/` run only under Claude Code.
+- **Common steps, both modes:** policy rules (`.claude/rules/sdlc*.md`); hookify guardrails; sdlc lint snippets, only for a linter the project already has; a permission allowlist for the project's commands; sdlc and its companion plugins turned on, asked where: `.claude/settings.local.json`, this machine's file, never committed, or the committed `.claude/settings.json`, so teammates get them too (cloud sessions don't: see [Cloud sessions](#cloud-sessions)) (companions such as `sdlc-extras` are listed in one line and added on request, and the companion skill Cloudflare's `security-audit` with its install command when it isn't installed, which sdlc never runs for you; a conflicting plugin such as superpowers is turned off for this repo only, with a warning, and spec-kit's files are reported, with removal asked); with your approval, a context diet (`/sdlc:context-diet`) for this project; a CI workflow from the recorded commands (asked first if the repo already has CI); the sdlc block in `AGENTS.md` when another agent (Codex, Cursor, Antigravity) uses the repo; `.gitignore` entries; a product doc (PRD: an existing one used as is, else drafted from a short interview or from the code with every guess marked "inferred, confirm", approved before it's written to `docs/sdlc/prd.md`); a constitution (with the default Simplicity principle); a design system (projects with UI); and the knowledge folder. The steps that write `.claude/` run only under Claude Code.
 
 Setup runs on an `sdlc/setup` branch with one commit per step, resumes where it stopped, and ends by asking whether to open a PR or merge locally.
 
@@ -99,6 +99,31 @@ Each UI change afterwards:
 | Ship | as usual |
 
 impeccable missing when a step runs: the step says so in one line and runs builtin; `/sdlc:doctor` warns. A repo set up before 2.1 gets the same question from `/sdlc:upgrade` (migration `2.1.0-design-mode`); with no answer it stays builtin and nothing changes. Switch later with `scaffold.py design <mode>`, which also puts the UI guardrail back or takes it away.
+
+### Cloud sessions
+
+A cloud session (Claude Code on the web, the desktop and mobile apps' cloud mode, a routine) clones the repo but does not install the plugins its `.claude/settings.json` turns on under `enabledPlugins`, even ones from marketplaces it lists under `extraKnownMarketplaces`. So neither choice in setup's "where do the keys go" question gives a cloud session sdlc: the committed file is for teammates on their own machines. The session still gets the repo's rules, hookify files and `.sdlc/config.json`, but no sdlc skills, agents, hooks or `/sdlc:*` commands. Two routes work; sdlc writes neither for you:
+
+- **Organization-wide** (Team or Enterprise, an Owner sets it): paste this at Organization settings > Claude Code > Managed settings. A cloud session fetches these before it installs plugins.
+
+  ```json
+  {
+    "extraKnownMarketplaces": {
+      "sdlc": { "source": { "source": "github", "repo": "tammai/sdlc" } }
+    },
+    "enabledPlugins": { "sdlc@sdlc": true, "sdlc-extras@sdlc": true }
+  }
+  ```
+
+  Leave out `sdlc-extras@sdlc` if you don't want the companion. This applies to everyone in the organization, not one repo.
+- **Per cloud environment:** add a setup script to the environment (the environment dialog at claude.ai/code) so it installs the plugin before Claude starts:
+
+  ```bash
+  claude plugin marketplace add tammai/sdlc
+  claude plugin install sdlc@sdlc --yes
+  ```
+
+Check with `claude plugin list` in the session: it should show `sdlc@sdlc`. Not yet checked: whether the commit security review can authenticate in a cloud session without `ANTHROPIC_API_KEY`. Source: Claude Code docs, [cloud environments](https://code.claude.com/docs/en/cloud-environments.md#what-carries-over-from-your-setup) and [plugins for your organization](https://code.claude.com/docs/en/plugins/org.md).
 
 ## Tracks
 
