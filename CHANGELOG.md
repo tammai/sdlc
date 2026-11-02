@@ -6,6 +6,7 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ### Fixed
 - **`/sdlc:doctor` warns when sdlc is turned off for the repo** (found by the 2.4.0 smoke test). With `"sdlc@sdlc": false` in `.claude/settings.local.json` (or the committed `.claude/settings.json`), no sdlc hook runs, so a force push to main and a real-looking API key both went through unflagged, and doctor still reported the plugin as `ok`. Doctor now warns, naming the file and the fix. When it runs from a checkout (`--plugin-dir`), the `false` that the headless-test recipe sets is expected and reported as `ok`. Setup's `enable-plugin` still leaves a `false` the user set in place, without a warning; doctor is where it shows.
+- **Eject and `enable-plugin --remove` no longer delete a plugin key the user changed** (found by the same smoke test). The lock records which keys sdlc wrote, not their values, so a `"sdlc@sdlc": true` that sdlc wrote and the user later set to `false`, or a superpowers turn-off the user set back to `true`, was deleted, quietly changing which plugins load. A key whose value is no longer the one `enable-plugin` writes (`true`, or `false` for a conflicting plugin) now stays, and the result lists it under `kept`. Marketplace entries are removed as before.
 
 ## 2.4.0 — 2026-11-02
 

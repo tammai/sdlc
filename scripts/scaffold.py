@@ -862,9 +862,11 @@ def cmd_enable_plugin(p, a):
     if unknown:
         raise ValueError(f"not a companion of sdlc: {', '.join(unknown)} (the list: {', '.join(known) or 'none'})")
     if a.remove:
-        return {"removed": unmerge_plugin_keys(p, LOCAL_SETTINGS, PLUGIN_MERGE), "owned": merged_list(p, PLUGIN_MERGE)}
+        removed, kept = unmerge_plugin_keys(p, LOCAL_SETTINGS, PLUGIN_MERGE)
+        return {"removed": removed, "kept": kept, "owned": merged_list(p, PLUGIN_MERGE)}
     if a.remove_team:  # the keys --team (or a setup before 2.0.1) put in the committed settings.json
-        return {"removed": unmerge_plugin_keys(p, SETTINGS, TEAM_PLUGIN_MERGE)}
+        removed, kept = unmerge_plugin_keys(p, SETTINGS, TEAM_PLUGIN_MERGE)
+        return {"removed": removed, "kept": kept}
     skipped = not_the_installed_copy()
     wanted = [] if skipped else [("extraKnownMarketplaces", MARKETPLACE[0], MARKETPLACE[1]),
                                  ("enabledPlugins", PLUGIN_KEY, True)]
@@ -948,9 +950,11 @@ def exclude_locally(p, rel_path):
 
 
 def unmerge_plugin_keys(p, path, merge_key):
-    """Takes back the plugin keys sdlc recorded under merge_key from the settings file at path; the user's stay."""
+    """Takes back the plugin keys sdlc recorded under merge_key from the settings file at path; the user's stay.
+    Returns (removed, kept): kept are keys sdlc wrote whose value the user has changed since, which are theirs now."""
     ours = merged_list(p, merge_key)
-    settings, removed = read_json(p.path(path), {}), []
+    settings, removed, kept = read_json(p.path(path), {}), [], []
+    clash = {c["plugin"] for c in conflicts() if c.get("plugin")}
     for tag in list(ours):
         section, _, key = str(tag).partition(".")
         if section not in ("extraKnownMarketplaces", "enabledPlugins") or not key:
@@ -958,15 +962,20 @@ def unmerge_plugin_keys(p, path, merge_key):
             continue
         node = settings.get(section)
         if isinstance(node, dict) and key in node:
-            del node[key]
-            if not node:
-                del settings[section]
-            removed.append(tag)
+            # The lock records which keys sdlc wrote, not their values: enable-plugin writes false only for a
+            # conflicting plugin and true for the rest, so a key holding the other value was set by the user
+            if section == "enabledPlugins" and node[key] is not (key.split("@", 1)[0] not in clash):
+                kept.append(tag)
+            else:
+                del node[key]
+                if not node:
+                    del settings[section]
+                removed.append(tag)
         ours.remove(tag)
     if removed:
         write_json(p.path(path), settings)
     p.save()
-    return removed
+    return removed, kept
 
 
 def cmd_gitignore(p, a):
@@ -1466,8 +1475,8 @@ def cmd_eject(p, a):
     allow = plan["unmerge"].get(SETTINGS, [])
     if allow:
         cmd_allow(p, argparse.Namespace(add=[], remove=list(allow)))
-    plugin_keys = unmerge_plugin_keys(p, LOCAL_SETTINGS, PLUGIN_MERGE)
-    team_keys = unmerge_plugin_keys(p, SETTINGS, TEAM_PLUGIN_MERGE)
+    plugin_keys, plugin_kept = unmerge_plugin_keys(p, LOCAL_SETTINGS, PLUGIN_MERGE)
+    team_keys, team_kept = unmerge_plugin_keys(p, SETTINGS, TEAM_PLUGIN_MERGE)
     ignore = plan["unmerge"].get(GITIGNORE, [])
     if ignore:
         cmd_gitignore(p, argparse.Namespace(add=[], remove=list(ignore)))
@@ -1478,9 +1487,13 @@ def cmd_eject(p, a):
     scratch_removed = os.path.isdir(work)
     if scratch_removed:
         shutil.rmtree(work)
-    return {"deleted": deleted, "kept_edited": [x for x in plan["ask"] if x not in extra], "scratch_removed": scratch_removed,
-            "unmerged": {SETTINGS: allow + team_keys, LOCAL_SETTINGS: plugin_keys, GITIGNORE: ignore, AGENTS: ["sdlc block"] if agents else []},
-            "lock_removed": True}
+    out = {"deleted": deleted, "kept_edited": [x for x in plan["ask"] if x not in extra], "scratch_removed": scratch_removed,
+           "unmerged": {SETTINGS: allow + team_keys, LOCAL_SETTINGS: plugin_keys, GITIGNORE: ignore, AGENTS: ["sdlc block"] if agents else []},
+           "lock_removed": True}
+    kept = {path: keys for path, keys in ((LOCAL_SETTINGS, plugin_kept), (SETTINGS, team_kept)) if keys}
+    if kept:
+        out["kept"] = kept  # plugin keys sdlc wrote that the user has since changed
+    return out
 
 
 # --- relocate: legacy layout -> state in .sdlc/state, documents in docs_dir -------------------------

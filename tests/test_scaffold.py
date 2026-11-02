@@ -357,6 +357,31 @@ class ScaffoldTest(ProjectTestCase):
         self.sc("enable-plugin", "--remove")  # taking it back restores the user's own setting
         self.assertNotIn("superpowers@mkt", json.loads(self.read(".claude/settings.local.json")).get("enabledPlugins", {}))
 
+    def test_removing_plugin_keys_keeps_a_value_the_user_changed_since(self):
+        # A key sdlc wrote and the user then flipped is the user's: --remove and eject must not delete it
+        self.template("templates/project/config.defaults.json", json.dumps({"conflicts": [
+            {"name": "superpowers", "plugin": "superpowers", "why": "same skills twice"}]}))
+        self.init()
+        self.installed()
+        self.write("claude-config/settings.json", json.dumps({"enabledPlugins": {"superpowers@mkt": True}}))
+        local = ".claude/settings.local.json"
+        self.sc("enable-plugin")
+        settings = json.loads(self.read(local))
+        settings["enabledPlugins"].update({"sdlc@sdlc": False, "superpowers@mkt": True})
+        self.write(local, json.dumps(settings))
+        out = self.sc("enable-plugin", "--remove")
+        self.assertEqual(out["removed"], ["extraKnownMarketplaces.sdlc"])
+        self.assertEqual(sorted(out["kept"]), ["enabledPlugins.sdlc@sdlc", "enabledPlugins.superpowers@mkt"])
+        self.assertEqual(json.loads(self.read(local))["enabledPlugins"], {"sdlc@sdlc": False, "superpowers@mkt": True})
+        self.assertEqual(out["owned"], [])  # theirs now: a later --remove leaves them too
+        # Eject takes the same path
+        self.write(local, json.dumps({}))
+        self.sc("enable-plugin")
+        self.write(local, json.dumps({"enabledPlugins": {"sdlc@sdlc": False, "superpowers@mkt": False}}))
+        out = self.sc("eject", "--apply")
+        self.assertEqual(json.loads(self.read(local)), {"enabledPlugins": {"sdlc@sdlc": False}})
+        self.assertEqual(out["kept"], {local: ["enabledPlugins.sdlc@sdlc"]})
+
     def test_gitignore_merges_and_only_removes_its_own_lines(self):
         self.init()
         self.write(".gitignore", "node_modules/\n.sdlc/.work/\n")

@@ -76,7 +76,7 @@ Prepare a repo once (new or existing), keep it current with the plugin, and remo
 | ID | Requirement | Guarantee |
 |---|---|---|
 | SET-FR-040 | Eject is a dry run by default: delete (generated, unedited seeded), ask (edited), already gone, entries to unmerge. | `[enforced]` test_scaffold › test_eject_plan_is_dry_by_default |
-| SET-FR-041 | Applying deletes plugin files, removes recorded entries, the lock and the `.sdlc/.work/` scratch folder, tidies emptied folders, and keeps the user's files and config. | `[enforced]` test_scaffold › test_eject_apply_keeps_user_work, test_eject_removes_the_scratch_folder |
+| SET-FR-041 | Applying deletes plugin files, removes recorded entries, the lock and the `.sdlc/.work/` scratch folder, tidies emptied folders, and keeps the user's files and config. A plugin key sdlc wrote whose value the user has changed since (`sdlc@sdlc` set to `false`, a turned-off conflicting plugin set back to `true`) is the user's: eject and `enable-plugin --remove`/`--remove-team` leave it and list it under `kept`. | `[enforced]` test_scaffold › test_eject_apply_keeps_user_work, test_eject_removes_the_scratch_folder, test_removing_plugin_keys_keeps_a_value_the_user_changed_since |
 | SET-FR-042 | Edited files are deleted only when the user lists them (`--also`), and only from the ask list. | `[enforced]` test_scaffold › test_eject_also_deletes_edited_files_on_request_only |
 | SET-FR-043 | Eject fixes imports left pointing at deleted files and reruns the verify commands. | `[instructed]` eject.md |
 
