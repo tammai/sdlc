@@ -25,3 +25,4 @@
 - 2026-11-02 add knowledge/gotchas/macos-stock-bash-and-no-timeout.md — three tests failed on a stock Mac, two for no timeout and one for bash 3.2 (from 2.3.1 release distill)
 - 2026-11-02 update knowledge/gotchas/cloud-sessions-see-only-committed-files.md — a cloud session also installs no plugin a repo's settings.json turns on (from 2.3.1 release distill)
 - 2026-11-02 update knowledge/gotchas/hook-inputs.md — CLAUDE_PROJECT_DIR is the session's folder, not the repo; Codex sends none; .sdlc/ without config.json (from 2.4.0 release distill)
+- 2026-11-02 update knowledge/gotchas/headless-plugin-tests.md — the --plugin-dir recipe's sdlc@sdlc false left a smoke repo with no guardrails in a later session (from 2.4.1 release distill)
