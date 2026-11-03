@@ -10,5 +10,6 @@ paths:
 - Deny or block with `hookSpecificOutput.permissionDecisionReason`; `systemMessage` only reaches the user.
 - Output stays ASCII (plain `json.dumps`), or call `sys.stdout.reconfigure(encoding="utf-8")` first — why: [Windows stdout encoding](../../knowledge/gotchas/windows-stdout-encoding.md)
 - A hook that judges a Bash command by its text sees only what the agent typed: keep `git commit` in the visible command, and move work out of a guarded stage rather than widening a parser — why: [hooks read command text](../../knowledge/gotchas/hooks-read-command-text.md)
+- A change to what a state-file field means bumps `Process:` and ships a `state.py` migration that also clears the runtime stores remembering the old value — why: [state format change](../../knowledge/gotchas/state-format-change-needs-marker-and-cache-clear.md)
 - Every behavior change gets a subprocess test through `tests/helpers.py` `run_hook`.
 - Read a subprocess's output (git especially) with `encoding="utf-8", errors="replace"`, never `text=True`: the code page crashes on non-ASCII paths and bytes — why: [Windows stdout encoding](../../knowledge/gotchas/windows-stdout-encoding.md)

@@ -2,16 +2,14 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
-## Unreleased
+## 3.0.0 — 2026-11-03
 
-### Changed (breaking, 3.0.0)
+### Breaking
 - **The phases are numbered 1 to 4, not 1, 4, 5 and 8** ([ADR 0022](docs/adr/0022-phases-numbered-one-to-four.md)). `Current: Stage 2 – Build`, `Stage 3 – Review`, `Stage 4 – Ship`; `state.py advance <f> 2|3|4`; a state file says `Process: 3` and the control contract is `contract_version` 3. The old numbers were kept from the eleven-stage pipeline so no hook had to change; they are now gaps that every reader has to explain. The hooks and `state.py` act only on `Process: 3`: a `Process: 2` feature has no guard and `state.py` refuses it until it is migrated. `/sdlc:upgrade` does that: the `3.0.0-stage-numbers` migration runs `state.py migrate`, which rewrites every `Process: 2` state file (the `Current:` line, the Stages checklist and the Gate log; finished features too) and drops the trust anchor's remembered stage for it. Nothing has to finish first, unlike 1.x → 2.0. The CI check `invariants.py` counts Build as 2 and Ship as 4 on `Process: 3` and as 4 and 8 on an unmigrated feature, so a branch in between still passes. `sdlc-stepper` reads `Process: 2` and `3` (the phase name first, the number by marker as the fallback). If you use `sdlc-stepper`, update it with sdlc.
 
 ### Added
 - **`docs/track-matrix.md` and its diagram `sdlc_track_matrix.svg`: which step runs on which track.** 36 steps against Trivial, S, M low risk, M high risk, L and L in parts; each is always, conditional (with its condition listed) or not run, with the totals per track and where the usual use cases (bugfix, refactor, security patch, infra, MVP, PoC) land. Asked for by a teammate.
 - **`verify.py trace`: requirement → AC coverage, checked by a script.** When an AC cites a written spec (`AC-003 … prd.md §4.2` or `§FR-002`), it reports a cited section the spec doesn't have and any `FR-nnn` in the cited spec that no AC names and `## Out of scope` doesn't set aside. Until now L's plan self-approval judged "every requirement maps to an AC" by reading; it now runs the script first (`verify.py --feature <f> trace`, before `state.py new`) and treats a finding as a doubt. A full run prints the same findings as `trace:` notes, recorded in `verify.json` and in `status`, and never fails on them: advisory until its false-positive rate is known. Nothing runs when no AC cites a spec, so existing features and the S, low-risk M and trivial tracks are unchanged, and no migration is needed. It checks that references exist, not that an AC really covers its requirement, and it doesn't flag an AC that cites nothing (a failure-mode AC legitimately cites no requirement). Idea taken from AI-DLC's traceability sensor ([awslabs/aidlc-workflows](https://github.com/awslabs/aidlc-workflows)), cut down to what our change file can parse.
-
-## Unreleased
 
 ### Changed
 - **sdlc-stepper draws a card on the desktop app.** The terminal keeps its text bar. On desktop the phases are an SVG stepper (a green check on each done phase, a pulsing accent dot on the current one, a dashed line to the phases ahead), the backlog's parts a segmented bar (the current part breathing, a blocked one dashed), and the feature, part title and step real text in the app's type, inside a rounded card in the app's theme colors. A mod can't read the theme, so the drawings use colors that read on light and dark alike (checked by rendering both). Each drawing has alt text: `Phase 2 of 4: Build; done: Define`, `1 of 3 parts done`.

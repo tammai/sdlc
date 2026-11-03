@@ -29,3 +29,4 @@
 - 2026-11-03 add knowledge/gotchas/a-mode-named-only-by-its-script.md — asking for autopilot in a session ran autopilot.py, then asked how to go on (from 2.4.2 release distill)
 - 2026-11-03 add knowledge/gotchas/a-commit-cant-record-its-own-id.md — slice done <commit> took a second commit and went stale on amend (from 2.4.3 release distill)
 - 2026-11-03 add knowledge/gotchas/hooks-module-validator-and-test-kit.md — validator, test kit and tsc snags writing sdlc-stepper (from 2.5.0 release distill)
+- 2026-11-03 add knowledge/gotchas/state-format-change-needs-marker-and-cache-clear.md — the stage renumbering needed a Process bump and a cleared trust-anchor cache (from 3.0.0 release distill)

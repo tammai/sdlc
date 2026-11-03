@@ -147,7 +147,7 @@ The Ralph loop comes with the optional `sdlc-extras` plugin.
 1. `/sdlc:status` shows every feature, its phase and status.
 2. A finished feature: `state.py set <feature> Status done`. One you're not working on now: `state.py set <feature> Status paused`. Pausing raises a trust-anchor notice once ([R19](#r19-a-trust-anchor-notice-stops-the-turn)).
 3. Answer the "which one" prompt if it still asks.
-4. It says a feature was started under sdlc 1.x: see [R20](#r20-upgrade-to-20-with-a-1x-feature-in-progress).
+4. It says a feature was started under sdlc 1.x: see [R20](#r20-upgrade-to-20-with-a-1x-feature-in-progress). It says one has `Process: 2`: see [R21](#r21-a-feature-still-says-process-2-after-moving-to-30).
 
 ### R9. A state file is missing, stale or wrong
 
@@ -235,6 +235,14 @@ sdlc 2.0 carries no copy of the 1.x flow ([ADR 0020](adr/0020-sdlc-2-slim-proces
 3. Install 2.0 again, restart, and run `/sdlc:upgrade`.
 
 Best done before installing 2.0: the plugin is installed per machine, so finish in-progress 1.x features first.
+
+### R21. A feature still says `Process: 2` after moving to 3.0
+
+3.0 numbers the phases 1 to 4 (2.x used 1, 4, 5, 8) and marks a state file `Process: 3` ([ADR 0022](adr/0022-phases-numbered-one-to-four.md)). A `Process: 2` feature has no guard (the hooks ignore it) and `state.py` refuses it, saying to run `/sdlc:upgrade`. Nothing has to finish first.
+
+1. Run `/sdlc:upgrade`; its `3.0.0-stage-numbers` migration runs `python3 scripts/state.py migrate`. Or run that yourself in the repo: it prints `migrated` and `skipped`, and is safe to run twice.
+2. A feature under `skipped` holds a stage number 3.0 has no equivalent for (anything but 1, 4, 5, 8): read its reason, fix the `Current:` line by hand to the phase it is really in, and run `migrate` again.
+3. Commit the rewritten state files. With `sdlc-stepper`, update it as well: the old one shows no bar for a migrated feature.
 
 ## Maintenance
 
@@ -330,6 +338,7 @@ The test suite runs hooks and scripts as subprocesses; this checks the installed
 3. `/sdlc:upgrade --dry-run` shows the plan and changes nothing (`git status` clean).
 4. `/sdlc:upgrade` works on its own branch, asks about the guardrail you edited (apply / skip / keep mine), and ends asking PR or local merge.
 5. 1.x feature (must, for 2.0): in a repo with an active feature whose state has no `Process:` line, `/sdlc:upgrade` names it and stops; after `Status: done` it goes ahead ([R20](#r20-upgrade-to-20-with-a-1x-feature-in-progress)).
+   2.x feature (must, for 3.0): with an active feature at `Process: 2` (any stage), `/sdlc:upgrade` runs the `3.0.0-stage-numbers` migration: afterwards its state says `Process: 3` and the stage number of its phase (Build 2, Review 3, Ship 4), `/sdlc:start` resumes it in that phase, and the status line names the right phase ([R21](#r21-a-feature-still-says-process-2-after-moving-to-30)).
 6. `/sdlc:eject` shows a dry run first; applied on a branch, it removes the plugin's files, keeps `.sdlc/config.json`, the PRD, the constitution, knowledge and specs.
 
 **I. Windows (should, if the team uses it).** A teammate runs B–E on Windows in Git Bash.

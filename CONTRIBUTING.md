@@ -69,7 +69,7 @@ sdlc/
 ├── tests/                   stdlib unittest suite (helpers.py + one file per hook or script)
 ├── .github/workflows/ci.yml the suite on Linux and Windows, plus `claude plugin validate`, on push and PR
 ├── docs/
-│   ├── guidebook.md, playbook.md, runbook.md
+│   ├── guidebook.md, playbook.md, runbook.md, track-matrix.md (which step runs on which track)
 │   ├── prd.md               product requirements
 │   ├── specs/               one spec per capability, requirements tagged [enforced]/[instructed]/[vendored]
 │   ├── adr/                 architecture decision records
