@@ -1342,7 +1342,7 @@ def cmd_migration(p, a):
 
 
 def old_features(p):
-    """Active features started under sdlc 1.x (no `Process: 2`): finished on 1.8.1 before a repo moves to 2.0."""
+    """Active features started under sdlc 1.x (no `Process:` line): finished on 1.8.1 before a repo moves to 2.0."""
     found = []
     for name, f in sorted(sdlc_layout.features(p.root).items()):
         try:
@@ -1350,7 +1350,7 @@ def old_features(p):
                 text = fh.read()
         except OSError:
             continue
-        if re.search(r"^Status:\s*active\b", text, re.M | re.I) and not re.search(r"^Process:\s*2\b", text, re.M):
+        if re.search(r"^Status:\s*active\b", text, re.M | re.I) and not re.search(r"^Process:\s*[23]\b", text, re.M):
             found.append(name)
     return found
 

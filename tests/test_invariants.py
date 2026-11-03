@@ -7,7 +7,7 @@ import unittest
 from helpers import PLUGIN_ROOT, ProjectTestCase
 
 SCRIPT = os.path.join(PLUGIN_ROOT, "templates", "project", "ci", "invariants.py")
-STATE = ("# login\nStatus: active\nProcess: 2\nOwner: a@x.dev\nTool: codex\nCurrent: Stage {stage} – Build\n\n"
+STATE = ("# login\nStatus: active\nProcess: 3\nOwner: a@x.dev\nTool: codex\nCurrent: Stage {stage} – Build\n\n"
          "## Deviations\n{deviation}\n\n## Open questions\n-\n")
 CHANGE = ("# login\n\n## Acceptance criteria\n\n- **AC-001** Sign in.\n\n## Acceptance tests\n\n"
           "| AC | Test | Run |\n|---|---|---|\n| AC-001 | t.py › test_sign_in | `pytest t.py` |\n")
@@ -34,8 +34,9 @@ class InvariantsTest(ProjectTestCase):
         self.git("commit", "-q", "--allow-empty", "-m", message)
         return self.git("rev-parse", "--short", "HEAD")
 
-    def state(self, stage=4, deviation="-"):
-        self.write(".sdlc/state/login.md", STATE.format(stage=stage, deviation=deviation))
+    def state(self, stage=2, deviation="-", process=3):
+        self.write(".sdlc/state/login.md", STATE.format(stage=stage, deviation=deviation)
+                   .replace("Process: 3", f"Process: {process}"))
 
     def check(self, *args):
         p = subprocess.run([sys.executable, SCRIPT, *args], cwd=self.root, capture_output=True, encoding="utf-8")
@@ -46,18 +47,27 @@ class InvariantsTest(ProjectTestCase):
         self.assertEqual(self.check("--base", base), (0, "sdlc invariants: ok\n"))
 
     def test_the_record_matches_the_phase_reached(self):
-        # sdlc 2.0: past Define each AC names its test in change.md; in Ship, its Review section says what was reviewed
+        # past Define each AC names its test in change.md; in Ship, its Review section says what was reviewed
         self.write("docs/sdlc/changes/login.md", "# login\n\n## Acceptance criteria\n\n- **AC-001** Sign in.\n")
         code, out = self.check()
         self.assertEqual(code, 1)
         self.assertIn("## Acceptance tests", out)
         self.write("docs/sdlc/changes/login.md", CHANGE)
-        self.state(stage=8)
+        self.state(stage=4)
         code, out = self.check()
         self.assertEqual(code, 1)
         self.assertIn("## Review", out)
         self.write("docs/sdlc/changes/login.md", CHANGE + REVIEW)
         self.assertEqual(self.check()[0], 0)
+
+    def test_a_feature_not_yet_migrated_keeps_the_old_stage_numbers(self):
+        # Process: 2 counted Build as 4 and Ship as 8; Stage 4 there is Build, so no Review section is due yet
+        self.state(stage=4, process=2)
+        self.assertEqual(self.check()[0], 0)
+        self.state(stage=8, process=2)
+        code, out = self.check()
+        self.assertEqual(code, 1)
+        self.assertIn("## Review", out)
 
     def test_a_grown_baseline_needs_a_deviation(self):
         self.write(".sdlc/baseline.md", BASELINE.format(rows="| — | none | | |"))
@@ -71,7 +81,7 @@ class InvariantsTest(ProjectTestCase):
         self.assertEqual(code, 1)
         self.assertIn("t.py › test_b", out)
         # recorded by a feature that finished in the same push
-        self.write(".sdlc/state/login.md", STATE.format(stage=8, deviation="- 2026-10-25 baseline: t.py › test_b fails "
+        self.write(".sdlc/state/login.md", STATE.format(stage=4, deviation="- 2026-10-25 baseline: t.py › test_b fails "
                                                         "since the API change; user approved").replace("active", "done"))
         self.assertEqual(self.check("--base", recorded)[0], 0)
 

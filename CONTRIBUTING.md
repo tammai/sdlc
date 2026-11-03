@@ -23,10 +23,10 @@ sdlc/
 │                            claude-md-improver.md and its folder
 ├── hooks/
 │   ├── hooks.json           which script runs on which event; every hook starts the Python sg-python.sh remembered, else sg-python.sh
-│   ├── verify_freshness.py  Review (Stage 5) stale/fresh test tracking, and its own copy of verify.py runs (original)
+│   ├── verify_freshness.py  Review (Stage 3) stale/fresh test tracking, and its own copy of verify.py runs (original)
 │   ├── model_router.py      checks each subagent dispatch's model (every review on opus), logs dispatches (original)
 │   ├── role_guard.py        keeps the plugin's agents to their role's file access; reviewers write only .sdlc/.work/findings/ (original)
-│   ├── prove_budget.py      kills non-project shell commands at 120 s in Review (Stage 5), no background runs; the file keeps its 1.x name (original)
+│   ├── prove_budget.py      kills non-project shell commands at 120 s in Review (Stage 3), no background runs; the file keeps its 1.x name (original)
 │   ├── session_status.py    SessionStart: the sdlc setup, paths and active features in one line (original)
 │   ├── trust_anchor.py      shows the user changes to what verification trusts (original)
 │   ├── review_rounds.py     when round 2 (the check of the fixes) still fails, holds every edit and command until the user replies (original)
@@ -45,7 +45,7 @@ sdlc/
 │   ├── hosts.py             builds the other agents' manifests from .claude-plugin/ and agents/ (CI checks them)
 │   ├── backlog.py           the next ready part of a feature's backlog.md
 │   ├── state.py             every state change in one call: state.md plus the control contract (beside it, git-ignored)
-│   ├── ship.py              Ship's one command: reuses or reruns verify, advances to Stage 8, branches, stages the change, writes the commit message
+│   ├── ship.py              Ship's one command: reuses or reruns verify, advances to Stage 4, branches, stages the change, writes the commit message
 │   ├── autopilot.py         runs a backlog one fresh headless claude session per part (opt-in)
 │   ├── prune.py             lists and deletes merged features' working files (/sdlc:prune)
 │   └── context_diet.py      per-source estimate of what Claude Code lists every call (/sdlc:context-diet)

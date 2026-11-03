@@ -9,7 +9,7 @@ sdlc ✓ Define ─── ● Build ─── ○ Review ─── ○ Ship   20
 
 That's the terminal. The desktop app draws a card instead: the phases as a stepper with a check on each done phase and a pulsing dot on the current one, the parts as a segmented bar, and the part title and step as text in the app's own type. Its colors read in light and dark mode alike, since a mod can't read the app's theme.
 
-- **Phases** come from the active feature's state file (`.sdlc/state/<feature>.md`, `Current: Stage <n> – <name>`): done phases green, the current one highlighted, later ones dim.
+- **Phases** come from the active feature's state file (`.sdlc/state/<feature>.md`, `Current: Stage <n> – <name>`, and `Process: 2` or `3`, which number the stages differently, so the name is read first): done phases green, the current one highlighted, later ones dim.
 - **Parts** come from the feature's `backlog.md`: one square per part, filled when it's `done`, and the part in progress (else the next one) by ID and title.
 - **The step** comes from what the session is doing: `verify.py red` is `failing tests`, editing a test file `tests` and other code `code`, `verify.py` `verify`, `git commit` `commit`, a review agent `reviews`, `ship.py` `checks`, `gh pr create` `PR`, `gh pr checks` `CI`. A step from an earlier phase isn't carried into the next.
 

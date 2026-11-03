@@ -3,9 +3,9 @@ import { expect, test } from 'claude-code/testing'
 
 const STATE = `# 2026-11-03-m-github-look
 Status: active
-Process: 2
+Process: 3
 Track: M
-Current: Stage 4 – Build
+Current: Stage 2 – Build
 `
 const BACKLOG = `# Backlog
 
@@ -114,6 +114,35 @@ test('outside an sdlc repo, or with no active feature, the band stays empty', as
   await ui.unmount()
 })
 
+// The phase name on the Current: line wins; without it the number is read by the file's Process: marker
+for (const [process, stage, phase] of [['3', 'Stage 3', 'Review'], ['3', 'Stage 4', 'Ship'], ['2', 'Stage 5', 'Review'], ['2', 'Stage 4', 'Build']] as const) {
+  test(`a Process: ${process} state file at "${stage}" with no name shows ${phase}`, async ($, on) => {
+    repo(on, {
+      '.sdlc/config.json': '{}',
+      '.sdlc/state/f.md': STATE.replace('Process: 3', `Process: ${process}`).replace('Stage 2 – Build', stage),
+    })
+    await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+    const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+    expect((await ui.find({ type: 'Text', text: new RegExp(phase) }))?.text).toBe(`● ${phase}`)
+    await ui.unmount()
+  })
+}
+
+test('an unmarked state file is not shown', async ($, on) => {
+  repo(on, {
+    '.sdlc/config.json': '{}',
+    '.sdlc/state/f.md': STATE.replace('Process: 3\n', ''),
+  })
+  on('ui.render', ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return <Text>engine</Text>
+  })
+  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect((await ui.find({ type: 'Text' }))?.text).toBe('engine')
+  await ui.unmount()
+})
+
 test('a step seen in an earlier phase is not shown in the next one', async ($, on) => {
   const files: Record<string, string> = {
     '.sdlc/config.json': '{}',
@@ -122,7 +151,7 @@ test('a step seen in an earlier phase is not shown in the next one', async ($, o
   repo(on, files)
   await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
   await $.tool.call({ tool: 'Bash', command: 'git commit -m "feat: B2"' })
-  files['.sdlc/state/f.md'] = STATE.replace('Stage 4 – Build', 'Stage 5 – Review')
+  files['.sdlc/state/f.md'] = STATE.replace('Stage 2 – Build', 'Stage 3 – Review')
   await $.tool.call({ tool: 'Bash', command: 'ls' })
   const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
   expect((await ui.find({ type: 'Text', text: /Review/ }))?.text).toBe('● Review')
@@ -134,9 +163,9 @@ test('a step seen in an earlier phase is not shown in the next one', async ($, o
 test('a session started above the repos shows the one with the latest active feature', async ($, on) => {
   repo(on, {
     'api/.sdlc/config.json': '{}',
-    'api/.sdlc/state/old.md': STATE.replace('Stage 4 – Build', 'Stage 1 – Define'),
+    'api/.sdlc/state/old.md': STATE.replace('Stage 2 – Build', 'Stage 1 – Define'),
     'worktrees/web/.sdlc/config.json': '{}',
-    'worktrees/web/.sdlc/state/github-look.md': STATE.replace('Stage 4 – Build', 'Stage 5 – Review'),
+    'worktrees/web/.sdlc/state/github-look.md': STATE.replace('Stage 2 – Build', 'Stage 3 – Review'),
     'node_modules/x/.sdlc/config.json': '{}',
   }, { 'worktrees/web/.sdlc/state/github-look.md': 5 })
   await $.session.start({ cwd: '/workbench', surface: 'terminal', isInteractive: true })

@@ -11,7 +11,7 @@ $S upgrade-plan    # add / regenerate / replace / review / restore / template_go
 
 `old_features` not empty (active features started under sdlc 1.x, which 2.0 can't run): stop before anything else. Name each and tell the user to finish it with sdlc 1.8.1, or archive it (`Status: done`), then upgrade; `$S set-version` refuses until none is left.
 
-Summarize the plan for the user in a few lines (counts per bucket, each migration's summary). If a feature is mid-stage (a feature state file, `.sdlc/state/*.md` or the old `.sdlc/*/state.md`, with `Status: active` at Stage 4 or later, i.e. in Build, Review or Ship), recommend finishing it first; continue only if the user confirms. `--dry-run` requested → stop after the summary.
+Summarize the plan for the user in a few lines (counts per bucket, each migration's summary). If a feature is mid-stage (a feature state file, `.sdlc/state/*.md` or the old `.sdlc/*/state.md`, with `Status: active` at Stage 2 or later, i.e. in Build, Review or Ship), recommend finishing it first; continue only if the user confirms. `--dry-run` requested → stop after the summary.
 
 Clean working tree, then branch `sdlc/upgrade-<from>-<to>`. One commit per bucket.
 

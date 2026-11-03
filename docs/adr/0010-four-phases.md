@@ -1,6 +1,6 @@
 # ADR 0010: Four phases instead of eleven stages
 
-- **Status:** Accepted, 2026-10-26; amended by [ADR 0011](0011-track-cost.md) and by [ADR 0014](0014-lighter-s-and-a-companion-plugin.md) (S writes no Define files, and Ship doesn't ask on S and `Flow: lite`). Amends [ADR 0008](0008-lite-flow-for-low-risk-m.md) and [ADR 0009](0009-cheaper-pipeline-and-control-contract.md): Lite's shape becomes every track's default, and verify, review and security run as one round.
+- **Status:** Accepted, 2026-10-26; the stage numbers it kept (1, 4, 5, 8) are superseded by [ADR 0022](0022-phases-numbered-one-to-four.md); amended by [ADR 0011](0011-track-cost.md) and by [ADR 0014](0014-lighter-s-and-a-companion-plugin.md) (S writes no Define files, and Ship doesn't ask on S and `Flow: lite`). Amends [ADR 0008](0008-lite-flow-for-low-risk-m.md) and [ADR 0009](0009-cheaper-pipeline-and-control-contract.md): Lite's shape becomes every track's default, and verify, review and security run as one round.
 - **Deciders:** Tâm Mai.
 
 ## Context

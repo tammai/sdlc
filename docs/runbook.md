@@ -108,7 +108,7 @@ Cause: the SessionStart hook builds a venv with the Claude Agent SDK in the back
 
 ### R4. Blocked at Stop with "re-run tests"
 
-The verify-freshness hook is active only while an active 2.0 feature (`Process: 2`) says `Current: Stage 5 – Review`, at every size.
+The verify-freshness hook is active only while an active feature (`Process: 3`) says `Current: Stage 3 – Review`, at every size.
 
 1. Run the **full** test command: `commands.test` from `.sdlc/config.json` (monorepo: the stale package's own, from its `path`; the block message names it), or the `test:` command in the state file's `Commands:` line. A filtered run, single test file, pytest node id or single Go package doesn't count.
 2. Make sure no code changed after that run. Formatters, `sed -i` and subagents count as changes; the hook compares the worktree against the tree recorded at the last full run.
@@ -155,7 +155,7 @@ The state file is `.sdlc/state/<feature>.md`; beside it, git-ignored, `state.py`
 
 1. A wrong field: `state.py set <feature> <Field> <value>` (Status, Track, Risk, Top model, Base, Owner, Tool, Slice gates, Process). Changing Track, Risk, Top model, Base or Process raises a trust-anchor notice ([R19](#r19-a-trust-anchor-notice-stops-the-turn)).
 2. A wrong phase: `state.py advance <feature> <n>` without `--gate`, where `<n>` is 1 Define, 4 Build, 5 Review or 8 Ship (a backlog feature stays at 4 between parts).
-3. A hand edit, or a missing or damaged `.json`: `state.py sync <feature>` rewrites the contract from the state file. `state.py` refuses a state file without `Status:` and `Current: Stage <n> – <name>`, and one without `Process: 2` (a 1.x feature: [R20](#r20-upgrade-to-20-with-a-1x-feature-in-progress)).
+3. A hand edit, or a missing or damaged `.json`: `state.py sync <feature>` rewrites the contract from the state file. `state.py` refuses a state file without `Status:` and `Current: Stage <n> – <name>`, and one without `Process: 3` (a 1.x feature: [R20](#r20-upgrade-to-20-with-a-1x-feature-in-progress); a 2.x one, `Process: 2`: run `python3 state.py migrate`).
 4. A lost state file: it held half the record (the plan sections: how the build runs, handoff, tasks, Public Surface, deviations); git history usually has it. Otherwise write a new one from the template in `skills/orchestrator/references/flow.md` (S: `s-track.md`), rewrite its plan sections from the change file and the diff (or `verify.py`'s drift check fails), tick the phases the change file shows done (`## Acceptance tests` filled: Define; `## Review` written: Review), set `Current:` to the next phase's stage, then `state.py sync <feature>` and `state.py deviation <feature> "state file reconstructed"`.
 
 ### R10. Hooks error on Windows or with an odd Python
@@ -210,7 +210,7 @@ Hard stops are different: they always wait for your answer and aren't skipped. T
 
 ### R18. A subagent dispatch is denied by the model router
 
-The hook checks Agent/Task dispatches only while a 2.0 feature (`Process: 2`) has `Status: active`; the deny reason says which check failed. Every dispatch, denied or not, is logged to `.sdlc/.work/dispatches.jsonl`.
+The hook checks Agent/Task dispatches only while a feature (`Process: 3`) has `Status: active`; the deny reason says which check failed. Every dispatch, denied or not, is logged to `.sdlc/.work/dispatches.jsonl`.
 
 1. **No model:** the dispatch must name `sonnet` or `opus` (Model selection in `sdlc:orchestrator`). Commands that launch agents, such as `/sdlc:review-pr`, name one too. Exempt: forks, and impeccable's own agents (`impeccable-*`), which impeccable spawns without a model.
 2. **Fable:** used only on your request. `state.py set <feature> "Top model" fable` on every active feature (one active feature without it keeps Fable denied). This raises a trust-anchor notice ([R19](#r19-a-trust-anchor-notice-stops-the-turn)).
@@ -222,15 +222,15 @@ The hook checks Agent/Task dispatches only while a 2.0 feature (`Process: 2`) ha
 
 The state, the change file, baseline and config the hooks trust are writable by the agent they check, so `hooks/trust_anchor.py` can't prevent a change; at Stop it shows you one. A notice reads "Verification anchors changed: …" and names what moved: `Track:`, `Risk:`, `Top model:`, `Base:` or `Process:`; a failing test added to `.sdlc/baseline.md` or changed commands in `.sdlc/config.json` since `Base:`; the change file above `## Review` (its criteria and tests) edited during Review; leaving Review without a passing full run of the current code (at every size), or with code changed since it; leaving Review while a review's latest report says `VERDICT: FAIL` and no `waived round <N>` deviation covers it; an active feature no longer active other than by `Status: done`; "verify records disagree" (`.sdlc/.work/verify.json` differs from the freshness hook's copy of the run, or is missing or damaged while the hook holds one: rerun `verify.py` and say why the record changed); or its own record (`.sdlc/.work/trust-anchor.json`) damaged.
 
-1. **Stricter changes** (Track up, Risk low → high) only add checks: "Stricter process: …", no block. Only 2.0 features (`Process: 2`) are anchored.
+1. **Stricter changes** (Track up, Risk low → high) only add checks: "Stricter process: …", no block. Only current features (`Process: 3`) are anchored.
 2. **Every other change** blocks the stop once. Claude must tell you what changed and why, without undoing it on its own. Your next message accepts it: the current values become the anchor, and the notice doesn't block again. Autopilot stops at a notice you haven't seen.
 3. If the change was wrong, say so in that message and have it reverted (`state.py set`, or restore the file from git); moving a value back is itself a notice.
 
 ### R20. Upgrade to 2.0 with a 1.x feature in progress
 
-sdlc 2.0 carries no copy of the 1.x flow ([ADR 0020](adr/0020-sdlc-2-slim-process-core.md)). A feature whose state file has no `Process: 2` was started under 1.x: `/sdlc:start` won't run it, `state.py` refuses to change it, the hooks ignore it, and `/sdlc:upgrade` names it and stops (`scaffold.py set-version` refuses while one is active).
+sdlc 2.0 carries no copy of the 1.x flow ([ADR 0020](adr/0020-sdlc-2-slim-process-core.md)). A feature whose state file has no `Process:` line was started under 1.x: `/sdlc:start` won't run it, `state.py` refuses to change it, the hooks ignore it, and `/sdlc:upgrade` names it and stops (`scaffold.py set-version` refuses while one is active).
 
-1. `/sdlc:status` lists the active features; the ones without `Process: 2` are 1.x.
+1. `/sdlc:status` lists the active features; the ones without a `Process:` line are 1.x, and `Process: 2` ones are 2.x, waiting for `/sdlc:upgrade` to renumber them.
 2. For each: install sdlc 1.8.1 (`/plugin install sdlc@sdlc` at 1.8.1), restart, and finish it there. Or, if you'll drop or redo it, archive it: set `Status: done` in its state file.
 3. Install 2.0 again, restart, and run `/sdlc:upgrade`.
 
@@ -306,11 +306,11 @@ The test suite runs hooks and scripts as subprocesses; this checks the installed
 3. Ask Claude to write `const k = "sk-ant-api03-…"` with 30+ characters after the prefix: blocked.
 
 **E. An S fix: Define, Build, Review, Ship (must)**
-1. `/sdlc:start fix: add returns a string when given numeric strings`. It proposes track S and creates `.sdlc/state/<yyyy-mm-dd>-s-<slug>.md` with `Process: 2`.
+1. `/sdlc:start fix: add returns a string when given numeric strings`. It proposes track S and creates `.sdlc/state/<yyyy-mm-dd>-s-<slug>.md` with `Process: 3`.
 2. Define proves the bug with a failing test, names the root cause, writes the change file (the proving test as AC-001 in `## Acceptance tests`) and the state file's `## Tasks` and `## Public Surface`, a few lines each, and goes on to Build **without asking for approval**.
 3. Build, in the session, records the test failing with `verify.py red AC-001` (in one call with `state.py sync` and `advance 4`), then the fix, then `verify.py`. `.sdlc/.work/verify.json` holds the red record and a passing run.
 4. S has no Review phase: with no trigger firing (no `Risk: high`, no sensitive, migration or UI path, no Public Surface) it goes from Build straight to Ship, and the change file's `## Review` says no review ran and why. A trigger that fires runs its review **without stopping**; any review agent in `.sdlc/.work/dispatches.jsonl` has `model: opus`.
-5. Freshness in Review: in that repo, `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/state.py" advance <feature> 5` on a feature still active (or start an M change whose Public Surface isn't `- none`, so a review fires), then ask Claude to change a source file **with a shell command** (e.g. `sed -i`) and end the turn: it's **blocked**, and the message names the test command. Run it; the turn then ends normally.
+5. Freshness in Review: in that repo, `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/state.py" advance <feature> 3` on a feature still active (or start an M change whose Public Surface isn't `- none`, so a review fires), then ask Claude to change a source file **with a shell command** (e.g. `sed -i`) and end the turn: it's **blocked**, and the message names the test command. Run it; the turn then ends normally.
 6. Ship runs the verified-tree check and Learn, makes the final commit on a feature branch and, with a remote, pushes and opens a PR, then stops; without a remote it stops with the branch ready. It never merges. Its security review is skipped (not security-touched): it is recorded as reviewed with no model call. `git status` never shows `.sdlc/state/*.json`.
 7. Trust anchor (should): in a new S feature, ask Claude to run `state.py set <feature> Risk high`: a "Stricter process" message, no block. Then `Risk low`: the stop is blocked once, and your next message clears it.
 
@@ -329,7 +329,7 @@ The test suite runs hooks and scripts as subprocesses; this checks the installed
 2. `/sdlc:status` reports the repo as behind and suggests `/sdlc:upgrade`.
 3. `/sdlc:upgrade --dry-run` shows the plan and changes nothing (`git status` clean).
 4. `/sdlc:upgrade` works on its own branch, asks about the guardrail you edited (apply / skip / keep mine), and ends asking PR or local merge.
-5. 1.x feature (must, for 2.0): in a repo with an active feature whose state has no `Process: 2`, `/sdlc:upgrade` names it and stops; after `Status: done` it goes ahead ([R20](#r20-upgrade-to-20-with-a-1x-feature-in-progress)).
+5. 1.x feature (must, for 2.0): in a repo with an active feature whose state has no `Process:` line, `/sdlc:upgrade` names it and stops; after `Status: done` it goes ahead ([R20](#r20-upgrade-to-20-with-a-1x-feature-in-progress)).
 6. `/sdlc:eject` shows a dry run first; applied on a branch, it removes the plugin's files, keeps `.sdlc/config.json`, the PRD, the constitution, knowledge and specs.
 
 **I. Windows (should, if the team uses it).** A teammate runs B–E on Windows in Git Bash.
@@ -344,7 +344,7 @@ When every must item passes, record the date and commit in the changelog entry's
 
 ### Add or change a phase rule
 
-Phase behavior lives in `skills/orchestrator/`: the router `SKILL.md` (start or resume, the tracks, risk, and which one file each track reads) and `references/`: `s-track.md` (all of S), `flow.md` (all of M and L: the turn plan, model tiers, state, context and shared rules, hard stops, the state template, then Define, Build, Review and Ship), plus `review-brief.md`, `backlog-slices.md` for work split into parts and `ui-work.md` for UI work. A rule S and M both need goes in both `s-track.md` and `flow.md`, or in the router if every track needs it. The hooks and `state.py` key on the stage numbers (1 Define, 4 Build, 5 Review, 8 Ship) and act only on features with `Process: 2`, not on the names. After editing, keep these in step:
+Phase behavior lives in `skills/orchestrator/`: the router `SKILL.md` (start or resume, the tracks, risk, and which one file each track reads) and `references/`: `s-track.md` (all of S), `flow.md` (all of M and L: the turn plan, model tiers, state, context and shared rules, hard stops, the state template, then Define, Build, Review and Ship), plus `review-brief.md`, `backlog-slices.md` for work split into parts and `ui-work.md` for UI work. A rule S and M both need goes in both `s-track.md` and `flow.md`, or in the router if every track needs it. The hooks and `state.py` key on the stage numbers (1 Define, 2 Build, 3 Review, 4 Ship; `sdlc_layout.py` holds them) and act only on features with `Process: 3`, not on the names. After editing, keep these in step:
 
 | If you change… | Also check |
 |---|---|

@@ -1,7 +1,7 @@
 # Known failures baseline
 
 <!-- Written by /sdlc:setup (sdlc v{{plugin_version}}). Yours from then on: the plugin never overwrites it.
-     Review (Stage 5) fails only on failures NOT listed here. Rules:
+     Review (Stage 3) fails only on failures NOT listed here. Rules:
      - Shrinks on its own: when a listed item passes, the build removes it and says so in the change file's `## Review`.
      - Never grows silently: adding an item needs the user's OK and a Deviations entry in that feature's state.md.
      - Fixing items is its own S-track work, not a side job inside a feature. -->

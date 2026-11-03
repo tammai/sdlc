@@ -1,4 +1,4 @@
-"""hooks/verify_freshness.py: Stage 5 blocks finishing on stale test results."""
+"""hooks/verify_freshness.py: Stage 3 blocks finishing on stale test results."""
 import json
 import os
 import subprocess
@@ -14,7 +14,7 @@ HOOK = ["python3", os.path.join(HOOKS, "verify_freshness.py")]
 
 STATE = """# Feature: {feature}
 Status: {status}
-Process: 2
+Process: 3
 Current: Stage {stage}
 Track: M
 {flow_line}
@@ -24,7 +24,7 @@ Track: M
 
 
 class VerifyFreshnessTest(ProjectTestCase):
-    def set_state(self, feature="login", status="active", stage=5, test_cmd=None, flow=None):
+    def set_state(self, feature="login", status="active", stage=3, test_cmd=None, flow=None):
         test_line = f"- test: `{test_cmd}`" if test_cmd else ""
         flow_line = f"Flow: {flow}\n" if flow else ""
         self.write(f".sdlc/{feature}/state.md",
@@ -73,22 +73,22 @@ class VerifyFreshnessTest(ProjectTestCase):
         self.assertFalse(os.path.exists(self.path(".sdlc")))
 
     def test_other_stage_is_noop(self):
-        self.set_state(stage=4)
+        self.set_state(stage=2)
         self.edit("src/a.ts")
         self.assertAllows()
         self.assertFalse(os.path.exists(self.path(".sdlc/.work/verify-freshness.json")))
 
-    def test_stage_5_but_not_active_is_noop(self):
+    def test_stage_3_but_not_active_is_noop(self):
         self.set_state(status="done")
         self.assertAllows()
 
-    def test_stage_50_is_not_stage_5(self):
-        self.set_state(stage=50)
+    def test_stage_30_is_not_stage_3(self):
+        self.set_state(stage=30)
         self.assertAllows()
 
     # --- stale / fresh ---------------------------------------------------------
 
-    def test_entering_stage_5_without_a_test_run_blocks(self):
+    def test_entering_stage_3_without_a_test_run_blocks(self):
         self.set_state()
         out = self.assertBlocks()
         self.assertIn("no full test run", out["reason"])
@@ -137,8 +137,8 @@ class VerifyFreshnessTest(ProjectTestCase):
         self.bash("npm test")
         self.assertAllows()
 
-    def test_full_flow_stage_6_is_noop(self):
-        self.set_state(stage=6, flow="full")
+    def test_full_flow_stage_4_is_noop(self):
+        self.set_state(stage=4, flow="full")
         self.edit("src/login.ts")
         self.assertAllows()
 
@@ -336,7 +336,7 @@ class VerifyFreshnessTest(ProjectTestCase):
         self.monorepo_git()
         self.write("services/api/handler.go", "package main\n")
         self.bash("cd services/api && go test ./...")
-        self.write("apps/web/a.ts", "export const a = 2\n")  # e.g. a formatter, after Stage 5 began
+        self.write("apps/web/a.ts", "export const a = 2\n")  # e.g. a formatter, after Stage 3 began
         self.assertIn("web: apps/web/a.ts changed", self.assertBlocks()["reason"])
 
     def test_without_a_base_every_package_starts_stale(self):
@@ -579,7 +579,7 @@ class VerifyFreshnessTest(ProjectTestCase):
         self.write(".sdlc/.work/verify.json", json.dumps(rec))
 
     def test_a_verify_run_counts_as_a_full_run_and_is_recorded_by_the_hook(self):
-        self.set_state(stage=4, test_cmd="npm test")  # Build: verify runs there, before Prove
+        self.set_state(stage=2, test_cmd="npm test")  # Build: verify runs there, before Prove
         self.write("src/a.ts", "")
         subprocess.run(["git", "-C", self.root, "init", "-q"], check=True)  # freshness needs a tree to compare against
         verify = os.path.join(PLUGIN_ROOT, "scripts", "verify.py")

@@ -23,7 +23,7 @@ class SessionAboveRepoTest(ProjectTestCase):
     def setUp(self):
         super().setUp()
         self.write("api/.sdlc/config.json", '{"docs_dir": "docs/sdlc"}')
-        self.write("api/.sdlc/state/feat.md", "Status: active\nProcess: 2\nCurrent: build\n")
+        self.write("api/.sdlc/state/feat.md", "Status: active\nProcess: 3\nCurrent: build\n")
         os.makedirs(self.path("api/.claude/hookify"))
         for name in os.listdir(TEMPLATES):
             shutil.copy(os.path.join(TEMPLATES, name), self.path("api/.claude/hookify"))

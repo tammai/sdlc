@@ -7,7 +7,7 @@ Claude Code's
 Turns the host's payload into Claude Code's, runs the hook scripts Claude Code runs for that event, unchanged, as child
 processes, and turns their output back into the host's:
   - PreToolUse         hooks/pretooluse.py (hookify), hooks/review_rounds.py   a deny from any of them denies the call
-  - PostToolUse(Failure) hooks/verify_freshness.py                      edits make Stage 5 results stale, full runs fresh
+  - PostToolUse(Failure) hooks/verify_freshness.py                      edits make Stage 3 results stale, full runs fresh
   - UserPromptSubmit   hooks/userpromptsubmit.py, hooks/trust_anchor.py, hooks/review_rounds.py
   - Stop               hooks/stop.py, hooks/verify_freshness.py, hooks/trust_anchor.py   a block from any keeps the agent going
 Left out: the security review and the Ralph loop (bash launchers and model calls), the role guard (no host names the

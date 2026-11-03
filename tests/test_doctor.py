@@ -310,9 +310,9 @@ class DoctorTest(ProjectTestCase):
         self.assertEqual(self.check("knowledge index")["detail"], "broken links: gotchas/gone.md")
 
     def test_feature_state(self):
-        self.write(".sdlc/a/state.md", "Status: active\nProcess: 2\nCurrent: Stage 4 – Implement\n")
+        self.write(".sdlc/a/state.md", "Status: active\nProcess: 3\nCurrent: Stage 2 – Build\n")
         self.assertEqual(self.check("features")["status"], "ok")
-        self.write(".sdlc/b/state.md", "Status: active\nProcess: 2\nCurrent: Stage 2 – Design\n")
+        self.write(".sdlc/b/state.md", "Status: active\nProcess: 3\nCurrent: Stage 1 – Define\n")
         self.write(".sdlc/c/state.md", "# c\n")
         c = self.check("features")
         self.assertEqual(c["status"], "warn")

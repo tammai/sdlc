@@ -2,15 +2,21 @@
 import type { Part, Phase, View } from '../types'
 
 export const PHASES: Phase[] = ['Define', 'Build', 'Review', 'Ship']
-const BY_NUMBER: Record<string, Phase> = { '1': 'Define', '4': 'Build', '5': 'Review', '8': 'Ship' }
+// The stage numbers, by the state file's `Process:` marker: 2.x used 1, 4, 5 and 8, 3.0 uses 1 to 4. The phase name on
+// the same line wins; the number is only the fallback.
+const BY_NUMBER: Record<string, Record<string, Phase>> = {
+  '2': { '1': 'Define', '4': 'Build', '5': 'Review', '8': 'Ship' },
+  '3': { '1': 'Define', '2': 'Build', '3': 'Review', '4': 'Ship' },
+}
 
-/** The feature a state file describes, or null when it isn't an active sdlc 2 feature. */
+/** The feature a state file describes, or null when it isn't an active sdlc 2.x or 3.x feature. */
 export function parseState(name: string, text: string): { feature: string; phase: Phase } | null {
-  if (!/^Status:\s*active\b/m.test(text) || !/^Process:\s*2\b/m.test(text)) return null
+  const process = /^Process:\s*([23])\b/m.exec(text)?.[1]
+  if (!/^Status:\s*active\b/m.test(text) || !process) return null
   const m = /^Current:\s*Stage\s*(\d+)\s*[–-]?\s*(\w+)?/m.exec(text)
   if (!m) return null
   const named = PHASES.find(p => p.toLowerCase() === (m[2] ?? '').toLowerCase())
-  const phase = named ?? BY_NUMBER[m[1] ?? '']
+  const phase = named ?? BY_NUMBER[process]?.[m[1] ?? '']
   return phase ? { feature: name, phase } : null
 }
 

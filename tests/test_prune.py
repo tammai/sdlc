@@ -45,7 +45,7 @@ class PruneTest(ProjectTestCase):
     def test_a_2_0_feature_keeps_its_review_and_drops_its_working_plans(self):
         # sdlc 2.0: review.md is the review's permanent record at every risk; plan.md and plan-B<n>.md are working files
         name = "2026-01-01-month-filter"
-        self.write(f".sdlc/{name}/state.md", f"# {name}\nStatus: done\nProcess: 2\nRisk: low\n")
+        self.write(f".sdlc/{name}/state.md", f"# {name}\nStatus: done\nProcess: 3\nRisk: low\n")
         self.write(f".sdlc/{name}/plan-B1.md", "x\n")
         self.git("add", "-A")
         self.git("commit", "-q", "-m", "2.0", env={"GIT_AUTHOR_DATE": OLD, "GIT_COMMITTER_DATE": OLD})
@@ -56,7 +56,7 @@ class PruneTest(ProjectTestCase):
     def test_a_2_0_feature_in_the_new_layout_loses_only_its_work_folders_reports_and_part_plans(self):
         name = "2026-02-01-search"
         self.write(".sdlc/config.json", '{"docs_dir": "docs/sdlc"}\n')
-        self.write(f".sdlc/state/{name}.md", f"# {name}\nStatus: done\nProcess: 2\nRisk: low\n")
+        self.write(f".sdlc/state/{name}.md", f"# {name}\nStatus: done\nProcess: 3\nRisk: low\n")
         self.write(f"docs/sdlc/changes/{name}.md", "# change\n")
         for f in ("backlog.md", "plan-B1.md", "qa-report.md"):
             self.write(f".sdlc/state/{name}/{f}", "x\n")

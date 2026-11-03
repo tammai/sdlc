@@ -10,7 +10,7 @@ Usage: ship.py [--root DIR] FEATURE [--message SUBJECT] [--review TEXT] [--note 
      step failed while .sdlc/baseline.md lists failing tests: the user's brownfield repo then ships past failures it
      already had. verify.py doesn't read the baseline, so the caller has checked that every failure is listed; the
      waiver is written to the Gate log.
-  4. `state.py advance FEATURE 8 --gate pass --verified <head> <tree>` (already at Stage 8 is fine), then
+  4. `state.py advance FEATURE 4 --gate pass --verified <head> <tree>` (already at Stage 4 is fine), then
      `state.py set FEATURE Status done`, so the kept record says done; the commit review still reviews this commit
      as the feature's (hooks/sdlc_review_gate.py: the commit that finishes a feature).
   5. On the default branch, switches to a branch named after the feature.
@@ -90,7 +90,7 @@ def verified(root, feature, timeout, waive_baseline=False):
         return last["head"], last["tree"], None
     listed = baseline_failures(root)
     if waive_baseline and listed and all(re.match(r"[^\n]*\btest: exit", f) for f in last["failures"]):
-        return last["head"], last["tree"], f"Stage 8: baseline failures waived: only the test step failed; {len(listed)} listed in .sdlc/baseline.md"
+        return last["head"], last["tree"], f"Stage 4: baseline failures waived: only the test step failed; {len(listed)} listed in .sdlc/baseline.md"
     hint = "\nIf only the test step failed and every failure is in .sdlc/baseline.md, rerun with --waive-baseline." if listed else ""
     raise Refused("verify failed:\n" + "\n".join(notes + last["failures"]) + hint)
 
@@ -135,8 +135,8 @@ def ship(root, feature, message, review=None, note=None, timeout=1800, waive_bas
     head, tree, waiver = verified(root, feature, timeout, waive_baseline)
     if waiver:
         state_py(root, "log", feature, waiver)
-    state_py(root, "advance", feature, "8", "--gate", "pass", "--verified", head, tree, *(["--note", note] if note else []),
-          ok="already at Stage 8")
+    state_py(root, "advance", feature, "4", "--gate", "pass", "--verified", head, tree, *(["--note", note] if note else []),
+          ok="already at Stage 4")
     state_py(root, "set", feature, "Status", "done")
     branch = None
     if on_default_branch(root):

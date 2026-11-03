@@ -1,6 +1,6 @@
 # 2026-10-28-l-impeccable-pairing
 Status: done
-Process: 2
+Process: 3
 Change: .sdlc/2026-10-28-l-impeccable-pairing/change.md   (this feature's record for people)
 Track: L   (sized up because: several distinct parts (setup, Define, Build guardrail, Review, model router, doctor, migration, docs); footprint: ~22 files)
 Risk: low   (no auth, payments, secrets, PII, migration or public API; third-party engine handled by never installing it)
@@ -11,13 +11,13 @@ Base: b899e51
 Owner: tammai.it@gmail.com
 Tool: claude-code
 Verified: db8a066 tree 4c94c081dd1e5e18ad11ae30bdb1311a43e3796f
-Current: Stage 8 – Ship
+Current: Stage 4 – Ship
 
 ## Stages
 - [x] 1 Define   — the change file, the plan sections below
-- [x] 4 Build
-- [x] 5 Review   — the change file's ## Review
-- [ ] 8 Ship     — PR: (Learn: knowledge, recurring-defects.md)
+- [x] 2 Build
+- [x] 3 Review   — the change file's ## Review
+- [ ] 4 Ship     — PR: (Learn: knowledge, recurring-defects.md)
 
 ## How the build runs
 inline, because one session holds it: mostly instruction text plus four small script changes.
@@ -64,10 +64,10 @@ inline, because one session holds it: mostly instruction text plus four small sc
 - 2026-10-28 Stage 1: open — record written; stopped before Build at the user's request ("run the define stage … and stop"); one question open (below)
 - 2026-10-28 Greenfield before DESIGN.md: user approved the recommendation (map against the shape brief; first UI feature's Build writes DESIGN.md; no High for a missing system on that feature)
 - 2026-10-28 Stage 1: pass — plan approved by the user
-- 2026-10-28 Stage 4: pass
+- 2026-10-28 Stage 2: pass
 - 2026-10-28 review: ran code default (L; Public Surface not none), self-chosen: L. UI and security don't fire (no areas.ui path, risk low, no sensitive path)
-- 2026-10-28 Stage 4: pass
-- 2026-10-28 Stage 5: pass
+- 2026-10-28 Stage 2: pass
+- 2026-10-28 Stage 3: pass
 
 ## Deviations
 - 2026-10-28 Repo not set up for sdlc (`scaffold.py status`: setup none, layout legacy); the plugin repo runs its features this way (as the slim feature did). Paths follow `scaffold.py paths` (`.sdlc/<feature>/`), not `docs/sdlc/intents/` where the slim feature's files are.

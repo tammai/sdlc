@@ -1580,7 +1580,7 @@ def handle_commit_review_posttooluse(input_data):
         debug_log("Commit review: no SHA in commit output")
         emit_metrics({"skipped": True, "skip_reason": 33, **_base})
         sys.exit(0)
-    # sdlc patch: while a feature is active, a build commit (before Stage 5) is deferred, not reviewed and not
+    # sdlc patch: while a feature is active, a build commit (before Stage 3) is deferred, not reviewed and not
     # recorded as reviewed; the next review-ready commit's review also covers it (hooks/sdlc_review_gate.py)
     _sdlc = sdlc_review_gate.decide(repo_root, shas, _load_reviewed_shas(repo_root))
     if _sdlc.get("off"):

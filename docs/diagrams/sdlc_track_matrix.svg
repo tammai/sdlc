@@ -1,0 +1,315 @@
+<svg width="100%" viewBox="0 0 788 1160" role="img" xmlns="http://www.w3.org/2000/svg">
+<title>Which sdlc steps run on which track</title>
+<desc>Which sdlc steps run on which track. Columns: Trivial, S, M low risk, M high risk, L, L in parts. Rows: 36 steps in Before Define, Define, Build, Review and Ship with Learn. A filled square always runs, a square with a dot runs only when its condition holds (a bug, UI work, a security-touched diff, a review finding), an empty square doesn&#x27;t run. Always-run counts: Trivial 4, S 15, M low risk 16, M high risk 21, L 18, L in parts 20. Conditional counts: 0, 10, 14, 10, 15, 15. Sizing picks the track by how many files the change touches. Steps are listed in docs/track-matrix.md.</desc>
+<style>
+text{font-family:anthropic-sans,-apple-system,"system-ui","Segoe UI",sans-serif;dominant-baseline:central;fill:#2b2a27}
+.h{font-size:13px;font-weight:600;text-anchor:middle}.hs{font-size:11px;text-anchor:middle;fill:#6b6963}
+.sec{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;fill:#6b6963}
+.lab{font-size:12.5px}.stop{font-weight:600}.num{font-size:11px;fill:#8a8881}
+.lg{font-size:12px}.tot{font-weight:600}.tv{font-size:13px;font-weight:600;text-anchor:middle}
+.band{fill:#f3f2ee}.rule{stroke:#c9c7bf;stroke-width:1}
+.on{fill:#2f6bdc}.part{fill:none;stroke:#2f6bdc;stroke-width:1.5}.pdot{fill:#2f6bdc}
+.off{fill:#e4e2db}
+@media (prefers-color-scheme:dark){
+text{fill:#ebeae4}.hs,.sec{fill:#a8a69e}.num{fill:#85837c}
+.band{fill:#262624}.rule{stroke:#4a4944}
+.on,.pdot{fill:#5b8def}.part{stroke:#5b8def}.off{fill:#3a3935}
+}</style>
+<rect class="on" x="20" y="24" width="14" height="14" rx="3"/><text class="lg" x="42" y="31">Always runs</text><rect class="part" x="140.75" y="24.75" width="12.5" height="12.5" rx="3"/><rect class="pdot" x="144.5" y="28.5" width="5" height="5" rx="1.5"/><text class="lg" x="162" y="31">Only when its condition holds</text><rect class="off" x="350" y="24" width="14" height="14" rx="3"/><text class="lg" x="372" y="31">Doesn't run</text>
+<text class="h" x="405.0" y="92">Trivial</text>
+<text class="h" x="471.0" y="92">S</text>
+<text class="h" x="537.0" y="84">M</text><text class="hs" x="537.0" y="100">low risk</text>
+<text class="h" x="603.0" y="84">M</text><text class="hs" x="603.0" y="100">high risk</text>
+<text class="h" x="669.0" y="92">L</text>
+<text class="h" x="735.0" y="84">L</text><text class="hs" x="735.0" y="100">in parts</text>
+<text class="sec" x="20" y="138">Before Define</text>
+<rect class="band" x="12" y="148" width="764" height="22" rx="3"/>
+<text class="num" x="20" y="159.0">0.1</text><text class="lab" x="54" y="159.0">Size and risk, one line (a lookup)</text>
+<rect class="on" x="397.0" y="151.0" width="16" height="16" rx="3"/>
+<rect class="on" x="463.0" y="151.0" width="16" height="16" rx="3"/>
+<rect class="on" x="529.0" y="151.0" width="16" height="16" rx="3"/>
+<rect class="on" x="595.0" y="151.0" width="16" height="16" rx="3"/>
+<rect class="on" x="661.0" y="151.0" width="16" height="16" rx="3"/>
+<rect class="on" x="727.0" y="151.0" width="16" height="16" rx="3"/>
+<text class="num" x="20" y="181.0">0.2</text><text class="lab" x="54" y="181.0">Read the brief and the code</text>
+<rect class="off" x="397.0" y="173.0" width="16" height="16" rx="3"/>
+<rect class="on" x="463.0" y="173.0" width="16" height="16" rx="3"/>
+<rect class="on" x="529.0" y="173.0" width="16" height="16" rx="3"/>
+<rect class="on" x="595.0" y="173.0" width="16" height="16" rx="3"/>
+<rect class="on" x="661.0" y="173.0" width="16" height="16" rx="3"/>
+<rect class="on" x="727.0" y="173.0" width="16" height="16" rx="3"/>
+<text class="sec" x="20" y="216">Define (Stage 1)</text>
+<rect class="band" x="12" y="226" width="764" height="22" rx="3"/>
+<text class="num" x="20" y="237.0">1.1</text><text class="lab" x="54" y="237.0">Setup check, feature name and paths</text>
+<rect class="off" x="397.0" y="229.0" width="16" height="16" rx="3"/>
+<rect class="on" x="463.0" y="229.0" width="16" height="16" rx="3"/>
+<rect class="on" x="529.0" y="229.0" width="16" height="16" rx="3"/>
+<rect class="on" x="595.0" y="229.0" width="16" height="16" rx="3"/>
+<rect class="on" x="661.0" y="229.0" width="16" height="16" rx="3"/>
+<rect class="on" x="727.0" y="229.0" width="16" height="16" rx="3"/>
+<text class="num" x="20" y="259.0">1.2</text><text class="lab" x="54" y="259.0">Ask until clear, one question at a time</text>
+<rect class="off" x="397.0" y="251.0" width="16" height="16" rx="3"/>
+<rect class="part" x="463.75" y="251.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="468.0" y="256.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="529.75" y="251.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="534.0" y="256.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="595.75" y="251.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="600.0" y="256.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="661.75" y="251.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="666.0" y="256.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="727.75" y="251.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="732.0" y="256.0" width="6" height="6" rx="1.5"/>
+<rect class="band" x="12" y="270" width="764" height="22" rx="3"/>
+<text class="num" x="20" y="281.0">1.3</text><text class="lab" x="54" y="281.0">Brainstorming interview</text>
+<rect class="off" x="397.0" y="273.0" width="16" height="16" rx="3"/>
+<rect class="off" x="463.0" y="273.0" width="16" height="16" rx="3"/>
+<rect class="off" x="529.0" y="273.0" width="16" height="16" rx="3"/>
+<rect class="off" x="595.0" y="273.0" width="16" height="16" rx="3"/>
+<rect class="part" x="661.75" y="273.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="666.0" y="278.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="727.75" y="273.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="732.0" y="278.0" width="6" height="6" rx="1.5"/>
+<text class="num" x="20" y="303.0">1.4</text><text class="lab" x="54" y="303.0">Bug: failing test and root cause</text>
+<rect class="off" x="397.0" y="295.0" width="16" height="16" rx="3"/>
+<rect class="part" x="463.75" y="295.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="468.0" y="300.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="529.75" y="295.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="534.0" y="300.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="595.75" y="295.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="600.0" y="300.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="661.75" y="295.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="666.0" y="300.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="727.75" y="295.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="732.0" y="300.0" width="6" height="6" rx="1.5"/>
+<rect class="band" x="12" y="314" width="764" height="22" rx="3"/>
+<text class="num" x="20" y="325.0">1.5</text><text class="lab" x="54" y="325.0">Change file, short form</text>
+<rect class="off" x="397.0" y="317.0" width="16" height="16" rx="3"/>
+<rect class="on" x="463.0" y="317.0" width="16" height="16" rx="3"/>
+<rect class="on" x="529.0" y="317.0" width="16" height="16" rx="3"/>
+<rect class="off" x="595.0" y="317.0" width="16" height="16" rx="3"/>
+<rect class="off" x="661.0" y="317.0" width="16" height="16" rx="3"/>
+<rect class="off" x="727.0" y="317.0" width="16" height="16" rx="3"/>
+<text class="num" x="20" y="347.0">1.6</text><text class="lab" x="54" y="347.0">Change file, full form</text>
+<rect class="off" x="397.0" y="339.0" width="16" height="16" rx="3"/>
+<rect class="off" x="463.0" y="339.0" width="16" height="16" rx="3"/>
+<rect class="off" x="529.0" y="339.0" width="16" height="16" rx="3"/>
+<rect class="on" x="595.0" y="339.0" width="16" height="16" rx="3"/>
+<rect class="on" x="661.0" y="339.0" width="16" height="16" rx="3"/>
+<rect class="on" x="727.0" y="339.0" width="16" height="16" rx="3"/>
+<rect class="band" x="12" y="358" width="764" height="22" rx="3"/>
+<text class="num" x="20" y="369.0">1.7</text><text class="lab" x="54" y="369.0">One acceptance test per criterion</text>
+<rect class="off" x="397.0" y="361.0" width="16" height="16" rx="3"/>
+<rect class="on" x="463.0" y="361.0" width="16" height="16" rx="3"/>
+<rect class="on" x="529.0" y="361.0" width="16" height="16" rx="3"/>
+<rect class="on" x="595.0" y="361.0" width="16" height="16" rx="3"/>
+<rect class="on" x="661.0" y="361.0" width="16" height="16" rx="3"/>
+<rect class="on" x="727.0" y="361.0" width="16" height="16" rx="3"/>
+<text class="num" x="20" y="391.0">1.8</text><text class="lab" x="54" y="391.0">UI mapping against the design system</text>
+<rect class="off" x="397.0" y="383.0" width="16" height="16" rx="3"/>
+<rect class="part" x="463.75" y="383.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="468.0" y="388.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="529.75" y="383.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="534.0" y="388.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="595.75" y="383.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="600.0" y="388.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="661.75" y="383.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="666.0" y="388.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="727.75" y="383.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="732.0" y="388.0" width="6" height="6" rx="1.5"/>
+<rect class="band" x="12" y="402" width="764" height="22" rx="3"/>
+<text class="num" x="20" y="413.0">1.9</text><text class="lab" x="54" y="413.0">Backlog of parts (backlog.md)</text>
+<rect class="off" x="397.0" y="405.0" width="16" height="16" rx="3"/>
+<rect class="off" x="463.0" y="405.0" width="16" height="16" rx="3"/>
+<rect class="off" x="529.0" y="405.0" width="16" height="16" rx="3"/>
+<rect class="off" x="595.0" y="405.0" width="16" height="16" rx="3"/>
+<rect class="off" x="661.0" y="405.0" width="16" height="16" rx="3"/>
+<rect class="on" x="727.0" y="405.0" width="16" height="16" rx="3"/>
+<text class="num" x="20" y="435.0">1.10</text><text class="lab" x="54" y="435.0">State file (state.py new)</text>
+<rect class="off" x="397.0" y="427.0" width="16" height="16" rx="3"/>
+<rect class="on" x="463.0" y="427.0" width="16" height="16" rx="3"/>
+<rect class="on" x="529.0" y="427.0" width="16" height="16" rx="3"/>
+<rect class="on" x="595.0" y="427.0" width="16" height="16" rx="3"/>
+<rect class="on" x="661.0" y="427.0" width="16" height="16" rx="3"/>
+<rect class="on" x="727.0" y="427.0" width="16" height="16" rx="3"/>
+<rect class="band" x="12" y="446" width="764" height="22" rx="3"/>
+<text class="num" x="20" y="457.0">1.11</text><text class="lab" x="54" y="457.0">Gate message: decisions and criteria</text>
+<rect class="off" x="397.0" y="449.0" width="16" height="16" rx="3"/>
+<rect class="off" x="463.0" y="449.0" width="16" height="16" rx="3"/>
+<rect class="on" x="529.0" y="449.0" width="16" height="16" rx="3"/>
+<rect class="on" x="595.0" y="449.0" width="16" height="16" rx="3"/>
+<rect class="on" x="661.0" y="449.0" width="16" height="16" rx="3"/>
+<rect class="on" x="727.0" y="449.0" width="16" height="16" rx="3"/>
+<text class="num" x="20" y="479.0">1.12</text><text class="lab stop" x="54" y="479.0">Stop: you approve the change file</text>
+<rect class="off" x="397.0" y="471.0" width="16" height="16" rx="3"/>
+<rect class="off" x="463.0" y="471.0" width="16" height="16" rx="3"/>
+<rect class="off" x="529.0" y="471.0" width="16" height="16" rx="3"/>
+<rect class="on" x="595.0" y="471.0" width="16" height="16" rx="3"/>
+<rect class="part" x="661.75" y="471.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="666.0" y="476.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="727.75" y="471.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="732.0" y="476.0" width="6" height="6" rx="1.5"/>
+<text class="sec" x="20" y="514">Build (Stage 2)</text>
+<rect class="band" x="12" y="524" width="764" height="22" rx="3"/>
+<text class="num" x="20" y="535.0">2.1</text><text class="lab" x="54" y="535.0">Tests first, recorded failing</text>
+<rect class="off" x="397.0" y="527.0" width="16" height="16" rx="3"/>
+<rect class="on" x="463.0" y="527.0" width="16" height="16" rx="3"/>
+<rect class="on" x="529.0" y="527.0" width="16" height="16" rx="3"/>
+<rect class="on" x="595.0" y="527.0" width="16" height="16" rx="3"/>
+<rect class="on" x="661.0" y="527.0" width="16" height="16" rx="3"/>
+<rect class="on" x="727.0" y="527.0" width="16" height="16" rx="3"/>
+<text class="num" x="20" y="557.0">2.2</text><text class="lab" x="54" y="557.0">Write the code</text>
+<rect class="on" x="397.0" y="549.0" width="16" height="16" rx="3"/>
+<rect class="on" x="463.0" y="549.0" width="16" height="16" rx="3"/>
+<rect class="on" x="529.0" y="549.0" width="16" height="16" rx="3"/>
+<rect class="on" x="595.0" y="549.0" width="16" height="16" rx="3"/>
+<rect class="on" x="661.0" y="549.0" width="16" height="16" rx="3"/>
+<rect class="on" x="727.0" y="549.0" width="16" height="16" rx="3"/>
+<rect class="band" x="12" y="568" width="764" height="22" rx="3"/>
+<text class="num" x="20" y="579.0">2.3</text><text class="lab" x="54" y="579.0">Run the tests (verify.py)</text>
+<rect class="on" x="397.0" y="571.0" width="16" height="16" rx="3"/>
+<rect class="on" x="463.0" y="571.0" width="16" height="16" rx="3"/>
+<rect class="on" x="529.0" y="571.0" width="16" height="16" rx="3"/>
+<rect class="on" x="595.0" y="571.0" width="16" height="16" rx="3"/>
+<rect class="on" x="661.0" y="571.0" width="16" height="16" rx="3"/>
+<rect class="on" x="727.0" y="571.0" width="16" height="16" rx="3"/>
+<text class="num" x="20" y="601.0">2.4</text><text class="lab" x="54" y="601.0">Record drift as a deviation</text>
+<rect class="off" x="397.0" y="593.0" width="16" height="16" rx="3"/>
+<rect class="part" x="463.75" y="593.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="468.0" y="598.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="529.75" y="593.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="534.0" y="598.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="595.75" y="593.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="600.0" y="598.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="661.75" y="593.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="666.0" y="598.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="727.75" y="593.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="732.0" y="598.0" width="6" height="6" rx="1.5"/>
+<rect class="band" x="12" y="612" width="764" height="22" rx="3"/>
+<text class="num" x="20" y="623.0">2.5</text><text class="lab" x="54" y="623.0">Per part: plan, verify, commit, handoff</text>
+<rect class="off" x="397.0" y="615.0" width="16" height="16" rx="3"/>
+<rect class="off" x="463.0" y="615.0" width="16" height="16" rx="3"/>
+<rect class="off" x="529.0" y="615.0" width="16" height="16" rx="3"/>
+<rect class="off" x="595.0" y="615.0" width="16" height="16" rx="3"/>
+<rect class="off" x="661.0" y="615.0" width="16" height="16" rx="3"/>
+<rect class="on" x="727.0" y="615.0" width="16" height="16" rx="3"/>
+<text class="sec" x="20" y="658">Review (Stage 3)</text>
+<text class="num" x="20" y="679.0">3.1</text><text class="lab" x="54" y="679.0">Review decision from the fixed table</text>
+<rect class="off" x="397.0" y="671.0" width="16" height="16" rx="3"/>
+<rect class="on" x="463.0" y="671.0" width="16" height="16" rx="3"/>
+<rect class="on" x="529.0" y="671.0" width="16" height="16" rx="3"/>
+<rect class="on" x="595.0" y="671.0" width="16" height="16" rx="3"/>
+<rect class="on" x="661.0" y="671.0" width="16" height="16" rx="3"/>
+<rect class="on" x="727.0" y="671.0" width="16" height="16" rx="3"/>
+<rect class="band" x="12" y="690" width="764" height="22" rx="3"/>
+<text class="num" x="20" y="701.0">3.2</text><text class="lab" x="54" y="701.0">Stage 3 entered</text>
+<rect class="off" x="397.0" y="693.0" width="16" height="16" rx="3"/>
+<rect class="off" x="463.0" y="693.0" width="16" height="16" rx="3"/>
+<rect class="part" x="529.75" y="693.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="534.0" y="698.0" width="6" height="6" rx="1.5"/>
+<rect class="on" x="595.0" y="693.0" width="16" height="16" rx="3"/>
+<rect class="on" x="661.0" y="693.0" width="16" height="16" rx="3"/>
+<rect class="on" x="727.0" y="693.0" width="16" height="16" rx="3"/>
+<text class="num" x="20" y="723.0">3.3</text><text class="lab" x="54" y="723.0">Security review</text>
+<rect class="off" x="397.0" y="715.0" width="16" height="16" rx="3"/>
+<rect class="part" x="463.75" y="715.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="468.0" y="720.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="529.75" y="715.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="534.0" y="720.0" width="6" height="6" rx="1.5"/>
+<rect class="on" x="595.0" y="715.0" width="16" height="16" rx="3"/>
+<rect class="part" x="661.75" y="715.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="666.0" y="720.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="727.75" y="715.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="732.0" y="720.0" width="6" height="6" rx="1.5"/>
+<rect class="band" x="12" y="734" width="764" height="22" rx="3"/>
+<text class="num" x="20" y="745.0">3.4</text><text class="lab" x="54" y="745.0">Code review, default depth</text>
+<rect class="off" x="397.0" y="737.0" width="16" height="16" rx="3"/>
+<rect class="part" x="463.75" y="737.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="468.0" y="742.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="529.75" y="737.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="534.0" y="742.0" width="6" height="6" rx="1.5"/>
+<rect class="off" x="595.0" y="737.0" width="16" height="16" rx="3"/>
+<rect class="on" x="661.0" y="737.0" width="16" height="16" rx="3"/>
+<rect class="on" x="727.0" y="737.0" width="16" height="16" rx="3"/>
+<text class="num" x="20" y="767.0">3.5</text><text class="lab" x="54" y="767.0">Code review, high depth</text>
+<rect class="off" x="397.0" y="759.0" width="16" height="16" rx="3"/>
+<rect class="off" x="463.0" y="759.0" width="16" height="16" rx="3"/>
+<rect class="part" x="529.75" y="759.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="534.0" y="764.0" width="6" height="6" rx="1.5"/>
+<rect class="on" x="595.0" y="759.0" width="16" height="16" rx="3"/>
+<rect class="part" x="661.75" y="759.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="666.0" y="764.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="727.75" y="759.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="732.0" y="764.0" width="6" height="6" rx="1.5"/>
+<rect class="band" x="12" y="778" width="764" height="22" rx="3"/>
+<text class="num" x="20" y="789.0">3.6</text><text class="lab" x="54" y="789.0">UI review</text>
+<rect class="off" x="397.0" y="781.0" width="16" height="16" rx="3"/>
+<rect class="part" x="463.75" y="781.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="468.0" y="786.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="529.75" y="781.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="534.0" y="786.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="595.75" y="781.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="600.0" y="786.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="661.75" y="781.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="666.0" y="786.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="727.75" y="781.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="732.0" y="786.0" width="6" height="6" rx="1.5"/>
+<text class="num" x="20" y="811.0">3.7</text><text class="lab" x="54" y="811.0">Advisor</text>
+<rect class="off" x="397.0" y="803.0" width="16" height="16" rx="3"/>
+<rect class="off" x="463.0" y="803.0" width="16" height="16" rx="3"/>
+<rect class="part" x="529.75" y="803.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="534.0" y="808.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="595.75" y="803.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="600.0" y="808.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="661.75" y="803.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="666.0" y="808.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="727.75" y="803.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="732.0" y="808.0" width="6" height="6" rx="1.5"/>
+<rect class="band" x="12" y="822" width="764" height="22" rx="3"/>
+<text class="num" x="20" y="833.0">3.8</text><text class="lab stop" x="54" y="833.0">Stop: you pick the reviews</text>
+<rect class="off" x="397.0" y="825.0" width="16" height="16" rx="3"/>
+<rect class="off" x="463.0" y="825.0" width="16" height="16" rx="3"/>
+<rect class="off" x="529.0" y="825.0" width="16" height="16" rx="3"/>
+<rect class="on" x="595.0" y="825.0" width="16" height="16" rx="3"/>
+<rect class="part" x="661.75" y="825.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="666.0" y="830.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="727.75" y="825.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="732.0" y="830.0" width="6" height="6" rx="1.5"/>
+<text class="num" x="20" y="855.0">3.9</text><text class="lab" x="54" y="855.0">Fix round, then check the fixes</text>
+<rect class="off" x="397.0" y="847.0" width="16" height="16" rx="3"/>
+<rect class="part" x="463.75" y="847.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="468.0" y="852.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="529.75" y="847.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="534.0" y="852.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="595.75" y="847.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="600.0" y="852.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="661.75" y="847.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="666.0" y="852.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="727.75" y="847.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="732.0" y="852.0" width="6" height="6" rx="1.5"/>
+<rect class="band" x="12" y="866" width="764" height="22" rx="3"/>
+<text class="num" x="20" y="877.0">3.10</text><text class="lab" x="54" y="877.0">## Review in the change file</text>
+<rect class="off" x="397.0" y="869.0" width="16" height="16" rx="3"/>
+<rect class="on" x="463.0" y="869.0" width="16" height="16" rx="3"/>
+<rect class="on" x="529.0" y="869.0" width="16" height="16" rx="3"/>
+<rect class="on" x="595.0" y="869.0" width="16" height="16" rx="3"/>
+<rect class="on" x="661.0" y="869.0" width="16" height="16" rx="3"/>
+<rect class="on" x="727.0" y="869.0" width="16" height="16" rx="3"/>
+<text class="sec" x="20" y="912">Ship (Stage 4) with Learn</text>
+<text class="num" x="20" y="933.0">4.1</text><text class="lab" x="54" y="933.0">Learn: lesson into knowledge</text>
+<rect class="off" x="397.0" y="925.0" width="16" height="16" rx="3"/>
+<rect class="part" x="463.75" y="925.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="468.0" y="930.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="529.75" y="925.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="534.0" y="930.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="595.75" y="925.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="600.0" y="930.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="661.75" y="925.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="666.0" y="930.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="727.75" y="925.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="732.0" y="930.0" width="6" height="6" rx="1.5"/>
+<rect class="band" x="12" y="944" width="764" height="22" rx="3"/>
+<text class="num" x="20" y="955.0">4.2</text><text class="lab" x="54" y="955.0">Learn: recurring-defects.md</text>
+<rect class="off" x="397.0" y="947.0" width="16" height="16" rx="3"/>
+<rect class="off" x="463.0" y="947.0" width="16" height="16" rx="3"/>
+<rect class="part" x="529.75" y="947.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="534.0" y="952.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="595.75" y="947.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="600.0" y="952.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="661.75" y="947.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="666.0" y="952.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="727.75" y="947.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="732.0" y="952.0" width="6" height="6" rx="1.5"/>
+<text class="num" x="20" y="977.0">4.3</text><text class="lab" x="54" y="977.0">Commit with a clear message</text>
+<rect class="on" x="397.0" y="969.0" width="16" height="16" rx="3"/>
+<rect class="on" x="463.0" y="969.0" width="16" height="16" rx="3"/>
+<rect class="on" x="529.0" y="969.0" width="16" height="16" rx="3"/>
+<rect class="on" x="595.0" y="969.0" width="16" height="16" rx="3"/>
+<rect class="on" x="661.0" y="969.0" width="16" height="16" rx="3"/>
+<rect class="on" x="727.0" y="969.0" width="16" height="16" rx="3"/>
+<rect class="band" x="12" y="988" width="764" height="22" rx="3"/>
+<text class="num" x="20" y="999.0">4.4</text><text class="lab" x="54" y="999.0">ship.py: reuse verify, mark done</text>
+<rect class="off" x="397.0" y="991.0" width="16" height="16" rx="3"/>
+<rect class="on" x="463.0" y="991.0" width="16" height="16" rx="3"/>
+<rect class="on" x="529.0" y="991.0" width="16" height="16" rx="3"/>
+<rect class="on" x="595.0" y="991.0" width="16" height="16" rx="3"/>
+<rect class="on" x="661.0" y="991.0" width="16" height="16" rx="3"/>
+<rect class="on" x="727.0" y="991.0" width="16" height="16" rx="3"/>
+<text class="num" x="20" y="1021.0">4.5</text><text class="lab" x="54" y="1021.0">Push and open the PR</text>
+<rect class="off" x="397.0" y="1013.0" width="16" height="16" rx="3"/>
+<rect class="on" x="463.0" y="1013.0" width="16" height="16" rx="3"/>
+<rect class="on" x="529.0" y="1013.0" width="16" height="16" rx="3"/>
+<rect class="on" x="595.0" y="1013.0" width="16" height="16" rx="3"/>
+<rect class="on" x="661.0" y="1013.0" width="16" height="16" rx="3"/>
+<rect class="on" x="727.0" y="1013.0" width="16" height="16" rx="3"/>
+<rect class="band" x="12" y="1032" width="764" height="22" rx="3"/>
+<text class="num" x="20" y="1043.0">4.6</text><text class="lab" x="54" y="1043.0">Watch CI</text>
+<rect class="off" x="397.0" y="1035.0" width="16" height="16" rx="3"/>
+<rect class="part" x="463.75" y="1035.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="468.0" y="1040.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="529.75" y="1035.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="534.0" y="1040.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="595.75" y="1035.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="600.0" y="1040.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="661.75" y="1035.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="666.0" y="1040.0" width="6" height="6" rx="1.5"/>
+<rect class="part" x="727.75" y="1035.75" width="14.5" height="14.5" rx="3"/><rect class="pdot" x="732.0" y="1040.0" width="6" height="6" rx="1.5"/>
+<text class="num" x="20" y="1065.0">4.7</text><text class="lab stop" x="54" y="1065.0">Stop: PR open, merge on your word</text>
+<rect class="off" x="397.0" y="1057.0" width="16" height="16" rx="3"/>
+<rect class="on" x="463.0" y="1057.0" width="16" height="16" rx="3"/>
+<rect class="on" x="529.0" y="1057.0" width="16" height="16" rx="3"/>
+<rect class="on" x="595.0" y="1057.0" width="16" height="16" rx="3"/>
+<rect class="on" x="661.0" y="1057.0" width="16" height="16" rx="3"/>
+<rect class="on" x="727.0" y="1057.0" width="16" height="16" rx="3"/>
+<line class="rule" x1="12" y1="1086" x2="776" y2="1086"/>
+<text class="lab tot" x="20" y="1105">Always runs</text>
+<text class="tv" x="405.0" y="1105">4</text>
+<text class="tv" x="471.0" y="1105">15</text>
+<text class="tv" x="537.0" y="1105">16</text>
+<text class="tv" x="603.0" y="1105">21</text>
+<text class="tv" x="669.0" y="1105">18</text>
+<text class="tv" x="735.0" y="1105">20</text>
+<text class="lab tot" x="20" y="1131">Only when its condition holds</text>
+<text class="tv" x="405.0" y="1131">0</text>
+<text class="tv" x="471.0" y="1131">10</text>
+<text class="tv" x="537.0" y="1131">14</text>
+<text class="tv" x="603.0" y="1131">10</text>
+<text class="tv" x="669.0" y="1131">15</text>
+<text class="tv" x="735.0" y="1131">15</text>
+</svg>

@@ -511,7 +511,7 @@ rect{stroke-width:.5}.sep{stroke-width:.5}
 <line class="a" x1="705" y1="1748" x2="705" y2="1729"/>
 <polygon class="af" points="700.5,1730 709.5,1730 705,1722"/>
 <text class="mu" x="720" y="1736" font-size="11">Reads .sdlc/state/ for the phase of a</text>
-<text class="mu" x="720" y="1750" font-size="11">Process: 2 feature and .claude/hookify*</text>
+<text class="mu" x="720" y="1750" font-size="11">Process: 3 feature and .claude/hookify*</text>
 <text class="mu" x="720" y="1764" font-size="11">for rules, both from the State layer.</text>
 </g>
 <g class="tool">

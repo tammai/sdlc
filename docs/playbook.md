@@ -86,7 +86,7 @@ Deeper scanners (Claude Security, Semgrep and others, not bundled): `skills/orch
 
 A new session needs no re-explaining: the state file and the change file carry everything.
 
-**A feature started under sdlc 1.x** (its state file has no `Process: 2`) can't run on 2.0: `/sdlc:start` says so. Finish it with sdlc 1.8.1, or archive it (`Status: done`).
+**A feature started under sdlc 1.x** (its state file has no `Process:` line) can't run on 3.0: `/sdlc:start` says so. Finish it with sdlc 1.8.1, or archive it (`Status: done`). A feature with `Process: 2` (sdlc 2.x) just needs `/sdlc:upgrade`, which renumbers it.
 
 **Someone else's feature:** the state file names its `Owner:` and `Tool:`. Before advancing a feature you don't own, the agent asks, then records the handover as a deviation.
 
@@ -121,7 +121,7 @@ Each chosen review runs **once**, as a fresh agent on `opus`, and ends its repor
 
 ## 7. The stop hook says "re-run tests"
 
-Cause: you are in Review (`Current: Stage 5`) and code changed after the last full test run, or there hasn't been one. Fix: run the **full** suite: the `test` command from `.sdlc/config.json` (in a monorepo, the stale package's own, from its directory; the message names it), or the `test:` command in the state file. A filtered run, a single file or a single package doesn't count.
+Cause: you are in Review (`Current: Stage 3`) and code changed after the last full test run, or there hasn't been one. Fix: run the **full** suite: the `test` command from `.sdlc/config.json` (in a monorepo, the stale package's own, from its directory; the message names it), or the `test:` command in the state file. A filtered run, a single file or a single package doesn't count.
 
 Changes under `.sdlc/`, `knowledge/`, `.claude/`, `docs/` or the sdlc docs folder, and `.md`, `.mdx`, `.txt` or `.rst` files, don't make results stale. A misbehaving hook: [runbook R4](runbook.md#r4-blocked-at-stop-with-re-run-tests).
 
@@ -281,7 +281,7 @@ It reports, per active feature:
 - a feature stopping being active other than by finishing (a pause, a deleted state file);
 - a damaged trust-anchor record.
 
-Only 2.0 features (`Process: 2`) are watched; a 1.x feature is finished on 1.8.1.
+Only current features (`Process: 3`) are watched; a 2.x feature waits for `/sdlc:upgrade` and a 1.x feature is finished on 1.8.1.
 
 **What to do:** read it. If the change is right, carry on: your next message accepts it. If not, say so and ask the agent to put it back.
 

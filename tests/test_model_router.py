@@ -11,7 +11,7 @@ HOOK = ["python3", os.path.join(HOOKS, "model_router.py")]
 class ModelRouterTest(ProjectTestCase):
     def setUp(self):
         super().setUp()
-        self.write(".sdlc/login/state.md", "# login\nStatus: active\nProcess: 2\nTrack: M\nRisk: low\nTop model: opus\n")
+        self.write(".sdlc/login/state.md", "# login\nStatus: active\nProcess: 3\nTrack: M\nRisk: low\nTop model: opus\n")
 
     def dispatch(self, **tool_input):
         payload = {"hook_event_name": "PreToolUse", "cwd": self.root, "tool_name": "Agent",
@@ -36,7 +36,7 @@ class ModelRouterTest(ProjectTestCase):
 
     def test_every_review_runs_on_opus_at_every_size(self):
         # 2.0: each review the agent recommends runs once, fresh, on the top tier, whatever the track
-        self.write(".sdlc/login/state.md", "# login\nStatus: active\nProcess: 2\nTrack: S\nRisk: low\nTop model: opus\n")
+        self.write(".sdlc/login/state.md", "# login\nStatus: active\nProcess: 3\nTrack: S\nRisk: low\nTop model: opus\n")
         for agent in ("sdlc:ui-reviewer", "sdlc:qa-tester", "sdlc:pr-test-analyzer", "sdlc:silent-failure-hunter"):
             self.assertEqual(self.dispatch(subagent_type=agent, model="sonnet")
                              ["hookSpecificOutput"]["permissionDecision"], "deny", agent)
@@ -63,23 +63,23 @@ class ModelRouterTest(ProjectTestCase):
     def test_active_feature_in_the_new_layout_is_seen(self):
         os.remove(self.path(".sdlc/login/state.md"))
         self.write(".sdlc/config.json", json.dumps({"docs_dir": "docs/sdlc"}))
-        self.write(".sdlc/state/login.md", "# login\nStatus: active\nProcess: 2\nTrack: M\nRisk: low\nTop model: opus\n")
+        self.write(".sdlc/state/login.md", "# login\nStatus: active\nProcess: 3\nTrack: M\nRisk: low\nTop model: opus\n")
         out = self.dispatch(subagent_type="sdlc:code-reviewer")
         self.assertEqual(out["hookSpecificOutput"]["permissionDecision"], "deny")
 
     def test_fable_with_the_users_opt_in_goes_ahead(self):
-        self.write(".sdlc/login/state.md", "# login\nStatus: active\nProcess: 2\nTrack: M\nRisk: low\nTop model: fable\n")
+        self.write(".sdlc/login/state.md", "# login\nStatus: active\nProcess: 3\nTrack: M\nRisk: low\nTop model: fable\n")
         self.assertIsNone(self.dispatch(subagent_type="sdlc:code-reviewer", model="fable"))
 
     def test_forks_are_exempt(self):
         self.assertIsNone(self.dispatch(subagent_type="fork"))
 
     def test_dispatches_are_logged_with_the_stage(self):
-        self.write(".sdlc/login/state.md", "# login\nStatus: active\nProcess: 2\nRisk: low\nCurrent: Stage 5 – Verify\n")
+        self.write(".sdlc/login/state.md", "# login\nStatus: active\nProcess: 3\nRisk: low\nCurrent: Stage 3 – Review\n")
         self.dispatch(subagent_type="general-purpose", model="sonnet", description="verify round 1")
         with open(self.path(".sdlc/.work/dispatches.jsonl"), encoding="utf-8") as f:
             entry = json.loads(f.read().splitlines()[-1])
-        self.assertEqual((entry["stages"], entry["agent"], entry["model"]), (["Stage 5 – Verify"], "general-purpose", "sonnet"))
+        self.assertEqual((entry["stages"], entry["agent"], entry["model"]), (["Stage 3 – Review"], "general-purpose", "sonnet"))
 
     def test_no_active_feature_is_silent(self):
         self.write(".sdlc/login/state.md", "# login\nStatus: done\n")

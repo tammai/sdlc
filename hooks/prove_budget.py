@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """sdlc review budget (file name kept: hooks.json and the host adapters name it): Review's command budget (ADR 0012).
 
-PreToolUse on Bash, PowerShell and Monitor, active only while an .sdlc 2.0 feature is in Stage 5 (Review), for every
+PreToolUse on Bash, PowerShell and Monitor, active only while an sdlc feature is in Stage 3 (Review), for every
 caller (session, reviewers). A command that isn't one of the project's own (`commands` and
 `packages[].commands` in .sdlc/config.json: install, build, lint, typecheck, test; extra arguments, builtins like
 `cd <dir> &&` beside them and a pipe into a filter like `tail` allowed, nothing else chained):
@@ -50,7 +50,7 @@ PLUGIN_VERIFY = re.compile(r"""^python3?(?:\.exe)?[ \t]+(?:"([^"]+)"|([^ \t"]+))
 
 
 def in_prove(root):
-    return any(re.search(r"^Current:\s*Stage\s*5\b", text, re.M | re.I) for _, text in sdlc_layout.active(root))
+    return any(re.search(rf"^Current:\s*Stage\s*{sdlc_layout.REVIEW}\b", text, re.M | re.I) for _, text in sdlc_layout.active(root))
 
 
 def project_commands(root):

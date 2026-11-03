@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """sdlc verify-freshness hook.
 
-Active only while an .sdlc 2.0 feature is in Stage 5 (Review), at every track. Freshness is tracked per scope: each package of a monorepo (`packages` in
+Active only while an sdlc feature is in Stage 3 (Review), at every track. Freshness is tracked per scope: each package of a monorepo (`packages` in
 .sdlc/config.json), or the whole project.
   - PostToolUse Edit/Write/MultiEdit/NotebookEdit on a code file -> the owning package goes stale (a file outside
                                                                      every package: all of them)
@@ -14,7 +14,7 @@ Active only while an .sdlc 2.0 feature is in Stage 5 (Review), at every track. F
                                                                      edits via Bash, formatters, subagents); block if
                                                                      any scope is stale, naming what to rerun
   - PostToolUse / PostToolUseFailure Bash running scripts/verify.py,  -> the hook's own copy of the run under "verify"
-    in Build or Review (Stage 4 or 5), alone or in any segment of a       (verify.json's entry for that run, when its tree
+    in Build or Review (Stage 2 or 3), alone or in any segment of a       (verify.json's entry for that run, when its tree
     chained command                                                     is the current code: `red AC-nnn`, or a full
                                                                      run's result, which marks every scope fresh); the
                                                                      trust anchor compares the two records later
@@ -110,9 +110,9 @@ def changed_since(root, base):
 
 
 def initial_scope_state(root, feature, scopes):
-    """On entering Stage 5: every scope stale, except, in a monorepo with a recorded feature base, packages the
+    """On entering Stage 3: every scope stale, except, in a monorepo with a recorded feature base, packages the
     feature hasn't touched. Those start fresh from a worktree snapshot, so later changes to them still count."""
-    stale = {"stale": True, "reason": "no full test run recorded in Stage 5 yet"}
+    stale = {"stale": True, "reason": "no full test run recorded in Stage 3 yet"}
     states = {sc["name"]: dict(stale) for sc in scopes}
     base = feature_base(root, feature) if len(scopes) > 1 else None
     changed = changed_since(root, base) if base else None
@@ -129,7 +129,7 @@ def initial_scope_state(root, feature, scopes):
 
 def active_verify_feature(root):
     for name, text in sdlc_layout.active(root):
-        if re.search(r"^Current:\s*Stage\s*5\b", text, re.M | re.I):
+        if re.search(rf"^Current:\s*Stage\s*{sdlc_layout.REVIEW}\b", text, re.M | re.I):
             m = re.search(r"test:\s*`([^`]+)`", text)
             return name, (m.group(1).strip() if m else None)
     return None, None
@@ -378,7 +378,7 @@ def verify_runs(command, root, cwd, feature):
 
 def active_build_or_prove_feature(root):
     return next((name for name, text in sdlc_layout.active(root)
-                 if re.search(r"^Current:\s*Stage\s*[45]\b", text, re.M | re.I)), None)
+                 if re.search(rf"^Current:\s*Stage\s*[{sdlc_layout.BUILD}{sdlc_layout.REVIEW}]\b", text, re.M | re.I)), None)
 
 
 def record_verify(root, feature, runs, exit_result=None):
@@ -452,7 +452,7 @@ def main():
     if st.get("feature") != feature or "scopes" not in st:
         st = {"feature": feature, "scopes": initial_scope_state(root, feature, scopes)}
     for sc in scopes:
-        st["scopes"].setdefault(sc["name"], {"stale": True, "reason": "no full test run recorded in Stage 5 yet"})
+        st["scopes"].setdefault(sc["name"], {"stale": True, "reason": "no full test run recorded in Stage 3 yet"})
 
     if event in ("PostToolUse", "PostToolUseFailure"):
         tool = data.get("tool_name", "")

@@ -39,7 +39,7 @@ class LayoutTest(ProjectTestCase):
         self.assertEqual(sdlc_layout.paths(self.root)["layout"], "legacy")
 
     def test_a_1x_feature_is_not_active_for_the_hooks(self):
-        self.write(".sdlc/state/new.md", "Status: active\nProcess: 2\nCurrent: Stage 4 – Build\n")
+        self.write(".sdlc/state/new.md", "Status: active\nProcess: 3\nCurrent: Stage 2 – Build\n")
         self.write(".sdlc/state/old.md", "Status: active\nCurrent: Stage 5 – Prove\n")
         self.assertEqual([name for name, _ in sdlc_layout.active(self.root)], ["new"])
 

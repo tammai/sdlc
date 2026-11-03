@@ -135,13 +135,15 @@ Check with `claude plugin list` in the session: it should show `sdlc@sdlc`. Not 
 
 Every track runs the same four phases and leaves the same record; the track sets only the record's depth and where it stops for you. Size is the footprint (how many files the change touches), recorded on the state file's `Track:` line; the orchestrator proposes the smallest fitting track and sizes up only for a named signal. You can override the size at any time.
 
+Which step runs on which track, as a matrix: [track-matrix.md](track-matrix.md) ([diagram](diagrams/sdlc_track_matrix.svg)).
+
 **Risk** is recorded apart from size: `Risk: high` for auth, payments, secrets, PII, schema migrations, a breaking change to a public API (removing or changing an exported signature, an HTTP endpoint, a CLI flag, or output the docs say programs read; adding a command, flag or field is `low`), or untrusted input reaching a shell, file path or database. It doesn't change the track; it feeds the review recommendation. A change is **security-touched** when `Risk: high`, or the diff touches `areas.sensitive` or `areas.migrations` in `.sdlc/config.json`: then a security review is recommended and the commit gets a model review; any other change has only the always-on pattern hooks.
 
 **Models.** The build runs in your session on its model. Every review runs on `opus` at every size; the model router enforces it. Other dispatches use `sonnet` with `effort: high`; `haiku` is never used. Fable is used only if you ask ("use fable"), which sets `Top model: fable`. See [sdlc_tracks_full_stage_tree.svg](diagrams/sdlc_tracks_full_stage_tree.svg).
 
 **Parts.** M or L work with several distinct parts that won't fit one session's context (never a 1–2-file change) gets a `backlog.md` of parts, approved with the other Define files; S never gets one. The state file's `## Tasks` outlines each part. Each part writes its `plan-B<n>.md`, is built, passes `verify.py` and is committed; parts run back to back without asking unless something adds scope or a hard stop comes up (per-part stops are opt-in: `Slice gates: plan, commit`). All parts land together: after the last one, **feature close** runs one Review over the whole branch, then Ship. When context runs low it stops at a part boundary and names the next one; `/clear` then `/sdlc:start` picks it up (`/sdlc:start B<n>` for a named part). **Autopilot** comes two ways. Ask for it in a session and that session runs every remaining part, then feature close, without asking or stopping for context, taking Review's recommendation; it never hands you a script to run instead. Or run `python3 <plugin>/scripts/autopilot.py <feature>` in a terminal yourself, which runs each part and then feature close in a fresh headless Claude Code session, taking Review's recommendation; it stops on a blocked part, a run that changed nothing, or a trust-anchor notice you haven't seen.
 
-**Features started under 1.x.** A state file without `Process: 2` was started under sdlc 1.x. 2.0 can't run it: `/sdlc:start` says to finish it with sdlc 1.8.1 or archive it (`Status: done`), the hooks ignore it, and `/sdlc:upgrade` refuses until none is active.
+**Features started under 1.x or 2.x.** A state file without a `Process:` line was started under sdlc 1.x. 3.0 can't run it: `/sdlc:start` says to finish it with sdlc 1.8.1 or archive it (`Status: done`), the hooks ignore it, and `/sdlc:upgrade` refuses until none is active. One with `Process: 2` is from 2.x, which numbered the phases 1, 4, 5 and 8: the hooks ignore it and `state.py` refuses it until `/sdlc:upgrade` renumbers it (its 3.0.0 migration runs `state.py migrate`, which rewrites every such file, finished features too).
 
 ## The four phases
 
@@ -160,7 +162,7 @@ Every track runs the same four phases and leaves the same record; the track sets
 
 **Review** is described [below](#review). **Ship** first runs **Learn**: a lesson goes into the right knowledge tier only when it isn't obvious from the code or the commit, linked from the Lessons filed line of the change file's `## Review`; each high finding fixed in Review that a reviewer could check next time gets a line in `recurring-defects.md`; nothing to learn is said in one line. Then `verify.py` green on that exact code, and one shell call that commits (code, tests, the change file and the state file, naming the record's path so `git blame` leads from a line to its why), pushes and opens the PR with git and `gh` (it links the change file); watch CI. CI red because of the code gets one fix, test first; still red, or red for a CI-only reason (a secret, a runner, a flaky test), and it tells you. It stops with the PR open: `PR <url> open, local and CI green; say "merge" to merge.` Without a remote it stops with the branch ready.
 
-Internally each phase keeps a stage number, because the hooks read it: `Stage 1 – Define`, `Stage 4 – Build`, `Stage 5 – Review`, `Stage 8 – Ship`. A part rests at Stage 4 once committed. **Deploy** is not a phase: `/sdlc:deploy`, on request, uses the project's existing deploy path, asks your go-ahead before a production deploy or DB migration, runs a smoke test and writes `release.md`.
+Internally each phase has a stage number, because the hooks read it: `Stage 1 – Define`, `Stage 2 – Build`, `Stage 3 – Review`, `Stage 4 – Ship`. A part rests at Stage 2 once committed. **Deploy** is not a phase: `/sdlc:deploy`, on request, uses the project's existing deploy path, asks your go-ahead before a production deploy or DB migration, runs a smoke test and writes `release.md`.
 
 Each phase starts with a header:
 
@@ -188,7 +190,7 @@ Every phase ties additions back to a request:
 
 **`verify.py`.** Build's one command. `verify.py red AC-001 AC-002 …` records acceptance tests failing before their code; a test that passes, can't be found or can't run is refused, and then none of the batch is recorded. A passing full run prints the head and tree `state.py verified` takes. The full run (`verify.py` with no arguments) runs the project's verify plan (lint, typecheck, build, the full suite), each AC's test (from the change file's `## Acceptance tests`), and the drift check against the state file's tasks, Public Surface and deviations (a 1.x feature: `spec.md` and `plan.md`). `verify.py status` prints short JSON: Review and Ship reuse the last run only when it passed, both records agree and the code hasn't changed since (`reuse: true`). `verify.py trace` applies when the ACs cite a written spec (`AC-003 … prd.md §4.2`): it reports a cited section the spec lacks and any `FR-nnn` in it that no AC names or `## Out of scope` sets aside. L's plan self-approval runs it; a full run prints the same findings as advisory `trace:` notes.
 
-**The freshness hook.** While `state.md` says `Current: Stage 5 – Review`, Review is the only phase with a hook that blocks you:
+**The freshness hook.** While `state.md` says `Current: Stage 3 – Review`, Review is the only phase with a hook that blocks you:
 
 - any code change (by any tool, in a git repo) marks test results **stale**;
 - a **full** test run, or a full `verify.py` run, marks them **fresh**. A run that names a test file, a pytest node id, a single Go package or a name filter doesn't count;
@@ -200,7 +202,7 @@ The full run is the `test` command from `.sdlc/config.json`, with no extra argum
 
 **The baseline.** `.sdlc/baseline.md` lists failures recorded at brownfield setup. `verify.py` doesn't read it yet: when only the test step fails and every failure is listed there, Build logs it and passes the gate ([spec 04 Known gaps](specs/04-verification.md#known-gaps)). Accepting a new failure into the baseline is your decision, recorded as a Deviation.
 
-**Bounded commands.** In Review (Stage 5) the prove-budget hook (the name is kept from 1.x) runs every shell command other than the project's own under `timeout 120` and kills it there (exit 124, "could not verify within budget"); background runs, Monitor and the PowerShell tool are refused for such commands, so nothing is polled. Reviewers are read-only: they read code and diffs and may run the project's test command, and a suspicion that needs a probe is a finding.
+**Bounded commands.** In Review (Stage 3) the prove-budget hook (the name is kept from 1.x) runs every shell command other than the project's own under `timeout 120` and kills it there (exit 124, "could not verify within budget"); background runs, Monitor and the PowerShell tool are refused for such commands, so nothing is polled. Reviewers are read-only: they read code and diffs and may run the project's test command, and a suspicion that needs a probe is a finding.
 
 ## Review
 
@@ -278,8 +280,8 @@ The trust anchor gives a notice when a feature leaves Review without a passing f
 |---|---|---|
 | hookify | PreToolUse, UserPromptSubmit, Stop | Evaluates rules from `.claude/hookify.*.local.md` (personal, git-ignored) and committed `.claude/hookify/*.md` (team). Rules warn or block. In a session started in a folder above sdlc repos, a tool call into one of them also gets that repo's rules |
 | security-guidance | UserPromptSubmit, PostToolUse, Stop | Pattern warnings on edits; a model review at turn end and after `git commit` only while a security-touched feature is active (or with `SDLC_SECURITY_REVIEW=always`), and after `git push`. During a feature, build commits before Review are reviewed together with the next review-ready commit, and only a security-touched change gets the model review (any other is recorded as reviewed, no model call) ([spec 05](specs/05-security.md)) |
-| verify-freshness | PostToolUse, PostToolUseFailure (Bash, PowerShell, edits), Stop | Stage 5 (Review): stale/fresh test tracking; Stages 4–5: its own copy of each `verify.py` run (which `verify.py` also writes itself), also inside a chained command, copied from `verify.json` when its tree is the current code, which Review's reuse checks ([above](#verification)) |
-| prove-budget | PreToolUse (Bash, PowerShell, Monitor) | In Review (Stage 5; the name is kept from 1.x): a Bash command other than the project's own (`.sdlc/config.json` commands) is rewritten to run under `timeout -k 5 120`, with the tool timeout at 130 s; quick reads (`git status`/`log`/`diff`/`show`/`branch`/`remote`, `tail`, `head`, `cat`, `wc`, `ls`) run unwrapped and chain freely; Ship's one call (`ship.py` followed only by `git commit`, `git push`, `gh pr create`) runs whole; one that can't take the prefix (loops, subshells, two slow steps chained) is refused, as are `run_in_background`, Monitor and PowerShell for such commands; the project's own commands are untouched (with builtins like `cd` beside them and a pipe into a filter like `tail`; anything else chained after one is not one) |
+| verify-freshness | PostToolUse, PostToolUseFailure (Bash, PowerShell, edits), Stop | Stage 3 (Review): stale/fresh test tracking; Stages 2–3: its own copy of each `verify.py` run (which `verify.py` also writes itself), also inside a chained command, copied from `verify.json` when its tree is the current code, which Review's reuse checks ([above](#verification)) |
+| prove-budget | PreToolUse (Bash, PowerShell, Monitor) | In Review (Stage 3; the name is kept from 1.x): a Bash command other than the project's own (`.sdlc/config.json` commands) is rewritten to run under `timeout -k 5 120`, with the tool timeout at 130 s; quick reads (`git status`/`log`/`diff`/`show`/`branch`/`remote`, `tail`, `head`, `cat`, `wc`, `ls`) run unwrapped and chain freely; Ship's one call (`ship.py` followed only by `git commit`, `git push`, `gh pr create`) runs whole; one that can't take the prefix (loops, subshells, two slow steps chained) is refused, as are `run_in_background`, Monitor and PowerShell for such commands; the project's own commands are untouched (with builtins like `cd` beside them and a pipe into a filter like `tail`; anything else chained after one is not one) |
 | session-status | SessionStart | In a repo with `.sdlc/`: one line of context with the setup state, drift, the paths of a feature's change file, state file and work folder, the git remote, team rules and the active features, so Define and S need no `scaffold.py status` or `paths` call (Claude Code only; other agents run those) |
 | model-router | PreToolUse (Agent, Task) | While a 2.0 feature is active: denies a dispatch that names no model or names `haiku`, asks for Fable without `Top model: fable`, or runs any review agent below Opus, at every size; logs every dispatch to `.sdlc/.work/dispatches.jsonl` |
 | trust-anchor | Stop, UserPromptSubmit | Tells you when what verification trusts changes: Track, Risk, Top model, Base or Process; new baseline failures; changed commands; the change file above `## Review` (its criteria and tests) after Review began; a feature leaving Review without a passing full run of the current code, at every size, or while a review's latest `VERDICT: FAIL` isn't waived; a `verify.json` that disagrees with the hook's copy ("verify records disagree"). It blocks once; your next message accepts it. A change that only adds checks (Track up, Risk low → high) is shown without blocking |
@@ -328,12 +330,12 @@ Each feature is named `<yyyy-mm-dd>-<s|m|l>-<slug>`, or `<yyyy-mm-dd>-<s|m|l>-<t
 
 ### `state.md`
 
-Resume depends on this file. The orchestrator looks for `.sdlc/state/*.md` with `Status: active`: one match resumes, several asks which, none starts a new feature. One without `Process: 2` was started under 1.x: it says to finish it with sdlc 1.8.1 or archive it.
+Resume depends on this file. The orchestrator looks for `.sdlc/state/*.md` with `Status: active`: one match resumes, several asks which, none starts a new feature. One without a `Process:` line was started under 1.x: it says to finish it with sdlc 1.8.1 or archive it; one with `Process: 2` is from 2.x and waits for `/sdlc:upgrade`.
 
 ```markdown
 # <feature>
 Status: active
-Process: 2
+Process: 3
 Change: <change>   (this feature's record for people)
 Track: S | M | L   (sized up because: <named signal, or "—">; footprint: <n> files)
 Risk: low | high   (<signal: auth, payments, secrets, PII, migration, public API>)
@@ -345,7 +347,7 @@ Owner: <git email of whoever advances it>
 Tool: <claude-code | codex | cursor | antigravity>
 Verified: <commit> tree <worktree tree at the last passing verify>
 Slice: B<n>   Slice base: <commit>   Slice gates: none   (work split into parts only)
-Current: Stage 1 – Define   (then Stage 4 – Build, Stage 5 – Review, Stage 8 – Ship)
+Current: Stage 1 – Define   (then Stage 2 – Build, Stage 3 – Review, Stage 4 – Ship)
 
 ## Stages            (1 Define, 4 Build, 5 Review, 8 Ship)
 ## How the build runs   (Define: inline, parts in fresh sessions or parallel subagents, and why)
@@ -395,14 +397,14 @@ After changing commands or `ci`, run `/sdlc:upgrade` so the generated CI workflo
 
 | Term | Meaning |
 |---|---|
-| Phase | Define, Build, Review or Ship; each runs at one internal stage number (1, 4, 5, 8) that the hooks read |
+| Phase | Define, Build, Review or Ship; each runs at one internal stage number (1, 2, 3, 4) that the hooks read |
 | Gate | Exit criterion for a phase |
 | Hard stop | A point where the orchestrator always asks you |
 | Stale / fresh | Whether test results predate the latest code change |
 | Part (slice) | One piece of work too big for one session, built, verified with `verify.py` and committed on its own; all parts land together |
 | Feature close | The one Review over the whole branch, and Ship, after the last part |
 | Record | the change file for people and the state file for the agent, both kept for good |
-| `Process: 2` | The state-file line that marks a 2.0 feature; the hooks act only on those |
+| `Process: 3` | The state-file line that marks a current feature; the hooks act only on those (`Process: 2` is 2.x, with stages 1, 4, 5, 8) |
 | Public Surface | Declared list of everything new that callers or users can see |
 | Deviation | A step you chose to skip, or another departure, recorded in `state.md` with `state.py deviation` (Build's drift too) |
 | Trust anchor | The hook that shows you changes to what verification trusts |

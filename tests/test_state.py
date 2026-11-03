@@ -13,15 +13,15 @@ STATE = """# login
 Status: active
 Track: M
 Risk: low
-Process: 2
+Process: 3
 Base: abc1234
-Current: Stage 4 – Build
+Current: Stage 2 – Build
 
 ## Stages
 - [x] 1 Define   — intent.md, spec.md, plan.md
-- [ ] 4 Build
-- [ ] 5 Review   — review.md
-- [ ] 8 Ship     — PR:
+- [ ] 2 Build
+- [ ] 3 Review   — review.md
+- [ ] 4 Ship     — PR:
 
 ## Gate log
 - 2026-10-25 Stage 1: pass — spec approved
@@ -51,20 +51,20 @@ class StateTest(ProjectTestCase):
             return [json.loads(l) for l in f]
 
     def test_advancing_a_stage_updates_state_md_the_snapshot_and_one_event(self):
-        code, _ = self.state("advance", "login", "5", "--gate", "pass", "--note", "suite green")
+        code, _ = self.state("advance", "login", "3", "--gate", "pass", "--note", "suite green")
         self.assertEqual(code, 0)
         with open(self.md, encoding="utf-8") as f:
             text = f.read()
-        self.assertIn("Current: Stage 5 – Review\n", text)
-        self.assertIn("- [x] 4 Build", text)
-        self.assertIn("Stage 4: pass — suite green\n\n## Open questions", text)
+        self.assertIn("Current: Stage 3 – Review\n", text)
+        self.assertIn("- [x] 2 Build", text)
+        self.assertIn("Stage 2: pass — suite green\n\n## Open questions", text)
         with open(self.snapshot_path, encoding="utf-8") as f:
             snapshot = json.load(f)
         self.assertEqual((snapshot["current"], snapshot["phase"], snapshot["contract_version"]),
-                         ({"stage": 5, "name": "Review"}, "review", 2))
+                         ({"stage": 3, "name": "Review"}, "review", 3))
         [event] = self.events()
-        self.assertEqual((event["type"], event["from"], event["stage"], event["gate"]), ("stage_entered", 4, 5, "pass"))
-        # The hooks read what it wrote: Stage 5 without a full test run blocks the turn's end
+        self.assertEqual((event["type"], event["from"], event["stage"], event["gate"]), ("stage_entered", 2, 3, "pass"))
+        # The hooks read what it wrote: Stage 3 without a full test run blocks the turn's end
         _, out, _, _ = run_hook(FRESHNESS, {"hook_event_name": "Stop", "cwd": self.root}, self.root)
         self.assertEqual(out["decision"], "block")
 
@@ -76,40 +76,77 @@ class StateTest(ProjectTestCase):
         self.assertEqual(code, 0, out)
         with open(self.path(".sdlc/state/2026-10-30-m-prio.md"), encoding="utf-8") as f:
             text = f.read()
-        for line in ("Process: 2\n", "Change: docs/sdlc/changes/2026-10-30-m-prio.md", "Risk: high   (public API)\n",
+        for line in ("Process: 3\n", "Change: docs/sdlc/changes/2026-10-30-m-prio.md", "Risk: high   (public API)\n",
                      "Commands: test: `npm test`\n", "Current: Stage 1 – Define\n",
                      "1. **Priority command** — AC-001 AC-002\n   - Files: `bin/planner.js`, `README.md`\n",
                      "## Public Surface\n- command `priority <id> <level>` — AC-002\n"):
             self.assertIn(line, text)
-        self.assertEqual(self.state("advance", "2026-10-30-m-prio", "4", "--gate", "pass")[0], 0)  # the flow goes on
+        self.assertEqual(self.state("advance", "2026-10-30-m-prio", "2", "--gate", "pass")[0], 0)  # the flow goes on
         # A name already in use is refused, so a resumed feature's record is never overwritten
         code, out = self.state("new", "login", "--track", "S", "--risk", "low", "--task", "x | AC-001 | a.js")
         self.assertEqual(code, 1)
         self.assertIn("already has a state file", out["error"])
 
-    def test_a_2_0_feature_moves_through_four_phases(self):
-        for stage, name in (("5", "Review"), ("8", "Ship")):
+    def test_a_feature_moves_through_four_phases(self):
+        for stage, name in (("3", "Review"), ("4", "Ship")):
             self.assertEqual(self.state("advance", "login", stage, "--gate", "pass")[0], 0)
             with open(self.md, encoding="utf-8") as f:
                 self.assertIn(f"Current: Stage {stage} – {name}\n", f.read())
-        code, out = self.state("advance", "login", "6")
+        code, out = self.state("advance", "login", "5")
         self.assertEqual(code, 1)
-        self.assertIn("no Stage 6", out["error"])
+        self.assertIn("no Stage 5", out["error"])
 
     def test_a_phase_end_records_the_verified_tree_and_the_move_in_one_call(self):
-        code, out = self.state("advance", "login", "5", "--gate", "pass", "--verified", "abc1234", "f00d")
+        code, out = self.state("advance", "login", "3", "--gate", "pass", "--verified", "abc1234", "f00d")
         self.assertEqual(code, 0, out)
         with open(self.md, encoding="utf-8") as f:
             text = f.read()
         self.assertIn("Verified: abc1234 tree f00d\n", text)
-        self.assertIn("Current: Stage 5 – Review\n", text)
-        self.assertEqual(self.state("advance", "login", "5", "--verified", "abc1234")[0], 2)  # a tree is required
+        self.assertIn("Current: Stage 3 – Review\n", text)
+        self.assertEqual(self.state("advance", "login", "3", "--verified", "abc1234")[0], 2)  # a tree is required
 
     def test_a_1x_feature_is_refused_with_how_to_finish_it(self):
-        self.write(".sdlc/state/login.md", STATE.replace("Process: 2\n", ""))
-        code, out = self.state("advance", "login", "5")
+        self.write(".sdlc/state/login.md", STATE.replace("Process: 3\n", ""))
+        code, out = self.state("advance", "login", "3")
         self.assertEqual(code, 1)
         self.assertIn("sdlc 1.8.1", out["error"])
+
+    def test_a_2x_feature_is_refused_and_told_to_migrate(self):
+        self.write(".sdlc/state/login.md", STATE.replace("Process: 3", "Process: 2"))
+        code, out = self.state("advance", "login", "3")
+        self.assertEqual(code, 1)
+        self.assertIn("/sdlc:upgrade", out["error"])
+
+    def test_migrate_renumbers_a_2x_feature_and_only_that(self):
+        v2 = (STATE.replace("Process: 3", "Process: 2").replace("Current: Stage 2 – Build", "Current: Stage 5 – Review")
+              .replace("- [ ] 2 Build\n- [ ] 3 Review   — review.md\n- [ ] 4 Ship", "- [x] 4 Build\n- [ ] 5 Review   — review.md\n- [ ] 8 Ship")
+              .replace("## Open questions", "- 2026-10-26 Stage 4: pass — built\n\n## Open questions"))
+        self.write(".sdlc/state/old.md", v2.replace("\n", "\r\n"))  # CRLF survives
+        self.write(".sdlc/state/mine.md", STATE)  # already current: untouched
+        self.write(".sdlc/state/legacy.md", "# legacy\nStatus: active\nCurrent: Stage 5 – Prove\n")  # 1.x: untouched
+        os.remove(self.md)
+        self.write(".sdlc/.work/trust-anchor.json", json.dumps({"old": {"stage": 5, "status": "active"}, "mine": {"stage": 2}}))
+        code, out = self.state("migrate")
+        self.assertEqual((code, out["migrated"], out["skipped"]), (0, ["old"], {}))
+        with open(self.path(".sdlc/state/old.md"), encoding="utf-8", newline="") as f:
+            text = f.read()
+        for line in ("Process: 3\r\n", "Current: Stage 3 – Review\r\n", "- [x] 2 Build\r\n", "- [ ] 3 Review", "- [ ] 4 Ship",
+                     "Stage 2: pass — built\r\n"):
+            self.assertIn(line, text)
+        self.assertNotIn("Process: 2", text)
+        with open(self.path(".sdlc/state/legacy.md"), encoding="utf-8") as f:
+            self.assertEqual(f.read(), "# legacy\nStatus: active\nCurrent: Stage 5 – Prove\n")
+        with open(self.path(".sdlc/.work/trust-anchor.json"), encoding="utf-8") as f:
+            self.assertEqual(sorted(json.load(f)), ["mine"])  # a remembered old stage would read as a move
+        with open(self.path(".sdlc/state/old.json"), encoding="utf-8") as f:
+            self.assertEqual(json.load(f)["current"], {"stage": 3, "name": "Review"})
+        self.assertEqual(self.state("migrate")[1]["migrated"], [])  # nothing left to do: safe to run twice
+
+    def test_migrate_skips_a_file_it_cannot_map_and_says_why(self):
+        self.write(".sdlc/state/odd.md", STATE.replace("Process: 3", "Process: 2").replace("Stage 2 – Build", "Stage 6 – Odd"))
+        code, out = self.state("migrate")
+        self.assertEqual((code, out["migrated"]), (0, []))
+        self.assertIn("Stage 6", out["skipped"]["odd"])
 
     def test_slice_gates_are_set_on_the_slice_line(self):
         self.write(".sdlc/state/login.md", STATE.replace("Current:", "Slice: B1   Slice base: abc1234   Slice gates: none\nCurrent:"))
@@ -142,11 +179,11 @@ class StateTest(ProjectTestCase):
 
     def test_advancing_to_the_current_stage_is_refused(self):
         # A second advance into the same stage ticked it as passed before its gate ran
-        self.state("advance", "login", "5", "--gate", "pass")
-        code, out = self.state("advance", "login", "5", "--gate", "pass")
+        self.state("advance", "login", "3", "--gate", "pass")
+        code, out = self.state("advance", "login", "3", "--gate", "pass")
         self.assertEqual(code, 1)
         with open(self.md, encoding="utf-8") as f:
-            self.assertIn("- [ ] 5 Review", f.read())
+            self.assertIn("- [ ] 3 Review", f.read())
 
     def test_an_old_layout_feature_keeps_its_contract_where_the_ignore_patterns_cover_it(self):
         os.remove(self.md)
@@ -156,8 +193,8 @@ class StateTest(ProjectTestCase):
         self.assertFalse(os.path.exists(self.path(".sdlc/legacy/state.json")))
 
     def test_a_malformed_state_file_is_reported_not_mirrored(self):
-        self.write(".sdlc/state/login.md", STATE.replace("Current: Stage 4 – Build\n", ""))
-        code, out = self.state("advance", "login", "5")
+        self.write(".sdlc/state/login.md", STATE.replace("Current: Stage 2 – Build\n", ""))
+        code, out = self.state("advance", "login", "3")
         self.assertEqual(code, 1)
         self.assertIn("Current:", out["error"])
         self.assertFalse(os.path.exists(self.snapshot_path) or os.path.exists(self.events_path))

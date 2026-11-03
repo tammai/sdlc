@@ -2,14 +2,14 @@
 """sdlc autopilot: run a feature's backlog one fresh headless Claude Code session per slice.
 
 For a backlog too long for one session. Each slice runs as `claude -p "/sdlc:start B<n> --autopilot"`; after the last
-slice, one more session runs feature close, which ends at Ship (Stage 8): the PR open, or the branch ready without a remote. State is read
+slice, one more session runs feature close, which ends at Ship (Stage 4): the PR open, or the branch ready without a remote. State is read
 from backlog.md, the feature's state file and the trust anchor between runs, never from the sessions' output.
 Stops when:
   - a trust-anchor notice is open (a new -p prompt would accept it without the user seeing it)
   - the feature isn't `Status: active` any more
   - a slice is `blocked: <reason>`, or nothing is ready while slices remain
   - a run exits non-zero, or leaves its slice's status unchanged (it would loop)
-  - feature close ends anywhere but Stage 8 (it stopped on a failed gate)
+  - feature close ends anywhere but Stage 4 (it stopped on a failed gate)
 Passes no permission-bypass flag; `--permission-mode` is handed to claude as given (without it or an allowlist,
 a headless session can't edit files or run commands). Claude Code only.
 Usage: python3 autopilot.py [--root DIR] [--permission-mode MODE] FEATURE
@@ -104,7 +104,7 @@ def autopilot(root, feature, mode, ran):
             ran.append("feature close")
             # claude exits 0 when a session ends normally, also one that stopped on a failed gate: read the state
             stages = re.findall(r"^Current:\s*(Stage\s*\d+)", read(state), re.M | re.I)
-            if not stages or not re.fullmatch(r"Stage\s*8", stages[-1], re.I):
+            if not stages or not re.fullmatch(rf"Stage\s*{sdlc_layout.SHIP}", stages[-1], re.I):
                 raise Stop(f"feature close stopped at {stages[-1] if stages else 'an unknown stage'}: see {state}")
             return "feature close ran: the branch is kept; say merge or PR to go further"
         slice_id = backlog.next_slice(rows)

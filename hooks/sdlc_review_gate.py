@@ -1,11 +1,11 @@
 """sdlc gate for the commit security review: once per review-ready diff while a feature is active.
 
 The vendored commit review (security_reminder_hook.py) reviews every commit with the top tier. Under the sdlc
-workflow a feature's build commits (before Stage 5) are work in progress: reviewing each one costs a top-tier
+workflow a feature's build commits (before Stage 3) are work in progress: reviewing each one costs a top-tier
 call per task commit and re-reviews code the next commit changes. So, while exactly one feature is active and
 its `Base:` is an ancestor of HEAD (a state file from another branch never holds back unrelated work):
-  - before Stage 5, a commit is deferred: not reviewed and not recorded as reviewed;
-  - from Stage 5 on, the commit is reviewed together with every unreviewed commit since `Base:`, as one net diff
+  - before Stage 3, a commit is deferred: not reviewed and not recorded as reviewed;
+  - from Stage 3 on, the commit is reviewed together with every unreviewed commit since `Base:`, as one net diff
     from `Base:` (`range`), so every hunk of every commit, side branches included, is in what's reviewed;
   - but only a security-touched change gets that model review (`Risk: high`, or the change since `Base:` touches
     `areas.sensitive` or `areas.migrations` of .sdlc/config.json, else the plugin's defaults); any other is `skip`:
@@ -66,8 +66,8 @@ def _active_features(root, shas=()):
                 text = fh.read()
         except OSError:
             continue
-        if not re.search(r"^Process:\s*2\b", text, re.M):
-            continue  # a 1.x feature (no `Process: 2`) is finished on 1.8.1, not gated here
+        if not sdlc_layout.PROCESS_RE.search(text):
+            continue  # an older feature (no `Process: 3`) is migrated or finished on its own sdlc, not gated here
         if (re.search(r"^Status:[ \t]*active[ \t]*(\(|$)", text, re.M | re.I)
                 or shas and re.search(r"^Status:[ \t]*done", text, re.M | re.I) and _finished_by(root, f["state"], shas)):
             found.append(text)
@@ -223,7 +223,7 @@ def decide(repo_root, shas, reviewed):
         full = [_git(repo_root, "rev-parse", "--verify", "-q", s) or s for s in shas]
         since = (_git(repo_root, "rev-list", f"{anchor}..HEAD") or "").split()
         unreviewed = [s for s in since if s not in reviewed]
-        if (point and int(stage.group(1)) < 5 and len(unreviewed) < MAX_DEFER
+        if (point and int(stage.group(1)) < sdlc_layout.REVIEW and len(unreviewed) < MAX_DEFER
                 and not _touches_guarded_paths(repo_root, full)):
             return {"defer": True, "shas": [], "own": [], "range": None, "active": True}
         if (not _touches_guarded_paths(repo_root, full, NEVER_SKIP)

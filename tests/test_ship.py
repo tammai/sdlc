@@ -8,8 +8,8 @@ import unittest
 from helpers import PLUGIN_ROOT, ProjectTestCase
 
 SCRIPT = os.path.join(PLUGIN_ROOT, "scripts", "ship.py")
-STATE = ("# Feature: login\nStatus: active\nProcess: 2\nCurrent: Stage 4 – Build\nBase: {base}\n\n## Stages\n"
-         "- [ ] 1 Define\n- [ ] 4 Build\n- [ ] 8 Ship\n\n## Tasks\n\n1. **Store**\n   - Files: `src/store.py`\n\n"
+STATE = ("# Feature: login\nStatus: active\nProcess: 3\nCurrent: Stage 2 – Build\nBase: {base}\n\n## Stages\n"
+         "- [ ] 1 Define\n- [ ] 2 Build\n- [ ] 4 Ship\n\n## Tasks\n\n1. **Store**\n   - Files: `src/store.py`\n\n"
          "## Public Surface\n\n- none\n\n## Gate log\n-\n\n## Deviations\n-\n")
 
 
@@ -56,7 +56,7 @@ class ShipTest(ProjectTestCase):
         self.assertEqual(code, 0, out)
         with open(self.path(".sdlc/login/state.md"), encoding="utf-8") as f:
             text = f.read()
-        self.assertIn("Current: Stage 8", text)
+        self.assertIn("Current: Stage 4", text)
         self.assertIn("Status: done", text)  # committed with the change, so the kept record says done
         with open(self.path(".sdlc/login/change.md"), encoding="utf-8") as f:
             self.assertIn("## Review\n\nNo review ran: low risk.", f.read())
@@ -75,7 +75,7 @@ class ShipTest(ProjectTestCase):
         self.assertEqual(code, 1)
         self.assertIn("verify failed", out)
         with open(self.path(".sdlc/login/state.md"), encoding="utf-8") as f:
-            self.assertIn("Current: Stage 4", f.read())
+            self.assertIn("Current: Stage 2", f.read())
         self.assertEqual(self.out("diff", "--cached", "--name-only"), "")
 
     def test_a_baseline_listed_test_failure_ships_only_when_waived_and_is_logged(self):
@@ -84,12 +84,12 @@ class ShipTest(ProjectTestCase):
         code, out = self.ship()  # without the flag the failure still stops Ship, and says how to proceed
         self.assertEqual(code, 1)
         self.assertIn("--waive-baseline", out)
-        self.assertIn("Current: Stage 4", self.state_text())
+        self.assertIn("Current: Stage 2", self.state_text())
         code, out = self.ship("--waive-baseline")
         self.assertEqual(code, 0, out)
         text = self.state_text()
-        self.assertIn("Current: Stage 8", text)
-        self.assertRegex(text, r"Stage 8: baseline failures waived: only the test step failed; 1 listed in \.sdlc/baseline\.md")
+        self.assertIn("Current: Stage 4", text)
+        self.assertRegex(text, r"Stage 4: baseline failures waived: only the test step failed; 1 listed in \.sdlc/baseline\.md")
 
     def test_the_waiver_needs_the_baseline_to_list_a_failing_test(self):
         self.failing()
@@ -97,7 +97,7 @@ class ShipTest(ProjectTestCase):
         code, out = self.ship("--waive-baseline")
         self.assertEqual(code, 1)
         self.assertNotIn("--waive-baseline", out.split("verify failed", 1)[1])  # no hint where a waiver can't apply
-        self.assertIn("Current: Stage 4", self.state_text())
+        self.assertIn("Current: Stage 2", self.state_text())
         os.remove(self.path(".sdlc/baseline.md"))
         self.assertEqual(self.ship("--waive-baseline")[0], 1)  # nor with no baseline file
 
@@ -107,7 +107,7 @@ class ShipTest(ProjectTestCase):
         self.baseline("| (root) | src/div.test.js › div by zero throws | returns Infinity | b8392a3 |")
         code, out = self.ship("--waive-baseline")
         self.assertEqual(code, 1, out)
-        self.assertIn("Current: Stage 4", self.state_text())
+        self.assertIn("Current: Stage 2", self.state_text())
 
 
     def test_ship_checks_every_ac_even_with_a_part_left_in_progress(self):

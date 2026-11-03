@@ -15,6 +15,11 @@ import re
 
 DOCS_DEFAULT = "docs/sdlc"
 SDLC = ".sdlc"
+# A state file's `Process:` marker and the stage number of each phase (sdlc 3.0). The hooks and state.py act only on
+# a feature with the current marker; an older one is migrated by `state.py migrate` (/sdlc:upgrade runs it).
+PROCESS = 3
+PROCESS_RE = re.compile(rf"^Process:\s*{PROCESS}\b", re.M)
+DEFINE, BUILD, REVIEW, SHIP = 1, 2, 3, 4
 
 
 def docs_dir(root):
@@ -145,13 +150,13 @@ def features(root):
 
 
 def active(root):
-    """(name, state text) for each 2.0 feature (`Process: 2`) whose state says `Status: active`; an unreadable state,
-    or one started under sdlc 1.x, is skipped, so the hooks stay silent on it."""
+    """(name, state text) for each current-process feature (`Process: 3`) whose state says `Status: active`; an
+    unreadable state, or one from an older sdlc, is skipped, so the hooks stay silent on it."""
     for name, f in features(root).items():
         try:
             with open(os.path.join(root, f["state"]), encoding="utf-8") as fh:
                 text = fh.read()
         except OSError:
             continue
-        if re.search(r"^Status:\s*active\b", text, re.M | re.I) and re.search(r"^Process:\s*2\b", text, re.M):
+        if re.search(r"^Status:\s*active\b", text, re.M | re.I) and PROCESS_RE.search(text):
             yield name, text

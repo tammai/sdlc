@@ -3,7 +3,7 @@
 
 A feature qualifies when its state.md on the main branch says `Status: done` (so it's merged) and
 hasn't changed for --older-than days. Its plans (plan.md and the parts' plan-B<n>.md), reports, review and
-checklists go; change.md (2.0), intent, spec, design, retro and state stay; review.md stays on a 2.0 feature (`Process: 2`: it is the
+checklists go; change.md (2.0), intent, spec, design, retro and state stay; review.md stays on a 2.0 or later feature (`Process: 2` or `3`: it is the
 review's record) and on Risk: high (its `## Security` section), with an older security.md. Git history keeps
 everything deleted.
 Usage: python3 prune.py [--root DIR] [--main REF] list [--older-than 45d]
@@ -61,9 +61,9 @@ def candidate(root, ref, name, older_than):
     age = int((time.time() - changed) // 86400)
     if age < older_than:
         return {"feature": name, "skip": f"done {age} days ago (under {older_than})"}
-    # sdlc 2.0 keeps its working files beside the state file (the record is the change file and the state);
-    # 1.x kept them with its documents
-    where = loc["work"] if re.search(r"^Process:\s*2\b", state, re.M) else loc["intents"]
+    # sdlc 2.0 and later keep their working files beside the state file (the record is the change file and the
+    # state); 1.x kept them with its documents
+    where = loc["work"] if re.search(r"^Process:\s*[23]\b", state, re.M) else loc["intents"]
     # Deleting from the working tree is only safe when it matches what git already holds.
     dirty = git(root, "status", "--porcelain", "--", loc["state"], where)
     if dirty is None or dirty:
@@ -76,8 +76,8 @@ def candidate(root, ref, name, older_than):
         if not re.search(r"^Status:\s*done\b", f.read(), re.M | re.I):
             return {"feature": name, "skip": "not done in the working tree (reopened?)"}
     delete = list(DELETE)
-    if re.search(r"^Risk:\s*high\b", state, re.M | re.I) or re.search(r"^Process:\s*2\b", state, re.M):
-        delete.remove("review.md")  # sdlc 2.0 records every review there; 1.x only its security section
+    if re.search(r"^Risk:\s*high\b", state, re.M | re.I) or re.search(r"^Process:\s*[23]\b", state, re.M):
+        delete.remove("review.md")  # sdlc 2.0 and later record every review there; 1.x only its security section
     if not re.search(r"^Risk:\s*high\b", state, re.M | re.I):
         delete.append("security.md")
     here = [f for f in delete if os.path.exists(os.path.join(root, where, f))]

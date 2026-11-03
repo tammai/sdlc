@@ -18,4 +18,4 @@ updated: 2026-10-28
 
 ## Fix
 - Keep `git commit` in the command the agent runs; a script may prepare everything before it (`ship.py`, then `&& git commit -F .sdlc/.work/commit-msg.txt`). The gate counts the commit that takes a feature from active to done as that feature's (`_finished_by`), so Ship can commit `Status: done` with the change.
-- Don't widen a command parser to fit what agents type: move the work out of the guarded state instead (a reviewed change advances to Stage 8 when it writes `## Review`, so Ship runs outside Review's budget), and take free text out of the command (`ship.py` reads the commit subject from the change file).
+- Don't widen a command parser to fit what agents type: move the work out of the guarded state instead (a reviewed change advances to Stage 4 when it writes `## Review`, so Ship runs outside Review's budget), and take free text out of the command (`ship.py` reads the commit subject from the change file).

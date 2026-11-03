@@ -3,7 +3,7 @@
 
 Only active features count (`Status: active` in their state file):
   - the record matches the phase reached: past Define (Stage 1), the change file (<docs>/changes/<feature>.md) has its
-    `## Acceptance tests` table; in Ship (Stage 8), its `## Review` section says what was reviewed.
+    `## Acceptance tests` table; in Ship (Stage 4), its `## Review` section says what was reviewed.
   - the baseline: against --base, a new row or a higher lint count needs a feature's Deviations entry naming it.
 
 Usage: python3 .sdlc/ci/invariants.py [--base REF] [--require-ancestor]   (--require-ancestor: accepted, unused since 2.0)
@@ -59,12 +59,12 @@ def section(text, heading):
     return m.group(1) if m else ""
 
 
-def check_record(path, stage):
+def check_record(path, stage, build=2, ship=4):
     problems = []
     change = read(path) or ""
-    if stage >= 4 and "## Acceptance tests" not in change:
+    if stage >= build and "## Acceptance tests" not in change:
         problems.append(f"{path}: past Define but no `## Acceptance tests` table naming each AC's test")
-    if stage >= 8 and not section(change, "Review").strip():
+    if stage >= ship and not section(change, "Review").strip():
         problems.append(f"{path}: in Ship but no `## Review` section saying what was reviewed")
     return problems
 
@@ -120,7 +120,10 @@ def main(argv=None):
         if not re.search(r"^Status:\s*active\b", state, re.M):
             continue
         stage = STAGE.search(state)
-        problems += check_record(change_path, int(stage.group(1)) if stage else 0)
+        # a feature not yet migrated to Process: 3 (sdlc 2.x) still counts Build as 4 and Ship as 8
+        current = re.search(r"^Process:\s*3\b", state, re.M)
+        problems += check_record(change_path, int(stage.group(1)) if stage else 0,
+                                 *((2, 4) if current else (4, 8)))
     if a.base:
         problems += check_baseline(a.base, deviations)
     for line in problems:

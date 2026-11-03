@@ -25,16 +25,16 @@ if m and os.environ.get("STUB_MODE", "").startswith("done"):
     text = open(path, encoding="utf-8").read()
     text = re.sub(rf"(?m)^(\| {m.group(0)} \|.*\| )todo( \|)$", r"\1done abc1234\2", text)
     open(path, "w", encoding="utf-8").write(text)
-if not m and os.environ.get("STUB_MODE") == "done":  # feature close reaches its Stage 8 question
+if not m and os.environ.get("STUB_MODE") == "done":  # feature close reaches its Stage 4 question
     with open(os.environ["STUB_STATE"], "a", encoding="utf-8") as f:
-        f.write("Current: Stage 8 – PR / CI\n")
+        f.write("Current: Stage 4 – Ship\n")
 '''
 
 
 class AutopilotTest(ProjectTestCase):
     def setUp(self):
         super().setUp()
-        self.state = self.write(".sdlc/state/login.md", "# login\nStatus: active\nProcess: 2\nCurrent: Stage 5 – Verify\n")
+        self.state = self.write(".sdlc/state/login.md", "# login\nStatus: active\nProcess: 3\nCurrent: Stage 3 – Review\n")
         self.backlog = self.write("docs/sdlc/intents/login/backlog.md", BACKLOG)
         self.log = self.path("calls.log")
         stub = self.write("bin/stub.py", STUB)
@@ -60,7 +60,7 @@ class AutopilotTest(ProjectTestCase):
     def test_a_failed_feature_close_is_not_reported_as_done(self):
         out, calls = self.autopilot("done-then-fail")
         self.assertEqual(calls[-1], "/sdlc:start --autopilot")
-        self.assertIn("feature close stopped at Stage 5", out["stopped"])
+        self.assertIn("feature close stopped at Stage 3", out["stopped"])
 
     def test_a_run_that_leaves_its_slice_unchanged_stops(self):
         out, calls = self.autopilot("idle")

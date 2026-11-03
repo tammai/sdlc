@@ -18,6 +18,7 @@ Usage: python3 state.py [--root DIR] advance FEATURE STAGE [--gate pass|fail] [-
                                      set FEATURE FIELD VALUE
                                      sync FEATURE
                                      new FEATURE --track S|M|L --risk low|high --task "<title> | <ACs> | <files>" ...
+                                     migrate    (every `Process: 2` state file to this version's stage numbers)
 Everything is computed before anything is written; then backlog.md, state.md, state.json and the event are
 written in that order, each file atomically. Prints one JSON object. Exit 0 ok, 1 refused (unknown feature,
 malformed state.md, a failed write; nothing written unless the error says so), 2 usage. Stdlib only, Python 3.9+.
@@ -38,13 +39,14 @@ sys.path.insert(0, os.path.join(os.path.dirname(HERE), "hooks"))
 import backlog  # noqa: E402  (sibling script: the backlog table)
 import sdlc_layout  # noqa: E402  (where the feature's state and documents live)
 
-CONTRACT_VERSION = 2
-# sdlc 2.0: four phases, each at one stage number so the hooks keep reading numbers. A backlog slice rests at Stage 4
-# with its row `done`; feature close goes on to Review.
-STAGES = {1: "Define", 4: "Build", 5: "Review", 8: "Ship"}
-PHASES = {1: "define", 4: "build", 5: "review", 8: "ship"}
+CONTRACT_VERSION = 3
+# Four phases, one stage number each (sdlc 3.0; 2.x used 1, 4, 5 and 8). A backlog slice rests at Build with its row
+# `done`; feature close goes on to Review.
+STAGES = {sdlc_layout.DEFINE: "Define", sdlc_layout.BUILD: "Build", sdlc_layout.REVIEW: "Review",
+          sdlc_layout.SHIP: "Ship"}
+PHASES = {n: name.lower() for n, name in STAGES.items()}
+V2_STAGES = {1: sdlc_layout.DEFINE, 4: sdlc_layout.BUILD, 5: sdlc_layout.REVIEW, 8: sdlc_layout.SHIP}  # 2.x -> now
 FIELDS = ("Status", "Track", "Risk", "Top model", "Base", "Owner", "Tool", "Slice gates", "Process")
-PROCESS = re.compile(r"^Process:\s*2\b", re.M)  # a 2.0 feature; one without it was started under 1.x
 
 
 class Refused(Exception):
@@ -139,8 +141,11 @@ def check(text):
     m = re.search(r"^Current:\s*Stage\s*(\d+)\b", text, re.M)
     if not m:
         raise Refused("state.md's Current: line isn't `Current: Stage <n> – <name>`")
-    if not PROCESS.search(text):
-        raise Refused("started under sdlc 1.x (no `Process: 2`): finish it with sdlc 1.8.1, or archive it")
+    if not sdlc_layout.PROCESS_RE.search(text):
+        if re.search(r"^Process:\s*2\b", text, re.M):
+            raise Refused("started under sdlc 2.x (`Process: 2`, stages 1, 4, 5, 8): run `/sdlc:upgrade`, or "
+                          "`python3 state.py migrate`, to renumber it")
+        raise Refused("started under sdlc 1.x (no `Process: 3`): finish it with sdlc 1.8.1, or archive it")
     return int(m.group(1))
 
 
@@ -356,7 +361,7 @@ def new_state(a):
     risk = f"Risk: {a.risk}" + (f"   ({a.risk_why})" if a.risk_why else "")
     tasks = task_lines(a.task)
     surface = [f"- {s}" for s in a.surface] or ["- none"]
-    head = [f"# {a.feature}", "Status: active", "Process: 2"]
+    head = [f"# {a.feature}", "Status: active", f"Process: {sdlc_layout.PROCESS}"]
     if a.track == "S":
         head += [f"Track: S   ({footprint})", risk, "Top model: opus",
                  f"Base: {git_line(a.root, 'rev-parse', '--short', 'HEAD')}",
@@ -372,9 +377,9 @@ def new_state(a):
                  f"Base: {git_line(a.root, 'rev-parse', '--short', 'HEAD')}",
                  f"Owner: {git_line(a.root, 'config', 'user.email')}", f"Tool: {a.tool}",
                  "Current: Stage 1 – Define", "", "## Stages",
-                 "- [ ] 1 Define   — the change file, the plan sections below", "- [ ] 4 Build",
-                 "- [ ] 5 Review   — the change file's ## Review",
-                 "- [ ] 8 Ship     — PR: (Learn: knowledge, recurring-defects.md)"]
+                 "- [ ] 1 Define   — the change file, the plan sections below", "- [ ] 2 Build",
+                 "- [ ] 3 Review   — the change file's ## Review",
+                 "- [ ] 4 Ship     — PR: (Learn: knowledge, recurring-defects.md)"]
         body = ["## How the build runs", a.build, "", "## Handoff", *([f"- {h}" for h in a.handoff] or ["-"]), "",
                 "## Tasks", *tasks, "", "## Public Surface", *surface]
     tail = ["## Gate log", "- (oldest first: each new line goes at the bottom of this list)", "", "## Deviations", "-",
@@ -449,6 +454,60 @@ def run(a):
     return event
 
 
+def migrate_text(text):
+    """A `Process: 2` state file's text with sdlc 3.0's stage numbers (2.x used 1, 4, 5 and 8): the Current: line, the
+    Stages checklist and the Gate log. Raises Refused on a stage number it has no mapping for."""
+    def new(n):
+        if int(n) not in V2_STAGES:
+            raise Refused(f"Stage {n} has no sdlc 3.0 equivalent")
+        return V2_STAGES[int(n)]
+
+    text = re.sub(r"^Process:[ \t]*2\b", f"Process: {sdlc_layout.PROCESS}", text, count=1, flags=re.M)
+    text = re.sub(r"^Current:[ \t]*Stage[ \t]*(\d+)\b[^\n]*$",
+                  lambda m: f"Current: Stage {new(m.group(1))} – {STAGES[new(m.group(1))]}", text, count=1,
+                  flags=re.M)
+    lines = text.split("\n")
+    for heading, pattern in (("Stages", r"^(- \[[ x]\] )(\d+)( )"), ("Gate log", r"^(- \S+ Stage )(\d+)(: )")):
+        span = section(lines, heading)
+        if span:
+            for i in range(*span):
+                lines[i] = re.sub(pattern, lambda m: f"{m.group(1)}{new(m.group(2))}{m.group(3)}", lines[i])
+    return "\n".join(lines)
+
+
+def migrate(root):
+    """Renumber every `Process: 2` feature (any status) in place, and drop the trust anchor's remembered stage for it
+    (a git-ignored runtime file), so no hook reads a stale number as a move. Skips a file it can't map and says why."""
+    done, skipped = [], {}
+    for name, located in sorted(sdlc_layout.features(root).items()):
+        path = os.path.join(root, located["state"])
+        try:
+            raw = read_raw(path)
+        except OSError as e:
+            skipped[name] = f"unreadable: {e}"
+            continue
+        text = raw.replace("\r\n", "\n")
+        if not re.search(r"^Process:[ \t]*2\b", text, re.M):
+            continue
+        try:
+            new = migrate_text(text)
+            write_atomic(path, new.replace("\n", "\r\n") if "\r\n" in raw else new)
+            run(argparse.Namespace(root=root, feature=name, cmd="sync"))  # the contract snapshot, in the new numbers
+        except (Refused, OSError) as e:
+            skipped[name] = str(e)
+            continue
+        done.append(name)
+    anchor = os.path.join(root, ".sdlc", ".work", "trust-anchor.json")
+    try:
+        with open(anchor, encoding="utf-8") as f:
+            saved = json.load(f)
+        if isinstance(saved, dict) and any(saved.pop(n, None) is not None for n in done):
+            write_atomic(anchor, json.dumps(saved, indent=2))
+    except (OSError, ValueError):
+        pass
+    return {"ok": True, "migrated": done, "skipped": skipped}
+
+
 def main(argv=None):
     ap = Parser(description=__doc__.split("\n")[0])
     ap.add_argument("--root", default=".")
@@ -467,6 +526,7 @@ def main(argv=None):
     s.add_argument("text")
     s = sub.add_parser("set"); s.add_argument("feature"); s.add_argument("field"); s.add_argument("value")
     s = sub.add_parser("sync"); s.add_argument("feature")
+    sub.add_parser("migrate")
     s = sub.add_parser("new"); s.add_argument("feature")
     s.add_argument("--track", choices=["S", "M", "L"], required=True)
     s.add_argument("--risk", choices=["low", "high"], required=True); s.add_argument("--risk-why")
@@ -481,6 +541,9 @@ def main(argv=None):
     a = ap.parse_args(argv)
     sys.stdout.reconfigure(encoding="utf-8")
     a.root = os.path.abspath(a.root)
+    if a.cmd == "migrate":
+        print(json.dumps(migrate(a.root), ensure_ascii=False))
+        return 0
     try:
         event = create(a) if a.cmd == "new" else run(a)
     except Refused as e:

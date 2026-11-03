@@ -8,13 +8,13 @@ check, so this can't prevent a change; it makes one visible. For each active fea
     without blocking, since they approved it already
   - `.sdlc/baseline.md` lists a failing test it didn't at the feature's `Base:` commit (it may only shrink)
   - the commands in `.sdlc/config.json` differ from those at `Base:`
-  - `change.md` above its review sections (its criteria and tests) changed after the feature entered Review (Stage 5)
+  - `change.md` above its review sections (its criteria and tests) changed after the feature entered Review (Stage 3)
   - the feature left Review while code differed from its last full test run, or moved past Review without a
-    passing full run of the current code, at every size (sdlc 2.0: that run is Review's evidence)
+    passing full run of the current code, at every size (that run is Review's evidence)
   - leaving Review while the latest round of a review's report says `VERDICT: FAIL`, unless the user waived it
   - verify.py's record of its last run differs from the freshness hook's own copy (a hand-edited record)
   - a feature seen active stopped being active, other than by finishing (`Status: done`)
-Only 2.0 features (`Process: 2`) are anchored; a 1.x one is finished on 1.8.1, and a 2.0 one whose `Process:`
+Only current features (`Process: 3`) are anchored; an older one is migrated by `state.py migrate`, and a current one whose `Process:`
 line changes keeps its anchor, so the change is a notice. A new notice blocks the stop once, with a systemMessage so the user sees it; it doesn't block again. The user's
 next prompt accepts it: the current values become the new anchor. Only a prompt clears a notice, because only
 the user can send one. A damaged record is a notice too; a deleted one can't be told from a first run (Known
@@ -31,7 +31,7 @@ import sdlc_layout  # sibling module: where feature state and sdlc documents liv
 import verify_freshness as vf  # sibling hook: project root, git, worktree trees, freshness state
 
 STATE = os.path.join(".sdlc", ".work", "trust-anchor.json")
-# Base: the baseline and commands are compared at it. Process: 2 marks a 2.0 feature, the only kind the hooks act on
+# Base: the baseline and commands are compared at it. Process: 3 marks a current feature, the only kind the hooks act on
 FIELDS = ("Track", "Risk", "Top model", "Base", "Process")
 # Ordered weakest first: a move up one of these only adds checks, so it needs no second word from the user
 STRICTER = {"Track": ("s", "m", "l"), "Risk": ("low", "high")}
@@ -115,29 +115,29 @@ def check(root, name, text, anchor, shown):
         os.path.join(intents, "spec.md"))
     digest = hashlib.sha256(spec.encode("utf-8")).hexdigest() if spec is not None else None
     anchor["spec_seen"] = digest
-    if st is not None and st >= 5:
+    if st is not None and st >= sdlc_layout.REVIEW:
         first = anchor.setdefault("spec", digest)
         if digest != first:
-            notices.append("change.md's criteria or tests changed after the feature entered Stage 5")
+            notices.append("change.md's criteria or tests changed after the feature entered Stage 3")
     prev = anchor.get("stage")
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     # Stops are samples: a turn can run Build, Review and Ship between two of them, so passing Review is judged by
-    # its evidence, a passing full run of the current code, at every size (sdlc 2.0 has no verifier round)
-    if prev is not None and prev < 5 < (st or 0) and not suite_passed(root, name):
-        notices.append(f"went from Stage {prev} to Stage {st} without Stage 5")
-    leaving_5 = prev == 5 and st is not None and st > 5
-    if leaving_5:
+    # its evidence, a passing full run of the current code, at every size (there is no verifier round)
+    if prev is not None and prev < sdlc_layout.REVIEW < (st or 0) and not suite_passed(root, name):
+        notices.append(f"went from Stage {prev} to Stage {st} without Stage {sdlc_layout.REVIEW}")
+    leaving_review = prev == sdlc_layout.REVIEW and st is not None and st > sdlc_layout.REVIEW
+    if leaving_review:
         changed = changed_since_full_run(root, name)
         # Accepting covers this exact code, not these file names: new untested code in the same files is new
         anchor["untested_seen"] = vf.worktree_tree(root) if changed else None
         if changed and anchor["untested_seen"] != anchor.get("untested_ok"):
-            notices.append(f"left Stage 5 for Stage {st} with code changed since the last full test run: "
+            notices.append(f"left Stage {sdlc_layout.REVIEW} for Stage {st} with code changed since the last full test run: "
                            + ", ".join(changed[:5]))
     # A review's report decides its findings: leaving Review needs the latest round's VERDICT lines to pass
-    if prev is not None and st is not None and prev <= 5 < st:
+    if prev is not None and st is not None and prev <= sdlc_layout.REVIEW < st:
         failed = failed_verdicts(root, name)
         if failed and not waived(text, failed):
-            notices.append("left Stage 5 while a review's verdict is FAIL: " + ", ".join(failed))
+            notices.append(f"left Stage {sdlc_layout.REVIEW} while a review's verdict is FAIL: " + ", ".join(failed))
     disagree = verify_records_disagree(root, name)
     if disagree:
         notices.append(f"verify records disagree: {disagree}")
@@ -257,12 +257,12 @@ def main():
         seen.add(name)
         status = (field(text, "Status") or "").lower()
         was = saved.get(name, {})
-        if status == "active" and (re.search(r"^Process:\s*2\b", text, re.M) or was.get("status") == "active"):
-            features[name] = text  # a 2.0 feature, or one already anchored (so a changed Process: line shows)
+        if status == "active" and (sdlc_layout.PROCESS_RE.search(text) or was.get("status") == "active"):
+            features[name] = text  # a current feature, or one already anchored (so a changed Process: line shows)
         elif was.get("status") == "active":
             # Leaving active switches the model router and freshness hook off for it, so it's shown; finishing
-            # is the one normal way out, from Stage 8 on (Ship can reach 8 and finish between two Stops)
-            if status != "done" or max(stage(text) or 0, was.get("stage") or 0) < 8:
+            # is the one normal way out, from Ship on (Ship can be reached and finish between two Stops)
+            if status != "done" or max(stage(text) or 0, was.get("stage") or 0) < sdlc_layout.SHIP:
                 left.append(f"{name}: Status: active → {status or 'missing'} at Stage {was.get('stage')}")
             was["status"] = status
     for name, was in saved.items():

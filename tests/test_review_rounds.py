@@ -5,7 +5,7 @@ import unittest
 from helpers import HOOKS, ProjectTestCase, run_hook
 
 HOOK = ["python3", os.path.join(HOOKS, "review_rounds.py")]
-STATE = "# login\nStatus: active\nProcess: 2\nTrack: M\nRisk: low\nCurrent: Stage 5 – Review\n"
+STATE = "# login\nStatus: active\nProcess: 3\nTrack: M\nRisk: low\nCurrent: Stage 3 – Review\n"
 
 
 class ReviewRoundsTest(ProjectTestCase):

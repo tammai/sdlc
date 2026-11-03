@@ -17,12 +17,12 @@ class SessionStatusTest(ProjectTestCase):
     def test_status_and_paths_in_an_sdlc_repo_only(self):
         self.assertIsNone(self.call())  # not an sdlc repo: nothing added to every session
         self.write(".sdlc/config.json", json.dumps({"commands": {"test": "npm test"}}))
-        self.write(".sdlc/login/state.md", "# login\nStatus: active\nProcess: 2\nCurrent: Stage 4 – Build\n")
+        self.write(".sdlc/login/state.md", "# login\nStatus: active\nProcess: 3\nCurrent: Stage 2 – Build\n")
         line = self.call()
         self.assertIn("setup none", line)
         self.assertIn("state file .sdlc/<feature>/state.md", line)
         self.assertIn("remote none", line)
-        self.assertIn("active: login (Stage 4 – Build)", line)
+        self.assertIn("active: login (Stage 2 – Build)", line)
 
 
 if __name__ == "__main__":
