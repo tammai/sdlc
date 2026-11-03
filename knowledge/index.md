@@ -28,6 +28,7 @@ One line per doc: path — what it answers (≤12 words). Keep this file under ~
 - [gotchas/fake-plugin-root-in-tests.md](gotchas/fake-plugin-root-in-tests.md) — scripts import siblings by __file__: tests fake the plugin root
 - [gotchas/headless-plugin-tests.md](gotchas/headless-plugin-tests.md) — Git Bash path conversion; a run's own prompt lifts planted hook state
 - [gotchas/cloud-sessions-see-only-committed-files.md](gotchas/cloud-sessions-see-only-committed-files.md) — cloud sessions never reach settings.local.json or install a repo's plugins
+- [gotchas/hooks-module-validator-and-test-kit.md](gotchas/hooks-module-validator-and-test-kit.md) — sdlc-stepper: top-level $ helpers, test paths, TypeScript 7
 - [gotchas/a-commit-cant-record-its-own-id.md](gotchas/a-commit-cant-record-its-own-id.md) — record a part done before its commit, not its hash after
 - [gotchas/a-mode-named-only-by-its-script.md](gotchas/a-mode-named-only-by-its-script.md) — say what a typed request does, not only the script and flag
 - [gotchas/macos-stock-bash-and-no-timeout.md](gotchas/macos-stock-bash-and-no-timeout.md) — bash 3.2 has no EPOCHREALTIME; a Mac has no timeout binary

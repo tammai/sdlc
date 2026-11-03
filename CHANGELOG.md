@@ -2,10 +2,12 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
-## Unreleased
+## 2.5.0 — 2026-11-03
 
 ### Added
 - **sdlc-stepper, a stepper bar above the prompt** (`/plugin install sdlc-stepper@sdlc`), so someone reading a session sees where the feature stands without reading the transcript: `✓ Define ─── ● Build ─── ○ Review ─── ○ Ship`, a square per backlog part, and the part and step (`B2 Title row · failing tests`). Phases come from the state file, parts from `backlog.md`, the step from the session's own calls (`verify.py red`, test or code edits, `git commit`, a review agent, `ship.py`, `gh pr create`, `gh pr checks`). It reads the session's folder or, when that isn't an sdlc repo, the sdlc repos up to two levels below it, and shows the one whose active feature changed last; with none it draws nothing. It only reads files and never holds a prompt or a tool call when it fails. It's a Claude Code hooks module (TypeScript, `plugins/sdlc-stepper/`), drawn in the terminal and the desktop app, and released with sdlc's version; Codex, Cursor and Antigravity don't get it. `/sdlc:setup` names it as an optional companion (off by default) when it writes the plugin keys. CI validates and tests it, and `test_marketplace` fails when a companion's version differs from sdlc's.
+
+Checked on 2026-11-03: `claude -p` with `--plugin-dir plugins/sdlc-stepper` in a set-up repo loaded the module (`hooks module sdlc-stepper loaded … events: session.start, prompt.submit, tool.call, turn.complete, ui.render`) and its hooks settled without errors. The bar itself is drawn only in an interactive session, which this check didn't open; the module's tests draw it on the terminal and desktop surfaces. The full smoke test (A–J) was not rerun.
 
 ## 2.4.3 — 2026-11-03
 
