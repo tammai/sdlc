@@ -12,8 +12,9 @@ export type View = {
   current: Part | null
 }
 
-/** The step the session was last seen on, and the phase it belongs to. */
-export type Step = { phase: Phase; name: string }
+/** The step the session was last seen on, and the phase it belongs to: `name` from the tool it last ran, and `line`
+ *  the agent's latest update (`Build · B2 Title row · checking the sweep`), which the bar shows when it has one. */
+export type Step = { phase: Phase; name: string; line?: string }
 
 declare module 'claude-code' {
   interface PluginState {

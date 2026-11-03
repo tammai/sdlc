@@ -28,7 +28,7 @@ One line per doc: path — what it answers (≤12 words). Keep this file under ~
 - [gotchas/fake-plugin-root-in-tests.md](gotchas/fake-plugin-root-in-tests.md) — scripts import siblings by __file__: tests fake the plugin root
 - [gotchas/headless-plugin-tests.md](gotchas/headless-plugin-tests.md) — Git Bash path conversion; a run's own prompt lifts planted hook state
 - [gotchas/cloud-sessions-see-only-committed-files.md](gotchas/cloud-sessions-see-only-committed-files.md) — cloud sessions never reach settings.local.json or install a repo's plugins
-- [gotchas/hooks-module-validator-and-test-kit.md](gotchas/hooks-module-validator-and-test-kit.md) — sdlc-stepper: top-level $ helpers, test paths, TypeScript 7
+- [gotchas/hooks-module-validator-and-test-kit.md](gotchas/hooks-module-validator-and-test-kit.md) — sdlc-stepper: top-level $ helpers, TypeScript 7; a short window hides the band; positioned layers; tmux check
 - [gotchas/a-commit-cant-record-its-own-id.md](gotchas/a-commit-cant-record-its-own-id.md) — record a part done before its commit, not its hash after
 - [gotchas/a-mode-named-only-by-its-script.md](gotchas/a-mode-named-only-by-its-script.md) — say what a typed request does, not only the script and flag
 - [gotchas/state-format-change-needs-marker-and-cache-clear.md](gotchas/state-format-change-needs-marker-and-cache-clear.md) — a changed field meaning needs a new Process marker; clear runtime caches

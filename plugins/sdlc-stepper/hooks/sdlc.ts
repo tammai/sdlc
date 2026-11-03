@@ -60,6 +60,18 @@ export function makeView(repo: string, feature: string, phase: Phase, parts: Par
 }
 
 /** The step a tool call shows the session on, or null when it says nothing new. */
+/** The agent's latest update in what it just said: the last line that starts `<Phase> · `, which sdlc has it begin
+ *  every update with (`Build · B2 Title row · failing tests`). Null when the text has none. */
+export function updateLine(answer: string): { phase: Phase; line: string } | null {
+  let found: { phase: Phase; line: string } | null = null
+  for (const raw of answer.split('\n')) {
+    const line = raw.replace(/\*\*|`/g, '').trim()
+    const m = /^(Define|Build|Review|Ship) · \S/.exec(line)
+    if (m) found = { phase: m[1] as Phase, line }
+  }
+  return found
+}
+
 export function stepFor(phase: Phase, tool: string, input: Record<string, unknown>): string | null {
   const command = typeof input.command === 'string' ? input.command : ''
   const path = typeof input.file_path === 'string' ? input.file_path : ''

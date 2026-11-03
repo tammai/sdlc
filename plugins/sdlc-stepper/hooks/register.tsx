@@ -2,8 +2,9 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { Phase, Step, View } from '../types'
-import { PHASES, makeView, parseBacklog, parseState, stepFor } from './sdlc'
-import { PART_ICON, PHASE_ICON, iconSvg, partAlt, partState, phaseAlt, phaseState } from './desktop'
+import { PHASES, makeView, parseBacklog, parseState, stepFor, updateLine } from './sdlc'
+import type { IconState } from './desktop'
+import { MINI_H, miniSvg, phaseState } from './desktop'
 
 const SHAPE = 'v2' // v2: View has `repo`
 const view = atom({ plugin: 'sdlc-stepper', key: 'view' } as const, null, { shape: SHAPE })
@@ -94,6 +95,16 @@ async function refresh($: EngineInterface, rescan = false): Promise<View | null>
   return next
 }
 
+/** Keep the agent's latest update (the line it begins with `<Phase> · `), from what the model just said, as the
+ *  bar's words, so the bar says what the transcript says. A tool the bar knows replaces it, being newer. */
+async function noteUpdate($: EngineInterface, answer: string): Promise<void> {
+  const found = updateLine(answer)
+  if (!found) return
+  const v = await read($, view)
+  if (!v || found.phase !== v.phase) return  // a line for another phase isn't this feature's words
+  await update($, step, prev => ({ phase: found.phase, name: prev && prev.phase === found.phase ? prev.name : '', line: found.line }))
+}
+
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     const out = await next(e)
@@ -121,6 +132,17 @@ export const register: Register = on => {
     return out
   }).catch(($, e, next) => next(e))
 
+  // The model's response, step by step: the bar follows the update line in it. It only reads; the stream passes on whole.
+  on('turn.step', async function* ($, e, next) {
+    const result = yield* next(e)
+    try {
+      await noteUpdate($, result.answer)
+    } catch {
+      // a stale bar is better than a failed step
+    }
+    return result
+  })
+
   on('turn.complete', async ($, e, next) => {
     await refresh($)
     return next(e)
@@ -131,104 +153,78 @@ export const register: Register = on => {
     if (e.props.hasSurvey || !v) return next(e)
     const s = await read($, step)
     const stepName = s && s.phase === v.phase ? s.name : null
-    const total = v.parts.length
-    const finished = v.parts.filter(p => p.status.startsWith('done')).length
+    const said = s && s.phase === v.phase ? s.line : undefined  // the agent's own latest update, when it has made one
 
     if (e.surface === 'desktop') {
-      // A card of two rows, all neutral: the words (SDLC, where it is now, the feature), then one bar across the
-      // full width. The bar is each phase's icon and name joined by lines that stretch to fill the row; Build's
-      // line carries one small icon per part. Icons are SVG; names and lines are text, so they follow the theme.
+      // One row drawn straight onto the app's own band: a mini stepper (the four stages as small icons joined by
+      // short lines, one drawing) where a title would be, a dot, where the session is now (phase, part, step), and
+      // the feature at the right. Only the current stage's icon pulses.
       const { Box, Text, Svg } = $.ui.resolve(e)
-      const at = PHASES.indexOf(v.phase)
-      const buildAt = PHASES.indexOf('Build')
-      // A line as wide as the room it is given: a run of box-drawing dashes in a one-row box that clips it
-      const rule = (key: string, solid: boolean, grow = 1) => (
-        <Box key={key} width={0} flexGrow={grow} height={1} overflow="hidden">
-          <Text color={solid ? undefined : 'inactive'} dimColor={!solid}>{'─'.repeat(240)}</Text>
-        </Box>
-      )
-      const items: unknown[] = []
-      PHASES.forEach((p: Phase, i) => {
-        const state = phaseState(i, at)
-        items.push(
-          <Box key={p} flexDirection="row" alignItems="center" gap="sm">
-            <Svg source={iconSvg(state)} alt={phaseAlt(p, state)} width={PHASE_ICON} height={PHASE_ICON} />
-            <Text size="footnote" weight={state === 'current' ? 'semibold' : 'medium'} dimColor={state === 'todo'}>{p}</Text>
-          </Box>,
-        )
-        if (i === PHASES.length - 1) return
-        if (i === buildAt && total > 0) {
-          // Build's line: a small icon per part, each with the line up to it solid once the work has reached it
-          const parts: unknown[] = []
-          v.parts.forEach(part => {
-            const state = partState(part, v.current)
-            parts.push(rule(`${part.id}-in`, at > buildAt || state !== 'todo' && state !== 'blocked'))
-            parts.push(<Svg key={part.id} source={iconSvg(state)} alt={partAlt(part, state)} width={PART_ICON} height={PART_ICON} />)
-          })
-          parts.push(rule('parts-out', at > buildAt || finished === total))
-          items.push(
-            <Box key={`${p}-parts`} flexDirection="row" alignItems="center" width={0} flexGrow={3} gap="xs">{parts}</Box>,
-          )
-        } else {
-          items.push(rule(`${p}-line`, at > i))
-        }
-      })
-
-      const here = [v.current ? `${v.current.id}  ${v.current.title}` : null, stepName].filter(Boolean).join(' · ')
+      const mini = miniSvg(v.phase)
+      // After the stepper: the phase, then the part and the step when there are any, so it is never bare
+      const here = said ?? [v.phase, v.current ? `${v.current.id}  ${v.current.title}` : null, stepName].filter(Boolean).join(' · ')
       return (
-        <Box flexDirection="column" borderStyle="round" borderColor="promptBorder" backgroundColor="inverseText" paddingX={2} paddingY={1} gap={1}>
-          <Box flexDirection="row" justifyContent="space-between" alignItems="center" gap={2}>
-            <Box flexDirection="row" alignItems="center" gap={2} flexShrink={1}>
-              <Text size="caption" weight="semibold">SDLC</Text>
-              {here && <Text size="caption" dimColor wrap="truncate-end">{here}</Text>}
+        <Box flexDirection="row" alignItems="center" gap={2} paddingX={1}>
+          {/* The words take the room left and are cut with an ellipsis when too long; the feature keeps its own */}
+          <Box flexDirection="row" alignItems="center" gap="xs" width={0} flexGrow={1}>
+            <Svg source={mini.source} alt={mini.alt} width={mini.width} height={MINI_H} />
+            <Text size="caption" dimColor>·</Text>
+            <Box width={0} flexGrow={1}>
+              <Text size="caption" wrap="truncate-end">{here}</Text>
             </Box>
+          </Box>
+          <Box flexShrink={0}>
             <Text key="feature" size="caption" dimColor wrap="truncate-start">
               {`${v.repo ? `${v.repo} · ` : ''}${v.feature}`}
             </Text>
           </Box>
-          <Box flexDirection="row" alignItems="center" gap="sm">{items}</Box>
         </Box>
       )
     }
 
+    // The terminal band is one row in a rounded outline (3 rows with it; the engine gives the band only the rows left
+    // above the prompt and hides a band that doesn't fit, so with fewer than 3 it is the row alone): a mini stepper (the four stages as marks joined by short
+    // lines, green once passed) where the title would be, then where the session is now (phase, part, step), with
+    // the feature at the right. Done and current are both green, told apart by the mark (✓ and ●). Nothing pulses.
     const { Box, Text } = $.ui.resolve(e)
     const at = PHASES.indexOf(v.phase)
     const width = e.props.bodyColumns ?? 80
     const narrow = width < 60
+    const framed = (e.props.maxRows ?? 3) >= 3
+    const mark = (state: IconState) => (state === 'done' ? '✓' : state === 'current' ? '●' : state === 'blocked' ? '◌' : '○')
+    const tone = (state: IconState) => (state === 'done' || state === 'current' ? 'success' : state === 'blocked' ? 'warning' : 'inactive')
 
-    const stepper = PHASES.flatMap((p: Phase, i) => {
-      const done = i < at
-      const now = i === at
-      const mark = done ? '✓' : now ? '●' : '○'
-      const out = [
-        <Text key={p} color={done ? 'success' : now ? 'claude' : 'inactive'} bold={now}>
-          {mark} {p}
-        </Text>,
-      ]
-      if (i < PHASES.length - 1) out.push(<Text key={`${p}-line`} color={done ? 'success' : 'inactive'}>{narrow ? ' ─ ' : ' ─── '}</Text>)
+    const mini = PHASES.flatMap((p: Phase, i) => {
+      const state = phaseState(i, at)
+      const out = [<Text key={p} color={tone(state)}>{mark(state)}</Text>]
+      if (i < PHASES.length - 1) out.push(<Text key={`${p}-line`} color={i < at ? 'success' : 'inactive'} dimColor={i >= at}>{'─'}</Text>)
       return out
     })
 
-    const where = [
+    // After the stepper: the phase, then the part and the step when there are any, so it is never bare
+    const here = said ?? [
+      v.phase,
       v.current ? `${v.current.id}${v.current.title ? ` ${v.current.title}` : ''}` : null,
       stepName,
     ].filter(Boolean).join(' · ')
 
     return (
-      <Box flexDirection="column">
+      <Box flexDirection="column" borderStyle={framed ? 'round' : undefined} borderColor="inactive" paddingX={framed ? 1 : 0}>
         <Box flexDirection="row">
-          <Text dimColor>sdlc </Text>
-          {stepper}
-          {!narrow && <Text dimColor wrap="truncate-end">{`   ${v.repo ? `${v.repo} · ` : ''}${v.feature}`}</Text>}
-        </Box>
-        {(total > 0 || where) && (
-          <Box flexDirection="row">
-            {total > 0 && <Text color="success">{'■'.repeat(finished)}</Text>}
-            {total > 0 && <Text color="inactive">{'□'.repeat(total - finished)}</Text>}
-            {total > 0 && <Text dimColor>{` ${finished}/${total} parts`}</Text>}
-            {where && <Text wrap="truncate-end">{`${total > 0 ? '  ·  ' : ''}${where}`}</Text>}
+          {/* The words take the room left and are cut with an ellipsis when too long; the feature keeps its own */}
+          <Box flexDirection="row" width={0} flexGrow={1}>
+            {mini}
+            <Text dimColor>{' · '}</Text>
+            <Box width={0} flexGrow={1}>
+              <Text wrap="truncate-end">{here}</Text>
+            </Box>
           </Box>
-        )}
+          {!narrow && (
+            <Box paddingLeft={2} flexShrink={0}>
+              <Text dimColor wrap="truncate-start">{`${v.repo ? `${v.repo} · ` : ''}${v.feature}`}</Text>
+            </Box>
+          )}
+        </Box>
       </Box>
     )
   })

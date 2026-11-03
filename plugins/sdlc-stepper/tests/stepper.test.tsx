@@ -16,6 +16,10 @@ const BACKLOG = `# Backlog
 | B3 | Issue list | — | 3 | B2 | S | todo |
 `
 
+// The marks of the stages and parts on the terminal band, in order: ✓ done, ● current, ○ not started, ◌ blocked
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const marks = async (ui: any): Promise<string[]> => (await ui.findAll({ type: 'Text', text: /^[✓●○◌]$/ })).map((t: { text: string }) => t.text)
+
 const BAND = {
   plugin: 'sdlc-stepper',
   component: 'AbovePrompt',
@@ -78,31 +82,102 @@ test('the band names the phase, the part and the step, on every surface that has
   await $.tool.call({ tool: 'Bash', command: 'python3 "/p/scripts/verify.py" red AC-002' })
 
   const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
-  expect((await ui.find({ type: 'Text', text: /Define/ }))?.text).toBe('✓ Define')
-  expect((await ui.find({ type: 'Text', text: /Build/ }))?.text).toBe('● Build')
-  expect((await ui.find({ type: 'Text', text: /Review/ }))?.text).toBe('○ Review')
-  expect((await ui.find({ type: 'Text', text: /parts/ }))?.text).toBe(' 1/3 parts')
-  expect((await ui.find({ type: 'Text', text: /B2/ }))?.text).toBe('  ·  B2 Title row · failing tests')
+  // The terminal draws one row in an outline: a mini stepper (a mark per stage, joined by short lines) where the title
+  // would be, then where the session is now
+  expect(await marks(ui)).toEqual(['✓', '●', '○', '○'])  // Define, Build, Review, Ship
+  expect(await ui.findAll({ type: 'Text', text: /^─$/ })).toHaveLength(3)
+  expect(await ui.find({ type: 'Text', text: 'SDLC' })).toBeUndefined()  // no title: the stepper is the title
+  expect((await ui.find({ type: 'Text', text: /B2/ }))?.text).toBe('Build · B2 Title row · failing tests')
+  expect(await ui.find({ type: 'Text', text: /parts|■|□/ })).toBeUndefined()
+  expect((await ui.find({ type: 'Text', text: /B2/ }))?.props.wrap).toBe('truncate-end')  // cut with an ellipsis when too long
+  // All of it sits in a rounded outline, and the current stage is green like the done ones (no orange accent)
+  expect((await ui.findAll({ type: 'Box' })).some(b => b.props.borderStyle === 'round')).toBe(true)
+  expect((await ui.find({ type: 'Text', text: '●' }))?.props.color).toBe('success')
   await ui.unmount()
 
-  // The desktop draws a card of two rows: SDLC with where it is now, then one bar of icons (a phase's, and a
-  // small one per part on Build's line), the names as text
+  // The desktop draws one row: a mini stepper (the four stages as small icons joined by short lines, one drawing)
+  // where a title would be, a dot, where the session is now, and the feature at the right
   const card = await $.ui.mount({ ...BAND, surface: 'desktop' })
-  const icons = await card.findAll({ type: 'Svg' })
-  expect(icons.map(i => i.props.alt)).toEqual([
-    'Define: done', 'Build: in progress',
-    'B1: done', 'B2: in progress', 'B3: not started',
-    'Review: not started', 'Ship: not started',
-  ])
-  expect(String(icons[1]?.props.source)).toContain("attributeName='r'")  // the current phase pulses
-  expect(String(icons[0]?.props.source)).toContain('<path')              // a done one holds a check
-  const colors = new Set(icons.flatMap(i => String(i.props.source).match(/#[0-9a-f]{3,6}/gi) ?? []))
-  expect([...colors].sort()).toEqual(['#7C828C', '#fff'])  // neutral only: one gray and white, no hue
-  expect((await card.find({ type: 'Text', text: 'Build' }))?.text).toBe('Build')
-  expect((await card.find({ type: 'Text', text: /B2/ }))?.text).toBe('B2  Title row · failing tests')
-  expect(await card.find({ type: 'Text', text: /parts/ })).toBeUndefined()  // the count is the icons now
+  const drawings = await card.findAll({ type: 'Svg' })
+  expect(drawings).toHaveLength(1)
+  const mini = String(drawings[0]?.props.source)
+  expect(drawings[0]?.props.alt).toBe('Define: done, Build: in progress, Review: not started, Ship: not started')
+  expect(drawings[0]?.props.height).toBe(20)
+  expect(mini.match(/<svg x=/g)).toHaveLength(4)  // an icon per stage
+  expect(mini.match(/data-line='done'/g)).toHaveLength(1)   // Define to Build: the work is past Define
+  expect(mini.match(/data-line='ahead'/g)).toHaveLength(2)  // Build to Review, Review to Ship
+  expect(mini.match(/<rect data-line=[^>]*height='1'/g)).toHaveLength(3)  // 1px
+  expect(mini).toContain('<path')                           // a done stage holds a check
+  // Only the current icon pulses: its ring spreads out and fades
+  expect(mini.match(/attributeName='r'/g)).toHaveLength(1)
+  expect(mini.match(/<animate/g)).toHaveLength(2)
+  expect(mini).not.toContain('fill-opacity=\'0\'>')  // no tint behind anything
+  expect([...new Set(mini.match(/#[0-9a-f]{3,6}/gi) ?? [])].sort()).toEqual(['#2DA44E', '#7C828C', '#fff'])
+  expect(await card.find({ type: 'Text', text: 'SDLC' })).toBeUndefined()  // no title: the stepper is the title
+  expect((await card.find({ type: 'Text', text: '·' }))?.text).toBe('·')  // the dot between the stepper and where it is
+  expect((await card.find({ type: 'Text', text: /B2/ }))?.text).toBe('Build · B2  Title row · failing tests')
+  // The words are cut with an ellipsis when too long, and the feature keeps its place at the right
+  expect((await card.find({ type: 'Text', text: /B2/ }))?.props.wrap).toBe('truncate-end')
+  expect((await card.find({ type: 'Text', text: /2026-11-03-m-github-look/ }))?.props.wrap).toBe('truncate-start')
+  expect(await card.find({ type: 'Text', text: /parts/ })).toBeUndefined()
   expect(await card.find({ type: 'Text', text: /✓|●/ })).toBeUndefined()  // no terminal glyphs on desktop
   await card.unmount()
+})
+
+test("the bar shows the agent's latest update line, so it says what the transcript says", async ($, on) => {
+  repo(on, {
+    '.sdlc/config.json': '{}',
+    '.sdlc/state/2026-11-03-m-github-look.md': STATE,
+    '.sdlc/state/2026-11-03-m-github-look/backlog.md': BACKLOG,
+  })
+  // The engine beneath: the model's response to a step, with whatever it said
+  let said = ''
+  on('turn.step', async function* (_, e) {
+    return { turnId: e.turnId, index: e.index, answer: said, toolUses: [], stopReason: 'end_turn', usage: null }
+  })
+  const step = async (answer: string) => {
+    said = answer
+    for await (const _ of $.turn.step({ turnId: 't1', index: 0, model: 'sonnet', messageCount: 1 })) void _
+  }
+  const words = async (surface: 'terminal' | 'desktop') => {
+    const ui = await $.ui.mount({ ...BAND, surface })
+    const text = (await ui.find({ type: 'Text', text: /^Build · / }))?.text
+    await ui.unmount()
+    return text
+  }
+  await $.session.start({ cwd: '/repo', surface: 'desktop', isInteractive: true })
+  await $.tool.call({ tool: 'Bash', command: 'python3 "/p/scripts/verify.py" red AC-002' })
+  expect(await words('desktop')).toBe('Build · B2  Title row · failing tests')  // what the last tool said
+
+  // The agent says something else: the bar says it too, on both surfaces, and a tool it doesn't know changes nothing
+  await step('Looking at it.\n**Build · audit · checking where the theme sweep leaks**\nMore text.')
+  expect(await words('desktop')).toBe('Build · audit · checking where the theme sweep leaks')
+  expect(await words('terminal')).toBe('Build · audit · checking where the theme sweep leaks')
+  await $.tool.call({ tool: 'mcp__browser__page_script', script: 'x' })
+  expect(await words('desktop')).toBe('Build · audit · checking where the theme sweep leaks')
+
+  // The last such line of a response wins; text with none leaves it; a line for another phase is not this feature's
+  await step('Build · audit · first\nBuild · audit · second')
+  expect(await words('desktop')).toBe('Build · audit · second')
+  await step('Nothing to report.')
+  expect(await words('desktop')).toBe('Build · audit · second')
+  await step('Review · B2 · checking')
+  expect(await words('desktop')).toBe('Build · audit · second')
+
+  // A tool the bar knows is newer than a line: it names the step again
+  await $.tool.call({ tool: 'Bash', command: 'python3 "/p/scripts/verify.py"' })
+  expect(await words('desktop')).toBe('Build · B2  Title row · verify')
+})
+
+test('on the terminal the outline goes when the band is given fewer than 3 rows, so it still shows', async ($, on) => {
+  repo(on, { '.sdlc/config.json': '{}', '.sdlc/state/f.md': STATE })
+  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+  for (const [maxRows, framed] of [[10, true], [3, true], [2, false], [1, false]] as const) {
+    const ui = await $.ui.mount({ ...BAND, props: { ...BAND.props, maxRows }, surface: 'terminal' })
+    expect((await ui.findAll({ type: 'Box' })).some(b => b.props.borderStyle === 'round')).toBe(framed)
+    expect(await marks(ui)).toEqual(['✓', '●', '○', '○'])  // the stepper is there either way
+    await ui.unmount()
+  }
 })
 
 test('outside an sdlc repo, or with no active feature, the band stays empty', async ($, on) => {
@@ -129,7 +204,8 @@ for (const [process, stage, phase] of [['3', 'Stage 3', 'Review'], ['3', 'Stage 
     })
     await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
     const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
-    expect((await ui.find({ type: 'Text', text: new RegExp(phase) }))?.text).toBe(`● ${phase}`)
+    const order = ['Define', 'Build', 'Review', 'Ship']
+    expect(await marks(ui)).toEqual(order.map((_, i) => (i < order.indexOf(phase) ? '✓' : i === order.indexOf(phase) ? '●' : '○')))
     await ui.unmount()
   })
 }
@@ -160,7 +236,7 @@ test('a step seen in an earlier phase is not shown in the next one', async ($, o
   files['.sdlc/state/f.md'] = STATE.replace('Stage 2 – Build', 'Stage 3 – Review')
   await $.tool.call({ tool: 'Bash', command: 'ls' })
   const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
-  expect((await ui.find({ type: 'Text', text: /Review/ }))?.text).toBe('● Review')
+  expect(await marks(ui)).toEqual(['✓', '✓', '●', '○'])  // in Review now
   expect(await ui.find({ type: 'Text', text: /commit/ })).toBeUndefined()
   await ui.unmount()
 })
@@ -176,7 +252,7 @@ test('a session started above the repos shows the one with the latest active fea
   }, { 'worktrees/web/.sdlc/state/github-look.md': 5 })
   await $.session.start({ cwd: '/workbench', surface: 'terminal', isInteractive: true })
   const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
-  expect((await ui.find({ type: 'Text', text: /Review/ }))?.text).toBe('● Review')
-  expect((await ui.find({ type: 'Text', text: /github-look/ }))?.text).toBe('   worktrees/web · github-look')
+  expect(await marks(ui)).toEqual(['✓', '✓', '●', '○'])
+  expect((await ui.find({ type: 'Text', text: /github-look/ }))?.text).toBe('worktrees/web · github-look')
   await ui.unmount()
 })
