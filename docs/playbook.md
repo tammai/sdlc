@@ -36,7 +36,7 @@ A feature's change file goes in `<docs>/changes/<feature>.md` (`<docs>` is `docs
 **Type:** `/sdlc:start fix: export button 500s when the report is empty` (or paste a GitHub issue, Linear or Jira link).
 
 1. **Define:** the agent sizes it S (a fix or tweak, 1–2 files, clear expected behaviour). If what, why or how isn't clear, it asks first, one question at a time. It proves the bug before proposing a fix (a failing test, or exact steps and what they show), then finds the root cause. It writes the change file (the proof and the cause; the proving test is AC-001) and the state file's tasks and Public Surface, a few lines each, with the tests in the same turn. No stop: it says in a line or two what it will do and why.
-2. **Build:** in the session, like plain Claude. One call moves it to Build and records the proving test failing (`state.py sync && state.py advance 4 && verify.py red AC-001`), then the fix, then `verify.py` once at the end.
+2. **Build:** in the session, like plain Claude. One call moves it to Build and records the proving test failing (`state.py sync && state.py advance 2 && verify.py red AC-001`), then the fix, then `verify.py` once at the end.
 3. **Review:** the agent recommends the reviews the change needs (often none for a small, covered fix) and runs them without stopping, telling you what ran and why ([6](#6-choose-the-reviews-and-act-on-findings)).
 4. **Ship:** Learn files a lesson only if it isn't obvious from the code or the commit, and a decision later features must follow in `knowledge/decisions/`, then the final commit on a feature branch, push, PR and CI. It stops with the PR open.
 
