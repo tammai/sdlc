@@ -9,7 +9,7 @@ file and git-ignored (in either layout):
   .sdlc/state/<feature>.events.jsonl    one event per call, appended, never rewritten
   .sdlc/state/<feature>.commands/       the runner's inbox; never read or executed here
 Advancing to the current stage is refused (it would tick the stage before its gate ran).
-Usage: python3 state.py [--root DIR] advance FEATURE STAGE [--gate pass|fail] [--note TEXT] [--verified COMMIT TREE]
+Usage: python3 state.py [--root DIR] advance FEATURE STAGE [--gate pass|fail] [--note TEXT] [--verified [COMMIT TREE]]
                                      verified FEATURE COMMIT TREE
                                      log FEATURE TEXT [--type note|review_done]
                                      deviation FEATURE TEXT
@@ -410,8 +410,17 @@ def create(a):
     return event
 
 
+def current_verified(root, feature):
+    """[head, tree] of the passing verify run the code still matches (verify.py status), else Refused with why."""
+    import verify  # noqa: PLC0415  (only this path needs it; it pulls in the whole verify plan)
+    st = verify.status(root, feature)
+    if not st["reuse"]:
+        raise Refused(f"no current passing verify to record ({st['reason']}): run verify.py, or pass --verified <commit> <tree>")
+    return [st["head"], st["tree"]]
+
+
 def run(a):
-    located = sdlc_layout.features(a.root).get(a.feature)
+    located =sdlc_layout.features(a.root).get(a.feature)
     if not located:
         raise Refused(f"no feature named {a.feature} (no state file for it)")
     for value in vars(a).values():  # a newline in a value would add lines (a fake Current:) to state.md
@@ -428,6 +437,8 @@ def run(a):
     bom = backlog_raw is not None and backlog_raw.startswith("﻿")
     if bom:
         backlog_raw = backlog_raw[1:]
+    if a.cmd == "advance" and a.verified == []:  # bare --verified: what verify.py recorded, not what the caller guesses
+        a.verified = current_verified(a.root, a.feature)
     new, new_backlog, event = apply(a, text, backlog_raw)
     check(new)
     snap = snapshot(a.feature, new, new_backlog if new_backlog is not None else backlog_raw)
@@ -514,7 +525,8 @@ def main(argv=None):
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("advance"); s.add_argument("feature"); s.add_argument("stage", type=int)
     s.add_argument("--gate", choices=["pass", "fail"]); s.add_argument("--note")
-    s.add_argument("--verified", nargs=2, metavar=("COMMIT", "TREE"))
+    s.add_argument("--verified", nargs="*", metavar="COMMIT TREE",
+                   help="the commit and tree verify passed on; with neither, the last passing run's (verify.py status)")
     s = sub.add_parser("verified"); s.add_argument("feature"); s.add_argument("commit"); s.add_argument("tree")
     s = sub.add_parser("log"); s.add_argument("feature"); s.add_argument("text")
     s.add_argument("--type", choices=["note", "review_done"], default="note")
@@ -539,6 +551,8 @@ def main(argv=None):
     for p in sub.choices.values():
         p.error = ap.error
     a = ap.parse_args(argv)
+    if a.cmd == "advance" and a.verified is not None and len(a.verified) not in (0, 2):
+        ap.error("--verified takes a commit and a tree, or neither")
     sys.stdout.reconfigure(encoding="utf-8")
     a.root = os.path.abspath(a.root)
     if a.cmd == "migrate":

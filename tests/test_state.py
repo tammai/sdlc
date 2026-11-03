@@ -105,6 +105,13 @@ class StateTest(ProjectTestCase):
         self.assertIn("Current: Stage 3 – Review\n", text)
         self.assertEqual(self.state("advance", "login", "3", "--verified", "abc1234")[0], 2)  # a tree is required
 
+    def test_a_bare_verified_without_a_passing_verify_run_is_refused_and_moves_nothing(self):
+        code, out = self.state("advance", "login", "3", "--gate", "pass", "--verified")
+        self.assertEqual(code, 1, out)
+        self.assertIn("no current passing verify", out["error"])
+        with open(self.md, encoding="utf-8") as f:
+            self.assertIn("Current: Stage 2", f.read())
+
     def test_a_1x_feature_is_refused_with_how_to_finish_it(self):
         self.write(".sdlc/state/login.md", STATE.replace("Process: 3\n", ""))
         code, out = self.state("advance", "login", "3")

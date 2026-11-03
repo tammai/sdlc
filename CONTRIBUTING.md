@@ -46,6 +46,7 @@ sdlc/
 │   ├── backlog.py           the next ready part of a feature's backlog.md
 │   ├── state.py             every state change in one call: state.md plus the control contract (beside it, git-ignored)
 │   ├── ship.py              Ship's one command: reuses or reruns verify, advances to Stage 4, branches, stages the change, writes the commit message
+│   ├── review_report.py     writes a review report from rated findings (the built-in code review, the dependency audit) with the VERDICT line their ratings give
 │   ├── autopilot.py         runs a backlog one fresh headless claude session per part (opt-in)
 │   ├── prune.py             lists and deletes merged features' working files (/sdlc:prune)
 │   └── context_diet.py      per-source estimate of what Claude Code lists every call (/sdlc:context-diet)

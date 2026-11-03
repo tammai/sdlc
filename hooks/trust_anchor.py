@@ -147,7 +147,7 @@ def check(root, name, text, anchor, shown):
 
 
 # The reviews' reports (review.md); the folder also holds the diff facts and explorer reports, with no VERDICT
-CHECKER_REPORT = r"(?:code-reviewer|security|ui-reviewer|qa-tester|pr-test-analyzer)-r\d+\.md"
+CHECKER_REPORT = r"(?:code-reviewer|security|dependency-audit|ui-reviewer|qa-tester|pr-test-analyzer)-r\d+\.md"
 
 
 def failed_verdicts(root, name):

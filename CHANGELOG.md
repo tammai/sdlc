@@ -2,6 +2,15 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
+## Unreleased
+
+From a real rebuild (Kutt, on 2.4.1), checked against 3.0.2 first: each of these still reproduced.
+
+### Changed
+- **A bare `state.py advance … --verified` records what `verify.py` recorded.** Review and Build's gates passed `<head> <tree>` by hand, copying `verify.py`'s head, which is the parent of the commit the builder makes next. With no values it now takes the head and tree of the last passing run, and refuses when the code changed since or no passing run is recorded; `--verified <commit> <tree>` still works.
+- **The built-in `code-review` and the dependency audit get a report file.** `scripts/review_report.py` writes `code-reviewer-r<N>.md` or `dependency-audit-r<N>.md` from the findings the orchestrator rated, and computes the `VERDICT` line from those ratings (FAIL for every high and every bug), so nobody types it and it can't disagree with the table above it. `dependency-audit-r<N>.md` is now one of the reports the trust anchor and the round cap read. An audit tool that can't run is not a pass.
+- **Learn creates `<docs>/recurring-defects.md` when it's missing**, with a heading and the shape line, instead of appending to a file nothing makes.
+
 ## 3.0.2 — 2026-11-03
 
 ### Fixed

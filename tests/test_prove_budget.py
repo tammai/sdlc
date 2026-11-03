@@ -74,6 +74,11 @@ class ProveBudgetTest(ProjectTestCase):
         self.assertEqual(self.call(3, command=cmd), {})
         self.assertNotEqual(self.call(3, command=cmd + " && sleep 900"), {})  # nothing else rides along
 
+    def test_the_review_report_script_runs_in_review_not_refused(self):
+        report = os.path.join(PLUGIN_ROOT, "scripts", "review_report.py")
+        out = self.call(3, command=f'python3 "{report}" login --agent code-reviewer --round 1 --findings findings.json')
+        self.assertIsNone(out.get("permissionDecision"))  # one plain step: timed or tool-limited, never denied
+
     def test_project_commands_are_left_alone(self):
         self.assertEqual(self.call(3, command="cd app && npm test 2>&1 | tail -5", timeout=600000), {})
         # A project command doesn't carry what is chained after it

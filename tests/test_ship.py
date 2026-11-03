@@ -51,6 +51,17 @@ class ShipTest(ProjectTestCase):
         with open(self.path(".sdlc/login/state.md"), encoding="utf-8") as f:
             return f.read()
 
+    def test_a_bare_verified_records_the_head_and_tree_verify_passed_on(self):
+        verify = os.path.join(PLUGIN_ROOT, "scripts", "verify.py")
+        ran = subprocess.run([sys.executable, verify, "--root", self.root, "--feature", "login"], capture_output=True,
+                             encoding="utf-8")
+        self.assertEqual(ran.returncode, 0, ran.stdout + ran.stderr)
+        head, tree = next(line.split()[1::2] for line in ran.stdout.splitlines() if line.startswith("head "))
+        p = subprocess.run([sys.executable, os.path.join(PLUGIN_ROOT, "scripts", "state.py"), "--root", self.root,
+                            "advance", "login", "4", "--gate", "pass", "--verified"], capture_output=True, encoding="utf-8")
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertIn(f"Verified: {head} tree {tree}\n", self.state_text())
+
     def test_readies_the_commit_in_one_call(self):
         code, out = self.ship()
         self.assertEqual(code, 0, out)
