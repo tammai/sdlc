@@ -2,6 +2,18 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
+## 3.0.1 — 2026-11-03
+
+### Changed
+- **sdlc-stepper is a mini stepper, on the desktop and in the terminal.** Both draw one row: the four stages as marks joined by short lines where the title was, a dot, where the session is now (phase, part, step), and the feature at the right. It replaces 3.0.0's two-row desktop card (its capsule bar of stages with names, and the part icons on Build's line) and the old terminal rows (`sdlc ✓ Define ─── ● Build …` and `■□□ 1/3 parts`); the part in progress is in the words instead.
+  - **Desktop:** the stages are one 20px-high image: a green check when done, a green dot when current and a gray ring after, with 1px lines between them that turn green once passed. Only the current icon pulses (a ring spreads out from it). It sits straight on the app's own band.
+  - **Terminal:** the same stepper as `✓─●─○─○` in a rounded outline, in the terminal's own theme colors, with the current stage green like the done ones (the orange accent is gone).
+
+### Fixed
+- **The bar says what the transcript says.** The step changed only when a tool the bar knew ran, so after `verify.py red` it kept saying `failing tests` while the agent moved on to a browser tool and wrote `Build · audit · …`. The bar now shows the last line of what the model said that starts with the phase (`Build · …`), which sdlc has every update begin with, and a tool it knows still replaces it, being newer. A line for another phase is ignored. Found on the desktop app.
+- **A long status is cut with an ellipsis, on both surfaces.** The agent's update line can be long (`Build · verify · the full verify plan is running in the background …`); in a box of its own that takes the room left, the words are now truncated with `…` and the feature name keeps its place at the right. Before, on the desktop, the text ran past the card's edge with no ellipsis and pushed the feature name out of sight. Checked in the real terminal UI under `tmux`; the desktop is checked by its test and by eye.
+- **The terminal band no longer vanishes in a short window.** The engine gives the band only the rows left above the prompt and hides one that doesn't fit; the old 5-row band went at about 16 rows of terminal, the 3-row one at 14. With fewer than 3 rows the band now drops its outline and shows as one line. With none to spare the engine shows nothing, which the mod can't change. Found by running the real terminal UI under `tmux` and shrinking it.
+
 ## 3.0.0 — 2026-11-03
 
 ### Breaking
