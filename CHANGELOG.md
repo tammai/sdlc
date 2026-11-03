@@ -14,6 +14,8 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 - **A long status is cut with an ellipsis, on both surfaces.** The agent's update line can be long (`Build · verify · the full verify plan is running in the background …`); in a box of its own that takes the room left, the words are now truncated with `…` and the feature name keeps its place at the right. Before, on the desktop, the text ran past the card's edge with no ellipsis and pushed the feature name out of sight. Checked in the real terminal UI under `tmux`; the desktop is checked by its test and by eye.
 - **The terminal band no longer vanishes in a short window.** The engine gives the band only the rows left above the prompt and hides one that doesn't fit; the old 5-row band went at about 16 rows of terminal, the 3-row one at 14. With fewer than 3 rows the band now drops its outline and shows as one line. With none to spare the engine shows nothing, which the mod can't change. Found by running the real terminal UI under `tmux` and shrinking it.
 
+Checked on 2026-11-03 at commit 21bc7fb: only sdlc-stepper changed since 3.0.0, so the runbook's smoke test was not repeated in full. The real terminal UI, run under `tmux`, showed the band at start, through a prompt and a tool run, and with a long update line cut by an ellipsis, and at 40 and 20 rows tall (one line at 14, nothing at 12 and below); the desktop app was looked at by hand on a live preview. The stepper's 11 tests, `claude plugin validate` and the full suite (384 tests, Python 3.10) pass.
+
 ## 3.0.0 — 2026-11-03
 
 ### Breaking
