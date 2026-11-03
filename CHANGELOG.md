@@ -2,13 +2,13 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
-## Unreleased
+## 2.4.2 — 2026-11-03
 
 ### Added
 - **product-rebuild is in the sdlc marketplace** (`/plugin install product-rebuild@sdlc`). The entry points at github.com/tammai/product-rebuild, which declares sdlc and sdlc-extras (`^2.4`) as dependencies, so installing it brings both. It's Claude Code only: the Codex, Cursor and Antigravity marketplace files that `scripts/hosts.py` builds still list sdlc alone.
 
 ### Fixed
-- **Asking for autopilot in a session runs it in that session** (found by a smoke test). Asked mid-backlog, the session tried `scripts/autopilot.py`, whose headless sessions couldn't read the plugin's own files, then asked whether to run the parts here or have the user widen `permissions.additionalDirectories`. Now a request for autopilot in a session runs every remaining part, then Feature close, here and without asking: it skips `Slice gates` and the context stop at part boundaries (the part's commit and `## Handoff` carry it past compaction), takes Review's recommendation, blocks a part that would add scope and goes on with the others. The session never starts or offers `autopilot.py`; it stays the user's terminal command for headless runs. `backlog-slices.md` step 6, `/sdlc:start`, the orchestrator, README, guidebook, playbook, PRD and spec 02 (new ORC-FR-040) say the same; the playbook now also says the headless sessions may need the plugin's folder in `permissions.additionalDirectories`.
+- **Asking for autopilot in a session runs it in that session** (found by a smoke test). Asked mid-backlog, the session tried `scripts/autopilot.py`, whose headless sessions couldn't read the plugin's own files, then asked whether to run the parts here or have the user widen `permissions.additionalDirectories`. Now a request for autopilot in a session runs every remaining part, then Feature close, here and without asking: it skips `Slice gates` and the context stop at part boundaries (the part's commit and `## Handoff` carry it past compaction), takes Review's recommendation, blocks a part that would add scope and goes on with the others. The session never starts or offers `autopilot.py`; it stays the user's terminal command for headless runs. `backlog-slices.md` step 6, `/sdlc:start`, the orchestrator, README, guidebook, playbook, PRD and spec 02 (new ORC-FR-040) say the same; the playbook now also says the headless sessions may need the plugin's folder in `permissions.additionalDirectories`. Checked live on 2026-11-03 against `fa53200`: a headless session from the checkout, given only `autopilot` on an approved two-part backlog, logged in-session autopilot, built both parts, ran Review and Ship, asked nothing and never ran `autopilot.py`. The full smoke test (A–J) was not rerun for this rules-only change.
 
 ## 2.4.1 — 2026-11-02
 
