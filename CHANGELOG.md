@@ -2,6 +2,13 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
+## 3.0.2 — 2026-11-03
+
+### Fixed
+- **sdlc-stepper shows during Define.** sdlc writes a feature's state file only at the end of Define (`state.py new` runs in the call that moves to Build), and the bar reads state files, so it appeared only once Define was done. Now submitting `/sdlc:start` in an sdlc repo with no feature on disk shows the bar at once, at Define; it then follows the agent's own `Define · …` lines and hands over to the state file when it appears. A start that turns out trivial leaves nothing: a Define band the agent never spoke for goes when its turn ends. The feature name is left out until there is one. A feature the model starts without `/sdlc:start` shows from its first `Define · …` line (a `skill.prompt` hook would catch it sooner, but a built-in module runs ahead of it and the engine reports the hook as skipped in the transcript). Found in `missue`.
+
+Checked on 2026-11-03: only sdlc-stepper changed since 3.0.1. In a real terminal session (under `tmux`, with an sdlc config and no state file) nothing showed at start; submitting `/sdlc:start add a csv export` showed `●─○─○─○ · Define` at once and then `Define · sizing · waiting for approval` from the agent's line. The stepper's 13 tests, `claude plugin validate` and the full suite pass. The desktop is checked by its test only.
+
 ## 3.0.1 — 2026-11-03
 
 ### Changed
