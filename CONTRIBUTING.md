@@ -8,7 +8,7 @@ How the plugin is laid out, how to run and test it from a checkout, and how to s
 sdlc/
 ├── .claude-plugin/
 │   ├── plugin.json          name, version (repos record it at setup and upgrade), homepage, repository
-│   └── marketplace.json     marketplace entries for /plugin install: sdlc and sdlc-extras
+│   └── marketplace.json     marketplace entries for /plugin install: sdlc, sdlc-extras, sdlc-stepper and product-rebuild
 ├── .claude/CLAUDE.md, .claude/rules/   notes for contributors to this repo (a plugin's root CLAUDE.md is never loaded)
 ├── .codex-plugin/, .agents/plugins/, .cursor-plugin/, plugin.json, hooks.json, hosts/
 │                            Codex, Cursor and Antigravity manifests, Cursor agents, hosts/skills (the commands as skills)
@@ -60,6 +60,8 @@ sdlc/
 │   └── project/             what setup places in a repo: config defaults, rules/, hookify/, lint/, agents/ (the AGENTS.md workflow section), baseline.md
 ├── migrations/              <version>-<slug>.md steps that /sdlc:upgrade applies to project-owned files
 ├── examples/hookify/        sample rules
+├── plugins/sdlc-stepper/    the optional stepper bar (a Claude Code hooks module in TypeScript: hooks/register.tsx and
+│                            hooks/sdlc.ts, types/, tests/ for `claude plugin test`), version bumped with sdlc's
 ├── plugins/sdlc-extras/     the optional companion plugin, same marketplace, version bumped with sdlc's (vendored):
 │                            commands/ ralph-loop, cancel-ralph, ralph-help, hookify-list, hookify-configure, hookify-help;
 │                            agents/ conversation-analyzer, type-design-analyzer, comment-analyzer, code-simplifier;

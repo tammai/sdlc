@@ -66,6 +66,12 @@
       "default": false
     },
     {
+      "id": "sdlc-stepper@sdlc",
+      "marketplace": "sdlc",
+      "why": "a stepper bar above the prompt: the feature's phase, its parts and the step the session is on (Claude Code terminal and desktop)",
+      "default": false
+    },
+    {
       "skill": "security-audit",
       "install": "npx skills add https://github.com/cloudflare/security-audit-skill --skill security-audit",
       "why": "Cloudflare's security audit: a full multi-agent audit when you ask for one (before a release, or an L change touching auth, payments or personal data); not part of each change's review"

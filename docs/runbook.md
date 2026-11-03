@@ -264,7 +264,7 @@ For changes to the plugin itself, run it from a checkout instead of the marketpl
 ### Release a new version
 
 1. Run the tests and `claude plugin validate .`, and check that CI (`.github/workflows/ci.yml`) is green on the last pushed commit.
-2. Bump `version` in `.claude-plugin/plugin.json` and, to the same number, in `plugins/sdlc-extras/.claude-plugin/plugin.json`, then run `python3 scripts/hosts.py build` so the Codex, Cursor and Antigravity manifests carry it too (CI's `hosts.py check` fails while they differ). Repos record this number at setup and upgrade, so every release that changes project files needs a new one.
+2. Bump `version` in `.claude-plugin/plugin.json` and, to the same number, in `plugins/sdlc-extras/.claude-plugin/plugin.json` and `plugins/sdlc-stepper/.claude-plugin/plugin.json` (`test_marketplace` fails while they differ), then run `python3 scripts/hosts.py build` so the Codex, Cursor and Antigravity manifests carry it too (CI's `hosts.py check` fails while they differ). Repos record this number at setup and upgrade, so every release that changes project files needs a new one.
 3. Move the `Unreleased` notes in `CHANGELOG.md` under `## <version> — <date>`, and update the README if commands, phases, configuration or requirements changed.
 4. If the release changes files that live in projects:
    - templates of generated or seeded files: nothing to do, `/sdlc:upgrade` regenerates or replaces them;

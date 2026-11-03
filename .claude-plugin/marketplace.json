@@ -36,6 +36,18 @@
       ]
     },
     {
+      "name": "sdlc-stepper",
+      "source": "./plugins/sdlc-stepper",
+      "description": "A stepper bar above the Claude Code prompt for the active sdlc feature: Define → Build → Review → Ship, the backlog's parts, and the part and step the session is on. Claude Code only.",
+      "license": "MIT",
+      "keywords": [
+        "sdlc",
+        "progress",
+        "stepper",
+        "status"
+      ]
+    },
+    {
       "name": "product-rebuild",
       "source": {
         "source": "github",

@@ -6,3 +6,6 @@ __pycache__/
 .sdlc/.work/
 .sdlc/state/*.json
 .sdlc/state/*.jsonl
+
+# what Claude Code writes into a loaded mod for the editor
+plugins/sdlc-stepper/.claude-plugin/types/
