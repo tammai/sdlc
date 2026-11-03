@@ -9,6 +9,10 @@ import { MINI_H, miniSvg, phaseState } from './desktop'
 const SHAPE = 'v2' // v2: View has `repo`
 const view = atom({ plugin: 'sdlc-stepper', key: 'view' } as const, null, { shape: SHAPE })
 const step = atom({ plugin: 'sdlc-stepper', key: 'step' } as const, null, { shape: SHAPE })
+// A feature still being defined has no state file yet (sdlc writes it at the end of Define), so the bar would show
+// nothing until Define is done. Its only sign is the agent's `Define · …` lines: they make this draft, which the
+// feature's own state file replaces as soon as it exists.
+const draft = atom({ plugin: 'sdlc-stepper', key: 'draft' } as const, null, { shape: SHAPE })
 
 async function text($: EngineInterface, path: string): Promise<string | null> {
   try {
@@ -82,6 +86,9 @@ async function load($: EngineInterface, repos: string[]): Promise<View | null> {
 
 // Found at session start and on each prompt, reused by every tool call between (a reload finds them again)
 let repos: string[] | null = null
+// Whether a `Define · …` line was said in the turn that is running: a draft survives the turn's end only if so, so a
+// start that turns out trivial (no state file, no Define line) leaves no Define band behind
+let sawDefine = false
 
 async function refresh($: EngineInterface, rescan = false): Promise<View | null> {
   let next: View | null = null
@@ -92,7 +99,24 @@ async function refresh($: EngineInterface, rescan = false): Promise<View | null>
     next = null
   }
   await update($, view, prev => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next))
+  if (next) await update($, draft, prev => (prev === null ? prev : null))  // the feature has its state file now
   return next
+}
+
+/** `/sdlc:start` was submitted: with no feature on disk yet, one is being defined, so the bar shows Define at
+ *  once, without waiting for the agent's first line or for the state file. (A start the model makes itself, by loading
+ *  sdlc's skill for a request, shows from its first `Define · …` line: a `skill.prompt` hook is sent past by a module
+ *  that runs first, and the engine says so in the transcript.) */
+async function beginDraft($: EngineInterface): Promise<void> {
+  if (await read($, view)) return  // a feature exists: this resumes it
+  if (repos === null || repos.length === 0) return
+  await update($, draft, () => ({ repo: '', feature: '', phase: 'Define', parts: [], current: null }) satisfies View)
+}
+
+/** When a turn ends: a draft nobody spoke for in it (no `Define · …` line) was a start that went another way. */
+async function endTurn($: EngineInterface): Promise<void> {
+  if (!sawDefine && await read($, draft)) await update($, draft, () => null)
+  sawDefine = false
 }
 
 /** Keep the agent's latest update (the line it begins with `<Phase> · `), from what the model just said, as the
@@ -101,7 +125,18 @@ async function noteUpdate($: EngineInterface, answer: string): Promise<void> {
   const found = updateLine(answer)
   if (!found) return
   const v = await read($, view)
-  if (!v || found.phase !== v.phase) return  // a line for another phase isn't this feature's words
+  if (!v) {
+    // No feature on disk: a `Define · …` line in an sdlc repo is one being defined; a line for another phase is not
+    if (found.phase === 'Define' && repos !== null && repos.length > 0) {
+      sawDefine = true
+      await update($, draft, () => ({ repo: '', feature: '', phase: 'Define', parts: [], current: null }) satisfies View)
+      await update($, step, () => ({ phase: 'Define', name: '', line: found.line }))
+    } else {
+      await update($, draft, prev => (prev === null ? prev : null))
+    }
+    return
+  }
+  if (found.phase !== v.phase) return  // a line for another phase isn't this feature's words
   await update($, step, prev => ({ phase: found.phase, name: prev && prev.phase === found.phase ? prev.name : '', line: found.line }))
 }
 
@@ -115,6 +150,8 @@ export const register: Register = on => {
   // The band only reads: a failure here must never hold a prompt or a tool call
   on('prompt.submit', async ($, e, next) => {
     await refresh($, true)
+    // Starting sdlc shows the stepper at once: Define, from the moment the command is submitted
+    if (e.command?.name === 'sdlc:start' || /^\s*\/sdlc:start\b/.test(e.text)) await beginDraft($)
     return next(e)
   }).catch(($, e, next) => next(e))
 
@@ -145,11 +182,16 @@ export const register: Register = on => {
 
   on('turn.complete', async ($, e, next) => {
     await refresh($)
+    try {
+      await endTurn($)
+    } catch {
+      // a stale band is better than a failed turn
+    }
     return next(e)
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    const v = await read($, view)
+    const v = (await read($, view)) ?? (await read($, draft))
     if (e.props.hasSurvey || !v) return next(e)
     const s = await read($, step)
     const stepName = s && s.phase === v.phase ? s.name : null
@@ -173,11 +215,13 @@ export const register: Register = on => {
               <Text size="caption" wrap="truncate-end">{here}</Text>
             </Box>
           </Box>
-          <Box flexShrink={0}>
-            <Text key="feature" size="caption" dimColor wrap="truncate-start">
-              {`${v.repo ? `${v.repo} · ` : ''}${v.feature}`}
-            </Text>
-          </Box>
+          {v.feature && (
+            <Box flexShrink={0}>
+              <Text key="feature" size="caption" dimColor wrap="truncate-start">
+                {`${v.repo ? `${v.repo} · ` : ''}${v.feature}`}
+              </Text>
+            </Box>
+          )}
         </Box>
       )
     }
@@ -219,7 +263,7 @@ export const register: Register = on => {
               <Text wrap="truncate-end">{here}</Text>
             </Box>
           </Box>
-          {!narrow && (
+          {!narrow && v.feature && (
             <Box paddingLeft={2} flexShrink={0}>
               <Text dimColor wrap="truncate-start">{`${v.repo ? `${v.repo} · ` : ''}${v.feature}`}</Text>
             </Box>

@@ -180,6 +180,116 @@ test('on the terminal the outline goes when the band is given fewer than 3 rows,
   }
 })
 
+test("a feature still being defined shows from the agent's own lines, then hands over to its state file", async ($, on) => {
+  // sdlc writes a feature's state file at the end of Define, so until then there is nothing on disk to read
+  const files: Record<string, string> = {
+    '.sdlc/config.json': '{}',
+    '.sdlc/state/f.md': STATE.replace('Status: active', 'Status: done'),  // an earlier feature, finished
+  }
+  repo(on, files)
+  on('ui.render', ($, e) => {  // what the engine draws when the plugin draws nothing
+    const { Text } = $.ui.resolve(e)
+    return <Text>engine</Text>
+  })
+  let said = ''
+  on('turn.step', async function* (_, e) {
+    return { turnId: e.turnId, index: e.index, answer: said, toolUses: [], stopReason: 'end_turn', usage: null }
+  })
+  const step = async (answer: string) => {
+    said = answer
+    for await (const _ of $.turn.step({ turnId: 't1', index: 0, model: 'sonnet', messageCount: 1 })) void _
+  }
+  const look = async (surface: 'terminal' | 'desktop' = 'terminal') => {
+    const ui = await $.ui.mount({ ...BAND, surface })
+    const out = { marks: await marks(ui), svgs: (await ui.findAll({ type: 'Svg' })).length, words: (await ui.find({ type: 'Text', text: /^(Define|Build) · / }))?.text, feature: (await ui.find({ type: 'Text', text: /\d{4}-\d\d-\d\d|^f$/ }))?.text }
+    await ui.unmount()
+    return out
+  }
+  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+  expect((await look()).marks).toEqual([])  // no feature, no lines: nothing
+
+  // The agent starts defining one: the band shows Define from its line, with no feature name yet, on both surfaces
+  await step('Define · reading · the brief')
+  expect(await look()).toMatchObject({ marks: ['●', '○', '○', '○'], words: 'Define · reading · the brief', feature: undefined })
+  expect((await look('desktop')).svgs).toBe(1)
+
+  // A line for another phase, with no feature to belong to, is not a feature being defined
+  await step('Build · x')
+  expect((await look()).marks).toEqual([])
+  await step('Define · sizing')
+  expect((await look()).words).toBe('Define · sizing')
+
+  // The state file appears (the end of Define): the band is the feature's now, named, and the draft is gone
+  files['.sdlc/state/f.md'] = STATE
+  await $.tool.call({ tool: 'Bash', command: 'ls' })
+  expect(await look()).toMatchObject({ marks: ['✓', '●', '○', '○'], feature: 'f' })
+
+  // The feature ships: no band, and no Define band left over from before
+  files['.sdlc/state/f.md'] = STATE.replace('Status: active', 'Status: done')
+  await $.tool.call({ tool: 'Bash', command: 'ls' })
+  expect((await look()).marks).toEqual([])
+})
+
+test('starting sdlc shows the stepper at once, and a start that goes another way leaves nothing', async ($, on) => {
+  const files: Record<string, string> = {
+    '.sdlc/config.json': '{}',
+    '.sdlc/state/f.md': STATE.replace('Status: active', 'Status: done'),  // an earlier feature, finished
+  }
+  repo(on, files)
+  on('ui.render', ($, e) => {  // what the engine draws when the plugin draws nothing
+    const { Text } = $.ui.resolve(e)
+    return <Text>engine</Text>
+  })
+  on('prompt.submit', (_, e) => ({ text: e.text }))
+  on('turn.complete', () => ({ text: '' }))
+  let said = ''
+  on('turn.step', async function* (_, e) {
+    return { turnId: e.turnId, index: e.index, answer: said, toolUses: [], stopReason: 'end_turn', usage: null }
+  })
+  const step = async (answer: string) => {
+    said = answer
+    for await (const _ of $.turn.step({ turnId: 't1', index: 0, model: 'sonnet', messageCount: 1 })) void _
+  }
+  const endTurn = () => $.turn.complete({ turnId: 't1', answer: 'done' })
+  const look = async () => {
+    const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+    const out = { marks: await marks(ui), words: (await ui.find({ type: 'Text', text: /^Define( · .*)?$/ }))?.text }
+    await ui.unmount()
+    return out
+  }
+  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+
+  // An ordinary prompt starts nothing
+  await $.prompt.submit({ text: 'what does this do?' })
+  await endTurn()
+  expect((await look()).marks).toEqual([])
+
+  // /sdlc:start: the stepper is there at once, at Define, before the agent has said anything
+  await $.prompt.submit({ text: '/sdlc:start add CSV export' })
+  expect(await look()).toEqual({ marks: ['●', '○', '○', '○'], words: 'Define' })
+
+  // A start that goes another way (trivial: no Define line, no state file) leaves nothing when its turn ends
+  await endTurn()
+  expect((await look()).marks).toEqual([])
+
+  // Defining across turns: the agent's Define lines keep it, and the turn with none lets it go
+  await $.prompt.submit({ text: '', command: { name: 'sdlc:start', args: 'fix the login' } })
+  await step('Define · reading · the brief')
+  await endTurn()
+  expect((await look()).words).toBe('Define · reading · the brief')
+  await $.prompt.submit({ text: 'ok' })
+  await endTurn()
+  expect((await look()).marks).toEqual([])
+
+  // With a feature already active, a start only resumes it: its own band, named, and no draft behind it
+  files['.sdlc/state/f.md'] = STATE
+  await $.prompt.submit({ text: '/sdlc:start' })
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect(await marks(ui)).toEqual(['✓', '●', '○', '○'])
+  expect((await ui.find({ type: 'Text', text: 'f' }))?.text).toBe('f')
+  await ui.unmount()
+})
+
 test('outside an sdlc repo, or with no active feature, the band stays empty', async ($, on) => {
   repo(on, {
     '.sdlc/config.json': '{}',

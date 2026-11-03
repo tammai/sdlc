@@ -32,3 +32,4 @@
 - 2026-11-03 add knowledge/gotchas/state-format-change-needs-marker-and-cache-clear.md — the stage renumbering needed a Process bump and a cleared trust-anchor cache (from 3.0.0 release distill)
 - 2026-11-03 add knowledge/gotchas/zsh-does-not-split-a-command-variable.md — $S failed in zsh on macOS during the 3.0 smoke test (from 3.0.0 release distill)
 - 2026-11-03 update knowledge/gotchas/hooks-module-validator-and-test-kit.md — band hidden when it doesn't fit, positioned layers, SVG for shapes, turn.step for the model's words, dev preview and tmux check (from 3.0.1 release distill)
+- 2026-11-03 update knowledge/gotchas/hooks-module-validator-and-test-kit.md — no state file before the end of Define, skill.prompt skipped notice, generated tsconfig, test stubs (from 3.0.2 release distill)

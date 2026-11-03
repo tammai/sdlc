@@ -9,3 +9,4 @@ __pycache__/
 
 # what Claude Code writes into a loaded mod for the editor
 plugins/sdlc-stepper/.claude-plugin/types/
+plugins/sdlc-stepper/tsconfig.json

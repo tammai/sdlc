@@ -20,6 +20,8 @@ declare module 'claude-code' {
   interface PluginState {
     'sdlc-stepper': {
       view: Shaped<View | null>
+      /** A feature still being defined: sdlc writes its state file at the end of Define, so until then the only sign of it is the agent's `Define · …` lines. */
+      draft: Shaped<View | null>
       step: Shaped<Step | null>
     }
   }
