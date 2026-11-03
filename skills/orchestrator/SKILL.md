@@ -22,7 +22,7 @@ Every change but a trivial one leaves the same record, committed with the code a
 | **M** | a few files to a few days, approach mostly clear | `<change>` and the plan in full; at high risk the user reads and approves `<change>`, at low risk the build starts | `R/flow.md` |
 | **L** | several distinct parts, or an approach still unclear | `<change>` and the plan in full (pointing to a written spec when there is one, not restating it), the interview via `sdlc:brainstorming` unless that spec settles it; one part unless it won't fit one session; the agent checks the plan against the request first and asks you to approve only when a check leaves a doubt | `R/flow.md` |
 
-Read the track's file once, when the work starts or resumes, and no other reference unless it names one. Work split into parts (`<work>/backlog.md`): `R/backlog-slices.md` leads. Deploy only when asked: `/sdlc:deploy`.
+Read the track's file once, when the work starts or resumes, and no other reference unless it names one. Work split into parts (`<work>/backlog.md`): `R/backlog-slices.md` leads (autopilot asked for in a session runs in that session: its step 6). Deploy only when asked: `/sdlc:deploy`.
 
 **Trivial or S is one question: does behaviour change?** Any bug fix, and any change a test could catch, is at least S however small; only a change no test could see is Trivial. Say in one line "Trivial, so I'm doing it directly", then work like plain Claude: make the change, run the project's tests, and commit with a clear message. The commit is the whole record. If the user says "full record", or the change turns out to change behaviour (a test fails), stop and go on as S.
 

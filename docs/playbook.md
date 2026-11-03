@@ -248,15 +248,17 @@ Long backlog and you'd rather not `/clear` by hand: [20](#20-run-a-backlog-on-au
 
 ## 20. Run a backlog on autopilot
 
-Autopilot runs each slice in a fresh headless Claude Code session, then feature close. It's opt-in and Claude Code only. It is not the Ralph loop ([11](#11-run-an-autonomous-loop)).
+It's opt-in, and not the Ralph loop ([11](#11-run-an-autonomous-loop)).
 
-**Run, in a terminal at the repo root:**
+**In this session:** say `autopilot` (or "run the rest unattended"). The session runs every remaining slice back to back, then feature close, without asking: no slice gates, no stop at a slice boundary for context (each slice's commit and handoff carry it past compaction), and Review takes the agent's recommendation. A slice that would add scope is marked blocked and the run goes on with the others; a hard stop ends it. It doesn't offer the headless script instead, and needs no extra permissions beyond the session's own.
+
+**Headless, one fresh session per slice** (Claude Code only). Run, in a terminal at the repo root:
 
 ```
 python3 <plugin>/scripts/autopilot.py [--permission-mode <mode>] <feature>
 ```
 
-The headless sessions need permission to edit files and run git, the project's commands and the plugin's scripts (`state.py`, `backlog.py`). Setup's allowlist covers only the project's own commands, so pass a `--permission-mode` or widen the allowlist. A session that is denied leaves its slice unchanged, and autopilot stops with `B<n> is still todo after its run`. The mode is handed to `claude` as given; autopilot never adds a permission-bypass flag.
+The headless sessions need permission to edit files and run git, the project's commands and the plugin's scripts (`state.py`, `backlog.py`), which live outside the repo in the plugin's folder (add it to `permissions.additionalDirectories` if they're denied). Setup's allowlist covers only the project's own commands, so pass a `--permission-mode` or widen the allowlist. A session that is denied leaves its slice unchanged, and autopilot stops with `B<n> is still todo after its run`. The mode is handed to `claude` as given; autopilot never adds a permission-bypass flag.
 
 Each session runs `/sdlc:start B<n> --autopilot`: it does one slice and ends, never asking. Anything that would ask (a scope change, a hard stop) marks the slice `blocked: <reason>` in `backlog.md` and adds an open question. Feature close's Review takes the agent's own recommendation and records that it did.
 
