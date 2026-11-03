@@ -27,3 +27,4 @@
 - 2026-11-02 update knowledge/gotchas/hook-inputs.md — CLAUDE_PROJECT_DIR is the session's folder, not the repo; Codex sends none; .sdlc/ without config.json (from 2.4.0 release distill)
 - 2026-11-02 update knowledge/gotchas/headless-plugin-tests.md — the --plugin-dir recipe's sdlc@sdlc false left a smoke repo with no guardrails in a later session (from 2.4.1 release distill)
 - 2026-11-03 add knowledge/gotchas/a-mode-named-only-by-its-script.md — asking for autopilot in a session ran autopilot.py, then asked how to go on (from 2.4.2 release distill)
+- 2026-11-03 add knowledge/gotchas/a-commit-cant-record-its-own-id.md — slice done <commit> took a second commit and went stale on amend (from 2.4.3 release distill)

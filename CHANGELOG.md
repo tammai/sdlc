@@ -2,7 +2,7 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
-## Unreleased
+## 2.4.3 — 2026-11-03
 
 ### Changed
 - **Updates name the phase, part and step, and stay short** (asked for by a teammate reading a backlog run). Every update starts `<Phase> · <part> · <step>` by name, never a stage number (`Build · B1 Title row · failing tests`), from a fixed list of step names per phase. While work goes as planned the agent says nothing of its own, and only that prefix and a few words when Claude Code asks for an update; a part ends in one line (`… · done (<commit>) · AC-001–004 pass · next: B2 <title>`), a feature in a short summary. A failure it couldn't fix, a deviation, a decision for the user or a hard stop still gets a few lines. The orchestrator's "What the user reads", `/sdlc:start`, spec 02 (ORC-FR-041).
@@ -10,6 +10,8 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 ### Fixed
 - **A part's `verify.py` no longer fails on later parts' ACs** (found by the 2.4.2 smoke test and a teammate's run). It checked every AC in the change file, so part B1 failed on B2's ACs, which have no tests yet, and the session explained the false FAIL at length. While a part is `in progress`, an AC that only parts not started yet own (backlog.md's ACs column: `1, 2`, `AC-003–005`, `2-3`) is skipped and named (`not checked yet, later parts: AC-002 (B2)`), and so is the drift check for a task whose ACs are all theirs. The run records them as `skipped`, and `verify.py status` never offers it for reuse. With no part in progress (between parts, Feature close) everything is checked, and `ship.py` always checks everything.
 - **A part is one commit.** `state.py slice <f> done B<n>` takes no commit now and runs before the part's commit, so its `done` row goes into that commit. Before, the row was set to `done <commit>` after the commit, which needed a second commit (`… marking the row done`), and amending the part's commit left a stale ID in `backlog.md`. A commit given is still written (`done <commit>`), and `backlog.py`, `autopilot.py` and the control contract's `slice_done` (its `commit` now null) read both forms.
+
+Checked live on 2026-11-03 against `36f7d57`: a headless session given `autopilot` on an approved two-part backlog printed `Build · B1 subtract · done (05b86c7) · AC-001 passes · next: B2 multiply` and similar lines, `verify.py` passed on B1 with `not checked yet, later parts: AC-002 (B2)`, each part was one commit with its row `done` inside it, and it never ran `autopilot.py`. The full smoke test (A–J) was not rerun.
 
 ## 2.4.2 — 2026-11-03
 
