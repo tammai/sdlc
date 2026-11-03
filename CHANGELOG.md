@@ -7,6 +7,11 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 ### Added
 - **`verify.py trace`: requirement → AC coverage, checked by a script.** When an AC cites a written spec (`AC-003 … prd.md §4.2` or `§FR-002`), it reports a cited section the spec doesn't have and any `FR-nnn` in the cited spec that no AC names and `## Out of scope` doesn't set aside. Until now L's plan self-approval judged "every requirement maps to an AC" by reading; it now runs the script first (`verify.py --feature <f> trace`, before `state.py new`) and treats a finding as a doubt. A full run prints the same findings as `trace:` notes, recorded in `verify.json` and in `status`, and never fails on them: advisory until its false-positive rate is known. Nothing runs when no AC cites a spec, so existing features and the S, low-risk M and trivial tracks are unchanged, and no migration is needed. It checks that references exist, not that an AC really covers its requirement, and it doesn't flag an AC that cites nothing (a failure-mode AC legitimately cites no requirement). Idea taken from AI-DLC's traceability sensor ([awslabs/aidlc-workflows](https://github.com/awslabs/aidlc-workflows)), cut down to what our change file can parse.
 
+## Unreleased
+
+### Changed
+- **sdlc-stepper draws a card on the desktop app.** The terminal keeps its text bar. On desktop the phases are an SVG stepper (a green check on each done phase, a pulsing accent dot on the current one, a dashed line to the phases ahead), the backlog's parts a segmented bar (the current part breathing, a blocked one dashed), and the feature, part title and step real text in the app's type, inside a rounded card in the app's theme colors. A mod can't read the theme, so the drawings use colors that read on light and dark alike (checked by rendering both). Each drawing has alt text: `Phase 2 of 4: Build; done: Define`, `1 of 3 parts done`.
+
 ## 2.5.0 — 2026-11-03
 
 ### Added

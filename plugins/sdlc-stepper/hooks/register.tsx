@@ -3,6 +3,7 @@ import type { EngineInterface, Register } from 'claude-code'
 
 import type { Phase, Step, View } from '../types'
 import { PHASES, makeView, parseBacklog, parseState, stepFor } from './sdlc'
+import { partsAlt, partsSvg, phasesAlt, phasesSvg } from './desktop'
 
 const SHAPE = 'v2' // v2: View has `repo`
 const view = atom({ plugin: 'sdlc-stepper', key: 'view' } as const, null, { shape: SHAPE })
@@ -129,6 +130,34 @@ export const register: Register = on => {
     const v = await read($, view)
     if (e.props.hasSurvey || !v) return next(e)
     const s = await read($, step)
+    const stepName = s && s.phase === v.phase ? s.name : null
+    const total = v.parts.length
+    const finished = v.parts.filter(p => p.status.startsWith('done')).length
+
+    if (e.surface === 'desktop') {
+      // A card: the drawings in SVG, the words as text (selectable, in the app's own type and theme)
+      const { Box, Text, Svg } = $.ui.resolve(e)
+      return (
+        <Box flexDirection="column" borderStyle="round" borderColor="promptBorder" paddingX={2} paddingY={1} gap={1}>
+          <Box flexDirection="row" justifyContent="space-between" alignItems="center" gap={2}>
+            <Text size="caption" weight="semibold" color="claude">SDLC</Text>
+            <Text key="feature" size="caption" dimColor wrap="truncate-start">
+              {`${v.repo ? `${v.repo} · ` : ''}${v.feature}`}
+            </Text>
+          </Box>
+          <Svg source={phasesSvg(v.phase)} alt={phasesAlt(v.phase)} />
+          {(total > 0 || v.current || stepName) && (
+            <Box flexDirection="row" alignItems="center" gap={2}>
+              {total > 0 && <Svg source={partsSvg(v.parts, v.current)} alt={partsAlt(v.parts)} />}
+              {total > 0 && <Text size="footnote" tabular dimColor>{`${finished}/${total} parts`}</Text>}
+              {v.current && <Text size="body" weight="semibold" wrap="truncate-end">{`${v.current.id}  ${v.current.title}`}</Text>}
+              {stepName && <Text size="footnote" weight="medium" color="claude">{stepName}</Text>}
+            </Box>
+          )}
+        </Box>
+      )
+    }
+
     const { Box, Text } = $.ui.resolve(e)
     const at = PHASES.indexOf(v.phase)
     const width = e.props.bodyColumns ?? 80
@@ -147,9 +176,6 @@ export const register: Register = on => {
       return out
     })
 
-    const total = v.parts.length
-    const finished = v.parts.filter(p => p.status.startsWith('done')).length
-    const stepName = s && s.phase === v.phase ? s.name : null
     const where = [
       v.current ? `${v.current.id}${v.current.title ? ` ${v.current.title}` : ''}` : null,
       stepName,

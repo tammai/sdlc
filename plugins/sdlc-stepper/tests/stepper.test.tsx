@@ -77,15 +77,26 @@ test('the band names the phase, the part and the step, on every surface that has
   await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
   await $.tool.call({ tool: 'Bash', command: 'python3 "/p/scripts/verify.py" red AC-002' })
 
-  for (const surface of ['terminal', 'desktop'] as const) {
-    const ui = await $.ui.mount({ ...BAND, surface })
-    expect((await ui.find({ type: 'Text', text: /Define/ }))?.text).toBe('✓ Define')
-    expect((await ui.find({ type: 'Text', text: /Build/ }))?.text).toBe('● Build')
-    expect((await ui.find({ type: 'Text', text: /Review/ }))?.text).toBe('○ Review')
-    expect((await ui.find({ type: 'Text', text: /parts/ }))?.text).toBe(' 1/3 parts')
-    expect((await ui.find({ type: 'Text', text: /B2/ }))?.text).toBe('  ·  B2 Title row · failing tests')
-    await ui.unmount()
-  }
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /Define/ }))?.text).toBe('✓ Define')
+  expect((await ui.find({ type: 'Text', text: /Build/ }))?.text).toBe('● Build')
+  expect((await ui.find({ type: 'Text', text: /Review/ }))?.text).toBe('○ Review')
+  expect((await ui.find({ type: 'Text', text: /parts/ }))?.text).toBe(' 1/3 parts')
+  expect((await ui.find({ type: 'Text', text: /B2/ }))?.text).toBe('  ·  B2 Title row · failing tests')
+  await ui.unmount()
+
+  // The desktop draws a card: the phases and parts as SVG, the words as text
+  const card = await $.ui.mount({ ...BAND, surface: 'desktop' })
+  const [phases, parts] = await card.findAll({ type: 'Svg' })
+  expect(phases?.props.alt).toBe('Phase 2 of 4: Build; done: Define')
+  expect(String(phases?.props.source)).toContain('>Build</text>')
+  expect(String(phases?.props.source)).toContain("attributeName='r'")  // the current phase pulses
+  expect(parts?.props.alt).toBe('1 of 3 parts done')
+  expect((await card.find({ type: 'Text', text: /parts/ }))?.text).toBe('1/3 parts')
+  expect((await card.find({ type: 'Text', text: /B2/ }))?.text).toBe('B2  Title row')
+  expect((await card.find({ type: 'Text', text: 'failing tests' }))?.text).toBe('failing tests')
+  expect(await card.find({ type: 'Text', text: /✓|●/ })).toBeUndefined()  // no terminal glyphs on desktop
+  await card.unmount()
 })
 
 test('outside an sdlc repo, or with no active feature, the band stays empty', async ($, on) => {
