@@ -34,6 +34,7 @@ One line per doc: path — what it answers (≤12 words). Keep this file under ~
 - [gotchas/state-format-change-needs-marker-and-cache-clear.md](gotchas/state-format-change-needs-marker-and-cache-clear.md) — a changed field meaning needs a new Process marker; clear runtime caches
 - [gotchas/zsh-does-not-split-a-command-variable.md](gotchas/zsh-does-not-split-a-command-variable.md) — `S="python3 x"; $S` fails in zsh; use a function
 - [gotchas/macos-stock-bash-and-no-timeout.md](gotchas/macos-stock-bash-and-no-timeout.md) — bash 3.2 has no EPOCHREALTIME; a Mac has no timeout binary
+- [gotchas/review-refuses-heredocs-so-helpers-read-a-file.md](gotchas/review-refuses-heredocs-so-helpers-read-a-file.md) — a script run in Review takes a file the Write tool made, not stdin
 
 ## Runbooks
 - [../docs/runbook.md](../docs/runbook.md) — maintainer and user procedures, including releases
