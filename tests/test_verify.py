@@ -218,5 +218,46 @@ class VerifyTest(ProjectTestCase):
         self.assertIn("AC-002: no row in ## Acceptance tests", out)
 
 
+    def backlog(self, *rows):
+        self.write(".sdlc/login/backlog.md", "# Backlog: login\n\n| ID | Slice | FRs | ACs | Deps | Size | Status |\n"
+                   "|---|---|---|---|---|---|---|\n" + "".join(f"| {i} | part | — | {acs} | — | S | {st} |\n"
+                                                              for i, acs, st in rows))
+
+    def test_a_part_checks_only_the_acs_of_parts_already_started(self):
+        # The part in progress can't have later parts' tests yet: their ACs and tasks wait, and nothing reuses the run
+        self.spec("AC-001", "AC-002", "AC-003")
+        self.plan([("AC-001", "tests/t.py › a", 'python3 -c "pass"'), ("AC-002", "tests/t2.py › b", 'python3 -c "pass"'),
+                   ("AC-003", "tests/t2.py › c", 'python3 -c "pass"')],
+                  tasks=["1. **A** — AC-001\n   - Files: `src/a.py`", "2. **B** — AC-002 AC-003\n   - Files: `src/b.py`"])
+        self.write("tests/t.py", "")
+        self.write("src/a.py", "x = 1\n")
+        self.backlog(("B1", "1", "in progress"), ("B2", "AC-002–003", "todo"))
+        self.verify()
+        self.write_red("AC-001")
+        code, out, rec = self.verify()
+        self.assertEqual(code, 0, out)
+        self.assertIn("not checked yet, later parts: AC-002 (B2), AC-003 (B2)", out)
+        self.assertEqual(rec["last"]["skipped"], ["AC-002", "AC-003"])
+        self.assertNotIn("task 2", out)
+        st = self.status()
+        self.assertFalse(st["reuse"])
+        self.assertIn("later parts", st["reason"])
+        self.backlog(("B1", "1", "done"), ("B2", "2-3", "todo"))  # no part in progress: everything is checked
+        code, out, rec = self.verify()
+        self.assertEqual(code, 1)
+        self.assertIn("AC-002: tests/t2.py not found", out)
+        self.assertIn("drift: task 2", out)
+        self.assertEqual(rec["last"]["skipped"], [])
+
+    def test_an_ac_a_started_part_also_owns_is_checked(self):
+        self.spec("AC-001")
+        self.plan([("AC-001", "tests/t.py › a", 'python3 -c "pass"')])
+        self.write("tests/t.py", "")
+        self.backlog(("B1", "1", "in progress"), ("B2", "1", "todo"))
+        code, out, _ = self.verify()
+        self.assertEqual(code, 1)
+        self.assertIn("AC-001: no red run recorded", out)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -110,5 +110,15 @@ class ShipTest(ProjectTestCase):
         self.assertIn("Current: Stage 4", self.state_text())
 
 
+    def test_ship_checks_every_ac_even_with_a_part_left_in_progress(self):
+        self.write(".sdlc/login/change.md", "# Change\n\n## Acceptance criteria\n\n- **AC-001** x\n\n## Acceptance tests\n\n"
+                   "| AC | Test | Run |\n|---|---|---|\n| AC-001 | tests/t.py › a | `python3 -c \"pass\"` |\n")
+        self.write(".sdlc/login/backlog.md", "| ID | Slice | ACs | Deps | Status |\n|---|---|---|---|---|\n"
+                   "| B1 | a | — | — | in progress |\n| B2 | b | 1 | — | todo |\n")
+        code, out = self.ship()
+        self.assertEqual(code, 1)
+        self.assertIn("AC-001: tests/t.py not found", out)
+
+
 if __name__ == "__main__":
     unittest.main()

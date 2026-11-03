@@ -85,7 +85,7 @@ def verified(root, feature, timeout, waive_baseline=False):
     st = verify.status(root, feature)
     if st["reuse"]:
         return st["head"], st["tree"], None
-    last, notes = verify.full(root, feature, timeout)
+    last, notes = verify.full(root, feature, timeout, whole=True)
     if last["result"] == "pass":
         return last["head"], last["tree"], None
     listed = baseline_failures(root)

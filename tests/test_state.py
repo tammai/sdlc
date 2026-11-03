@@ -119,6 +119,19 @@ class StateTest(ProjectTestCase):
         self.assertIn("Slice: B1   Slice base: abc1234   Slice gates: plan, commit\n", text)
         self.assertEqual(text.count("Slice gates:"), 1)
 
+    def test_slice_done_needs_no_commit_so_the_part_is_one_commit(self):
+        # Marked done before its commit, the row goes into that commit: a hash recorded after it took a second one
+        self.write(".sdlc/state/login/backlog.md", "| ID | Slice | ACs | Deps | Status |\n|---|---|---|---|---|\n"
+                   "| B1 | a | 1 | — | in progress |\n")
+        code, out = self.state("slice", "login", "done", "B1")
+        self.assertEqual(code, 0, out)
+        with open(self.path(".sdlc/state/login/backlog.md"), encoding="utf-8") as f:
+            self.assertIn("| B1 | a | 1 | — | done |", f.read())
+        self.assertEqual(self.events()[-1], {**self.events()[-1], "type": "slice_done", "slice": "B1", "commit": None})
+        self.assertEqual(self.state("slice", "login", "done", "B1", "abc1234")[0], 0)  # a commit is still taken
+        with open(self.path(".sdlc/state/login/backlog.md"), encoding="utf-8") as f:
+            self.assertIn("| done abc1234 |", f.read())
+
     def test_a_deviation_goes_under_deviations(self):
         # The sdlc-invariants CI check looks for a baseline change named under ## Deviations, not the Gate log
         self.write(".sdlc/state/login.md", STATE.replace("## Open questions", "## Deviations\n-\n\n## Open questions"))

@@ -8,7 +8,9 @@ Usage: verify.py [--root DIR] [--feature NAME] [--timeout S] [red AC-nnn [AC-nnn
   test file, a recorded red run, and the row's Run command passing. Writes the result to .sdlc/.work/verify.json and
   exits 0 on pass, 1 on a failure, 2 when there's no feature to verify. On an old S fix with no record, the state
   file's `Repro: <test file> › <name> | <command>` line is AC-001. A plan without the table, and no Repro line, is an
-  old plan: the AC checks are skipped and the plan is from sdlc 1.x. Then drift from the plan (the state file's
+  old plan: the AC checks are skipped and the plan is from sdlc 1.x. While a backlog part is `in progress`, an AC
+  that only parts not started yet own (backlog.md's ACs column) waits, and so does a task whose ACs are all theirs:
+  the run records them as `skipped` and can't be reused for Review; with no part in progress everything is checked. Then drift from the plan (the state file's
   `## Tasks` and `## Public Surface`; plan.md on 1.x): a changed file no task or acceptance test names, a task whose
   files didn't change, an export or dependency the Public Surface doesn't list; each needs a `## Deviations` line
   (`state.py deviation`) naming it, with What:, Why: and Effect:.
@@ -32,6 +34,7 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(HERE), "hooks"))
 sys.path.insert(0, HERE)
+import backlog  # noqa: E402  (a backlog's parts: which ACs belong to parts not started yet)
 import diff_stats  # noqa: E402  (changed files and the Public Surface check, since the feature's Base)
 import scaffold  # noqa: E402  (the verify plan and the shell that runs project commands)
 import sdlc_layout  # noqa: E402
@@ -142,13 +145,33 @@ def acceptance(root, feature):
     return ["AC-001"], row
 
 
+def later_parts(root, feature):
+    """{AC: part} for each AC that only parts not started yet (todo or blocked) own, while a part is in progress:
+    that part can't have their tests yet. {} without a backlog or with no part in progress, so feature close, Ship
+    and the time between parts check everything."""
+    text = read(os.path.join(root, sdlc_layout.paths(root, feature)["work"], "backlog.md"))
+    rows = backlog.slices(text) if text else []
+    if not any(r["status"].startswith("in progress") for r in rows):
+        return {}
+    started = [r for r in rows if r["status"].startswith(("in progress", "done"))]
+    owned = {ac for r in started for ac in backlog.ac_ids(r["acs"])}
+    later = {}
+    for r in rows:
+        if r not in started:
+            for ac in backlog.ac_ids(r["acs"]):
+                if ac not in owned:
+                    later.setdefault(ac, r["id"])
+    return later
+
+
 def covered(item, deviations):
     return any(item in line and all(re.search(rf"{part}:\s*[^·\s]", line) for part in ("What", "Why", "Effect"))
                for line in deviations.splitlines())
 
 
-def drift(root, feature):
-    """[{item, kind, covered}] for what the change did that the plan didn't say, or None without a Base or a plan."""
+def drift(root, feature, later=()):
+    """[{item, kind, covered}] for what the change did that the plan didn't say, or None without a Base or a plan.
+    A task whose ACs are all in `later` (parts not started yet) isn't expected to have changed its files."""
     spec_text, plan_text, plan_path = docs(root, feature)
     if not plan_text.strip():
         return None
@@ -160,27 +183,31 @@ def drift(root, feature):
     docs_dir = sdlc_layout.docs_dir(root)
     changed = [f for f in facts["changed_files"] if not f.startswith(".sdlc/") and not f.lower().endswith(".md")
                and not (docs_dir and f.startswith(docs_dir + "/")) and not GENERATED.search(f)]
-    tasks, current = {}, None
+    tasks, task_acs, current = {}, {}, None
     for line in (section(plan_text, "Tasks") or "").splitlines():
         t = TASK_START.match(line)
         if t:
             current = t.group(1)
         if current:
             tasks.setdefault(current, set()).update(BACKTICKED.findall(line))
+            task_acs.setdefault(current, set()).update(AC_ID.findall(line))
     named = set().union(*tasks.values()) if tasks else set()
     rows = acceptance_map(spec_text)  # sdlc 2.0: the table is change.md's; 1.x: plan.md's
     named |= {r["file"] for r in (rows if rows is not None else acceptance_map(plan_text)) or [] if r["file"]}
     items = [(f, "file") for f in changed if f not in named]
     # A task's files count against everything changed: a README-only task did its work
     items += [(f"task {n}", "task") for n, files in tasks.items()
-              if any("/" in f or "." in f for f in files) and not files & set(facts["changed_files"])]
+              if any("/" in f or "." in f for f in files) and not files & set(facts["changed_files"])
+              and not (task_acs.get(n) and task_acs[n] <= set(later))]
     surface = facts.get("surface") or {}
     items += [(n, "surface") for n in surface.get("undeclared_exports", []) + surface.get("undeclared_dependencies", [])]
     deviations = section(plan_text, "Deviations") or ""
     return [{"item": i, "kind": k, "covered": covered(i, deviations)} for i, k in items]
 
 
-def full(root, feature, timeout=1800):
+def full(root, feature, timeout=1800, whole=False):
+    """The verify plan, every AC and drift. While a backlog part is in progress, the ACs and tasks of parts not
+    started yet wait (recorded as `skipped`), unless `whole` (Ship)."""
     started = time.time()
     rec = load_record(root)
     if rec.get("feature") != feature:
@@ -192,6 +219,11 @@ def full(root, feature, timeout=1800):
         if code:
             failures.append(f"{step['scope'] or scaffold.ROOT_SCOPE} {step['step']}: exit {code}\n{out[-500:]}")
     acs, rows = acceptance(root, feature)
+    later = {} if whole else later_parts(root, feature)
+    skipped = [ac for ac in acs if ac in later]
+    acs = [ac for ac in acs if ac not in later]
+    if skipped:
+        notes.append("not checked yet, later parts: " + ", ".join(f"{ac} ({later[ac]})" for ac in skipped))
     manual = []
     if rows is None:
         notes.append("no acceptance tests section: every 2.0 plan has one")
@@ -215,7 +247,7 @@ def full(root, feature, timeout=1800):
                 code, out = run_once(ran, row["run"], root, timeout)
                 if code:
                     failures.append(f"{ac}: its test fails (exit {code})\n{out[-500:]}")
-    drifted = drift(root, feature)
+    drifted = drift(root, feature, later)
     if drifted is None:
         notes.append("no plan (the state file's ## Tasks) or no Base:, so drift wasn't checked")
     for d in drifted or []:
@@ -223,7 +255,7 @@ def full(root, feature, timeout=1800):
             failures.append(f"drift: {d['item']} has no Deviations entry with What:, Why: and Effect:")
     rec["last"] = {"at": vf.now(), "tree": vf.worktree_tree(root), "head": vf.git_head(root),
                    "result": "fail" if failures else "pass", "seconds": round(time.time() - started, 1),
-                   "failures": failures, "manual": manual, "drift": drifted or []}
+                   "failures": failures, "manual": manual, "drift": drifted or [], "skipped": skipped}
     save_record(root, rec, ("full", None))
     return rec["last"], notes
 
@@ -297,6 +329,8 @@ def status(root, feature):
     current = vf.worktree_tree(root)
     if last.get("result") != "pass":
         reason = "no passing verify recorded"
+    elif last.get("skipped"):
+        reason = "the last verify was one part's: later parts' ACs weren't checked"
     elif hook_last.get("result") != "pass":
         reason = "hook record missing or unknown"
     elif hook_last.get("tree") != last.get("tree") or set(rec.get("red") or {}) - set(hook.get("red") or {}):

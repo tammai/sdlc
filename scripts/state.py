@@ -13,7 +13,7 @@ Usage: python3 state.py [--root DIR] advance FEATURE STAGE [--gate pass|fail] [-
                                      verified FEATURE COMMIT TREE
                                      log FEATURE TEXT [--type note|review_done]
                                      deviation FEATURE TEXT
-                                     slice FEATURE start|done|block B<n> [COMMIT | REASON]
+                                     slice FEATURE start|done|block B<n> [REASON]   (done: before the part's commit)
                                      blocker FEATURE raise|resolve TEXT
                                      set FEATURE FIELD VALUE
                                      sync FEATURE
@@ -40,7 +40,7 @@ import sdlc_layout  # noqa: E402  (where the feature's state and documents live)
 
 CONTRACT_VERSION = 2
 # sdlc 2.0: four phases, each at one stage number so the hooks keep reading numbers. A backlog slice rests at Stage 4
-# with its row `done <commit>`; feature close goes on to Review.
+# with its row `done`; feature close goes on to Review.
 STAGES = {1: "Define", 4: "Build", 5: "Review", 8: "Ship"}
 PHASES = {1: "define", 4: "build", 5: "review", 8: "ship"}
 FIELDS = ("Status", "Track", "Risk", "Top model", "Base", "Owner", "Tool", "Slice gates", "Process")
@@ -286,10 +286,9 @@ def apply(a, text, backlog_raw):
             text = append_to_section(text, "Open questions", f"{slice_id} blocked: {a.commit}")
             return text, set_backlog_status(backlog_raw, slice_id, f"blocked: {a.commit}"), {
                 "type": "slice_blocked", "slice": slice_id, "reason": a.commit}
-        if not a.commit:
-            raise Refused("slice done needs the slice's commit")
-        return text, set_backlog_status(backlog_raw, slice_id, f"done {a.commit}"), {
-            "type": "slice_done", "slice": slice_id, "commit": a.commit}
+        # Run before the part's commit, so the row goes into that commit; a commit given (as before 2.4.3) is kept
+        return text, set_backlog_status(backlog_raw, slice_id, f"done {a.commit}" if a.commit else "done"), {
+            "type": "slice_done", "slice": slice_id, "commit": a.commit or None}
     if a.cmd == "blocker":
         if a.action == "raise":
             return append_to_section(text, "Open questions", a.text), None, {"type": "blocker_raised", "text": a.text}

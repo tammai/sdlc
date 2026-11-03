@@ -2,7 +2,8 @@
 """sdlc backlog: which slice of a feature's backlog.md runs next.
 
 A slice in progress is resumed; otherwise the next one is the first `todo` row whose dependencies are all
-`done <commit>`. Used by the orchestrator and autopilot.py.
+`done` (`done <commit>` from before 2.4.3). Used by the orchestrator, autopilot.py and verify.py (which ACs
+belong to parts not started yet).
 Usage: python3 backlog.py next BACKLOG.md          -> {"next": "B2" | null, "done": bool}
        python3 backlog.py check BACKLOG.md B<n>    -> {"ok": true} or exit 1 with {"ok": false, "reason": ...}
 An unreadable file, or one without a table with ID, Deps and Status columns: exit 2 with {"error": ...}.
@@ -19,7 +20,8 @@ def cells(line):
 
 
 def slices(text):
-    """[{id, deps, status}] from the first table whose header has ID, Deps and Status columns."""
+    """[{id, deps, status, acs}] from the first table whose header has ID, Deps and Status columns; `acs` is the
+    ACs cell as written ("" without that column)."""
     rows, cols = [], None
     for line in text.splitlines():
         line = line.strip()
@@ -31,13 +33,26 @@ def slices(text):
         if cols is None:
             names = [c.lower() for c in row]
             if {"id", "deps", "status"} <= set(names):
-                cols = {n: names.index(n) for n in ("id", "deps", "status")}
+                cols = {n: names.index(n) for n in ("id", "deps", "status", "acs") if n in names}
             continue
-        if set(line.replace("|", "").strip()) <= set("-: ") or len(row) <= max(cols.values()):
+        if set(line.replace("|", "").strip()) <= set("-: ") or len(row) <= max(cols[n] for n in ("id", "deps", "status")):
             continue  # the separator row, or a row too short to read
         rows.append({"id": row[cols["id"]].upper(), "deps": [d.upper() for d in re.findall(r"B\d+", row[cols["deps"]], re.I)],
-                     "status": row[cols["status"]].lower()})
+                     "status": row[cols["status"]].lower(),
+                     "acs": row[cols["acs"]] if "acs" in cols and len(row) > cols["acs"] else ""})
     return rows
+
+
+AC_SPAN = re.compile(r"(?:AC-)?(\d{1,3})\b(?:\s*[–—-]\s*(?:AC-)?(\d{1,3})\b)?", re.I)
+
+
+def ac_ids(cell):
+    """The AC ids an ACs cell names: `1, 2`, `AC-001 AC-002` or a range such as `AC-001–004` or `2-3`."""
+    out = []
+    for m in AC_SPAN.finditer(cell):
+        first, last = int(m.group(1)), int(m.group(2) or m.group(1))
+        out += [f"AC-{n:03d}" for n in range(first, last + 1 if 0 <= last - first < 100 else first + 1)]
+    return list(dict.fromkeys(out))
 
 
 def is_done(row):
