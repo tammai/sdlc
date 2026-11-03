@@ -240,7 +240,7 @@ Best done before installing 2.0: the plugin is installed per machine, so finish 
 
 3.0 numbers the phases 1 to 4 (2.x used 1, 4, 5, 8) and marks a state file `Process: 3` ([ADR 0022](adr/0022-phases-numbered-one-to-four.md)). A `Process: 2` feature has no guard (the hooks ignore it) and `state.py` refuses it, saying to run `/sdlc:upgrade`. Nothing has to finish first.
 
-1. Run `/sdlc:upgrade`; its `3.0.0-stage-numbers` migration runs `python3 scripts/state.py migrate`. Or run that yourself in the repo: it prints `migrated` and `skipped`, and is safe to run twice.
+1. Run `/sdlc:upgrade`; its `3.0.0-stage-numbers` migration runs `python3 scripts/state.py migrate`. Or run that yourself in the repo: it prints `migrated` and `skipped`, and is safe to run twice. It only sees the branch that is checked out, so a feature on a branch not yet merged keeps `Process: 2`: after merging the upgraded main into that branch, run `migrate` there too.
 2. A feature under `skipped` holds a stage number 3.0 has no equivalent for (anything but 1, 4, 5, 8): read its reason, fix the `Current:` line by hand to the phase it is really in, and run `migrate` again.
 3. Commit the rewritten state files. With `sdlc-stepper`, update it as well: the old one shows no bar for a migrated feature.
 
