@@ -121,7 +121,10 @@ class StateTest(ProjectTestCase):
         v2 = (STATE.replace("Process: 3", "Process: 2").replace("Current: Stage 2 – Build", "Current: Stage 5 – Review")
               .replace("- [ ] 2 Build\n- [ ] 3 Review   — review.md\n- [ ] 4 Ship", "- [x] 4 Build\n- [ ] 5 Review   — review.md\n- [ ] 8 Ship")
               .replace("## Open questions", "- 2026-10-26 Stage 4: pass — built\n\n## Open questions"))
-        self.write(".sdlc/state/old.md", v2.replace("\n", "\r\n"))  # CRLF survives
+        old = self.path(".sdlc/state/old.md")  # CRLF survives; newline="" so Windows doesn't turn \n\r\n into \r\r\n
+        os.makedirs(os.path.dirname(old), exist_ok=True)
+        with open(old, "w", encoding="utf-8", newline="") as f:
+            f.write(v2.replace("\n", "\r\n"))
         self.write(".sdlc/state/mine.md", STATE)  # already current: untouched
         self.write(".sdlc/state/legacy.md", "# legacy\nStatus: active\nCurrent: Stage 5 – Prove\n")  # 1.x: untouched
         os.remove(self.md)
