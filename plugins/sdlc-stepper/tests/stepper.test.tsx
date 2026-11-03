@@ -85,16 +85,22 @@ test('the band names the phase, the part and the step, on every surface that has
   expect((await ui.find({ type: 'Text', text: /B2/ }))?.text).toBe('  ·  B2 Title row · failing tests')
   await ui.unmount()
 
-  // The desktop draws a card: the phases and parts as SVG, the words as text
+  // The desktop draws a card of two rows: SDLC with where it is now, then one bar of icons (a phase's, and a
+  // small one per part on Build's line), the names as text
   const card = await $.ui.mount({ ...BAND, surface: 'desktop' })
-  const [phases, parts] = await card.findAll({ type: 'Svg' })
-  expect(phases?.props.alt).toBe('Phase 2 of 4: Build; done: Define')
-  expect(String(phases?.props.source)).toContain('>Build</text>')
-  expect(String(phases?.props.source)).toContain("attributeName='r'")  // the current phase pulses
-  expect(parts?.props.alt).toBe('1 of 3 parts done')
-  expect((await card.find({ type: 'Text', text: /parts/ }))?.text).toBe('1/3 parts')
-  expect((await card.find({ type: 'Text', text: /B2/ }))?.text).toBe('B2  Title row')
-  expect((await card.find({ type: 'Text', text: 'failing tests' }))?.text).toBe('failing tests')
+  const icons = await card.findAll({ type: 'Svg' })
+  expect(icons.map(i => i.props.alt)).toEqual([
+    'Define: done', 'Build: in progress',
+    'B1: done', 'B2: in progress', 'B3: not started',
+    'Review: not started', 'Ship: not started',
+  ])
+  expect(String(icons[1]?.props.source)).toContain("attributeName='r'")  // the current phase pulses
+  expect(String(icons[0]?.props.source)).toContain('<path')              // a done one holds a check
+  const colors = new Set(icons.flatMap(i => String(i.props.source).match(/#[0-9a-f]{3,6}/gi) ?? []))
+  expect([...colors].sort()).toEqual(['#7C828C', '#fff'])  // neutral only: one gray and white, no hue
+  expect((await card.find({ type: 'Text', text: 'Build' }))?.text).toBe('Build')
+  expect((await card.find({ type: 'Text', text: /B2/ }))?.text).toBe('B2  Title row · failing tests')
+  expect(await card.find({ type: 'Text', text: /parts/ })).toBeUndefined()  // the count is the icons now
   expect(await card.find({ type: 'Text', text: /✓|●/ })).toBeUndefined()  // no terminal glyphs on desktop
   await card.unmount()
 })

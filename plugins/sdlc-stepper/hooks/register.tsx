@@ -3,7 +3,7 @@ import type { EngineInterface, Register } from 'claude-code'
 
 import type { Phase, Step, View } from '../types'
 import { PHASES, makeView, parseBacklog, parseState, stepFor } from './sdlc'
-import { partsAlt, partsSvg, phasesAlt, phasesSvg } from './desktop'
+import { PART_ICON, PHASE_ICON, iconSvg, partAlt, partState, phaseAlt, phaseState } from './desktop'
 
 const SHAPE = 'v2' // v2: View has `repo`
 const view = atom({ plugin: 'sdlc-stepper', key: 'view' } as const, null, { shape: SHAPE })
@@ -135,25 +135,58 @@ export const register: Register = on => {
     const finished = v.parts.filter(p => p.status.startsWith('done')).length
 
     if (e.surface === 'desktop') {
-      // A card: the drawings in SVG, the words as text (selectable, in the app's own type and theme)
+      // A card of two rows, all neutral: the words (SDLC, where it is now, the feature), then one bar across the
+      // full width. The bar is each phase's icon and name joined by lines that stretch to fill the row; Build's
+      // line carries one small icon per part. Icons are SVG; names and lines are text, so they follow the theme.
       const { Box, Text, Svg } = $.ui.resolve(e)
+      const at = PHASES.indexOf(v.phase)
+      const buildAt = PHASES.indexOf('Build')
+      // A line as wide as the room it is given: a run of box-drawing dashes in a one-row box that clips it
+      const rule = (key: string, solid: boolean, grow = 1) => (
+        <Box key={key} width={0} flexGrow={grow} height={1} overflow="hidden">
+          <Text color={solid ? undefined : 'inactive'} dimColor={!solid}>{'─'.repeat(240)}</Text>
+        </Box>
+      )
+      const items: unknown[] = []
+      PHASES.forEach((p: Phase, i) => {
+        const state = phaseState(i, at)
+        items.push(
+          <Box key={p} flexDirection="row" alignItems="center" gap="sm">
+            <Svg source={iconSvg(state)} alt={phaseAlt(p, state)} width={PHASE_ICON} height={PHASE_ICON} />
+            <Text size="footnote" weight={state === 'current' ? 'semibold' : 'medium'} dimColor={state === 'todo'}>{p}</Text>
+          </Box>,
+        )
+        if (i === PHASES.length - 1) return
+        if (i === buildAt && total > 0) {
+          // Build's line: a small icon per part, each with the line up to it solid once the work has reached it
+          const parts: unknown[] = []
+          v.parts.forEach(part => {
+            const state = partState(part, v.current)
+            parts.push(rule(`${part.id}-in`, at > buildAt || state !== 'todo' && state !== 'blocked'))
+            parts.push(<Svg key={part.id} source={iconSvg(state)} alt={partAlt(part, state)} width={PART_ICON} height={PART_ICON} />)
+          })
+          parts.push(rule('parts-out', at > buildAt || finished === total))
+          items.push(
+            <Box key={`${p}-parts`} flexDirection="row" alignItems="center" width={0} flexGrow={3} gap="xs">{parts}</Box>,
+          )
+        } else {
+          items.push(rule(`${p}-line`, at > i))
+        }
+      })
+
+      const here = [v.current ? `${v.current.id}  ${v.current.title}` : null, stepName].filter(Boolean).join(' · ')
       return (
-        <Box flexDirection="column" borderStyle="round" borderColor="promptBorder" paddingX={2} paddingY={1} gap={1}>
+        <Box flexDirection="column" borderStyle="round" borderColor="promptBorder" backgroundColor="inverseText" paddingX={2} paddingY={1} gap={1}>
           <Box flexDirection="row" justifyContent="space-between" alignItems="center" gap={2}>
-            <Text size="caption" weight="semibold" color="claude">SDLC</Text>
+            <Box flexDirection="row" alignItems="center" gap={2} flexShrink={1}>
+              <Text size="caption" weight="semibold">SDLC</Text>
+              {here && <Text size="caption" dimColor wrap="truncate-end">{here}</Text>}
+            </Box>
             <Text key="feature" size="caption" dimColor wrap="truncate-start">
               {`${v.repo ? `${v.repo} · ` : ''}${v.feature}`}
             </Text>
           </Box>
-          <Svg source={phasesSvg(v.phase)} alt={phasesAlt(v.phase)} />
-          {(total > 0 || v.current || stepName) && (
-            <Box flexDirection="row" alignItems="center" gap={2}>
-              {total > 0 && <Svg source={partsSvg(v.parts, v.current)} alt={partsAlt(v.parts)} />}
-              {total > 0 && <Text size="footnote" tabular dimColor>{`${finished}/${total} parts`}</Text>}
-              {v.current && <Text size="body" weight="semibold" wrap="truncate-end">{`${v.current.id}  ${v.current.title}`}</Text>}
-              {stepName && <Text size="footnote" weight="medium" color="claude">{stepName}</Text>}
-            </Box>
-          )}
+          <Box flexDirection="row" alignItems="center" gap="sm">{items}</Box>
         </Box>
       )
     }

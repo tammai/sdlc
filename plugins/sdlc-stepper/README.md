@@ -7,10 +7,10 @@ sdlc ✓ Define ─── ● Build ─── ○ Review ─── ○ Ship   20
 ■□□ 1/3 parts  ·  B2 Title row · failing tests
 ```
 
-That's the terminal. The desktop app draws a card instead: the phases as a stepper with a check on each done phase and a pulsing dot on the current one, the parts as a segmented bar, and the part title and step as text in the app's own type. Its colors read in light and dark mode alike, since a mod can't read the app's theme.
+That's the terminal. The desktop app draws a card of two rows instead: `SDLC` with the part and step the session is on beside it and the feature on the right, then one bar across the full width, each phase's icon with its name and Build's line carrying a small icon per part. The icons are a check when done, a pulsing dot when current and a ring after. The card is white in the light theme and black in the dark one, and everything on it is neutral: a mod can't read the app's theme, so the icons use one gray that reads on both and tell their state by shape.
 
-- **Phases** come from the active feature's state file (`.sdlc/state/<feature>.md`, `Current: Stage <n> – <name>`, and `Process: 2` or `3`, which number the stages differently, so the name is read first): done phases green, the current one highlighted, later ones dim.
-- **Parts** come from the feature's `backlog.md`: one square per part, filled when it's `done`, and the part in progress (else the next one) by ID and title.
+- **Phases** come from the active feature's state file (`.sdlc/state/<feature>.md`, `Current: Stage <n> – <name>`, and `Process: 2` or `3`, which number the stages differently, so the name is read first): done phases checked, the current one highlighted, later ones dim.
+- **Parts** come from the feature's `backlog.md`: one icon per part, checked when it's `done`, and the part in progress (else the next one) by ID and title.
 - **The step** comes from what the session is doing: `verify.py red` is `failing tests`, editing a test file `tests` and other code `code`, `verify.py` `verify`, `git commit` `commit`, a review agent `reviews`, `ship.py` `checks`, `gh pr create` `PR`, `gh pr checks` `CI`. A step from an earlier phase isn't carried into the next.
 
 It reads the repo the session started in, or, when that folder isn't an sdlc repo, the sdlc repos up to two levels below it (a workbench of several repos and worktrees), showing the one whose active feature changed last. With no active feature, or outside an sdlc repo, the bar shows nothing. It only reads files, and a failure in it never holds a prompt or a tool call.
