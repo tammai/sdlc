@@ -2,7 +2,7 @@
 """One command that proves a feature: the project's verify plan, then every acceptance criterion against the test
 change.md names for it (plan.md on a 1.x feature) (ADR 0013, 0020).
 
-Usage: verify.py [--root DIR] [--feature NAME] [--timeout S] [red AC-nnn [AC-nnn ...] | status]
+Usage: verify.py [--root DIR] [--feature NAME] [--timeout S] [red AC-nnn [AC-nnn ...] | status | trace]
   Runs the verify plan (lint, typecheck, build, test from .sdlc/config.json, per package), then, for every `AC-nnn`
   in change.md: a row in its `## Acceptance tests` table (plan.md's on a 1.x feature), a `manual` row's reason, the
   test file, a recorded red run, and the row's Run command passing. Writes the result to .sdlc/.work/verify.json and
@@ -17,6 +17,10 @@ Usage: verify.py [--root DIR] [--feature NAME] [--timeout S] [red AC-nnn [AC-nnn
 `red AC-nnn [AC-nnn ...]`, run before those ACs' code is written: runs each AC's test and records it failing (exit 0).
   A test that passes, can't be found or can't run is refused (exit 1, and none of the named ACs is recorded): it
   would prove nothing.
+`trace`: when an AC cites a spec (`AC-003 … prd.md §4.2` or `§FR-002`), checks that each cited ref is in that spec and
+  that each `FR-nnn` the spec has is named by an AC or set aside in `## Out of scope`; exit 1 on a finding, 0 when it
+  traces or no AC cites a spec. L's plan self-approval runs it; a full run prints the same findings as `trace:` notes
+  (advisory, recorded in verify.json) and never fails on them.
 A passing run prints the tree and HEAD that `state.py verified` takes.
 Each run also writes the freshness hook's copy of itself (.sdlc/.work/verify-freshness.json).
 `status`: JSON for Review. `reuse` is true only when the last run passed, the freshness hook's copy of it agrees
@@ -43,6 +47,10 @@ import verify_freshness as vf  # noqa: E402  (worktree trees)
 RECORD = os.path.join(".sdlc", ".work", "verify.json")
 AC_ID = re.compile(r"\bAC-\d{3}\b")
 TABLE_ROW = re.compile(r"^\s*\|\s*(AC-\d{3})\s*\|(.*?)\|(.*?)\|\s*$")
+AC_ENTRY = re.compile(r"^\s*[-*]\s+\**AC-\d{3}")
+FR_ID = re.compile(r"\bFR-\d{3}\b")
+# In an AC's text: a `<file>.md`, then the `§<ref>`s that follow it
+SPEC_TOKEN = re.compile(r"(?P<file>[\w./-]+\.md)|§\s*(?P<ref>[\w.-]+)")
 TASK_START = re.compile(r"^\s*(\d+)\.\s")
 BACKTICKED = re.compile(r"`([^`]+)`")
 # What running the tests or tools leaves behind when a repo doesn't ignore it: never drift
@@ -73,6 +81,64 @@ def acceptance_map(plan_text):
 
 def spec_acs(spec_text):
     return list(dict.fromkeys(AC_ID.findall(spec_text)))
+
+
+def ac_entries(change_text):
+    """{AC: its text} for each `- **AC-nnn** …` entry of `## Acceptance criteria`; a blank line ends an entry."""
+    out, current = {}, None
+    for line in (section(change_text, "Acceptance criteria") or "").splitlines():
+        if AC_ENTRY.match(line):
+            current = AC_ID.search(line).group(0)
+            out[current] = line
+        elif current and line.strip():
+            out[current] += "\n" + line
+        else:
+            current = None
+    return out
+
+
+def spec_text(root, name):
+    """The spec an AC cites, as repo-relative path or under the docs folder; None when missing or outside the repo
+    (the path comes from the change file, so it never reads beyond the repo)."""
+    base = os.path.realpath(root)
+    for rel in (name, os.path.join(sdlc_layout.paths(root)["docs_dir"], name)):
+        path = os.path.realpath(os.path.join(root, rel))
+        if path.startswith(base + os.sep) and os.path.isfile(path):
+            return read(path)
+    return None
+
+
+def has_ref(text, ref):
+    """An `FR-nnn` id anywhere in the spec, or a heading numbered `ref` (§4.2 is not found under only a 4.2.1)."""
+    if FR_ID.fullmatch(ref):
+        return re.search(rf"\b{ref}\b", text) is not None
+    return re.search(rf"^#{{1,6}}\s*(?:§\s*)?{re.escape(ref)}(?![\w-]|\.\d)", text, re.M) is not None
+
+
+def trace(root, feature):
+    """None when no AC cites a spec (`<file>.md §<ref>`); else the findings, empty when it traces: a cited ref the
+    spec lacks, and an `FR-nnn` of a cited spec that no AC names and `## Out of scope` doesn't set aside."""
+    change = docs(root, feature)[0]
+    cited, covered, findings = {}, set(), []
+    for ac, text in ac_entries(change).items():
+        covered |= set(FR_ID.findall(text))
+        file = None
+        for m in SPEC_TOKEN.finditer(text):
+            if m.group("file"):
+                file = m.group("file")
+            elif file:
+                ref = m.group("ref").rstrip(".-")
+                if file not in cited:
+                    cited[file] = spec_text(root, file)
+                if cited[file] is None or not has_ref(cited[file], ref):
+                    findings.append(f"{ac}: {file} §{ref} is not in the spec")
+    if not cited:
+        return None
+    covered |= set(FR_ID.findall(section(change, "Out of scope") or ""))
+    for file, text in cited.items():
+        findings += [f"{fr} ({file}) has no AC and isn't in ## Out of scope"
+                     for fr in dict.fromkeys(FR_ID.findall(text or "")) if fr not in covered]
+    return findings
 
 
 def run(cmd, cwd, timeout):
@@ -253,9 +319,12 @@ def full(root, feature, timeout=1800, whole=False):
     for d in drifted or []:
         if not d["covered"]:
             failures.append(f"drift: {d['item']} has no Deviations entry with What:, Why: and Effect:")
+    traced = trace(root, feature) or []  # advisory: a note, never a failure, until its false-positive rate is known
+    notes += [f"trace: {t}" for t in traced]
     rec["last"] = {"at": vf.now(), "tree": vf.worktree_tree(root), "head": vf.git_head(root),
                    "result": "fail" if failures else "pass", "seconds": round(time.time() - started, 1),
-                   "failures": failures, "manual": manual, "drift": drifted or [], "skipped": skipped}
+                   "failures": failures, "manual": manual, "drift": drifted or [], "skipped": skipped,
+                   "trace": traced}
     save_record(root, rec, ("full", None))
     return rec["last"], notes
 
@@ -341,7 +410,7 @@ def status(root, feature):
         reason = ""
     # The current tree and HEAD: what `state.py verified` records and Ship checks against (the core's "Verified tree")
     return {"reuse": not reason, "reason": reason, "manual": last.get("manual", []), "drift": last.get("drift", []),
-            "red": sorted(rec.get("red") or {}), "tree": current, "head": vf.git_head(root)}
+            "trace": last.get("trace", []), "red": sorted(rec.get("red") or {}), "tree": current, "head": vf.git_head(root)}
 
 
 def active_feature(root):
@@ -353,7 +422,7 @@ def main(argv=None):
     ap.add_argument("--root", default=".")
     ap.add_argument("--feature")
     ap.add_argument("--timeout", type=int, default=1800)
-    ap.add_argument("action", nargs="?", choices=["red", "status"])
+    ap.add_argument("action", nargs="?", choices=["red", "status", "trace"])
     ap.add_argument("acs", nargs="*")
     a = ap.parse_args(argv)
     root = os.path.abspath(a.root)
@@ -364,6 +433,15 @@ def main(argv=None):
     if a.action == "status":
         print(json.dumps(status(root, feature), indent=2))
         return 0
+    if a.action == "trace":
+        found = trace(root, feature)
+        if found is None:
+            print("trace: no spec refs in the ACs, nothing to trace")
+            return 0
+        for line in found:
+            print(line)
+        print(f"trace {feature}: " + (f"{len(found)} finding(s)" if found else "traced"))
+        return 1 if found else 0
     if a.action == "red":
         if not a.acs or not all(AC_ID.fullmatch(ac) for ac in a.acs):
             print("verify red: name the acceptance criteria, e.g. AC-001 AC-002")

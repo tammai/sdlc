@@ -258,6 +258,70 @@ class VerifyTest(ProjectTestCase):
         self.assertEqual(code, 1)
         self.assertIn("AC-001: no red run recorded", out)
 
+    SPEC = "# Product\n\n## 4.1 Sign in\n\nFR-001 a user signs in.\n\n## 4.2 Sign out\n\nFR-002 a user signs out.\n"
+
+    def traced(self, acs, out_of_scope="- nothing\n", spec=SPEC, tail=""):
+        """A change file whose ACs cite docs/prd.md, over a spec with FR ids."""
+        self.write("docs/prd.md", spec)
+        self.write(".sdlc/login/change.md", "# Change\n\n## Acceptance criteria\n\n" + acs +
+                   "\n## Out of scope\n\n" + out_of_scope + tail)
+
+    def test_trace_passes_when_every_cited_ref_exists_and_every_fr_has_an_ac(self):
+        self.traced("- **AC-001** docs/prd.md §FR-001: signs in\n- **AC-002** docs/prd.md §4.2, §FR-002: signs out\n")
+        code, out, _ = self.verify("trace")
+        self.assertEqual(code, 0, out)
+        self.assertIn("traced", out)
+        os.remove(self.path(".sdlc/login/state.md"))  # L's gate runs it before `state.py new`: --feature names it
+        code, out, _ = self.verify("--feature", "login", "trace")
+        self.assertEqual(code, 0, out)
+        self.assertIn("traced", out)
+
+    def test_trace_flags_a_cited_requirement_the_spec_does_not_have(self):
+        self.traced("- **AC-001** docs/prd.md §FR-001: signs in\n- **AC-002** docs/prd.md §4.9: ghost\n"
+                    "- **AC-003** docs/prd.md §FR-002: signs out\n")
+        code, out, _ = self.verify("trace")
+        self.assertEqual(code, 1)
+        self.assertIn("AC-002: docs/prd.md §4.9 is not in the spec", out)
+
+    def test_trace_flags_a_spec_requirement_no_ac_covers_unless_it_is_out_of_scope(self):
+        self.traced("- **AC-001** docs/prd.md §FR-001: signs in\n")
+        code, out, _ = self.verify("trace")
+        self.assertEqual(code, 1)
+        self.assertIn("FR-002 (docs/prd.md) has no AC and isn't in ## Out of scope", out)
+        self.traced("- **AC-001** docs/prd.md §FR-001: signs in\n", out_of_scope="- FR-002: sign-out waits for v2\n")
+        code, out, _ = self.verify("trace")
+        self.assertEqual(code, 0, out)
+
+    def test_trace_does_not_take_a_deeper_heading_for_the_one_cited(self):
+        self.traced("- **AC-001** docs/prd.md §4: everything\n", spec="# P\n\n## 4.1 Sign in\n")
+        code, out, _ = self.verify("trace")
+        self.assertEqual(code, 1)
+        self.assertIn("§4 is not in the spec", out)
+
+    def test_trace_is_silent_without_spec_refs_and_stays_inside_the_repo(self):
+        self.spec("AC-001")
+        code, out, _ = self.verify("trace")
+        self.assertEqual(code, 0, out)
+        self.assertIn("no spec refs", out)
+        self.traced("- **AC-001** ../outside.md §1: reaches out\n")
+        code, out, _ = self.verify("trace")
+        self.assertEqual(code, 1)
+        self.assertIn("is not in the spec", out)
+
+    def test_a_full_run_reports_trace_findings_as_notes_and_does_not_fail_on_them(self):
+        self.traced("- **AC-001** docs/prd.md §FR-001: signs in\n",
+                    tail="\n## Acceptance tests\n\n| AC | Test | Run |\n|---|---|---|\n"
+                         "| AC-001 | tests/t.py › ok | `python3 -c \"pass\"` |\n")
+        self.write(".sdlc/login/state.md", self.state + "\n## Tasks\n\n1. t `tests/t.py`\n\n## Public Surface\n\n"
+                   "- none\n\n## Gate log\n-\n\n## Deviations\n\n")
+        self.write("tests/t.py", "")
+        self.assertEqual(self.verify()[0], 1)  # no red yet; this run also stamps the record with its feature
+        self.write_red("AC-001")
+        code, out, rec = self.verify()
+        self.assertEqual(code, 0, out)
+        self.assertIn("trace: FR-002 (docs/prd.md) has no AC", out)
+        self.assertEqual(rec["last"]["trace"], ["FR-002 (docs/prd.md) has no AC and isn't in ## Out of scope"])
+
 
 if __name__ == "__main__":
     unittest.main()
