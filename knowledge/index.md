@@ -32,6 +32,7 @@ One line per doc: path — what it answers (≤12 words). Keep this file under ~
 - [gotchas/a-commit-cant-record-its-own-id.md](gotchas/a-commit-cant-record-its-own-id.md) — record a part done before its commit, not its hash after
 - [gotchas/a-mode-named-only-by-its-script.md](gotchas/a-mode-named-only-by-its-script.md) — say what a typed request does, not only the script and flag
 - [gotchas/state-format-change-needs-marker-and-cache-clear.md](gotchas/state-format-change-needs-marker-and-cache-clear.md) — a changed field meaning needs a new Process marker; clear runtime caches
+- [gotchas/zsh-does-not-split-a-command-variable.md](gotchas/zsh-does-not-split-a-command-variable.md) — `S="python3 x"; $S` fails in zsh; use a function
 - [gotchas/macos-stock-bash-and-no-timeout.md](gotchas/macos-stock-bash-and-no-timeout.md) — bash 3.2 has no EPOCHREALTIME; a Mac has no timeout binary
 
 ## Runbooks

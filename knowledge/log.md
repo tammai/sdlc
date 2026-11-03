@@ -30,3 +30,4 @@
 - 2026-11-03 add knowledge/gotchas/a-commit-cant-record-its-own-id.md — slice done <commit> took a second commit and went stale on amend (from 2.4.3 release distill)
 - 2026-11-03 add knowledge/gotchas/hooks-module-validator-and-test-kit.md — validator, test kit and tsc snags writing sdlc-stepper (from 2.5.0 release distill)
 - 2026-11-03 add knowledge/gotchas/state-format-change-needs-marker-and-cache-clear.md — the stage renumbering needed a Process bump and a cleared trust-anchor cache (from 3.0.0 release distill)
+- 2026-11-03 add knowledge/gotchas/zsh-does-not-split-a-command-variable.md — $S failed in zsh on macOS during the 3.0 smoke test (from 3.0.0 release distill)

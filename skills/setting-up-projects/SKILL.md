@@ -12,8 +12,12 @@ Paths: `<change>` is the feature's change file (its record for people), `<state>
 Decisions behind it: `${CLAUDE_PLUGIN_ROOT}/docs/adr/0001-project-setup-upgrade-eject.md` and `0002-record-the-repos-own-commands.md`. This skill is the procedure; `scripts/scaffold.py` keeps the records exact. You make the judgment calls, the script does the bookkeeping. Never hand-edit `.sdlc/scaffold.lock.json`.
 
 ```bash
-S="python3 ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py"   # every command prints JSON; exit 2 = refused (user edited the file)
+# Every command prints JSON; exit 2 = refused (user edited the file). A function named by $S, not a string in $S:
+# zsh doesn't split a variable into words, and the quotes keep a plugin folder with spaces in one piece.
+sdlc_scaffold() { python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" "$@"; }; S=sdlc_scaffold
 ```
+
+The shell forgets it between calls: put these lines at the top of each shell call that uses `$S`.
 
 ## Which flow
 
