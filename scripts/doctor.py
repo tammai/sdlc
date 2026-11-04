@@ -265,11 +265,24 @@ def check_repo(r, root):
               prd if has_prd else f"no product doc ({prd}): Define has no goals, non-goals or audience to start from",
               None if has_prd else "run the prd step of /sdlc:setup (or /sdlc:upgrade)")
         if scaffold.design_mode(p) == "impeccable":
-            ok = scaffold.impeccable_installed(root)
-            r.add(g, "impeccable", "ok" if ok else "warn",
-                  "installed: UI design work goes through it" if ok
-                  else "design is impeccable but impeccable isn't installed: UI work falls back to builtin",
-                  None if ok else "npx impeccable install (or /plugin marketplace add pbakaus/impeccable)")
+            imp = scaffold.impeccable_status(root)
+            guardrail = f".claude/hookify/{scaffold.IMPECCABLE_REPLACES}"
+            if imp["state"] == "missing":
+                r.add(g, "impeccable", "warn",
+                      "design is impeccable but impeccable isn't installed: UI work falls back to builtin",
+                      "npx impeccable install (or /plugin marketplace add pbakaus/impeccable)")
+            elif imp["state"] == "disabled":
+                r.add(g, "impeccable", "warn",
+                      f"design is impeccable but the {imp['plugin']} plugin is off for this repo: none of its "
+                      "commands load, so UI work falls back to builtin",
+                      "/sdlc:setup design (or claude plugin enable " + imp["plugin"] + " --scope local), then restart")
+            elif imp["hook"] and guardrail in (p.lock or {}).get("files", {}):
+                r.add(g, "impeccable", "warn",
+                      f"impeccable's detector hook runs here and {guardrail} still does the same check",
+                      "/sdlc:setup design (it finishes the swap)")
+            else:
+                r.add(g, "impeccable", "ok", "enabled: UI design work goes through it" + (
+                      "" if imp["hook"] else "; its detector hook is off (/impeccable hooks on)"), None)
         enabled, sdlc_set_in = {}, None
         for rel in (scaffold.SETTINGS, scaffold.LOCAL_SETTINGS):  # the local file overrides the committed one
             plugins = scaffold.read_json(os.path.join(root, rel), {}).get("enabledPlugins")

@@ -71,7 +71,7 @@ Run `/sdlc:start` with no argument in a new session to resume where you left off
 
 | Command | Does |
 |---|---|
-| `/sdlc:setup` | Set the repo up once |
+| `/sdlc:setup` | Set the repo up once (`/sdlc:setup design` changes the design mode later) |
 | `/sdlc:start [request]` | Start work, or resume the active feature |
 | `/sdlc:status` | Where each feature stands |
 | `/sdlc:doctor` | Health check, with a fix for each problem |

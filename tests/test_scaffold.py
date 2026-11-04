@@ -564,6 +564,7 @@ class ScaffoldTest(ProjectTestCase):
         self.template(tpl, "ui\n")
         self.init()
         self.sc("render", tpl, dest, "--class", "seeded")
+        self.impeccable_plugin(enabled=True)  # its detector hook runs here, so the swap may happen
         self.assertEqual(self.sc("design", "impeccable")["guardrail"], {"removed": dest})
         self.assertFalse(os.path.exists(self.path(dest)))
         self.assertNotIn(dest, self.lock()["files"])
@@ -573,6 +574,84 @@ class ScaffoldTest(ProjectTestCase):
         self.write(dest, "the team's edit\n")
         self.assertEqual(self.sc("design", "impeccable")["guardrail"]["ask"], dest)  # edited: never deleted
         self.assertEqual(self.read(dest), "the team's edit\n")
+
+    def impeccable_plugin(self, enabled=None):
+        """impeccable installed as a Claude Code plugin on this machine; enabled True/False sets it in the repo's
+        local settings, None leaves it unlisted (off, as Claude Code reads it)."""
+        self.write("claude-config/plugins/installed_plugins.json", json.dumps(
+            {"version": 2, "plugins": {"impeccable@claude-community": [{"scope": "user", "installPath": "/x"}]}}))
+        if enabled is not None:
+            self.write(".claude/settings.local.json",
+                       json.dumps({"enabledPlugins": {"impeccable@claude-community": enabled}}))
+
+    def test_a_disabled_impeccable_plugin_is_installed_but_not_enabled(self):
+        self.init()
+        home = {"HOME": self.path("home"), "USERPROFILE": self.path("home")}  # keep this machine's skills out
+        self.assertEqual(self.sc("design", env=home)["impeccable"], {"state": "missing", "hook": False})
+        self.impeccable_plugin()
+        out = self.sc("design", env=home)
+        self.assertTrue(out["impeccable_installed"])
+        self.assertEqual(out["impeccable"]["state"], "disabled")
+        self.assertEqual(out["impeccable"]["plugin"], "impeccable@claude-community")
+        self.write("claude-config/settings.json", json.dumps({"enabledPlugins": {"impeccable@claude-community": True}}))
+        self.assertEqual(self.sc("design", env=home)["impeccable"]["state"], "enabled")  # on for every project
+        self.write(".claude/settings.local.json", json.dumps({"enabledPlugins": {"impeccable@claude-community": False}}))
+        self.assertEqual(self.sc("design", env=home)["impeccable"]["state"], "disabled")  # the repo's local file wins
+
+    def test_design_enable_turns_impeccable_on_locally_and_enable_plugin_remove_takes_it_back(self):
+        self.init()
+        home = {"HOME": self.path("home"), "USERPROFILE": self.path("home")}
+        self.assertIn("never installs", self.sc("design", "impeccable", "--enable", expect=2, env=home)["refused"])
+        self.assertEqual(self.sc("design", env=home)["design"], "builtin")  # refused: the mode wasn't recorded
+        self.impeccable_plugin()
+        out = self.sc("design", "impeccable", "--enable", env=home)
+        self.assertEqual(out["enabled"]["plugin"], "impeccable@claude-community")
+        self.assertIn("next session", out["enabled"]["loads"])
+        self.assertEqual(out["impeccable"]["state"], "enabled")
+        settings = json.loads(self.read(".claude/settings.local.json"))
+        self.assertIs(settings["enabledPlugins"]["impeccable@claude-community"], True)
+        self.assertNotIn("enabledPlugins", json.loads(self.read(".claude/settings.json")) if os.path.exists(
+            self.path(".claude/settings.json")) else {})  # never the team's file
+        self.assertNotIn("enabled", self.sc("design", "impeccable", "--enable", env=home))  # already on: no-op
+        self.sc("enable-plugin", "--remove")
+        self.assertNotIn("impeccable@claude-community",
+                         json.loads(self.read(".claude/settings.local.json")).get("enabledPlugins", {}))
+        self.write(".claude/settings.json", json.dumps({"enabledPlugins": {"impeccable@claude-community": False}}))
+        self.assertIn(".claude/settings.json", self.sc("design", "impeccable", "--enable", expect=2, env=home)["refused"])
+
+    def test_impeccable_mode_keeps_the_ui_guardrail_until_its_hook_runs(self):
+        tpl, dest = "templates/project/hookify/sdlc-ui-hardcoded-values.md", ".claude/hookify/sdlc-ui-hardcoded-values.md"
+        self.template(tpl, "ui\n")
+        self.init()
+        self.sc("render", tpl, dest, "--class", "seeded")
+        home = {"HOME": self.path("home"), "USERPROFILE": self.path("home")}
+        self.impeccable_plugin()  # installed, off here: its hook won't run
+        self.assertEqual(self.sc("design", "impeccable", "--enable", env=home)["guardrail"]["kept"], dest)
+        self.assertTrue(os.path.exists(self.path(dest)))
+        self.write(".impeccable/config.json", json.dumps({"hook": {"enabled": False}}))  # /impeccable hooks off
+        self.assertEqual(self.sc("design", "impeccable", env=home)["guardrail"]["kept"], dest)
+        self.write(".impeccable/config.local.json", json.dumps({"hook": {"enabled": True}}))  # this machine's on
+        self.assertEqual(self.sc("design", "impeccable", env=home)["guardrail"], {"removed": dest})
+
+    def test_a_skill_folder_impeccable_needs_its_hook_manifest(self):
+        self.init()
+        home = {"HOME": self.path("home"), "USERPROFILE": self.path("home")}
+        self.write(".claude/skills/impeccable/SKILL.md", "---\nname: impeccable\n---\n")
+        self.assertEqual(self.sc("design", env=home)["impeccable"], {"state": "enabled", "via": "skill", "hook": False})
+        self.write(".claude/settings.local.json", json.dumps({"hooks": {"PostToolUse": [{"hooks": [{
+            "type": "command", "command": 'node "${CLAUDE_PROJECT_DIR}/.claude/skills/impeccable/scripts/hook.mjs"'}]}]}}))
+        self.assertTrue(self.sc("design", env=home)["impeccable"]["hook"])
+
+    def test_a_pending_step_runs_again_and_blocks_completing_setup(self):
+        self.init()
+        out = self.sc("step-done", "design-system", "--pending", "impeccable loads next session")
+        self.assertNotIn("design-system", out["completed_steps"])
+        self.assertEqual(self.sc("status")["pending_steps"], {"design-system": "impeccable loads next session"})
+        self.assertIn("design-system", self.sc("step-done", "finalize", "--complete", expect=2)["refused"])
+        self.assertEqual(self.sc("status")["setup"], "in_progress")
+        self.sc("step-done", "design-system")
+        self.assertEqual(self.sc("status")["pending_steps"], {})
+        self.assertTrue(self.sc("step-done", "finalize", "--complete")["complete"])
 
     def test_eject_also_deletes_edited_files_on_request_only(self):
         self.setup_for_eject()

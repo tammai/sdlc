@@ -55,23 +55,27 @@ A project with UI can hand its design work to the [impeccable](https://github.co
 ├─ constitution                   HARD STOP: approve it
 │
 ├─ design-system                  (only if the project has UI)
-│   ├─ 1. Recommend a mode from the PRD           HARD STOP: you choose
-│   │      impeccable ← user-facing, no design system yet (web or native)
+│   ├─ 1. Recommend a mode from the PRD           HARD STOP: you choose,
+│   │      impeccable ← user-facing, no design system yet    every time
 │   │      builtin    ← internal tool on a stock library, a design team's
 │   │                   system, or offline / no third-party calls
+│   │      + where impeccable stands here: missing, disabled or enabled
 │   │      + names impeccable.style's network call and the telemetry opt-outs
 │   ├─ 2. scaffold.py design impeccable
-│   │      ├─ records "design": "impeccable"
-│   │      ├─ removes sdlc-ui-hardcoded-values (unchanged → deleted;
-│   │      │   edited by your team → asks first)
-│   │      └─ reports whether impeccable is installed
-│   ├─ 3. Not installed → prints the install command, records builtin;
-│   │      rerun the step once it is (sdlc never installs it)
+│   │      ├─ records "design": "impeccable" (your reason goes in the commit)
+│   │      └─ removes sdlc-ui-hardcoded-values once impeccable's detector
+│   │         hook runs here (unchanged → deleted; edited → asks first)
+│   ├─ 3. Missing → prints the install command, records builtin;
+│   │      /sdlc:setup design reruns the step once it is (sdlc never installs it)
+│   │   Disabled → asks to turn it on for this repo (--enable, local file);
+│   │      it loads next session, so the step stays pending: restart, then
+│   │      /sdlc:setup resumes it
 │   ├─ 4. /impeccable init, told to read the PRD
 │   │      └─ one round of product questions → PRODUCT.md, whose first line
 │   │         links to the PRD (the PRD wins where they differ)
-│   ├─ 5. Existing styles worth recording → /impeccable document → DESIGN.md;
-│   │      none yet → DESIGN.md comes later, from impeccable's own process
+│   ├─ 5. Existing styles worth recording → /impeccable document → DESIGN.md
+│   │      (a system you must stay on → documented as pinned, restyling
+│   │      commands off limits); none yet → DESIGN.md comes later
 │   └─ 6. docs/sdlc/design-system.md = a short pointer to DESIGN.md
 │
 ├─ knowledge
@@ -98,7 +102,7 @@ Each UI change afterwards:
 | Review | `sdlc:ui-reviewer` (opus) runs impeccable's `detect` and applies its `audit` checks (read from `reference/audit.md`) as evidence and writes the verdict; a missing `DESIGN.md` is Medium, not High |
 | Ship | as usual |
 
-impeccable missing when a step runs: the step says so in one line and runs builtin; `/sdlc:doctor` warns. Switch later with `scaffold.py design <mode>`, which also puts the UI guardrail back or takes it away.
+impeccable missing or turned off for the repo when a step runs: the step says so in one line and runs builtin; `/sdlc:doctor` warns. Switch later, or finish turning impeccable on, with `/sdlc:setup design`: it asks the question again on its own branch, and the mode change puts the UI guardrail back or takes it away.
 
 ### Cloud sessions
 

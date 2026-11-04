@@ -2,6 +2,16 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
+## Unreleased
+
+### Changed
+- **Setup checks that impeccable is on, not just installed, and can turn it on** (issue #9). `scaffold.py design` reports `impeccable.state` (`missing`, `disabled`, `enabled`) and whether its detector hook runs; a Claude Code plugin that's installed but off for the repo no longer counts as there. With the user's yes, `scaffold.py design impeccable --enable` turns it on in `.claude/settings.local.json` (`enable-plugin --remove` and eject take it back). Plugins load at session start, so the step stays pending (`step-done --pending`) and `finalize` waits until a restarted `/sdlc:setup` finishes it. `/sdlc:doctor` warns on a disabled plugin.
+- **The design-mode question is always asked**, even when the recommendation looks obvious, and the user's reason goes in the step's commit.
+- **`/sdlc:setup design` runs just the design step on a set-up repo**, to switch modes or finish turning impeccable on.
+- **The UI guardrail waits for impeccable's hook.** `sdlc-ui-hardcoded-values` is removed only once impeccable's detector hook runs in the repo, never in the call that turned the plugin on, so nothing goes unchecked in between.
+- **A design system the project must stay on can be pinned in impeccable mode:** setup has `/impeccable document` record it as the only system, with the restyling commands (`bolder`, `colorize`, `overdrive`, `delight`) off limits, and Build skips what `DESIGN.md` puts off limits.
+- The `design-system` step's procedure moved to `skills/setting-up-projects/references/design-mode.md`.
+
 ## 3.0.4 — 2026-11-04
 
 ### Changed
