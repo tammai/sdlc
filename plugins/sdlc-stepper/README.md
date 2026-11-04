@@ -27,7 +27,7 @@ It's in the sdlc marketplace and needs the sdlc plugin's files in the repo (`/sd
 /plugin install sdlc-stepper@sdlc
 ```
 
-For everyone on a repo, add `"sdlc-stepper@sdlc": true` to `enabledPlugins` in its committed `.claude/settings.json`, beside `sdlc@sdlc`; `/sdlc:setup` names it as an optional companion when it writes those keys.
+`/sdlc:setup` turns it on beside `sdlc@sdlc` when it writes the plugin keys (this machine's `.claude/settings.local.json`, or the committed `.claude/settings.json` for everyone on the repo); set it to `false` there to leave it off.
 
 Claude Code only, in the terminal and the desktop app (the band isn't drawn in VS Code or on mobile). Collapse it with `[-]` or ctrl+x ctrl+a.
 

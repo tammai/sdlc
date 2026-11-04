@@ -2,6 +2,11 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
+## 3.0.4 — 2026-11-04
+
+### Changed
+- **Setup turns on sdlc-extras and sdlc-stepper with sdlc.** `enable-plugin` wrote only `sdlc@sdlc`; both companions shipped off by default, so setup only named them. They are now on by default, in whichever settings file holds sdlc's keys; upgrade's re-run adds them to repos set up earlier. Set either to `false` there to keep it off.
+
 ## 3.0.3 — 2026-11-03
 
 From a real rebuild (Kutt, on 2.4.1), checked against 3.0.2 first: each of these still reproduced.

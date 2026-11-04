@@ -297,6 +297,15 @@ class ScaffoldTest(ProjectTestCase):
         self.sc("enable-plugin")
         self.assertNotIn("evil@evil", json.loads(self.read(local))["enabledPlugins"])
 
+    def test_enable_plugin_turns_on_the_shipped_companion_plugins(self):
+        with open(os.path.join(PLUGIN_ROOT, "templates/project/config.defaults.json"), encoding="utf-8") as f:
+            self.template("templates/project/config.defaults.json", f.read())
+        self.init()
+        self.installed()
+        self.sc("enable-plugin")
+        self.assertEqual(json.loads(self.read(".claude/settings.local.json"))["enabledPlugins"],
+                         {"sdlc@sdlc": True, "sdlc-extras@sdlc": True, "sdlc-stepper@sdlc": True})
+
     def test_enable_plugin_team_commits_the_on_keys_and_keeps_turn_offs_local(self):
         self.template("templates/project/config.defaults.json", json.dumps({
             "companions": [{"id": "sdlc-extras@sdlc", "marketplace": "sdlc", "why": "extras", "default": True}],

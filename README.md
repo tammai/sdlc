@@ -30,9 +30,9 @@ From the marketplace that hosts it:
 /plugin install sdlc@sdlc
 ```
 
-Optional: `/plugin install sdlc-extras@sdlc` adds the companion plugin: the Ralph loop, hookify's list, configure and help commands, and four extra review agents `/sdlc:review-pr` and `/sdlc:hookify` use when present. Optional companion skill: Cloudflare's [security-audit](https://github.com/cloudflare/security-audit-skill) (`npx skills add https://github.com/cloudflare/security-audit-skill --skill security-audit`), a full multi-agent security audit you run when you want one, for example before a release; sdlc mentions it on L changes to sensitive paths and never runs it unasked.
+`/sdlc:setup` also turns on the two companion plugins (or `/plugin install` each): `sdlc-extras@sdlc` adds the Ralph loop, hookify's list, configure and help commands, and four extra review agents `/sdlc:review-pr` and `/sdlc:hookify` use when present. Optional companion skill: Cloudflare's [security-audit](https://github.com/cloudflare/security-audit-skill) (`npx skills add https://github.com/cloudflare/security-audit-skill --skill security-audit`), a full multi-agent security audit you run when you want one, for example before a release; sdlc mentions it on L changes to sensitive paths and never runs it unasked.
 
-Optional: `/plugin install sdlc-stepper@sdlc` adds a stepper bar above the prompt showing the active feature's phase (Define, Build, Review, Ship), its parts and the step the session is on ([its README](plugins/sdlc-stepper/README.md); Claude Code terminal and desktop).
+`sdlc-stepper@sdlc` adds a stepper bar above the prompt showing the active feature's phase (Define, Build, Review, Ship), its parts and the step the session is on ([its README](plugins/sdlc-stepper/README.md); Claude Code terminal and desktop).
 
 Also in this marketplace: `/plugin install product-rebuild@sdlc` adds [product-rebuild](https://github.com/tammai/product-rebuild), a gated pipeline that rebuilds an existing product on top of sdlc (Claude Code only; it installs sdlc and sdlc-extras with it).
 

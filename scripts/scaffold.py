@@ -1634,7 +1634,7 @@ def build_parser():
         s.set_defaults(fn=fn)
 
     s = sub.add_parser("enable-plugin", help="turn sdlc and its companions on in .claude/settings.local.json")
-    s.add_argument("--with", dest="with_", action="append", metavar="ID", help="also a companion that's off by default")
+    s.add_argument("--with", dest="with_", action="append", metavar="ID", help="also a companion that isn't on by default")
     s.add_argument("--team", action="store_true",
                    help="write the keys that turn plugins on to the committed .claude/settings.json (teammates; not cloud sessions)")
     s.add_argument("--remove", action="store_true", help="remove only the keys this command added")

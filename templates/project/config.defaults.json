@@ -63,13 +63,13 @@
       "id": "sdlc-extras@sdlc",
       "marketplace": "sdlc",
       "why": "the Ralph loop, hookify list/configure/help, and extra review agents (type design, comments, simplifier)",
-      "default": false
+      "default": true
     },
     {
       "id": "sdlc-stepper@sdlc",
       "marketplace": "sdlc",
       "why": "a stepper bar above the prompt: the feature's phase, its parts and the step the session is on (Claude Code terminal and desktop)",
-      "default": false
+      "default": true
     },
     {
       "skill": "security-audit",
