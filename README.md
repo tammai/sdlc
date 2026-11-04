@@ -35,7 +35,6 @@ Optional companions from the same marketplace (`/sdlc:setup` offers them):
 
 - `sdlc-extras@sdlc`: the Ralph loop, hookify commands and extra review agents.
 - `sdlc-stepper@sdlc`: a bar above the prompt showing which phase the active feature is in ([README](plugins/sdlc-stepper/README.md)).
-- `product-rebuild@sdlc`: a pipeline for rebuilding an existing product on top of sdlc ([repo](https://github.com/tammai/product-rebuild)).
 
 **Requirements:** `git`, `gh`, Python 3.9+. Node is needed only for the brainstorm visual companion. Your project needs nothing extra.
 
