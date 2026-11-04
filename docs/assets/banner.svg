@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 124" width="1200" height="124" role="img" aria-labelledby="t d">
+  <title id="t">sdlc</title>
+  <desc id="d">A request is sized S, M or L, then goes through Define (intent and plan), Build (test-first proof), Review (picked from the diff) and Ship (learn, then PR), ending in an open PR with CI green.</desc>
+  <style>
+    .bg { fill: #FAF9F5; stroke: #E8E6DF; }
+        .text { fill: #1F1E1D; }
+    .muted { fill: #6B6A65; }
+    .pill { fill: #FFFFFF; stroke: #DEDCD4; }
+    .arrow { stroke: #B5B3AB; }
+    .head { fill: #B5B3AB; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #1F1E1D; stroke: #34322F; }
+      .text { fill: #F5F4EF; }
+      .muted { fill: #A3A29C; }
+      .pill { fill: #2A2927; stroke: #403E3A; }
+      .arrow { stroke: #6B6A65; }
+      .head { fill: #6B6A65; }
+    }
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path class="head" d="M0 0 L10 5 L0 10 z"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" x="1" y="1" width="1198" height="122" rx="18" stroke-width="1.5"/>
+  <g>
+    <rect class="pill" stroke-width="1.5" x="60" y="30" width="155" height="64" rx="14"/>
+    <text class="text" x="137.5" y="57" font-size="20" font-weight="600" text-anchor="middle">request</text>
+    <text class="muted" x="137.5" y="79" font-size="13" text-anchor="middle">sized S · M · L</text>
+    <line class="arrow" x1="219" y1="62" x2="241" y2="62" stroke-width="2" marker-end="url(#a)"/>
+    <rect class="pill" stroke-width="1.5" x="245" y="30" width="155" height="64" rx="14"/>
+    <text class="text" x="322.5" y="57" font-size="20" font-weight="600" text-anchor="middle">Define</text>
+    <text class="muted" x="322.5" y="79" font-size="13" text-anchor="middle">intent and plan</text>
+    <line class="arrow" x1="404" y1="62" x2="426" y2="62" stroke-width="2" marker-end="url(#a)"/>
+    <rect class="pill" stroke-width="1.5" x="430" y="30" width="155" height="64" rx="14"/>
+    <text class="text" x="507.5" y="57" font-size="20" font-weight="600" text-anchor="middle">Build</text>
+    <text class="muted" x="507.5" y="79" font-size="13" text-anchor="middle">test-first proof</text>
+    <line class="arrow" x1="589" y1="62" x2="611" y2="62" stroke-width="2" marker-end="url(#a)"/>
+    <rect class="pill" stroke-width="1.5" x="615" y="30" width="155" height="64" rx="14"/>
+    <text class="text" x="692.5" y="57" font-size="20" font-weight="600" text-anchor="middle">Review</text>
+    <text class="muted" x="692.5" y="79" font-size="13" text-anchor="middle">picked from the diff</text>
+    <line class="arrow" x1="774" y1="62" x2="796" y2="62" stroke-width="2" marker-end="url(#a)"/>
+    <rect class="pill" stroke-width="1.5" x="800" y="30" width="155" height="64" rx="14"/>
+    <text class="text" x="877.5" y="57" font-size="20" font-weight="600" text-anchor="middle">Ship</text>
+    <text class="muted" x="877.5" y="79" font-size="13" text-anchor="middle">learn, then PR</text>
+    <line class="arrow" x1="959" y1="62" x2="981" y2="62" stroke-width="2" marker-end="url(#a)"/>
+    <rect fill="#D97757" x="985" y="30" width="155" height="64" rx="14"/>
+    <text fill="#FFFFFF" x="1062.5" y="57" font-size="20" font-weight="700" text-anchor="middle">open PR</text>
+    <text fill="#FFF3EE" x="1062.5" y="79" font-size="13" text-anchor="middle">CI green</text>
+  </g>
+</svg>

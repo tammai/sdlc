@@ -110,7 +110,7 @@ After adding or changing a plugin feature (a hook, command, skill, agent, script
 
 1. List the names the change adds or renames (file names, hook names, fields, commands, phrases it replaces).
 2. Grep each across `README.md`, `CONTRIBUTING.md`, `CHANGELOG.md`, `knowledge/`, `.claude/rules/`, `docs/` (guidebook, playbook, runbook, prd, specs, ADRs) and the `<desc>` and labels of `docs/diagrams/*.svg`. Also grep the old wording the change replaces.
-3. Check the lists that enumerate the plugin: README "Always on", the guidebook Hooks table and `state.md` block, the CONTRIBUTING layout tree and "Original to this plugin", the runbook procedures and "Add or change a phase rule" table, the prd capability table, and the spec's Source line, requirements and Known gaps.
+3. Check the lists that enumerate the plugin: the README Commands table, the guidebook Hooks table and `state.md` block, the CONTRIBUTING layout tree and "Original to this plugin", the runbook procedures and "Add or change a phase rule" table, the prd capability table, and the spec's Source line, requirements and Known gaps.
 4. Fix what's stale, or name what you left (e.g. an SVG that needs relayout) in your report.
 
 Keep it lean: the plugin's own code-style rule applies here too (why-only comments, the smallest change that works, no abstraction without a second use).
