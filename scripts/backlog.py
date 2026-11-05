@@ -37,7 +37,9 @@ def slices(text):
             continue
         if set(line.replace("|", "").strip()) <= set("-: ") or len(row) <= max(cols[n] for n in ("id", "deps", "status")):
             continue  # the separator row, or a row too short to read
-        rows.append({"id": row[cols["id"]].upper(), "deps": [d.upper() for d in re.findall(r"B\d+", row[cols["deps"]], re.I)],
+        # `**B1**` or `` `B1` `` is B1; anything else stays as written, so autopilot still refuses `B1 & calc`
+        slice_id = re.fullmatch(r"[*_`~\s]*(B\d+)[*_`~\s]*", row[cols["id"]], re.I)
+        rows.append({"id": (slice_id.group(1) if slice_id else row[cols["id"]]).upper(), "deps": [d.upper() for d in re.findall(r"B\d+", row[cols["deps"]], re.I)],
                      "status": row[cols["status"]].lower(),
                      "acs": row[cols["acs"]] if "acs" in cols and len(row) > cols["acs"] else ""})
     return rows
