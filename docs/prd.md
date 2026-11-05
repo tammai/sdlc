@@ -1,6 +1,6 @@
 # PRD: sdlc, a Claude Code plugin for the whole software lifecycle
 
-- **Status:** describes the plugin as it is (the version in `.claude-plugin/plugin.json` plus the "Unreleased" section of the [changelog](../CHANGELOG.md)), last checked 2026-10-28 for 2.0. Not a wish list; gaps are listed as such.
+- **Status:** describes the plugin as it is (the version in `.claude-plugin/plugin.json` plus the "Unreleased" section of the [changelog](../CHANGELOG.md)). Not a wish list; gaps are listed as such.
 - **Owner:** Tâm Mai
 - **Specs:** [docs/specs/](specs/README.md) · **Decisions:** [docs/adr/](adr/README.md)
 
@@ -24,7 +24,7 @@ Teams that try to fix this assemble several plugins and conventions by hand, eac
 1. **One install, whole lifecycle:** four phases (Define, Build, Review, Ship with Learn) plus on-request `/sdlc:deploy`, with no other plugin needed.
 2. **Process sized to the work:** S, M or L, the smallest that fits. Sized by footprint, not risk words: a change confined to 1–2 files is S unless it's risky, and is never split into parts. Work with several distinct parts that won't fit one session runs as a backlog of parts, optionally unattended (autopilot, in the session or one headless session per part).
 3. **The same record at every size:** before any code, Define writes the change file for people (why, and what must be true, each criterion with its test) and the state file's plan sections for the agent (how: tasks, files, Public Surface); Review adds the change file's `## Review`. S writes them in a few lines each. Both files are kept for good.
-4. **Few human decisions:** on M and L, one approval of the change file and the plan before the build and the choice of reviews after it; added scope, a reviewer and the builder disagreeing on a high finding, CI still red after one fix, merge, production deploy, migrations, anything irreversible. S has no stop before the build. The agent asks a question only when what, why or how isn't clear, one at a time.
+4. **Few human decisions:** on high-risk M (and on L when its own checks leave a doubt), one approval of the change file and the plan before the build and the choice of reviews after it; added scope, a reviewer and the builder disagreeing on a high finding, CI still red after one fix, merge, production deploy, migrations, anything irreversible. S has no stop before the build. The agent asks a question only when what, why or how isn't clear, one at a time.
 5. **Truthful verification:** Build proves each acceptance criterion with `verify.py` (its test recorded failing before its code, passing now), and a bug is proven with a failing test before its fix. After the build the agent recommends reviews (security; code at default or high depth; UI whenever the diff touches `areas.ui`; the advisor where there is one; or none); S runs a fixed trigger list (none unless high risk, a sensitive, migration or UI path, or a declared public surface), M and L choose. Each chosen review runs once, fresh: the code review on S and M is Claude Code's built-in `/code-review` where it exists, every other review on `opus`; high findings go back to Build, each fixed test first. Nothing merges unless the suite is green locally and on CI; no stale test results, and old failures don't block new work.
 6. **Scope discipline:** every addition traced from request to diff; over-engineering and unrequested behaviour caught while writing and at review.
 7. **Learning that sticks and stays small:** Learn on every feature adds fixed defects to `recurring-defects.md`, which Define and every reviewer read; knowledge in three loading tiers.
@@ -48,7 +48,7 @@ Teams that try to fix this assemble several plugins and conventions by hand, eac
 | # | Capability | Spec | Commands / entry points |
 |---|---|---|---|
 | 01 | Project setup, upgrade, eject; commands per package; generated CI | [01-setup-upgrade-eject](specs/01-setup-upgrade-eject.md) | `/sdlc:setup`, `/sdlc:upgrade`, `/sdlc:eject` |
-| 02 | Orchestrated lifecycle: tracks, four phases with the same record at every size, intent before code, how the build runs (inline, parts or parallel), hard stops, backlog parts, autopilot, trust anchor, resume, on-request deploy; a 1.x feature is refused with how to finish it | [02-orchestration](specs/02-orchestration.md) | `/sdlc:start`, `/sdlc:status`, `/sdlc:deploy`, `scripts/backlog.py`, `scripts/autopilot.py`, `hooks/model_router.py`, `hooks/trust_anchor.py` |
+| 02 | Orchestrated lifecycle: tracks, four phases with the same record at every size, intent before code, how the build runs (inline, parts or parallel), hard stops, backlog parts, autopilot, trust anchor, resume, on-request deploy | [02-orchestration](specs/02-orchestration.md) | `/sdlc:start`, `/sdlc:status`, `/sdlc:deploy`, `scripts/backlog.py`, `scripts/autopilot.py`, `hooks/model_router.py`, `hooks/trust_anchor.py` |
 | 03 | Scope tracing, the review recommendation and review facts | [03-scope-and-review](specs/03-scope-and-review.md) | Define, Review; `/sdlc:review-pr`, `/sdlc:code-review`, `scripts/diff_stats.py` |
 | 04 | Verification: `verify.py` in Build (each criterion's test from the change file recorded red, the verify plan, drift against the state file's plan), reused in Review; Review's 120 s command limit (a hook), freshness hook, baseline; green locally and on CI before merge; the black-box QA tester on request | [04-verification](specs/04-verification.md) | Build, Review, `hooks/verify_freshness.py` |
 | 05 | Security: always-on guidance, commit review once per review-ready diff and only on a security-touched change, the security review recommended after the build on a security-touched change | [05-security](specs/05-security.md) | always-on hooks, `hooks/sdlc_review_gate.py`, Review |
@@ -94,7 +94,7 @@ The plugin collects no metrics. The primary measures come from the eval harness,
 | Hidden acceptance and regression tests | held level |
 | The user's time reading and approving | not counted |
 
-The 1.x flows matched plain Claude's quality at 10–18x the time and tokens (the heavy flow), or were cheaper but failed a crash-safety hidden test that plain Claude passed (the light flows). 2.0 keeps the record and the guards and drops the extra agents and rounds ([ADR 0020](adr/0020-sdlc-2-slim-process-core.md)). Not yet measured: the eval of 2.0 against plain Claude is a separate step after the release candidate.
+Not yet measured: the eval of the current flow against plain Claude is a separate step.
 
 For a team rollout, from repo artifacts: reviews chosen and their findings (the change file's `## Review`), deviations per feature, `CLAUDE.md` under 60 lines, a shrinking baseline, and repos on the current scaffold (`/sdlc:status`).
 
@@ -106,23 +106,14 @@ For a team rollout, from repo artifacts: reviews chosen and their findings (the 
 
 ## 10. Release scope
 
-The [changelog](../CHANGELOG.md) is the per-release record. Releases through 1.8.1 brought setup, upgrade and eject, doctor and status, scope tracing, UI design-system enforcement, the model router, and Codex, Cursor and Antigravity as hosts with hooks and the `sdlc-invariants` CI check. 2.0 is the slim process core ([ADR 0020](adr/0020-sdlc-2-slim-process-core.md)): four phases (Define, Build, Review, Ship), the same record at every size, intent before code, the build like plain Claude with `verify.py`'s red-first evidence, reviews recommended after the build, Learn before the final commit, green locally and on CI, and a stop at the PR. It removes Prove and its rounds, the Lite and full flows, the verifier, ac-checker and code-architect agents, the relay, and the skills only the old flow used. Every typed command keeps its name. A feature started on 1.x is finished on 1.8.1 before the upgrade.
+The [changelog](../CHANGELOG.md) is the per-release record. The current release line is 3.x: setup, upgrade and eject, doctor and status; four phases (Define, Build, Review, Ship) with the same record at every size; intent before code; the build like plain Claude with `verify.py`'s red-first evidence; reviews recommended after the build; Learn before the final commit; green locally and on CI; a stop at the PR; scope tracing, UI design-system enforcement, the model router, and Codex, Cursor and Antigravity as hosts with hooks and the `sdlc-invariants` CI check.
 
 ## 11. Known gaps and open questions
 
-Current:
-
-- **2.0 is instructed, not yet evaluated.** Whether it meets the §8 limits is open. Review's per-command cap is enforced (ADR 0012); a probe hidden behind a project command (`npm test; node probe.js`) escapes it. Build's `verify.py` evidence (ADR 0013) is tamper-evident, not tamper-proof ([spec 04](specs/04-verification.md#known-gaps)).
+- **The flow is instructed, not yet evaluated.** Whether it meets the §8 limits is open. Review's per-command cap is enforced (ADR 0012); a probe hidden behind a project command (`npm test; node probe.js`) escapes it. Build's `verify.py` evidence (ADR 0013) is tamper-evident, not tamper-proof ([spec 04](specs/04-verification.md#known-gaps)).
 - **Prompt-only guarantees:** apart from the model router, phase and hard-stop rules rest on instructions plus the user's approval. Mechanical are `verify.py`'s red records and drift check, freshness, Review's 120 s command limit, guardrails, the surface check, file ownership, the model router, the role guard's file-tool limits, the commit review gate and the trust anchor (a passing full run of the current code to leave Review, a review's `VERDICT: FAIL` unless waived), which makes a change visible rather than preventing it. The review recommendation, one question at a time, the one CI fix and the stop at the PR are instructions; nothing enforces them. Each spec marks which is which; their Known gaps sections list the rest.
 - **Reviewers and the qa-tester keep Bash,** so a shell edit, a reviewer's own script or reading source is only instructed against ([specs 03](specs/03-scope-and-review.md), [04](specs/04-verification.md)).
 - **Security-guidance hooks** are vendored and untested here; the review gate's limits live in a repo the agent can write ([spec 05](specs/05-security.md)).
 - **Outside Claude Code:** no role guard, model router, security review, `sdlc-extras` (Ralph loop), headless autopilot (`autopilot.py`) or context diet; Codex and Antigravity record `last_result: unknown` ([spec 11](specs/11-multi-agent.md)).
 - **Control contract:** a hand edit to `state.md` leaves `state.json` behind; `spend` is always null ([spec 12](specs/12-control-contract.md)).
 - **Generated CI** hasn't run on GitHub (YAML and local toolchains only; no `actionlint`), and setup → start → upgrade hasn't run as one continuous project.
-
-History:
-
-- **Live checks after 1.5.0 (2026-10-23, headless on Windows, about $3):** an M feature in the brownfield monorepo through Stage 8 (subagent-driven, red-green with `install`, dispatches logged per stage, simplifier before the opus review, `Verified:` tree checked); then probes of a failing full run (`last_result: fail`), a reviewer Edit denied by the role guard, a Risk change reaching the user, and the model router holding a reviewer to opus on high risk.
-- **Release smoke test (1.5.0, 2026-10-23, headless on Windows):** every must item passed again; the S fix ran the simplifier before the reviewer and recorded `Verified:`. Known issues are under 1.5.0 in the changelog.
-- **Release smoke test (1.4.0, 2026-10-22, headless sessions on Windows):** install, doctor, greenfield and brownfield setup (including resume after an interrupt), guardrails, an S fix through Verify, upgrade and eject all passed; hook warnings and block reasons reach Claude, and the model router named a tier for every dispatch. It found and fixed CRLF hashing and a freshness filter bug. Known issues are listed under 1.4.0 in the changelog.
-- **Multi-agent smoke tests (2026-10-24 and 2026-10-25):** see [spec 11](specs/11-multi-agent.md#known-gaps).

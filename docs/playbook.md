@@ -42,7 +42,7 @@ A feature's change file goes in `<docs>/changes/<feature>.md` (`<docs>` is `docs
 
 **You decide:** the merge. Anything that adds scope also stops it.
 
-**If the bug is bigger:** when the fix needs more files than expected or the approach is unclear, the agent says so and sizes up to M, which needs your approval before the build.
+**If the bug is bigger:** when the fix needs more files than expected or the approach is unclear, the agent says so and sizes up to M, which asks for your approval before the build when it's high-risk.
 
 ## 2. Add a feature (M track)
 
@@ -85,8 +85,6 @@ Deeper scanners (Claude Security, Semgrep and others, not bundled): `skills/orch
 - `/sdlc:start` with no argument resumes the one feature with `Status: active`, in its phase. Several active: it asks which.
 
 A new session needs no re-explaining: the state file and the change file carry everything.
-
-**A feature started under sdlc 1.x** (its state file has no `Process:` line) can't run on 3.0: `/sdlc:start` says so. Finish it with sdlc 1.8.1, or archive it (`Status: done`). A feature with `Process: 2` (sdlc 2.x) just needs `/sdlc:upgrade`, which renumbers it.
 
 **Someone else's feature:** the state file names its `Owner:` and `Tool:`. Before advancing a feature you don't own, the agent asks, then records the handover as a deviation.
 
@@ -216,7 +214,7 @@ Interrupted? Run `/sdlc:setup` again; it resumes from the last finished step.
 
 `/sdlc:start` and `/sdlc:status` tell you when the repo's scaffold is behind the installed plugin. Nothing breaks if you wait; you miss the new rules and fixes.
 
-1. Finish or pause in-flight features if you can. **Upgrading to 2.0:** a feature started under 1.x must be finished with sdlc 1.8.1, or archived (`Status: done`), first; the upgrade names each one and refuses until none is left ([ADR 0020](adr/0020-sdlc-2-slim-process-core.md), [runbook R20](runbook.md#r20-upgrade-to-20-with-a-1x-feature-in-progress)). **Upgrading to 3.0:** a feature in flight on 2.x needs nothing finished first; the upgrade renumbers its stages (Build 4 → 2, Review 5 → 3, Ship 8 → 4, `Process: 3`) ([ADR 0022](adr/0022-phases-numbered-one-to-four.md), [runbook R21](runbook.md#r21-a-feature-still-says-process-2-after-moving-to-30)).
+1. Finish or pause in-flight features if you can.
 2. `/sdlc:upgrade --dry-run` shows the plan: files added, regenerated, replaced, edited by you, deleted by you, no longer shipped, and migrations.
 3. `/sdlc:upgrade` runs it on a `sdlc/upgrade-<from>-<to>` branch. A new CI workflow is asked about first. For each plugin file you edited you choose: **apply** the proposed merge, **skip** this time, or **keep mine** (the plugin stops managing it). An edited guardrail (`.claude/hookify/sdlc-*.md`) you apply yourself: Claude is blocked from editing the rules that constrain it.
 4. Each migration is shown as a diff. Declined ones aren't asked again; `/sdlc:upgrade --revisit` brings them back.
@@ -230,8 +228,8 @@ Interrupted? Run `/sdlc:setup` again; it resumes from the last finished step.
 
 Every feature keeps its working files after it ships. Old plans and reports describe code that has since changed, and agents searching the repo can be misled by them.
 
-1. `/sdlc:prune` lists features marked done on the main branch 45+ days ago (`--older-than 90d` to change that), with the files that would go: the parts' `plan-B<n>.md`, `qa-report.md`, and 1.x features' `plan.md`, reports and checklists.
-2. Pick which to prune. The change file and the state file stay (1.x features keep intent, spec, design, retro and state, and `review.md` only on high risk).
+1. `/sdlc:prune` lists features marked done on the main branch 45+ days ago (`--older-than 90d` to change that), with the files that would go: the parts' `plan-B<n>.md` files and `qa-report.md`.
+2. Pick which to prune. The change file and the state file stay.
 3. It commits the deletions in one commit. Git history keeps everything.
 
 ## 19. A big feature becomes a backlog
@@ -281,7 +279,7 @@ It reports, per active feature:
 - a feature stopping being active other than by finishing (a pause, a deleted state file);
 - a damaged trust-anchor record.
 
-Only current features (`Process: 3`) are watched; a 2.x feature waits for `/sdlc:upgrade` and a 1.x feature is finished on 1.8.1.
+Only current features (`Process: 3`) are watched.
 
 **What to do:** read it. If the change is right, carry on: your next message accepts it. If not, say so and ask the agent to put it back.
 
@@ -295,7 +293,7 @@ Autopilot won't start a session while a notice is open; its JSON `stopped` reaso
 
 | Decision | Owner |
 |---|---|
-| Define's approval on M and L: the change file, the plan (and backlog), how the build runs | You |
+| Define's approval on high-risk M (and L on doubt): the change file, the plan (and backlog), how the build runs | You |
 | Which reviews run after the build, on M and L | You |
 | Anything that adds scope | You |
 | A reviewer and the agent disagreeing on a high finding | You |
@@ -325,7 +323,7 @@ Autopilot won't start a session while a notice is open; its JSON `stopped` reaso
 |---|---|
 | Track and risk | The agent proposes; you can override |
 | Whether to ask before writing the record | The agent judges; it asks when what, why or how isn't clear |
-| How the build runs (inline, parts, parallel) | The agent, written in the state file; on M and L shown at the approval |
+| How the build runs (inline, parts, parallel) | The agent, written in the state file; shown at the approval when there is one |
 | Which reviews to run on S | A fixed trigger list (`s-track.md` step 5); none unless one fires |
 | Which reviews to run on autopilot and headless runs | The agent's recommendation |
 | Verify verdict | The latest `verify.py` run on the current code |

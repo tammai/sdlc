@@ -53,7 +53,7 @@ One JSON object per line, appended, never rewritten. Every event has `ts` (UTC, 
 | `verified` | `verified` | `commit`, `tree` |
 | `note`, `review_done` | `log` | `text` |
 | `slice_started` | `slice start` | `slice`, `base` |
-| `slice_done` | `slice done` | `slice`, `commit` (null from 2.4.3: run before the part's commit, which names the part) |
+| `slice_done` | `slice done` | `slice`, `commit` (null: it runs before the part's commit, which names the part) |
 | `slice_blocked` | `slice block` | `slice`, `reason` |
 | `deviation_logged` | `deviation` | `text` |
 | `blocker_raised`, `blocker_resolved` | `blocker` | `text` |

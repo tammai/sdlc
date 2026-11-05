@@ -26,7 +26,7 @@ sdlc/
 │   ├── verify_freshness.py  Review (Stage 3) stale/fresh test tracking, and its own copy of verify.py runs (original)
 │   ├── model_router.py      checks each subagent dispatch's model (every review on opus), logs dispatches (original)
 │   ├── role_guard.py        keeps the plugin's agents to their role's file access; reviewers write only .sdlc/.work/findings/ (original)
-│   ├── prove_budget.py      kills non-project shell commands at 120 s in Review (Stage 3), no background runs; the file keeps its 1.x name (original)
+│   ├── prove_budget.py      kills non-project shell commands at 120 s in Review (Stage 3), no background runs (original)
 │   ├── session_status.py    SessionStart: the sdlc setup, paths and active features in one line (original)
 │   ├── trust_anchor.py      shows the user changes to what verification trusts (original)
 │   ├── review_rounds.py     when round 2 (the check of the fixes) still fails, holds every edit and command until the user replies (original)

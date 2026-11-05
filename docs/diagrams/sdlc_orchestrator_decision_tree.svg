@@ -1,6 +1,6 @@
 <svg width="100%" viewBox="0 0 680 1040" role="img" xmlns="http://www.w3.org/2000/svg">
 <title>SDLC orchestrator decision tree</title>
-<desc>/sdlc:start resumes an active feature (Process: 3) in its phase (a feature started under 1.x is refused: finish it on sdlc 1.8.1 or archive it). With none active it sizes the request: a trivial change is done directly with no workflow (change, test, commit); otherwise it starts a new feature (offering /sdlc:setup if the repo isn't set up) on the smallest fitting S, M or L track, writes the state file, then loops through the four phases Define, Build, Review and Ship (with Learn): run the phase, check its gate, stop for the user at hard stops (on high-risk M, approving the change file and plan before the build and choosing the reviews after it; on L the same two only when the agent's own checks leave a doubt; anything that adds scope; a reviewer and the builder disagreeing on a high finding; CI still red after one fix; merge; production deploy; DB migration; anything irreversible), repeat until no phases remain. S and low-risk M run straight through, running the reviews that fire. Review's high findings go back to Build. Ship stops with the PR open. Deploy runs only when asked, with /sdlc:deploy.</desc>
+<desc>/sdlc:start resumes an active feature (Process: 3) in its phase. With none active it sizes the request: a trivial change is done directly with no workflow (change, test, commit); otherwise it starts a new feature (offering /sdlc:setup if the repo isn't set up) on the smallest fitting S, M or L track, writes the state file, then loops through the four phases Define, Build, Review and Ship (with Learn): run the phase, check its gate, stop for the user at hard stops (on high-risk M, approving the change file and plan before the build and choosing the reviews after it; on L the same two only when the agent's own checks leave a doubt; anything that adds scope; a reviewer and the builder disagreeing on a high finding; CI still red after one fix; merge; production deploy; DB migration; anything irreversible), repeat until no phases remain. S and low-risk M run straight through, running the reviews that fire. Review's high findings go back to Build. Ship stops with the PR open. Deploy runs only when asked, with /sdlc:deploy.</desc>
 <style>
 text{font-family:anthropic-sans,-apple-system,"system-ui","Segoe UI",sans-serif;text-anchor:middle;dominant-baseline:central}
 .a{fill:none;stroke:#898781;stroke-width:1.5}
@@ -40,13 +40,6 @@ text{font-family:anthropic-sans,-apple-system,"system-ui","Segoe UI",sans-serif;
 <text class="s" x="100.0" y="145">Continue in its phase</text>
 </g>
 <path class="a" marker-end="url(#arrow)" d="M30 134 L12 134 L12 537 L208 537"/>
-<line class="a" marker-end="url(#arrow)" x1="430" y1="134" x2="508" y2="134"/>
-<text class="l" x="469" y="124" text-anchor="middle">without it</text>
-<g class="approval"><rect x="510" y="97" width="150" height="74" rx="8"/>
-<text class="t" x="585.0" y="116">1.x feature</text>
-<text class="s" x="585.0" y="136">Finish on sdlc 1.8.1</text>
-<text class="s" x="585.0" y="154">or archive it</text>
-</g>
 <line class="a" marker-end="url(#arrow)" x1="340" y1="162" x2="340" y2="190"/>
 <text class="l" x="352" y="176" text-anchor="start">none</text>
 <g class="decision"><rect x="170" y="190" width="340" height="86" rx="8"/>
@@ -71,13 +64,13 @@ text{font-family:anthropic-sans,-apple-system,"system-ui","Segoe UI",sans-serif;
 </g>
 <g class="action"><rect x="351" y="306" width="146" height="74" rx="8"/>
 <text class="t" x="424.0" y="325">M · feature</text>
-<text class="s" x="424.0" y="345">Intent, spec, plan</text>
-<text class="s" x="424.0" y="363">You approve them</text>
+<text class="s" x="424.0" y="345">Change file and plan</text>
+<text class="s" x="424.0" y="363">High risk: you approve</text>
 </g>
 <g class="action"><rect x="514" y="306" width="146" height="74" rx="8"/>
 <text class="t" x="587.0" y="325">L · project</text>
 <text class="s" x="587.0" y="345">Brainstorm interview</text>
-<text class="s" x="587.0" y="363">You approve them</text>
+<text class="s" x="587.0" y="363">Approve only on doubt</text>
 </g>
 <path class="a" d="M260 380 L260 395 L587 395 L587 380 M424 380 L424 395"/>
 <line class="a" marker-end="url(#arrow)" x1="340" y1="395" x2="340" y2="410"/>
@@ -89,7 +82,7 @@ text{font-family:anthropic-sans,-apple-system,"system-ui","Segoe UI",sans-serif;
 <line class="a" marker-end="url(#arrow)" x1="340" y1="484" x2="340" y2="512"/>
 <g class="action"><rect x="210" y="512" width="260" height="74" rx="8"/>
 <text class="t" x="340.0" y="531">Run phase</text>
-<text class="s" x="340.0" y="551">Define 1 → Build 4 → Review 5 → Ship 8</text>
+<text class="s" x="340.0" y="551">Define 1 → Build 2 → Review 3 → Ship 4</text>
 <text class="s" x="340.0" y="569">Reviews recommended; S runs them</text>
 </g>
 <line class="a" marker-end="url(#arrow)" x1="340" y1="586" x2="340" y2="614"/>
@@ -108,7 +101,7 @@ text{font-family:anthropic-sans,-apple-system,"system-ui","Segoe UI",sans-serif;
 <text class="l" x="352" y="674" text-anchor="start">yes</text>
 <g class="decision"><rect x="165" y="690" width="330" height="108" rx="8"/>
 <text class="t" x="330.0" y="708">Hard stop?</text>
-<text class="s" x="330.0" y="728">M, L: approve before build, pick reviews after</text>
+<text class="s" x="330.0" y="728">High-risk M: approve plan, pick reviews (L on doubt)</text>
 <text class="s" x="330.0" y="746">Added scope · CI red after one fix</text>
 <text class="s" x="330.0" y="764">Reviewer and builder disagree on a high</text>
 <text class="s" x="330.0" y="782">Merge, deploy, migration, anything irreversible</text>

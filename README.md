@@ -14,7 +14,7 @@ You describe the work. sdlc decides how big it is, then takes it from intent to 
 
 ## What you get
 
-- **Work sized to fit.** A small fix runs straight through. A feature or a project gets a written plan you approve first.
+- **Work sized to fit.** A small fix runs straight through. A feature or a project gets a written plan first, and you approve it when the work is high-risk.
 - **Four phases.** Define → Build → Review → Ship, the same on every change.
 - **Test-first proof.** Each acceptance criterion has a test that fails before the code is written and passes after.
 - **Reviews picked from the diff.** Security, code, UI or none, depending on what the change touched.
@@ -60,8 +60,8 @@ Optional companions from the same marketplace (`/sdlc:setup` offers them):
 | Size | When | You decide |
 |---|---|---|
 | **S** fix | 1–2 files, clear expected behaviour | merge |
-| **M** feature | a few files, approach mostly clear | the plan, which reviews to run, merge |
-| **L** project | several parts, or an approach still unclear | the same as M, after a short design interview |
+| **M** feature | a few files, approach mostly clear | at high risk: the plan and which reviews run; merge |
+| **L** project | several parts, or an approach still unclear | the plan and reviews only if its own checks leave a doubt; merge |
 
 The agent stops at the open PR with CI green. Merging, production deploys and database migrations are always your call.
 

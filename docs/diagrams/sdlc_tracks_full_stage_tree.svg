@@ -1,6 +1,6 @@
-<svg width="100%" viewBox="0 0 680 572" role="img" xmlns="http://www.w3.org/2000/svg">
+<svg width="100%" viewBox="0 0 680 594" role="img" xmlns="http://www.w3.org/2000/svg">
 <title>SDLC tracks and their phases</title>
-<desc>Sizing picks the smallest fitting S, M or L track. Each track runs the four phases Define, Build, Review and Ship with Learn, and writes the same record: intent.md, spec.md (each acceptance criterion with its test) and plan.md, then review.md; S fills each in a few lines. Every track's Build records each acceptance criterion's test failing before its code and ends with one passing verify.py run, which Review reuses. After the build the agent recommends reviews (security, code at default or high depth, UI, the advisor, or none), each run once, fresh (the code review on S and M: Claude Code's built-in /code-review; the rest on opus). A dot marks phases that stop for the user: Define and Review on M and L. S has no stop. Ship stops with the PR open on every track; merge waits for the user. Work too big for one session loops Build and a commit per part, then one Review and one Ship at feature close. Deploy is the on-request command /sdlc:deploy on any track, not a phase.</desc>
+<desc>Sizing picks the smallest fitting S, M or L track; a trivial change is done directly (change, test, commit). Each track runs the four phases Define, Build, Review and Ship with Learn, and writes the same record: the change file (why, each acceptance criterion with its test, and later the review) and the plan in the state file; S writes both in a few lines. Every track's Build records each acceptance criterion's test failing before its code and ends with one passing verify.py run, which Review reuses. S runs a fixed list of reviews, none by default, without stopping. M runs the reviews that fire; at high risk it stops for you to approve the change file and plan, and to pick the reviews. L runs the brainstorming interview and may split the work into parts; it stops at those two points only when its own checks leave a doubt. Ship stops with the PR open on every track; merge waits for you. Work too big for one session loops Build and a commit per part, then one Review and one Ship. Deploy is the on-request command /sdlc:deploy on any track, not a phase.</desc>
 <style>
 text{font-family:anthropic-sans,-apple-system,"system-ui","Segoe UI",sans-serif;text-anchor:middle;dominant-baseline:central}
 .a{fill:none;stroke:#898781;stroke-width:1.5}
@@ -13,7 +13,7 @@ rect{stroke-width:.5}
 .light rect{fill:#eeedfe;stroke:#534ab7;stroke-dasharray:4 3}.light .r{fill:#3c3489}
 .opt rect{fill:#f1efe8;stroke:#5f5e5a}.opt .r{fill:#444441}
 .skip rect{fill:none;stroke:rgba(11,11,11,.2);stroke-dasharray:4 3}.skip .r{fill:#898781}
-.dot{fill:#993c1d}
+.dot{fill:#993c1d}.dot.maybe{fill:none;stroke:#993c1d;stroke-width:1.5}
 @media (prefers-color-scheme:dark){
 .a{stroke:#a09e96}.l{fill:#aaa8a2}
 .neutral rect{fill:#262624;stroke:rgba(255,255,255,.2)}.neutral .t{fill:#f0efea}
@@ -21,7 +21,7 @@ rect{stroke-width:.5}
 .run rect,.light rect{fill:#26244a;stroke:#a098f0}.run .r,.light .r{fill:#cecbfa}
 .opt rect{fill:#2e2d2a;stroke:#a09e96}.opt .r{fill:#d3d1c7}
 .skip rect{stroke:rgba(255,255,255,.2)}.skip .r{fill:#8a8881}
-.dot{fill:#e68c6e}
+.dot{fill:#e68c6e}.dot.maybe{fill:none;stroke:#e68c6e}
 }</style>
 <defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
 <g class="neutral"><rect x="240" y="24" width="200" height="44" rx="8"/><text class="t" x="340" y="46">Size the work</text></g>
@@ -34,7 +34,7 @@ rect{stroke-width:.5}
 <line class="a" marker-end="url(#arrow)" x1="130.0" y1="166" x2="130.0" y2="184"/>
 <g class="light"><rect x="40" y="186" width="180" height="58" rx="4"/>
 <text class="r" x="130.0" y="200" font-weight="600">Define</text>
-<text class="r" x="130.0" y="217">3 files, a few lines each</text>
+<text class="r" x="130.0" y="217">change file + plan, short</text>
 <text class="r" x="130.0" y="232">asks if unclear; no stop</text>
 </g>
 <g class="run"><rect x="40" y="252" width="180" height="58" rx="4"/>
@@ -44,8 +44,8 @@ rect{stroke-width:.5}
 </g>
 <g class="light"><rect x="40" y="318" width="180" height="58" rx="4"/>
 <text class="r" x="130.0" y="332" font-weight="600">Review</text>
-<text class="r" x="130.0" y="349">runs what it recommends,</text>
-<text class="r" x="130.0" y="364">or none; no stop</text>
+<text class="r" x="130.0" y="349">fixed trigger list, none</text>
+<text class="r" x="130.0" y="364">by default; no stop</text>
 </g>
 <g class="run"><rect x="40" y="384" width="180" height="58" rx="4"/>
 <text class="r" x="130.0" y="398" font-weight="600">Ship · Learn</text>
@@ -57,9 +57,9 @@ rect{stroke-width:.5}
 <line class="a" marker-end="url(#arrow)" x1="340.0" y1="166" x2="340.0" y2="184"/>
 <g class="run"><rect x="250" y="186" width="180" height="58" rx="4"/>
 <text class="r" x="340.0" y="200" font-weight="600">Define</text>
-<text class="r" x="340.0" y="217">intent, spec, plan in full</text>
+<text class="r" x="340.0" y="217">change file + plan in full</text>
 <text class="r" x="340.0" y="232">one question at a time</text>
-<circle class="dot" cx="420" cy="200" r="3.5"/>
+<circle class="dot maybe" cx="420" cy="200" r="3.5"/>
 </g>
 <g class="run"><rect x="250" y="252" width="180" height="58" rx="4"/>
 <text class="r" x="340.0" y="266" font-weight="600">Build</text>
@@ -68,9 +68,9 @@ rect{stroke-width:.5}
 </g>
 <g class="run"><rect x="250" y="318" width="180" height="58" rx="4"/>
 <text class="r" x="340.0" y="332" font-weight="600">Review</text>
-<text class="r" x="340.0" y="349">agent recommends, you</text>
-<text class="r" x="340.0" y="364">pick; each once, fresh</text>
-<circle class="dot" cx="420" cy="332" r="3.5"/>
+<text class="r" x="340.0" y="349">runs what fires; high</text>
+<text class="r" x="340.0" y="364">risk: you pick the reviews</text>
+<circle class="dot maybe" cx="420" cy="332" r="3.5"/>
 </g>
 <g class="run"><rect x="250" y="384" width="180" height="58" rx="4"/>
 <text class="r" x="340.0" y="398" font-weight="600">Ship · Learn</text>
@@ -84,7 +84,7 @@ rect{stroke-width:.5}
 <text class="r" x="550.0" y="200" font-weight="600">Define</text>
 <text class="r" x="550.0" y="217">brainstorming interview</text>
 <text class="r" x="550.0" y="232">+ backlog.md if too big</text>
-<circle class="dot" cx="630" cy="200" r="3.5"/>
+<circle class="dot maybe" cx="630" cy="200" r="3.5"/>
 </g>
 <g class="run"><rect x="460" y="252" width="180" height="58" rx="4"/>
 <text class="r" x="550.0" y="266" font-weight="600">Build</text>
@@ -94,8 +94,8 @@ rect{stroke-width:.5}
 <g class="run"><rect x="460" y="318" width="180" height="58" rx="4"/>
 <text class="r" x="550.0" y="332" font-weight="600">Review</text>
 <text class="r" x="550.0" y="349">one, after the last part;</text>
-<text class="r" x="550.0" y="364">you pick from the advice</text>
-<circle class="dot" cx="630" cy="332" r="3.5"/>
+<text class="r" x="550.0" y="364">asks only on doubt</text>
+<circle class="dot maybe" cx="630" cy="332" r="3.5"/>
 </g>
 <g class="run"><rect x="460" y="384" width="180" height="58" rx="4"/>
 <text class="r" x="550.0" y="398" font-weight="600">Ship · Learn</text>
@@ -115,4 +115,6 @@ rect{stroke-width:.5}
 <text class="l" text-anchor="start" x="340" y="545">On request</text>
 <circle class="dot" cx="447" cy="545" r="4"/>
 <text class="l" text-anchor="start" x="460" y="545">Stops for you</text>
+<circle class="dot maybe" cx="447" cy="572" r="4"/>
+<text class="l" text-anchor="start" x="460" y="572">Stops at high risk (M) or on doubt (L)</text>
 </svg>
