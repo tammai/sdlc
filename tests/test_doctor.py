@@ -253,6 +253,35 @@ class DoctorTest(ProjectTestCase):
         self.assertEqual(c["status"], "warn")
         self.assertIn("/sdlc:upgrade", c["fix"])
 
+    def git_init(self):
+        subprocess.run(["git", "init", "-q", self.root], check=True, capture_output=True)
+
+    def test_gitignore_other_spellings_git_ignores_are_ok(self):
+        # git decides what's ignored, so any spelling it honours passes (bug: only the literal tokens did)
+        self.setup_repo()
+        self.git_init()
+        for text in (".sdlc/.work\n.sdlc/state/\n",
+                     "/.sdlc/.work/\n/.sdlc/state/*.json\n/.sdlc/state/*.events.jsonl\n/.sdlc/state/*.commands\n"):
+            self.write(".gitignore", text)
+            c = self.check(".gitignore")
+            self.assertEqual(c["status"], "ok", (text, c))
+
+    def test_gitignore_in_a_git_repo_not_ignoring_warns(self):
+        self.setup_repo()
+        self.git_init()
+        self.write(".gitignore", "node_modules/\n")
+        c = self.check(".gitignore")
+        self.assertEqual((c["status"], c["fix"]), ("warn", "add `.sdlc/.work/` to .gitignore"))
+        self.write(".gitignore", ".sdlc/.work\n")
+        c = self.check(".gitignore")
+        self.assertEqual(c["status"], "warn")
+        self.assertIn(".sdlc/state/*.json", c["detail"])
+
+    def test_gitignore_without_git_accepts_a_spelling_without_slashes(self):
+        self.setup_repo()  # not a git repo: doctor reads .gitignore's lines itself
+        self.write(".gitignore", "/.sdlc/.work\n.sdlc/state/*.json\n.sdlc/state/*.events.jsonl\n.sdlc/state/*.commands\n")
+        self.assertEqual(self.check(".gitignore")["status"], "ok")
+
     def test_rules_whose_paths_match_nothing(self):
         self.write("src/api/a.ts", "")
         self.write(".claude/rules/api.md", '---\npaths:\n  - "src/api/**/*.{ts,js}"\n---\n# API\n')
@@ -313,6 +342,16 @@ class DoctorTest(ProjectTestCase):
         self.assertIn("no index.md", self.check("knowledge index")["detail"])
         self.write("knowledge/index.md", "- [Naming](conventions/naming.md)\n- [Gone](gotchas/gone.md)\n- [Site](https://x.dev)\n")
         self.assertEqual(self.check("knowledge index")["detail"], "broken links: gotchas/gone.md")
+
+    def test_knowledge_index_links_with_spaces(self):
+        self.write("knowledge/deploy runbook.md", "x")
+        self.write("knowledge/on call.md", "x")
+        self.write("knowledge/index.md", "- [Deploy runbook](deploy%20runbook.md)\n- [On call](<on call.md>)\n"
+                   "- [Section](<on call.md#rota>)\n- [Top](#top)\n")
+        c = self.check("knowledge index")
+        self.assertEqual((c["status"], c["detail"]), ("ok", "3 links resolve"))
+        self.write("knowledge/index.md", "- [Gone](<gone file.md>)\n- [Also](also%20gone.md)\n")
+        self.assertEqual(self.check("knowledge index")["detail"], "broken links: gone file.md, also%20gone.md")
 
     def test_feature_state(self):
         self.write(".sdlc/a/state.md", "Status: active\nProcess: 3\nCurrent: Stage 2 – Build\n")

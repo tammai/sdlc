@@ -15,6 +15,7 @@ import re
 import shutil
 import subprocess
 import sys
+import urllib.parse
 
 PLUGIN_ROOT = os.environ.get("CLAUDE_PLUGIN_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
@@ -33,6 +34,13 @@ class Report:
 
     def add(self, group, name, status, detail, fix=None):
         self.checks.append({"group": group, "check": name, "status": status, "detail": detail, "fix": fix})
+
+
+def knowledge_links(text):
+    """Markdown link targets in `text`, without `<…>` brackets or a `#fragment`; bare anchors are left out."""
+    targets = (m.group(1)[1:-1] if m.group(1).startswith("<") else m.group(1)
+               for m in re.finditer(r"\]\(\s*(<[^>\n]*>|[^)\s]+)", text))
+    return [t.split("#", 1)[0] for t in targets if t.split("#", 1)[0]]
 
 
 def run(cmd, cwd=None, timeout=10):
@@ -158,6 +166,23 @@ def rule_paths(text):
     return [x.strip().strip("\"'") for x in re.findall(r"^\s*-\s*(.+)$", m.group(1).split("paths:", 1)[1], re.M)]
 
 
+def not_ignored(root, patterns):
+    """The patterns (setup's .gitignore lines) whose files git would not ignore.
+
+    In a git work tree git answers, so every spelling it honours counts (`.sdlc/.work`, `/.sdlc/.work/`, a parent
+    folder, .git/info/exclude); `--no-index` keeps a tracked file from hiding the rule. Without git, .gitignore's
+    lines are compared with a leading and trailing `/` dropped."""
+    probes = {p: p.replace("*", "x") + ("x" if p.endswith("/") else "") for p in patterns}
+    code, out = run(["git", "-C", root, "check-ignore", "--no-index", "--"] + list(probes.values()))
+    if code in (0, 1):
+        ignored = set(out.splitlines())
+        return [p for p in patterns if probes[p] not in ignored]
+    gi = os.path.join(root, ".gitignore")
+    lines = open(gi, encoding="utf-8").read().splitlines() if os.path.exists(gi) else []
+    lines = {x.strip().strip("/") for x in lines}
+    return [p for p in patterns if p.strip("/") not in lines]
+
+
 def check_repo(r, root):
     g = "repo"
     try:
@@ -241,14 +266,13 @@ def check_repo(r, root):
         r.add(g, "layout", "warn", "sdlc documents are still in .sdlc/ (the layout before 1.7.0)",
               "run /sdlc:upgrade to move them to docs/sdlc or a location you choose")
 
-    gi = os.path.join(root, ".gitignore")
-    lines = open(gi, encoding="utf-8").read().split() if os.path.exists(gi) else []
-    # The control contract's runtime files (state.py, spec 12): setup adds these; repos set up before get them
-    # from /sdlc:upgrade, which re-runs the gitignore step
-    contract = [x for x in (".sdlc/state/*.json", ".sdlc/state/*.events.jsonl", ".sdlc/state/*.commands/")
-                if x not in lines]
     if os.path.isdir(os.path.join(root, ".sdlc")):
-        if ".sdlc/.work/" not in lines:
+        # The control contract's runtime files (state.py, spec 12): setup adds these; repos set up before get them
+        # from /sdlc:upgrade, which re-runs the gitignore step
+        missing = not_ignored(root, [".sdlc/.work/", ".sdlc/state/*.json", ".sdlc/state/*.events.jsonl",
+                                     ".sdlc/state/*.commands/"])
+        contract = [x for x in missing if x != ".sdlc/.work/"]
+        if ".sdlc/.work/" in missing:
             r.add(g, ".gitignore", "warn", ".sdlc/.work/ is not git-ignored (scratch files may get committed)",
                   "add `.sdlc/.work/` to .gitignore")
         elif contract:
@@ -365,9 +389,9 @@ def check_repo(r, root):
             r.add(g, "knowledge index", "warn", "knowledge/ has no index.md: tier-3 docs are invisible",
                   "sdlc:managing-knowledge")
         else:
-            links = re.findall(r"\]\(([^)#\s]+)", open(idx, encoding="utf-8").read())
-            broken = [l for l in links if not re.match(r"[a-z]+:", l) and
-                      not os.path.exists(os.path.normpath(os.path.join(os.path.dirname(idx), l)))]
+            links = knowledge_links(open(idx, encoding="utf-8").read())
+            broken = [l for l in links if not re.match(r"[a-z]+:", l) and not os.path.exists(
+                os.path.normpath(os.path.join(os.path.dirname(idx), urllib.parse.unquote(l))))]
             r.add(g, "knowledge index", "warn" if broken else "ok",
                   "broken links: " + ", ".join(broken) if broken else f"{len(links)} links resolve",
                   "fix or remove the links" if broken else None)
