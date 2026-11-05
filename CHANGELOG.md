@@ -5,6 +5,7 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 ## Unreleased
 
 ### Fixed
+- **`hosts.py` ignores stray entries in `hosts/skills/` and `hosts/cursor/agents/`.** A file there such as the `.DS_Store` macOS writes, or a folder without a `SKILL.md`, made `check` report it as stale on every run and `build` crash with `NotADirectoryError` before writing anything. Only what a build writes now counts: a folder holding a `SKILL.md`, and a `.md` file in `hosts/cursor/agents/`. Generated files whose command or agent was removed are still deleted.
 - **`/sdlc:doctor` no longer calls knowledge index links with spaces broken.** `[Deploy runbook](deploy%20runbook.md)` and `[On call](<on call.md>)` were flagged although both files existed: the link pattern stopped at the first space, didn't know `<…>` targets and checked the path without URL-decoding it. Both forms now resolve, with or without a `#fragment`.
 - **`state.py blocker raise` keeps an open question that starts with `(`.** The step that drops the template's placeholder line dropped every item starting with `(`, so `(owner) needs the API key` vanished at the next raise and was never listed. Only the template's own `(oldest first …)` line is dropped now.
 - **A bold backlog ID no longer stalls the backlog.** `backlog.py` kept `**B1**` as written, so a part depending on B1 never saw it done and `next` returned nothing, with no error. An ID in bold, italics or backticks now reads as its plain `B<n>`.
