@@ -2,6 +2,12 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
+## Unreleased
+
+### Fixed
+- **Setup no longer commits `.sdlc/.work/review-rounds.json`.** The review-rounds hook saved its store on every tool call and prompt, even with no feature active, so setup's first commits picked up an empty one before the `.gitignore` step took it out again. It now writes only when a round's count changes.
+- **`--surface` writes what `verify.py` reads.** The docs showed `--surface "<item> — <AC>"`, and `state.py new` copied the text as written, but the drift check reads only `` - export `name` `` lines, so a free-text entry such as `calc.div(a, b) — AC-001` left every export flagged as undeclared at Build. `--surface` now takes the kind first (`export div — AC-001`; also `endpoint`, `command`, `config`, `env`, `dependency`), writes the name in backticks, and refuses free text at Define with the form to use. flow.md, s-track.md and the plan template show it.
+
 ## 3.1.0 — 2026-11-05
 
 ### Changed
