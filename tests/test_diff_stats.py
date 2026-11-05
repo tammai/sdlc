@@ -227,6 +227,26 @@ class DiffStatsTest(ProjectTestCase):
         self.assertEqual(p.returncode, 0, p.stderr.decode("utf-8", "replace"))
         self.assertIn("- unused export: total０", p.stdout.decode("utf-8"))
 
+    def test_untracked_names_with_spaces_and_non_ascii_stay_whole(self):
+        self.write("src/my file.py", "def spaced():\n    return 1\n")
+        self.write("café.py", "y = 1\n")
+        r = self.stats()
+        self.assertEqual(r["changed_files"], ["café.py", "src/my file.py"])
+        self.assertEqual(r["new_files"], ["café.py", "src/my file.py"])
+        self.assertEqual(sorted(f["path"] for f in r["files"]), ["café.py", "src/my file.py"])
+
+    def test_committed_names_with_spaces_and_non_ascii_stay_whole(self):
+        self.write("src/my file.py", "def spaced():\n    return 1\n")
+        self.write("café.py", "y = 1\n")
+        self.write("src/existing.ts", "export function old() { return 1 }\nconst c = 2\n")
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "change")
+        r = self.stats()
+        self.assertEqual(r["changed_files"], ["café.py", "src/existing.ts", "src/my file.py"])
+        self.assertEqual(r["new_files"], ["café.py", "src/my file.py"])
+        self.assertEqual(sorted(f["path"] for f in r["files"]), ["café.py", "src/existing.ts", "src/my file.py"])
+        self.assertEqual(self.file(r, "src/my file.py")["added_code"], 2)
+
     def test_no_changes(self):
         r = self.stats()
         self.assertEqual((r["flags"], r["totals"]["new_files"]), ([], 0))

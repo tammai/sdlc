@@ -618,5 +618,15 @@ class VerifyFreshnessTest(ProjectTestCase):
         with open(self.path(".sdlc/.work/verify-freshness.json"), encoding="utf-8") as f:
             self.assertNotEqual(json.load(f)["verify"]["last"]["tree"], "0" * 40)
 
+    def test_changed_code_files_keeps_names_with_spaces_and_non_ascii_whole(self):
+        subprocess.run(["git", "-C", self.root, "init", "-q"], check=True)
+        self.write("a.py", "")
+        old = vf.worktree_tree(self.root)
+        self.write("notes café.md", "doc\n")
+        self.write("src/my file.py", "x = 1\n")
+        self.write("dé.py", "y = 1\n")
+        self.assertEqual(sorted(vf.changed_code_files(self.root, old, vf.worktree_tree(self.root))),
+                         ["dé.py", "src/my file.py"])
+
 if __name__ == "__main__":
     unittest.main()
