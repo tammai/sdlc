@@ -16,6 +16,15 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 - The `design-system` step's procedure moved to `skills/setting-up-projects/references/design-mode.md`.
 - **sdlc-stepper shows the title `SDLC` again,** in bold before the stepper (`SDLC ✓─●─○─○ · Build · …`) in the terminal and in semibold before the icons on the desktop. 3.0.1 had dropped it for the stepper alone.
 
+### Known issues
+- Setup commits `.sdlc/.work/review-rounds.json` before its gitignore step, then removes it from git again.
+- `verify.py` rejects the Public Surface form `flow.md` documents (`--surface "<item> — <AC>"`); `diff_stats.py` accepts only lines like `` - export `name` ``. Older than this release.
+- Review's freshness check doesn't count a test run chained with other commands (`cd web && npm test ; … ; true`).
+- Codex runs sdlc's hooks only after the user approves them in its hooks panel at first start.
+- Antigravity's model read the plugin's own source for a long while before setup's first step until told to follow the skill in order.
+
+Checked on 2026-11-05 at commit 91df5a0: the full suite (400 tests, Python 3.10), `claude plugin validate`, the stepper's 13 tests, and the smoke test in real sessions under `tmux`: A–H in Claude Code 2.1.318 (every must item passes; the plugin was loaded with `--plugin-dir`, since the `sdlc` marketplace name was taken by the installed copy), J in Codex 0.154.0 and Antigravity 1.0.16. The stepper showed `SDLC ✓─✓─●─○ · Review · commit`. Not run: Windows (I), Cursor, and the desktop app's layout.
+
 ## 3.0.4 — 2026-11-04
 
 ### Changed
