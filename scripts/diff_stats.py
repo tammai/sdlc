@@ -125,13 +125,47 @@ class CommentScanner:
         return s.startswith("#")
 
 
+C_ESCAPES = {"a": 7, "b": 8, "t": 9, "n": 10, "v": 11, "f": 12, "r": 13, '"': 34, "\\": 92}
+
+
+def unquote(path):
+    """A path as git's diff header writes it (C-quoted when it holds non-ASCII or special characters), as on disk."""
+    if len(path) < 2 or not (path.startswith('"') and path.endswith('"')):
+        return path
+    out, s, i = bytearray(), path[1:-1], 0
+    while i < len(s):
+        c = s[i]
+        if c == "\\" and i + 1 < len(s):
+            nxt = s[i + 1]
+            if nxt in "01234567" and re.match(r"[0-7]{3}", s[i + 1:i + 4]):
+                out.append(int(s[i + 1:i + 4], 8))
+                i += 4
+                continue
+            if nxt in C_ESCAPES:
+                out.append(C_ESCAPES[nxt])
+                i += 2
+                continue
+        out += c.encode("utf-8")
+        i += 1
+    return out.decode("utf-8", errors="replace")
+
+
+def nul_names(text):
+    """Paths from git's -z (NUL-separated) name output."""
+    return [n for n in (text or "").split("\0") if n]
+
+
 def parse_diff(diff_text):
     """{path: [added lines in order, with None separating hunks]}"""
     files, current = {}, None
     for line in diff_text.splitlines():
         if line.startswith("+++ "):
-            path = line[4:]
-            current = None if path == "/dev/null" else files.setdefault(path[2:] if path.startswith("b/") else path, [])
+            path = line[4:].rstrip("\t")  # git ends a header name holding a space with a tab
+            if path == "/dev/null":
+                current = None
+                continue
+            path = unquote(path)
+            current = files.setdefault(path[2:] if path.startswith("b/") else path, [])
         elif line.startswith("@@") and current is not None:
             current.append(None)
         elif current is not None and line.startswith("+"):
@@ -254,12 +288,12 @@ def check_surface(surface, exports, deps):
 def collect(root, base, plans=()):
     diff = git(root, "diff", "--no-color", "--no-ext-diff", "-U0", "--diff-filter=AMR", base)
     added = parse_diff(diff)
-    status_new = set((git(root, "diff", "--name-only", "--diff-filter=A", base) or "").split())
-    untracked = (git(root, "ls-files", "--others", "--exclude-standard") or "").split()
+    status_new = set(nul_names(git(root, "diff", "-z", "--name-only", "--diff-filter=A", base)))
+    untracked = nul_names(git(root, "ls-files", "-z", "--others", "--exclude-standard"))
     for path in untracked:
         added[path] = [None] + read_lines(root, path)[1:]
     new_files = sorted(status_new | set(untracked))
-    changed_files = sorted(set((git(root, "diff", "--name-only", base) or "").splitlines()) | set(untracked))
+    changed_files = sorted(set(nul_names(git(root, "diff", "-z", "--name-only", base))) | set(untracked))
 
     files, exports, interfaces = [], [], []
     for path, lines in sorted(added.items()):

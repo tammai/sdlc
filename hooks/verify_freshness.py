@@ -249,12 +249,13 @@ def changed_code_files(root, old_tree, new_tree):
     """Code files that differ between the trees, or None when it can't be told (tree gone)."""
     if new_tree == old_tree:
         return []
-    names = git(root, "diff", "--name-only", "--no-renames", old_tree, new_tree)
+    # -z: NUL-separated and unquoted, so names with spaces or non-ASCII come back as on disk
+    names = git(root, "diff", "-z", "--name-only", "--no-renames", old_tree, new_tree)
     top = git(root, "rev-parse", "--show-toplevel")
     if names is None or not top:
         return None
-    return [norm(os.path.relpath(os.path.join(top, n), root)) for n in names.splitlines()
-            if is_code_file(root, os.path.join(top, n))]
+    return [norm(os.path.relpath(os.path.join(top, n), root)) for n in names.split("\0")
+            if n and is_code_file(root, os.path.join(top, n))]
 
 
 def is_code_file(root, file_path):
