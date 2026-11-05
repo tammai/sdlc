@@ -26,7 +26,8 @@ READS = {"Read", "Grep", "Glob"}
 def rel_path(root, tool_input, cwd):
     path = tool_input.get("file_path") or tool_input.get("notebook_path") or tool_input.get("path") or cwd or root
     rel = os.path.relpath(os.path.abspath(os.path.join(cwd or root, path)), root).replace(os.sep, "/")
-    return None if rel.startswith("..") else rel  # None: outside the project
+    # None: outside the project. A segment test, so `..hidden/` and `..env` stay inside (as scaffold.rel())
+    return None if rel == ".." or rel.startswith("../") else rel
 
 
 def problem(agent, tool, rel, root):
