@@ -220,7 +220,7 @@ def cmd_status(p, a):
         drift = "current"
     setup = p.lock.get("setup", {})
     out.update(setup="complete" if setup.get("complete") else "in_progress",
-               completed_steps=setup.get("completed_steps", []),
+               completed_steps=setup.get("completed_steps", []), pending_steps=setup.get("pending", {}),
                scaffold_version=sv, min_plugin_version=minv, drift=drift,
                pending_migrations=[m["id"] for m in pending_migrations(p)],
                files={path: {"class": e["class"], "state": p.file_state(path, e)}
@@ -237,13 +237,30 @@ def cmd_config(p, a):
 
 
 def cmd_step_done(p, a):
+    """Records a setup step done, or with --pending held open for a reason (impeccable loading next session): a
+    pending step isn't done, so a resumed setup runs it again, and the setup can't be marked complete until it is."""
     setup = p.require_lock().setdefault("setup", {"completed_steps": [], "complete": False})
-    if a.step not in setup["completed_steps"]:
-        setup["completed_steps"].append(a.step)
+    pending = setup.setdefault("pending", {})
+    if a.pending:
+        pending[a.step] = a.pending
+        if a.step in setup["completed_steps"]:
+            setup["completed_steps"].remove(a.step)
+    else:
+        pending.pop(a.step, None)
+        if a.step not in setup["completed_steps"]:
+            setup["completed_steps"].append(a.step)
+    if not pending:
+        setup.pop("pending")
     if a.complete:
+        if pending:
+            p.save()
+            raise Refused("steps still pending: " + "; ".join(f"{k} ({v})" for k, v in pending.items()))
         setup["complete"] = True
     p.save()
-    return {"completed_steps": setup["completed_steps"], "complete": setup.get("complete", False)}
+    out = {"completed_steps": setup["completed_steps"], "complete": setup.get("complete", False)}
+    if pending:
+        out["pending"] = pending
+    return out
 
 
 def cmd_record(p, a):
@@ -315,14 +332,76 @@ def cmd_guardrails(p, a):
                                                      if t.startswith("templates/project/hookify/")]}
 
 
-def skill_installed(root, name):
-    """Whether a skill is installed for this repo: in the project's or the user's agent skill folders, or as a
-    Claude Code plugin of that name. File existence only."""
+def skill_dirs(root):
     config = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(os.path.expanduser("~"), ".claude")
     dirs = [os.path.join(root, d) for d in (".claude", ".agents", ".cursor", ".agent")]
-    dirs += [config, os.path.join(os.path.expanduser("~"), ".agents")]
-    return any(os.path.isfile(os.path.join(d, "skills", name, "SKILL.md")) for d in dirs) \
-        or any(k.split("@")[0] == name for k in installed_plugins())
+    return dirs + [config, os.path.join(os.path.expanduser("~"), ".agents")]
+
+
+def skill_folder_installed(root, name):
+    """A skill in the project's or the user's agent skill folders: those load in every session, nothing to enable."""
+    return any(os.path.isfile(os.path.join(d, "skills", name, "SKILL.md")) for d in skill_dirs(root))
+
+
+def plugin_ids(name):
+    """The installed Claude Code plugin ids named `name`, from any marketplace."""
+    return [k for k in installed_plugins() if k.split("@")[0] == name]
+
+
+def skill_installed(root, name):
+    """Whether a skill is installed for this repo: in the agent skill folders, or as a Claude Code plugin of that
+    name, enabled or not. File existence only; `plugin_enabled` says whether a plugin loads here."""
+    return skill_folder_installed(root, name) or bool(plugin_ids(name))
+
+
+def plugin_enabled(root, plugin_id):
+    """Whether Claude Code loads the plugin in this repo: `enabledPlugins` in the user's settings, then the project's
+    committed and local ones (each overrides the one before). Not listed anywhere means off."""
+    config = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(os.path.expanduser("~"), ".claude")
+    on = None
+    for path in (os.path.join(config, "settings.json"), os.path.join(root, SETTINGS), os.path.join(root, LOCAL_SETTINGS)):
+        plugins = read_json(path, {}).get("enabledPlugins")
+        if isinstance(plugins, dict) and plugin_id in plugins:
+            on = plugins[plugin_id] is True
+    return bool(on)
+
+
+def impeccable_hook_off(root):
+    """impeccable's own off switch for its detector hook (`/impeccable hooks off`): `hook.enabled: false` in
+    `.impeccable/config.json` or the machine's `config.local.json`, the later winning."""
+    off = False
+    for name in ("config.json", "config.local.json"):
+        hook = read_json(os.path.join(root, ".impeccable", name), {}).get("hook")
+        if isinstance(hook, dict) and "enabled" in hook:
+            off = hook["enabled"] is False
+    return off
+
+
+def impeccable_hook_wired(root):
+    """A skill-folder install's detector hook is a manifest `/impeccable hooks on` writes into the Claude Code
+    settings (the plugin ships its own); look for its hook.mjs in either file."""
+    for rel in (LOCAL_SETTINGS, SETTINGS):
+        hooks = read_json(os.path.join(root, rel), {}).get("hooks")
+        if "impeccable" in json.dumps(hooks or {}) and "hook.mjs" in json.dumps(hooks or {}):
+            return True
+    return False
+
+
+def impeccable_status(root):
+    """Where impeccable stands for this repo: `state` is `missing`, `disabled` (a Claude Code plugin installed but
+    not turned on here, so none of its commands load) or `enabled`; `hook` is whether its detector hook runs here,
+    which is what may replace sdlc's UI guardrail. A disabled plugin names the `plugin` id sdlc can turn on."""
+    ids = plugin_ids("impeccable")
+    on = [i for i in ids if plugin_enabled(root, i)]
+    if on:
+        return {"state": "enabled", "via": "plugin", "plugin": on[0], "hook": not impeccable_hook_off(root)}
+    if skill_folder_installed(root, "impeccable"):
+        return {"state": "enabled", "via": "skill",
+                "hook": impeccable_hook_wired(root) and not impeccable_hook_off(root)}
+    if ids:
+        return {"state": "disabled", "via": "plugin", "plugin": ids[0], "hook": False,
+                "enable": f"scaffold.py design impeccable --enable (or claude plugin enable {ids[0]} --scope local)"}
+    return {"state": "missing", "hook": False}
 
 
 def impeccable_installed(root):
@@ -330,22 +409,52 @@ def impeccable_installed(root):
 
 
 def cmd_design(p, a):
-    """Who does UI design work; with a mode, records it in config (`design`). sdlc never installs impeccable."""
+    """Who does UI design work; with a mode, records it in config (`design`). sdlc never installs impeccable; with
+    --enable it turns an installed impeccable plugin on for this repo, on this machine (a keyed merge into
+    .claude/settings.local.json that `enable-plugin --remove` and eject take back). Claude Code loads plugins at
+    session start, so impeccable's commands, and its detector hook, arrive next session."""
+    if a.mode and a.mode not in DESIGN_MODES:
+        raise Refused(f"design is one of {', '.join(DESIGN_MODES)}, not {a.mode!r}")
+    out = {}
+    if a.enable:
+        status = impeccable_status(p.root)
+        if status["state"] == "missing":
+            raise Refused("impeccable isn't installed on this machine: sdlc never installs it "
+                          "(npx impeccable install, or /plugin marketplace add pbakaus/impeccable)")
+        if status["state"] == "disabled":
+            p.require_lock()
+            off_in = [rel for rel in (SETTINGS, LOCAL_SETTINGS)
+                      if (read_json(p.path(rel), {}).get("enabledPlugins") or {}).get(status["plugin"]) is False]
+            if off_in:  # someone turned it off here on purpose: theirs to change, never overwritten
+                raise Refused(f"{status['plugin']} is set to false in {', '.join(off_in)}: change it there if the "
+                              "user wants it on")
+            local = read_json(p.path(LOCAL_SETTINGS), {})
+            added = merge_plugin_keys(p, local, PLUGIN_MERGE, [("enabledPlugins", status["plugin"], True)])
+            if added:
+                exclude_locally(p, LOCAL_SETTINGS)
+                os.makedirs(os.path.dirname(p.path(LOCAL_SETTINGS)), exist_ok=True)
+                write_json(p.path(LOCAL_SETTINGS), local)
+            p.save()
+            out["enabled"] = {"plugin": status["plugin"], "in": LOCAL_SETTINGS,
+                              "loads": "next session: restart Claude Code (or /reload-plugins) before /impeccable"}
     if a.mode:
-        if a.mode not in DESIGN_MODES:
-            raise Refused(f"design is one of {', '.join(DESIGN_MODES)}, not {a.mode!r}")
         p.config = p.config or {}
         p.config["design"] = a.mode
         p.save()
-        return {"design": design_mode(p), "impeccable_installed": impeccable_installed(p.root),
-                "guardrail": swap_ui_guardrail(p)}
-    return {"design": design_mode(p), "impeccable_installed": impeccable_installed(p.root)}
+    out.update(design=design_mode(p), impeccable_installed=impeccable_installed(p.root),
+               impeccable=impeccable_status(p.root))
+    if a.mode:
+        out["guardrail"] = swap_ui_guardrail(p, loads_later="enabled" in out)
+    return out
 
 
-def swap_ui_guardrail(p):
+def swap_ui_guardrail(p, loads_later=False):
     """Make the installed UI guardrail match the mode, whenever the mode is set (setup renders guardrails before it
-    asks the mode). impeccable: an unchanged copy is deleted and untracked, not declined, so builtin can bring it
-    back; an edited one is the user's call. builtin: rendered again unless the user declined it."""
+    asks the mode). impeccable: removed only once impeccable's detector hook runs here, so nothing goes unchecked in
+    between: not in the call that turned the plugin on (it loads next session), and setting the mode again after a
+    restart finishes the swap. An unchanged copy is deleted and untracked,
+    not declined, so builtin can bring it back; an edited one is the user's call. builtin: rendered again unless the
+    user declined it."""
     tpl, dest = f"templates/project/hookify/{IMPECCABLE_REPLACES}", f".claude/hookify/{IMPECCABLE_REPLACES}"
     if p.lock is None or "claude-code" not in hosts(p) or not template_exists(tpl):
         return None
@@ -354,6 +463,9 @@ def swap_ui_guardrail(p):
     if design_mode(p) == "impeccable":
         if not entry:
             return None
+        if loads_later or not impeccable_status(p.root)["hook"]:
+            return {"kept": dest, "why": "impeccable's detector hook doesn't run here yet: set the mode again once "
+                                         "it does (after a restart, or /impeccable hooks on)"}
         if p.file_state(dest, entry) == "modified":
             return {"ask": dest, "why": "edited since the plugin wrote it: delete it only if the user agrees"}
         if os.path.exists(p.path(dest)):
@@ -1593,6 +1705,7 @@ def build_parser():
     s = sub.add_parser("step-done", help="mark a setup step complete (resumable setup)")
     s.add_argument("step")
     s.add_argument("--complete", action="store_true", help="also mark the whole setup complete")
+    s.add_argument("--pending", metavar="REASON", help="hold the step open instead (it runs again on resume)")
     s.set_defaults(fn=cmd_step_done)
 
     s = sub.add_parser("record", help="hash files written by Claude into the lock")
@@ -1662,6 +1775,8 @@ def build_parser():
     s.set_defaults(fn=cmd_prd)
     s = sub.add_parser("design", help="who does UI design work (builtin or impeccable); with a mode, record it")
     s.add_argument("mode", nargs="?")
+    s.add_argument("--enable", action="store_true",
+                   help="turn an installed but disabled impeccable plugin on for this repo, on this machine")
     s.set_defaults(fn=cmd_design)
     sub.add_parser("guardrails", help="the guardrails setup renders for this repo's design mode") \
         .set_defaults(fn=cmd_guardrails)

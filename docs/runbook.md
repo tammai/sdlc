@@ -362,7 +362,7 @@ Every command prints one JSON object. Exit codes: 0 ok, 1 error, 2 refused becau
 | `relocate [--docs-dir <d>] [--apply]` | move an old-layout repo: state to `.sdlc/state/`, a feature's `change.md` to `<d>/changes/<feature>.md` and its other documents to `<d>/intents/<feature>/`, with `git mv`; tracked files only; dry run unless `--apply`; clean tree only; all or nothing (any conflict moves nothing); records `docs_dir` |
 | `status` | setup state, steps done, drift (`current` / `behind` / `ahead` / `plugin_too_old`), pending migrations, file states, `layout`, and `docs_site` (the file that shows `docs/` is published as a site) |
 | `config` | effective config: plugin defaults merged with the project's overrides |
-| `step-done <step> [--complete]` | record setup progress (resumable) |
+| `step-done <step> [--complete] [--pending <why>]` | record setup progress (resumable); `--pending` holds a step open (it runs again on resume, and `--complete` refuses until it's done) |
 | `contract` | check the commands per scope: required ones present, package paths exist, tools on PATH; reports the recorded runs |
 | `commands` | scopes plus the install steps and verify plan, each with its directory |
 | `run-commands [--timeout S]` | run install and the verify plan once, record each exit in the lock; exit 1 if a command couldn't start |
@@ -374,7 +374,7 @@ Every command prints one JSON object. Exit codes: 0 ok, 1 error, 2 refused becau
 | `agents [--check]` | rebuild the sdlc block in `AGENTS.md` for the recorded hosts (removed when Claude Code is the only one) and `.claude/rules/sdlc-agents-md.md`, Claude Code's copy of the team's own `AGENTS.md` text; `--check` exits 1 when either is out of date |
 | `migrations [--revisit]`, `migration <id> --applied\|--skipped REASON` | pending migrations (scaffold < version ≤ plugin, numeric order) / record the outcome |
 | `prd [<path>]` | where the product doc is and whether it exists; with a path, records it in config (`prd`) |
-| `design [builtin\|impeccable]` | who does UI design work (config `design`, default builtin) and whether impeccable is installed; with a mode, records it |
+| `design [builtin\|impeccable] [--enable]` | who does UI design work (config `design`, default builtin) and where impeccable stands here (`missing`, `disabled`, `enabled`, and whether its detector hook runs); with a mode, records it and swaps the UI guardrail (impeccable: only once its hook runs); `--enable` turns an installed impeccable plugin on in `.claude/settings.local.json` |
 | `guardrails` | the guardrails setup renders for the design mode (impeccable mode leaves out `sdlc-ui-hardcoded-values`) |
 | `set-version <v> [--min-plugin m]` | advance `scaffold_version`; raises the pin, never lowers it |
 | `upgrade-plan` | regenerate / replace / review / restore / template_gone, `agents` (off, in_sync or stale), plus pending migrations |

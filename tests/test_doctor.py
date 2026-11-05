@@ -223,6 +223,11 @@ class DoctorTest(ProjectTestCase):
         check = self.doctor(**config)[0][("repo", "impeccable")]
         self.assertEqual(check["status"], "warn")
         self.assertIn("npx impeccable install", check["fix"])
+        self.write("claude-config/plugins/installed_plugins.json", json.dumps(
+            {"version": 2, "plugins": {"impeccable@claude-community": [{"scope": "user", "installPath": "/x"}]}}))
+        check = self.doctor(**config)[0][("repo", "impeccable")]  # installed, but off for this repo
+        self.assertEqual(check["status"], "warn")
+        self.assertIn("/sdlc:setup design", check["fix"])
         self.write(".claude/skills/impeccable/SKILL.md", "---\nname: impeccable\n---\n")  # a project install
         self.assertEqual(self.doctor(**config)[0][("repo", "impeccable")]["status"], "ok")
         self.configure(design="builtin")
