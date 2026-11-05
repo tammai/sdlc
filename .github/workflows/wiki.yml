@@ -1,0 +1,39 @@
+name: wiki
+
+# docs/wiki/ is the source; this replaces every wiki page with it. The wiki's git repo exists only once a first
+# page has been saved at https://github.com/<repo>/wiki, so the clone fails until someone has done that.
+on:
+  push:
+    branches: [main]
+    paths: ["docs/wiki/**", ".github/scripts/wiki_sync.py", ".github/workflows/wiki.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: wiki
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Clone the wiki
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git clone "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git" wiki || {
+            echo "::error::No wiki repo yet: save any first page at https://github.com/${GITHUB_REPOSITORY}/wiki, then re-run"
+            exit 1
+          }
+      - run: python3 .github/scripts/wiki_sync.py build wiki
+      - name: Push
+        working-directory: wiki
+        run: |
+          git add -A
+          if git diff --cached --quiet; then echo "wiki already up to date"; exit 0; fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -m "Sync from ${GITHUB_REPOSITORY}@${GITHUB_SHA::7}"
+          git push

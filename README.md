@@ -86,9 +86,10 @@ Run `/sdlc:start` with no argument in a new session to resume where you left off
 
 ## Learn more
 
-- [Guidebook](docs/guidebook.md): how it works
-- [Playbook](docs/playbook.md): what to do when…
-- [Runbook](docs/runbook.md): install, health checks, fixes
+- [Wiki](https://github.com/tammai/sdlc/wiki): the full docs
+- [How it works](https://github.com/tammai/sdlc/wiki/How-it-works): tracks, phases, reviews
+- [Playbook](https://github.com/tammai/sdlc/wiki/Playbook): what to do when…
+- [Troubleshooting](https://github.com/tammai/sdlc/wiki/Troubleshooting): health checks and fixes
 - [Changelog](CHANGELOG.md)
 - [Contributing](CONTRIBUTING.md)
 

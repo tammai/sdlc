@@ -21,4 +21,4 @@ Normalise to `\n` before matching and write back with the file's own line ending
 `file <path>` reports "with CRLF line terminators".
 
 ## Related
-- [runbook R10](../../docs/runbook.md#r10-hooks-error-on-windows-or-with-an-odd-python)
+- [Troubleshooting R10](../../docs/wiki/Troubleshooting.md#r10-hooks-error-on-windows-or-with-an-odd-python)

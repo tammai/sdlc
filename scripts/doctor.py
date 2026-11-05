@@ -24,7 +24,7 @@ import sdlc_layout  # noqa: E402  (hooks/: where feature state and documents liv
 import scaffold  # noqa: E402  (sibling script: lock, config, commands and version logic)
 
 CLAUDE_MD_BUDGET = 60
-RUNBOOK = "docs/runbook.md"
+RUNBOOK = "https://github.com/tammai/sdlc/wiki/Troubleshooting"
 
 
 class Report:

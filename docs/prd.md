@@ -68,7 +68,7 @@ Teams that try to fix this assemble several plugins and conventions by hand, eac
 4. **Fix (S):** the bug proven with a failing test, then its root cause → the change file and the plan in a few lines each, no stop → test-first fix, `verify.py` → the reviews a fixed trigger list names (none by default) run without stopping → Ship: Learn, PR, CI → stop at the PR.
 5. **Bigger than one session:** the change file, the plan and `backlog.md` approved once → parts built and committed in turn, each resumable after `/clear` (or under autopilot) → one Review over the whole branch → one Ship, stopping at the PR.
 6. **Plugin update:** `/sdlc:status` shows drift → `/sdlc:upgrade --dry-run` → `/sdlc:upgrade` on a branch → PR.
-7. **Something feels off:** `/sdlc:doctor` → [runbook](runbook.md) procedure.
+7. **Something feels off:** `/sdlc:doctor` → [Troubleshooting](wiki/Troubleshooting.md) procedure.
 
 ## 7. Requirements across capabilities
 
