@@ -82,11 +82,11 @@ test('the band names the phase, the part and the step, on every surface that has
   await $.tool.call({ tool: 'Bash', command: 'python3 "/p/scripts/verify.py" red AC-002' })
 
   const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
-  // The terminal draws one row in an outline: a mini stepper (a mark per stage, joined by short lines) where the title
-  // would be, then where the session is now
+  // The terminal draws one row in an outline: the title, a mini stepper (a mark per stage, joined by short lines),
+  // then where the session is now
   expect(await marks(ui)).toEqual(['✓', '●', '○', '○'])  // Define, Build, Review, Ship
   expect(await ui.findAll({ type: 'Text', text: /^─$/ })).toHaveLength(3)
-  expect(await ui.find({ type: 'Text', text: 'SDLC' })).toBeUndefined()  // no title: the stepper is the title
+  expect((await ui.find({ type: 'Text', text: /^SDLC/ }))?.props.bold).toBe(true)  // the title, before the stepper
   expect((await ui.find({ type: 'Text', text: /B2/ }))?.text).toBe('Build · B2 Title row · failing tests')
   expect(await ui.find({ type: 'Text', text: /parts|■|□/ })).toBeUndefined()
   expect((await ui.find({ type: 'Text', text: /B2/ }))?.props.wrap).toBe('truncate-end')  // cut with an ellipsis when too long
@@ -95,8 +95,8 @@ test('the band names the phase, the part and the step, on every surface that has
   expect((await ui.find({ type: 'Text', text: '●' }))?.props.color).toBe('success')
   await ui.unmount()
 
-  // The desktop draws one row: a mini stepper (the four stages as small icons joined by short lines, one drawing)
-  // where a title would be, a dot, where the session is now, and the feature at the right
+  // The desktop draws one row: the title, a mini stepper (the four stages as small icons joined by short lines, one
+  // drawing), a dot, where the session is now, and the feature at the right
   const card = await $.ui.mount({ ...BAND, surface: 'desktop' })
   const drawings = await card.findAll({ type: 'Svg' })
   expect(drawings).toHaveLength(1)
@@ -113,7 +113,7 @@ test('the band names the phase, the part and the step, on every surface that has
   expect(mini.match(/<animate/g)).toHaveLength(2)
   expect(mini).not.toContain('fill-opacity=\'0\'>')  // no tint behind anything
   expect([...new Set(mini.match(/#[0-9a-f]{3,6}/gi) ?? [])].sort()).toEqual(['#2DA44E', '#7C828C', '#fff'])
-  expect(await card.find({ type: 'Text', text: 'SDLC' })).toBeUndefined()  // no title: the stepper is the title
+  expect((await card.find({ type: 'Text', text: 'SDLC' }))?.props.weight).toBe('semibold')  // the title, before the stepper
   expect((await card.find({ type: 'Text', text: '·' }))?.text).toBe('·')  // the dot between the stepper and where it is
   expect((await card.find({ type: 'Text', text: /B2/ }))?.text).toBe('Build · B2  Title row · failing tests')
   // The words are cut with an ellipsis when too long, and the feature keeps its place at the right

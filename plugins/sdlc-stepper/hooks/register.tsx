@@ -198,8 +198,8 @@ export const register: Register = on => {
     const said = s && s.phase === v.phase ? s.line : undefined  // the agent's own latest update, when it has made one
 
     if (e.surface === 'desktop') {
-      // One row drawn straight onto the app's own band: a mini stepper (the four stages as small icons joined by
-      // short lines, one drawing) where a title would be, a dot, where the session is now (phase, part, step), and
+      // One row drawn straight onto the app's own band: the title SDLC, a mini stepper (the four stages as small
+      // icons joined by short lines, one drawing), a dot, where the session is now (phase, part, step), and
       // the feature at the right. Only the current stage's icon pulses.
       const { Box, Text, Svg } = $.ui.resolve(e)
       const mini = miniSvg(v.phase)
@@ -209,6 +209,7 @@ export const register: Register = on => {
         <Box flexDirection="row" alignItems="center" gap={2} paddingX={1}>
           {/* The words take the room left and are cut with an ellipsis when too long; the feature keeps its own */}
           <Box flexDirection="row" alignItems="center" gap="xs" width={0} flexGrow={1}>
+            <Text size="caption" weight="semibold">SDLC</Text>
             <Svg source={mini.source} alt={mini.alt} width={mini.width} height={MINI_H} />
             <Text size="caption" dimColor>·</Text>
             <Box width={0} flexGrow={1}>
@@ -227,8 +228,8 @@ export const register: Register = on => {
     }
 
     // The terminal band is one row in a rounded outline (3 rows with it; the engine gives the band only the rows left
-    // above the prompt and hides a band that doesn't fit, so with fewer than 3 it is the row alone): a mini stepper (the four stages as marks joined by short
-    // lines, green once passed) where the title would be, then where the session is now (phase, part, step), with
+    // above the prompt and hides a band that doesn't fit, so with fewer than 3 it is the row alone): the title SDLC, a
+    // mini stepper (the four stages as marks joined by short lines, green once passed), then where the session is now (phase, part, step), with
     // the feature at the right. Done and current are both green, told apart by the mark (✓ and ●). Nothing pulses.
     const { Box, Text } = $.ui.resolve(e)
     const at = PHASES.indexOf(v.phase)
@@ -257,6 +258,7 @@ export const register: Register = on => {
         <Box flexDirection="row">
           {/* The words take the room left and are cut with an ellipsis when too long; the feature keeps its own */}
           <Box flexDirection="row" width={0} flexGrow={1}>
+            <Text bold>{'SDLC '}</Text>
             {mini}
             <Text dimColor>{' · '}</Text>
             <Box width={0} flexGrow={1}>

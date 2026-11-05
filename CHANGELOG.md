@@ -17,6 +17,7 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 ## Unreleased
 
 ### Changed
+- **sdlc-stepper shows the title `SDLC` again,** in bold before the stepper (`SDLC ✓─●─○─○ · Build · …`) in the terminal and in semibold before the icons on the desktop. 3.0.1 had dropped it for the stepper alone.
 - **`/sdlc:clean_gone` is now `/sdlc:clean-gone`,** with a hyphen like every other command. The old name came unchanged from the vendored commit-commands plugin. There is no alias: type the new name.
 
 ## 3.0.4 — 2026-11-04
