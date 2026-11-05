@@ -43,7 +43,8 @@ def slices(text):
     return rows
 
 
-AC_SPAN = re.compile(r"(?:AC-)?(\d{1,3})\b(?:\s*[–—-]\s*(?:AC-)?(\d{1,3})\b)?", re.I)
+# (?<![\w-]): a match starts at an AC- token or a standalone number, never at the digits ending a word (OAuth2, B3)
+AC_SPAN = re.compile(r"(?<![\w-])(?:AC-)?(\d{1,3})\b(?:\s*[–—-]\s*(?:AC-)?(\d{1,3})\b)?", re.I)
 
 
 def ac_ids(cell):

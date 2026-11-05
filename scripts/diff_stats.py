@@ -235,8 +235,17 @@ def new_dependencies(root, base, changed):
             old = set((show(root, base, path) or "").splitlines())
             for line in read_lines(root, path)[1:]:
                 s = line.strip()
-                if s and not s.startswith(("#", "//", "module ", "go ", "require (", ")")) and line not in old:
-                    deps.append({"file": path, "name": s.split()[0].split("==")[0].split(">=")[0], "section": name})
+                if not s or s.startswith(("#", "//", "module ", "go ", "require (", ")")) or line in old:
+                    continue
+                if name == "go.mod":
+                    dep = re.sub(r"^require\s+", "", s).split()[0]
+                else:
+                    # PEP 508: the name ends at the first specifier, extra or marker; option lines (-r, --index-url) have none
+                    m = re.match(r"[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?", s)
+                    if not m:
+                        continue
+                    dep = m.group(0)
+                deps.append({"file": path, "name": dep, "section": name})
     return deps
 
 
