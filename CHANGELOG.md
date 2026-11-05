@@ -5,6 +5,7 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 ## Unreleased
 
 ### Fixed
+- **`state.py blocker raise` keeps an open question that starts with `(`.** The step that drops the template's placeholder line dropped every item starting with `(`, so `(owner) needs the API key` vanished at the next raise and was never listed. Only the template's own `(oldest first …)` line is dropped now.
 - **A bold backlog ID no longer stalls the backlog.** `backlog.py` kept `**B1**` as written, so a part depending on B1 never saw it done and `next` returned nothing, with no error. An ID in bold, italics or backticks now reads as its plain `B<n>`.
 - **File names with spaces or non-ASCII characters stay whole in `diff_stats.py` and the freshness hook.** `diff_stats.collect()` split git's name lists on whitespace and kept git's quoting, so an untracked `src/my file.py` came back as `src/my` and `file.py`, `café.py` as `"caf\303\251.py"`, and `verify.py`'s drift check flagged files that don't exist. Name lists are now read NUL-separated (`-z`), and diff headers are unquoted. `verify_freshness.changed_code_files()` had the same quoting problem: a non-ASCII `.md` counted as code because its name ended in `.md"`.
 - **Backlog AC cells no longer read digits inside words as ACs.** `backlog.py` took the `2` in `OAuth2` or the `3` in `B3` for AC-002 and AC-003, so `verify.py` skipped those ACs as owned by a later part. A number now counts only as an `AC-` token or on its own.
