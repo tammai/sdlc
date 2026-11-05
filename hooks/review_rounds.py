@@ -84,13 +84,15 @@ def main():
     if not root or event not in ("PreToolUse", "UserPromptSubmit"):
         return
     saved = load(root)
+    before = json.dumps(saved, sort_keys=True)
     over = capped(root, saved)
     if event == "UserPromptSubmit":
         for name in over:  # the user has answered: one more round
             saved[name]["granted"] = int(saved[name].get("granted") or 0) + 1
+    if json.dumps(saved, sort_keys=True) != before:  # never an empty store: setup commits before it ignores .sdlc/.work/
         save(root, saved)
+    if event == "UserPromptSubmit":
         return
-    save(root, saved)
     tool = data.get("tool_name")
     if not over or tool not in GUARDED:
         return

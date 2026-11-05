@@ -42,6 +42,13 @@ class ReviewRoundsTest(ProjectTestCase):
         self.report(3, "FAIL — 1 high: H1")
         self.assertEqual(self.edit(), "deny")  # the granted round failed too: ask again
 
+    def test_with_no_active_feature_it_writes_nothing(self):
+        # Setup commits as it goes, before its .gitignore step: a store written here would land in those commits
+        os.remove(self.path(".sdlc/state/login.md"))
+        self.assertIsNone(self.edit())
+        run_hook(HOOK, {"hook_event_name": "UserPromptSubmit", "cwd": self.root, "prompt": "go on"}, self.root)
+        self.assertFalse(os.path.exists(self.path(".sdlc/.work/review-rounds.json")))
+
 
 if __name__ == "__main__":
     unittest.main()

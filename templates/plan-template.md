@@ -14,6 +14,7 @@
 
 ## Public Surface
 
-<!-- Every new export, endpoint, CLI command, config key, env var and dependency, with its AC. "- none" if none. -->
+<!-- Every new export, endpoint, CLI command, config key, env var and dependency, with its AC, kind first, as
+     verify.py reads it: - export `name` — AC-001 (or endpoint, command, config, env, dependency). "- none" if none. -->
 
 - none

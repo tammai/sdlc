@@ -353,6 +353,22 @@ def task_lines(specs):
     return out
 
 
+# `--surface "<kind> <name> — <AC>"`: what diff_stats' drift check reads (SURFACE_LINE), the name backticked
+SURFACE = re.compile(r"^(export|endpoint|command|config|env|dependency)\s+`?([^`]+?)`?(?:\s+[\u2014\u2013-]\s+(\S.*))?$", re.I)
+
+
+def surface_lines(specs):
+    """`--surface` → the `## Public Surface` entries, refusing free text the drift check couldn't read."""
+    out = []
+    for spec in specs:
+        m = SURFACE.match(spec.strip())
+        if not m:
+            raise Refused(f"--surface is \"<kind> <name> — <AC>\" with kind export, endpoint, command, config, env or "
+                          f"dependency (e.g. \"export div — AC-001\"), not {spec!r}")
+        out.append(f"- {m.group(1).lower()} `{m.group(2).strip()}`" + (f" \u2014 {m.group(3)}" if m.group(3) else ""))
+    return out
+
+
 def new_state(a):
     """The state file's text from Define's answers: the header lines (Base, Owner, the test command and the date looked
     up here) and the plan sections, so the agent writes only the change file."""
@@ -360,7 +376,7 @@ def new_state(a):
     footprint = f"footprint: {a.footprint} files" if a.footprint is not None else "footprint: ? files"
     risk = f"Risk: {a.risk}" + (f"   ({a.risk_why})" if a.risk_why else "")
     tasks = task_lines(a.task)
-    surface = [f"- {s}" for s in a.surface] or ["- none"]
+    surface = surface_lines(a.surface) or ["- none"]
     head = [f"# {a.feature}", "Status: active", f"Process: {sdlc_layout.PROCESS}"]
     if a.track == "S":
         head += [f"Track: S   ({footprint})", risk, "Top model: opus",
@@ -547,7 +563,7 @@ def main(argv=None):
     s.add_argument("--build", default="inline: this session builds it, one part")
     s.add_argument("--handoff", action="append", default=[])
     s.add_argument("--task", action="append", default=[], help='"<title> | <ACs> | <files>"')
-    s.add_argument("--surface", action="append", default=[])
+    s.add_argument("--surface", action="append", default=[], help='"<kind> <name> — <AC>", kind export|endpoint|command|config|env|dependency')
     for p in sub.choices.values():
         p.error = ap.error
     a = ap.parse_args(argv)

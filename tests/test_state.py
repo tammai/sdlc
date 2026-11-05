@@ -87,6 +87,28 @@ class StateTest(ProjectTestCase):
         self.assertEqual(code, 1)
         self.assertIn("already has a state file", out["error"])
 
+    def test_new_writes_the_public_surface_in_the_form_verify_reads(self):
+        # The kind first, then the name (backticks optional) and its AC: what diff_stats' drift check parses
+        code, out = self.state("new", "2026-11-05-s-div", "--track", "S", "--risk", "low", "--task", "Div | AC-001 | calc.py",
+                               "--surface", "export div — AC-001", "--surface", "dependency `left-pad` - AC-002",
+                               "--surface", "command priority <id> <level> — AC-003")
+        self.assertEqual(code, 0, out)
+        written = self.path(out["event"]["state"])
+        with open(written, encoding="utf-8") as f:
+            text = f.read()
+        self.assertIn("## Public Surface\n- export `div` — AC-001\n- dependency `left-pad` — AC-002\n"
+                      "- command `priority <id> <level>` — AC-003\n", text)
+        sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
+        import diff_stats
+        self.assertEqual(diff_stats.plan_surface(written),
+                         {"export": ["div"], "dependency": ["left-pad"], "command": ["priority <id> <level>"]})
+        # Free text the check can't read is refused at Define, with the form, not found as drift at Build
+        code, out = self.state("new", "2026-11-05-s-x", "--track", "S", "--risk", "low", "--task", "X | AC-001 | a.py",
+                               "--surface", "calc.div(a, b) — AC-001")
+        self.assertEqual(code, 1)
+        self.assertIn("export div — AC-001", out["error"])
+        self.assertFalse(os.path.exists(self.path(".sdlc/2026-11-05-s-x")) or os.path.exists(self.path(".sdlc/state/2026-11-05-s-x.md")))
+
     def test_a_feature_moves_through_four_phases(self):
         for stage, name in (("3", "Review"), ("4", "Ship")):
             self.assertEqual(self.state("advance", "login", stage, "--gate", "pass")[0], 0)
