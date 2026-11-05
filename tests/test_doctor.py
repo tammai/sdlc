@@ -253,6 +253,35 @@ class DoctorTest(ProjectTestCase):
         self.assertEqual(c["status"], "warn")
         self.assertIn("/sdlc:upgrade", c["fix"])
 
+    def git_init(self):
+        subprocess.run(["git", "init", "-q", self.root], check=True, capture_output=True)
+
+    def test_gitignore_other_spellings_git_ignores_are_ok(self):
+        # git decides what's ignored, so any spelling it honours passes (bug: only the literal tokens did)
+        self.setup_repo()
+        self.git_init()
+        for text in (".sdlc/.work\n.sdlc/state/\n",
+                     "/.sdlc/.work/\n/.sdlc/state/*.json\n/.sdlc/state/*.events.jsonl\n/.sdlc/state/*.commands\n"):
+            self.write(".gitignore", text)
+            c = self.check(".gitignore")
+            self.assertEqual(c["status"], "ok", (text, c))
+
+    def test_gitignore_in_a_git_repo_not_ignoring_warns(self):
+        self.setup_repo()
+        self.git_init()
+        self.write(".gitignore", "node_modules/\n")
+        c = self.check(".gitignore")
+        self.assertEqual((c["status"], c["fix"]), ("warn", "add `.sdlc/.work/` to .gitignore"))
+        self.write(".gitignore", ".sdlc/.work\n")
+        c = self.check(".gitignore")
+        self.assertEqual(c["status"], "warn")
+        self.assertIn(".sdlc/state/*.json", c["detail"])
+
+    def test_gitignore_without_git_accepts_a_spelling_without_slashes(self):
+        self.setup_repo()  # not a git repo: doctor reads .gitignore's lines itself
+        self.write(".gitignore", "/.sdlc/.work\n.sdlc/state/*.json\n.sdlc/state/*.events.jsonl\n.sdlc/state/*.commands\n")
+        self.assertEqual(self.check(".gitignore")["status"], "ok")
+
     def test_rules_whose_paths_match_nothing(self):
         self.write("src/api/a.ts", "")
         self.write(".claude/rules/api.md", '---\npaths:\n  - "src/api/**/*.{ts,js}"\n---\n# API\n')
