@@ -105,6 +105,18 @@ class DiffStatsTest(ProjectTestCase):
         names = sorted(d["name"] for d in self.stats()["dependencies"])
         self.assertEqual(names, ["httpx", "vitest", "zod"])
 
+    def test_go_mod_one_line_require_names_the_module(self):
+        self.write("go.mod", "module m\n\nrequire github.com/pkg/errors v0.9.1\n\nrequire (\n\tgolang.org/x/sync v0.7.0 // indirect\n)\n")
+        names = sorted(d["name"] for d in self.stats()["dependencies"])
+        self.assertEqual(names, ["github.com/pkg/errors", "golang.org/x/sync"])
+
+    def test_requirements_names_drop_every_specifier(self):
+        self.write("requirements.txt", "requests==2.0\nurllib3<3\nflask~=2.0\nattrs!=21.1\nrich>13\n"
+                                       "uvicorn[standard]>=0.30\npywin32>=306; sys_platform == 'win32'\n"
+                                       "six ; python_version < '3'\n-r dev.txt\n")
+        names = sorted(d["name"] for d in self.stats()["dependencies"])
+        self.assertEqual(names, ["attrs", "flask", "pywin32", "rich", "six", "urllib3", "uvicorn"])
+
     def test_base_is_merge_base_with_main(self):
         self.write("src/a.ts", "x()\n")
         self.git("add", "-A")
@@ -214,6 +226,26 @@ class DiffStatsTest(ProjectTestCase):
         p = subprocess.run([sys.executable, SCRIPT, "--root", self.root, "--format", "md"], capture_output=True, env=env)
         self.assertEqual(p.returncode, 0, p.stderr.decode("utf-8", "replace"))
         self.assertIn("- unused export: total０", p.stdout.decode("utf-8"))
+
+    def test_untracked_names_with_spaces_and_non_ascii_stay_whole(self):
+        self.write("src/my file.py", "def spaced():\n    return 1\n")
+        self.write("café.py", "y = 1\n")
+        r = self.stats()
+        self.assertEqual(r["changed_files"], ["café.py", "src/my file.py"])
+        self.assertEqual(r["new_files"], ["café.py", "src/my file.py"])
+        self.assertEqual(sorted(f["path"] for f in r["files"]), ["café.py", "src/my file.py"])
+
+    def test_committed_names_with_spaces_and_non_ascii_stay_whole(self):
+        self.write("src/my file.py", "def spaced():\n    return 1\n")
+        self.write("café.py", "y = 1\n")
+        self.write("src/existing.ts", "export function old() { return 1 }\nconst c = 2\n")
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "change")
+        r = self.stats()
+        self.assertEqual(r["changed_files"], ["café.py", "src/existing.ts", "src/my file.py"])
+        self.assertEqual(r["new_files"], ["café.py", "src/my file.py"])
+        self.assertEqual(sorted(f["path"] for f in r["files"]), ["café.py", "src/existing.ts", "src/my file.py"])
+        self.assertEqual(self.file(r, "src/my file.py")["added_code"], 2)
 
     def test_no_changes(self):
         r = self.stats()

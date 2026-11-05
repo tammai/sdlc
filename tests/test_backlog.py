@@ -54,5 +54,24 @@ class BacklogTest(ProjectTestCase):
         self.assertIn("no table", out["error"])
 
 
+class AcIdsTest(unittest.TestCase):
+    def setUp(self):
+        sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
+        self.addCleanup(sys.path.remove, os.path.join(PLUGIN_ROOT, "scripts"))
+        import backlog
+        self.ac_ids = backlog.ac_ids
+
+    def test_digits_inside_words_are_not_ac_numbers(self):
+        # AC_SPAN had no leading boundary: OAuth2 read as AC-002, B3 as AC-003
+        self.assertEqual(self.ac_ids("AC-001 (OAuth2 login)"), ["AC-001"])
+        self.assertEqual(self.ac_ids("AC-001, see B3"), ["AC-001"])
+
+    def test_ac_tokens_numbers_and_ranges_still_count(self):
+        self.assertEqual(self.ac_ids("1, 2"), ["AC-001", "AC-002"])
+        self.assertEqual(self.ac_ids("AC-001 AC-002"), ["AC-001", "AC-002"])
+        self.assertEqual(self.ac_ids("AC-001–003"), ["AC-001", "AC-002", "AC-003"])
+        self.assertEqual(self.ac_ids("2-3, AC-005 – AC-006"), ["AC-002", "AC-003", "AC-005", "AC-006"])
+
+
 if __name__ == "__main__":
     unittest.main()
