@@ -60,6 +60,41 @@ class HostsTest(ProjectTestCase):
         self.assertNotEqual(codex["commands"], "./commands/")  # else Codex adds its own copies of some
         self.assertEqual(json.loads(self.read("plugin.json"))["skills"], "./hosts/skills/")
 
+    def test_stray_file_in_hosts_skills_is_ignored(self):
+        # macOS writes .DS_Store into any folder Finder opens
+        self.assertEqual(self.hosts("build")[0], 0)
+        self.write("hosts/skills/.DS_Store", "x")
+        self.assertEqual(self.hosts("check"), (0, {"stale": []}))
+        self.assertEqual(self.hosts("build"), (0, {"written": []}))
+        self.assertTrue(os.path.isfile(self.path("hosts/skills/.DS_Store")))
+
+    def test_folder_without_skill_md_in_hosts_skills_is_ignored(self):
+        self.assertEqual(self.hosts("build")[0], 0)
+        self.write("hosts/skills/notes/README.md", "x")
+        self.assertEqual(self.hosts("check"), (0, {"stale": []}))
+        self.assertEqual(self.hosts("build"), (0, {"written": []}))
+        self.assertTrue(os.path.isfile(self.path("hosts/skills/notes/README.md")))
+
+    def test_stray_entries_in_cursor_agents_are_ignored(self):
+        self.assertEqual(self.hosts("build")[0], 0)
+        self.write("hosts/cursor/agents/.DS_Store", "x")
+        self.write("hosts/cursor/agents/drafts.md/note.txt", "x")  # a folder, even one named like an agent
+        self.assertEqual(self.hosts("check"), (0, {"stale": []}))
+        self.assertEqual(self.hosts("build"), (0, {"written": []}))
+        self.assertTrue(os.path.isfile(self.path("hosts/cursor/agents/.DS_Store")))
+
+    def test_removed_command_and_agent_are_still_deleted(self):
+        self.write("commands/old.md", "---\ndescription: Old.\n---\nOld.\n")
+        self.assertEqual(self.hosts("build")[0], 0)
+        os.remove(self.path("commands/old.md"))
+        os.remove(self.path("agents/reviewer.md"))
+        code, out = self.hosts("check")
+        self.assertEqual(code, 1)
+        self.assertEqual(sorted(out["stale"]), ["hosts/cursor/agents/reviewer.md", "hosts/skills/old/SKILL.md"])
+        self.assertEqual(self.hosts("build")[0], 0)
+        self.assertFalse(os.path.exists(self.path("hosts/skills/old")))
+        self.assertFalse(os.path.exists(self.path("hosts/cursor/agents/reviewer.md")))
+
     def test_antigravity_dist_converts_the_agents_it_would_skip(self):
         out = os.path.join(self.root, "dist")
         p = subprocess.run([sys.executable, SCRIPT, "--root", self.root, "dist", "antigravity", out],

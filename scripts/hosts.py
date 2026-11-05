@@ -202,12 +202,16 @@ def stale(root, files):
             same = False
         if not same:
             out.append(rel)
+    # Generated files whose source was removed. Only what a build writes counts: a stray .DS_Store or a folder
+    # without a SKILL.md isn't ours to report or delete
     agents = os.path.join(root, "hosts", "cursor", "agents")
     existing = sorted(os.listdir(agents)) if os.path.isdir(agents) else []
-    out += [f"hosts/cursor/agents/{n}" for n in existing if f"hosts/cursor/agents/{n}" not in files]  # agent removed
+    out += [f"hosts/cursor/agents/{n}" for n in existing if f"hosts/cursor/agents/{n}" not in files
+            and n.endswith(".md") and os.path.isfile(os.path.join(agents, n))]
     skills = os.path.join(root, "hosts", "skills")
     existing = sorted(os.listdir(skills)) if os.path.isdir(skills) else []
-    out += [f"hosts/skills/{n}/SKILL.md" for n in existing if f"hosts/skills/{n}/SKILL.md" not in files]
+    out += [f"hosts/skills/{n}/SKILL.md" for n in existing if f"hosts/skills/{n}/SKILL.md" not in files
+            and os.path.isfile(os.path.join(skills, n, "SKILL.md"))]
     return out
 
 
