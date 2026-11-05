@@ -10,10 +10,12 @@ Usage: ship.py [--root DIR] FEATURE [--message SUBJECT] [--review TEXT] [--note 
      step failed while .sdlc/baseline.md lists failing tests: the user's brownfield repo then ships past failures it
      already had. verify.py doesn't read the baseline, so the caller has checked that every failure is listed; the
      waiver is written to the Gate log.
-  4. `state.py advance FEATURE 4 --gate pass --verified <head> <tree>` (already at Stage 4 is fine), then
+  4. On the default branch (and not on a branch named after the feature, which origin/HEAD can name on a repo whose
+     first push was that branch), switches to a new branch named after the feature; one that exists already is
+     refused. This comes before the state moves, so a refusal leaves the state file as it was.
+  5. `state.py advance FEATURE 4 --gate pass --verified <head> <tree>` (already at Stage 4 is fine), then
      `state.py set FEATURE Status done`, so the kept record says done; the commit review still reviews this commit
      as the feature's (hooks/sdlc_review_gate.py: the commit that finishes a feature).
-  5. On the default branch, switches to a branch named after the feature.
   6. Stages every changed and untracked file except .sdlc/.work/, state.py's control contract and what the tests
      leave behind (`__pycache__`, caches), and writes the commit message (SUBJECT, by default the change file's
      title, then `Record: <change>`) to .sdlc/.work/commit-msg.txt.
@@ -133,15 +135,18 @@ def ship(root, feature, message, review=None, note=None, timeout=1800, waive_bas
     if review:
         add_review(root, paths["change"], review)
     head, tree, waiver = verified(root, feature, timeout, waive_baseline)
+    # the branch is settled before the state moves, so a refusal leaves the state file as it was
+    branch = None
+    if git(root, "branch", "--show-current").strip() != feature and on_default_branch(root):
+        if git(root, "rev-parse", "--verify", "--quiet", f"refs/heads/{feature}", check=False).strip():
+            raise Refused(f"a branch named {feature} exists already: switch to it (or rename it) and run ship.py again")
+        branch = feature
+        git(root, "switch", "-c", branch)
     if waiver:
         state_py(root, "log", feature, waiver)
     state_py(root, "advance", feature, "4", "--gate", "pass", "--verified", head, tree, *(["--note", note] if note else []),
           ok="already at Stage 4")
     state_py(root, "set", feature, "Status", "done")
-    branch = None
-    if on_default_branch(root):
-        branch = feature
-        git(root, "switch", "-c", branch)
     files = to_stage(root)
     if files:
         git(root, "add", "-A", "--", *files)
