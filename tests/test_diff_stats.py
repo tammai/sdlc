@@ -105,6 +105,18 @@ class DiffStatsTest(ProjectTestCase):
         names = sorted(d["name"] for d in self.stats()["dependencies"])
         self.assertEqual(names, ["httpx", "vitest", "zod"])
 
+    def test_go_mod_one_line_require_names_the_module(self):
+        self.write("go.mod", "module m\n\nrequire github.com/pkg/errors v0.9.1\n\nrequire (\n\tgolang.org/x/sync v0.7.0 // indirect\n)\n")
+        names = sorted(d["name"] for d in self.stats()["dependencies"])
+        self.assertEqual(names, ["github.com/pkg/errors", "golang.org/x/sync"])
+
+    def test_requirements_names_drop_every_specifier(self):
+        self.write("requirements.txt", "requests==2.0\nurllib3<3\nflask~=2.0\nattrs!=21.1\nrich>13\n"
+                                       "uvicorn[standard]>=0.30\npywin32>=306; sys_platform == 'win32'\n"
+                                       "six ; python_version < '3'\n-r dev.txt\n")
+        names = sorted(d["name"] for d in self.stats()["dependencies"])
+        self.assertEqual(names, ["attrs", "flask", "pywin32", "rich", "six", "urllib3", "uvicorn"])
+
     def test_base_is_merge_base_with_main(self):
         self.write("src/a.ts", "x()\n")
         self.git("add", "-A")
