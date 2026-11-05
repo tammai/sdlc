@@ -1,0 +1,28 @@
+# Scope and verification
+
+## Scope tracing
+
+Every phase ties additions back to a request:
+
+- **Proposals are dropped by default.** Define adds no hardening, options, config or tooling that neither the request nor an applicable failure mode calls for. Anything else it would add is listed under the change file's proposals not asked for and dropped unless you keep it.
+- **The change file** has acceptance criteria a test can prove, each with its test, and an out-of-scope section.
+- **The state file's plan sections** name each task's files and declare a **Public Surface** (every new export, endpoint, command, config key, env var, dependency). `verify.py` reports a changed file no task names as drift until it has a deviation line.
+- **Review** runs `scripts/diff_stats.py --plan` to flag exports and dependencies missing from the Public Surface; unrequested public surface is high severity. Every reviewer also checks the spec's failure modes and the recurring-defects list (the plugin's seed plus the project's own).
+
+## Verification
+
+**`verify.py`.** Build's one command. `verify.py red AC-001 AC-002 …` records acceptance tests failing before their code; a test that passes, can't be found or can't run is refused, and then none of the batch is recorded. A passing full run prints the head and tree `state.py verified` takes. The full run (`verify.py` with no arguments) runs the project's verify plan (lint, typecheck, build, the full suite), each AC's test (from the change file's `## Acceptance tests`), and the drift check against the state file's tasks, Public Surface and deviations (a 1.x feature: `spec.md` and `plan.md`). `verify.py status` prints short JSON: Review and Ship reuse the last run only when it passed, both records agree and the code hasn't changed since (`reuse: true`). `verify.py trace` applies when the ACs cite a written spec (`AC-003 … prd.md §4.2`): it reports a cited section the spec lacks and any `FR-nnn` in it that no AC names or `## Out of scope` sets aside. L's plan self-approval runs it; a full run prints the same findings as advisory `trace:` notes.
+
+**The freshness hook.** While `state.md` says `Current: Stage 3 – Review`, Review is the only phase with a hook that blocks you:
+
+- any code change (by any tool, in a git repo) marks test results **stale**;
+- a **full** test run, or a full `verify.py` run, marks them **fresh**. A run that names a test file, a pytest node id, a single Go package or a name filter doesn't count;
+- finishing a turn while stale is blocked with "re-run tests".
+
+The full run is the `test` command from `.sdlc/config.json`, with no extra arguments. In a monorepo freshness is per package: an edit under `services/api/` makes only `api` stale, and `cd services/api && <api's test command>` makes it fresh again; a file outside every package makes all of them stale. A root-level test command (e.g. `turbo run test`) counts for every package.
+
+**Verify's records.** `verify.py` writes the freshness hook's copy of its own run (each AC's red record, a full run's tree and result) after every full or `red` run, beside its `.sdlc/.work/verify.json`, so a run counts whatever command spelling ran it. In Build and Review the hook also keeps the copy itself. It recognises the plugin's `verify.py` as the command itself, optionally after `cd <dir> &&`, with redirects ignored and followed only by `| tail`, `| head`, `| grep`, `| cat` or `; echo …`, and copies `verify.json`'s entry for that run only when its tree is the current code; when the exit code is verify.py's own (nothing piped or echoed after it), the entry must agree with it. A record that differs from the hook's copy is a trust-anchor notice. Codex, Cursor and Antigravity get the copy too (Codex and Antigravity commands arrive with `| cat` appended, which counts as a filter).
+
+**The baseline.** `.sdlc/baseline.md` lists failures recorded at brownfield setup. `verify.py` doesn't read it yet: when only the test step fails and every failure is listed there, Build logs it and passes the gate ([spec 04 Known gaps](../specs/04-verification.md#known-gaps)). Accepting a new failure into the baseline is your decision, recorded as a Deviation.
+
+**Bounded commands.** In Review (Stage 3) the prove-budget hook runs every shell command other than the project's own under `timeout 120` and kills it there (exit 124, "could not verify within budget"); background runs, Monitor and the PowerShell tool are refused for such commands, so nothing is polled. Reviewers are read-only: they read code and diffs and may run the project's test command, and a suspicion that needs a probe is a finding.

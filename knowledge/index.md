@@ -37,7 +37,8 @@ One line per doc: path — what it answers (≤12 words). Keep this file under ~
 - [gotchas/review-refuses-heredocs-so-helpers-read-a-file.md](gotchas/review-refuses-heredocs-so-helpers-read-a-file.md) — a script run in Review takes a file the Write tool made, not stdin
 
 ## Runbooks
-- [../docs/runbook.md](../docs/runbook.md) — maintainer and user procedures, including releases
+- [../docs/runbook.md](../docs/runbook.md) — maintainer procedures: releases, smoke test, phase rules, scaffold internals
+- [../docs/wiki/README.md](../docs/wiki/README.md) — user docs live in docs/wiki, published to the GitHub wiki
 
 ## Features
 -

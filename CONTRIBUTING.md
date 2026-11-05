@@ -1,6 +1,6 @@
 # Contributing
 
-How the plugin is laid out, how to run and test it from a checkout, and how to ship a change. Day-to-day operations (health check, fixing hooks) are in the [runbook](docs/runbook.md); why things are built the way they are is in the [ADRs](docs/adr/README.md); what the plugin must do is in the [PRD](docs/prd.md) and the per-capability [specs](docs/specs/README.md), each requirement tied to the test that proves it.
+How the plugin is laid out, how to run and test it from a checkout, and how to ship a change. User docs are the [wiki](https://github.com/tammai/sdlc/wiki), written in [`docs/wiki/`](docs/wiki/README.md); maintainer procedures (releases, the smoke test) are in the [runbook](docs/runbook.md); why things are built the way they are is in the [ADRs](docs/adr/README.md); what the plugin must do is in the [PRD](docs/prd.md) and the per-capability [specs](docs/specs/README.md), each requirement tied to the test that proves it.
 
 ## Layout
 
@@ -70,8 +70,10 @@ sdlc/
 │                            hooks/stop-hook.sh (the Ralph Stop hook) and scripts/setup-ralph-loop.sh
 ├── tests/                   stdlib unittest suite (helpers.py + one file per hook or script)
 ├── .github/workflows/ci.yml the suite on Linux and Windows, plus `claude plugin validate`, on push and PR
+├── .github/workflows/wiki.yml, .github/scripts/wiki_sync.py   publish docs/wiki/ to the GitHub wiki on push to main; `wiki_sync.py check` finds broken links
 ├── docs/
-│   ├── guidebook.md, playbook.md, runbook.md, track-matrix.md (which step runs on which track)
+│   ├── wiki/                the user docs, one file per wiki page (wiki.yml publishes them; guidebook.md and playbook.md point there)
+│   ├── runbook.md           maintainer procedures; track-matrix.md (which step runs on which track)
 │   ├── prd.md               product requirements
 │   ├── specs/               one spec per capability, requirements tagged [enforced]/[instructed]/[vendored]
 │   ├── adr/                 architecture decision records
@@ -102,7 +104,7 @@ python3 scripts/doctor.py --format md             # health check against the cur
 | A phase, gate or track | `skills/orchestrator/SKILL.md`, then the files in the [runbook table](docs/runbook.md#add-or-change-a-phase-rule) |
 | Anything a set-up repo receives (`templates/project/`, generated CI, config defaults) | `tests/test_project_templates.py`; a migration if projects own the affected file (see Releasing) |
 | A decision about how the plugin works | a new ADR in `docs/adr/` (never rewrite an accepted one) |
-| User-visible behavior | `README.md`, the relevant doc, the capability's spec in `docs/specs/`, and `CHANGELOG.md` under Unreleased |
+| User-visible behavior | `README.md`, the relevant wiki page in `docs/wiki/`, the capability's spec in `docs/specs/`, and `CHANGELOG.md` under Unreleased |
 | Vendored code | re-copy from upstream, re-apply the renames (`superpowers:` → `sdlc:`, paths → `.sdlc/`) and the patches listed in `NOTICE.md`, record the upstream commit you compared in its "Upstream sync record", run the tests |
 
 ### Stale-docs audit
@@ -110,8 +112,8 @@ python3 scripts/doctor.py --format md             # health check against the cur
 After adding or changing a plugin feature (a hook, command, skill, agent, script, state.md field or rule), and before calling it done:
 
 1. List the names the change adds or renames (file names, hook names, fields, commands, phrases it replaces).
-2. Grep each across `README.md`, `CONTRIBUTING.md`, `CHANGELOG.md`, `knowledge/`, `.claude/rules/`, `docs/` (guidebook, playbook, runbook, prd, specs, ADRs) and the `<desc>` and labels of `docs/diagrams/*.svg`. Also grep the old wording the change replaces.
-3. Check the lists that enumerate the plugin: the README Commands table, the guidebook Hooks table and `state.md` block, the CONTRIBUTING layout tree and "Original to this plugin", the runbook procedures and "Add or change a phase rule" table, the prd capability table, and the spec's Source line, requirements and Known gaps.
+2. Grep each across `README.md`, `CONTRIBUTING.md`, `CHANGELOG.md`, `knowledge/`, `.claude/rules/`, `docs/` (the wiki pages in `docs/wiki/`, runbook, prd, specs, ADRs) and the `<desc>` and labels of `docs/diagrams/*.svg`. Also grep the old wording the change replaces.
+3. Check the lists that enumerate the plugin: the README Commands table, the wiki's Hooks table (`docs/wiki/Hooks.md`), Commands table and `state.md` block (`Where-things-live.md`), the CONTRIBUTING layout tree and "Original to this plugin", the Troubleshooting procedures (`docs/wiki/Troubleshooting.md`), the runbook's "Add or change a phase rule" table, the prd capability table, and the spec's Source line, requirements and Known gaps.
 4. Fix what's stale, or name what you left (e.g. an SVG that needs relayout) in your report.
 
 Keep it lean: the plugin's own code-style rule applies here too (why-only comments, the smallest change that works, no abstraction without a second use).

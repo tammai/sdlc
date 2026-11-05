@@ -1,6 +1,6 @@
 # Which steps run on which track
 
-Every piece of work is sized first, and the size decides which steps run. This page lists every step against each track, so you can see what a change will and won't do before you start it. The source is [`flow.md`](../skills/orchestrator/references/flow.md) (M and L), [`s-track.md`](../skills/orchestrator/references/s-track.md) (S) and the sizing table in [`SKILL.md`](../skills/orchestrator/SKILL.md); if they disagree with this page, they win. The tracks themselves are described in the [guidebook](guidebook.md#tracks).
+Every piece of work is sized first, and the size decides which steps run. This page lists every step against each track, so you can see what a change will and won't do before you start it. The source is [`flow.md`](../skills/orchestrator/references/flow.md) (M and L), [`s-track.md`](../skills/orchestrator/references/s-track.md) (S) and the sizing table in [`SKILL.md`](../skills/orchestrator/SKILL.md); if they disagree with this page, they win. The tracks themselves are described in the [guidebook](wiki/How-it-works.md#tracks).
 
 | Mark | Meaning |
 |:-:|---|

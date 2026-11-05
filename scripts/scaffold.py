@@ -966,7 +966,7 @@ def cmd_enable_plugin(p, a):
     .claude/settings.local.json, which is never committed, so nobody else's setup changes and nothing needs asking.
     With --team (asked at setup: the team's call) the keys that turn plugins on go to the committed
     .claude/settings.json instead, so every teammate who trusts the repo gets them (a cloud session doesn't install
-    plugins from that file, so it needs the guidebook's "Cloud sessions" routes).
+    plugins from that file, so it needs the wiki's "Cloud sessions" routes).
     A companion is on when its `default` is true or it's named with --with; only listed ones can be. A key the user
     already set, in either file, is theirs and is never recorded or removed."""
     known = {c["id"]: c for c in companions(p)}
