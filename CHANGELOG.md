@@ -5,6 +5,7 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 ## Unreleased
 
 ### Fixed
+- **The role guard no longer treats a project path starting with two dots as outside the project.** It tested `startswith("..")`, so a folder like `..hidden/` or a file like `..env` slipped past its rules: a code-reviewer could edit there and the qa-tester could read code there. Only `..` or a path starting with `../` counts as outside now.
 - **`/sdlc:doctor` no longer calls knowledge index links with spaces broken.** `[Deploy runbook](deploy%20runbook.md)` and `[On call](<on call.md>)` were flagged although both files existed: the link pattern stopped at the first space, didn't know `<…>` targets and checked the path without URL-decoding it. Both forms now resolve, with or without a `#fragment`.
 - **`state.py blocker raise` keeps an open question that starts with `(`.** The step that drops the template's placeholder line dropped every item starting with `(`, so `(owner) needs the API key` vanished at the next raise and was never listed. Only the template's own `(oldest first …)` line is dropped now.
 - **A bold backlog ID no longer stalls the backlog.** `backlog.py` kept `**B1**` as written, so a part depending on B1 never saw it done and `next` returned nothing, with no error. An ID in bold, italics or backticks now reads as its plain `B<n>`.
