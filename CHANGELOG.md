@@ -2,9 +2,10 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
-## Unreleased
+## 3.1.0 — 2026-11-05
 
 ### Changed
+- **`/sdlc:clean_gone` is now `/sdlc:clean-gone`,** with a hyphen like every other command. The old name came unchanged from the vendored commit-commands plugin. There is no alias: type the new name.
 - **The plugin's homepage is the wiki,** `https://github.com/tammai/sdlc/wiki`, in the Claude Code, Codex and Cursor manifests; `repository` still names the repo. `hosts.py` takes the homepage from `.claude-plugin/plugin.json` instead of hard-coding the repo.
 - **The docs moved to the [GitHub wiki](https://github.com/tammai/sdlc/wiki).** The guidebook, playbook and the runbook's user procedures (install, health check, R1–R19) are now wiki pages, written in `docs/wiki/` and published by `.github/workflows/wiki.yml` on each push to `main`; play and procedure numbers are unchanged. `docs/guidebook.md` and `docs/playbook.md` point to the pages, and `docs/runbook.md` keeps only the maintainer procedures. `/sdlc:doctor`'s fixes link to the wiki's Troubleshooting page instead of `docs/runbook.md`, a path that only existed in the plugin's own repo.
 - **Setup checks that impeccable is on, not just installed, and can turn it on** (issue #9). `scaffold.py design` reports `impeccable.state` (`missing`, `disabled`, `enabled`) and whether its detector hook runs; a Claude Code plugin that's installed but off for the repo no longer counts as there. With the user's yes, `scaffold.py design impeccable --enable` turns it on in `.claude/settings.local.json` (`enable-plugin --remove` and eject take it back). Plugins load at session start, so the step stays pending (`step-done --pending`) and `finalize` waits until a restarted `/sdlc:setup` finishes it. `/sdlc:doctor` warns on a disabled plugin.
@@ -13,12 +14,7 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 - **The UI guardrail waits for impeccable's hook.** `sdlc-ui-hardcoded-values` is removed only once impeccable's detector hook runs in the repo, never in the call that turned the plugin on, so nothing goes unchecked in between.
 - **A design system the project must stay on can be pinned in impeccable mode:** setup has `/impeccable document` record it as the only system, with the restyling commands (`bolder`, `colorize`, `overdrive`, `delight`) off limits, and Build skips what `DESIGN.md` puts off limits.
 - The `design-system` step's procedure moved to `skills/setting-up-projects/references/design-mode.md`.
-
-## Unreleased
-
-### Changed
 - **sdlc-stepper shows the title `SDLC` again,** in bold before the stepper (`SDLC ✓─●─○─○ · Build · …`) in the terminal and in semibold before the icons on the desktop. 3.0.1 had dropped it for the stepper alone.
-- **`/sdlc:clean_gone` is now `/sdlc:clean-gone`,** with a hyphen like every other command. The old name came unchanged from the vendored commit-commands plugin. There is no alias: type the new name.
 
 ## 3.0.4 — 2026-11-04
 
