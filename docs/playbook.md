@@ -148,7 +148,7 @@ Hard stops (merge, production deploy, migrations, anything irreversible) still w
 ## 10. Merge and deploy
 
 1. **Ship:** Learn, then one shell call with git and `gh` commits on a feature branch (code, tests, the change file and the state file), pushes and opens a PR that links the change file. The agent watches CI: red because of the code, it fixes it once (failing test first) and pushes again; still red, or red for a CI reason (a missing secret, a runner problem, a flaky test), it stops and tells you. Without a remote, it stops with the branch ready.
-2. **It stops at the PR:** `PR <url> open, local and CI green; say "merge" to merge.` **The agent never merges without you saying so.** On "merge", the `finishing-a-development-branch.md` reference merges and cleans up worktrees; `/sdlc:clean_gone` prunes merged local branches when asked.
+2. **It stops at the PR:** `PR <url> open, local and CI green; say "merge" to merge.` **The agent never merges without you saying so.** On "merge", the `finishing-a-development-branch.md` reference merges and cleans up worktrees; `/sdlc:clean-gone` prunes merged local branches when asked.
 3. **Deploy** is a separate request: `/sdlc:deploy [feature] [environment]`.
    - It warns if the feature hasn't reached Ship, and continues only on your word.
    - It uses the project's existing deploy path (scripts, a CI job, the platform CLI). None: it says so and stops.

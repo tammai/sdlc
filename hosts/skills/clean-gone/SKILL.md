@@ -1,5 +1,5 @@
 ---
-name: clean_gone
+name: clean-gone
 description: Deletes local git branches whose remote branch is gone, and their worktrees.
 ---
 

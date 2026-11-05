@@ -12,6 +12,11 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 - **A design system the project must stay on can be pinned in impeccable mode:** setup has `/impeccable document` record it as the only system, with the restyling commands (`bolder`, `colorize`, `overdrive`, `delight`) off limits, and Build skips what `DESIGN.md` puts off limits.
 - The `design-system` step's procedure moved to `skills/setting-up-projects/references/design-mode.md`.
 
+## Unreleased
+
+### Changed
+- **`/sdlc:clean_gone` is now `/sdlc:clean-gone`,** with a hyphen like every other command. The old name came unchanged from the vendored commit-commands plugin. There is no alias: type the new name.
+
 ## 3.0.4 — 2026-11-04
 
 ### Changed

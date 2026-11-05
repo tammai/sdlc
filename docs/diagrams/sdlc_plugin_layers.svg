@@ -80,7 +80,7 @@ rect{stroke-width:.5}.sep{stroke-width:.5}
 <rect class="ch" x="317" y="202" width="114" height="20" rx="4"/>
 <text class="tx" x="325" y="212" font-size="12">commit-push-pr</text>
 <rect class="ch" x="436" y="202" width="86" height="20" rx="4"/>
-<text class="tx" x="444" y="212" font-size="12">clean_gone</text>
+<text class="tx" x="444" y="212" font-size="12">clean-gone</text>
 <text class="mu" x="154" y="238.5" font-size="12">Review</text>
 <rect class="ch" x="254" y="231" width="79" height="20" rx="4"/>
 <text class="tx" x="262" y="241" font-size="12">review-pr</text>
