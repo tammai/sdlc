@@ -5,7 +5,7 @@ description: Takes a feature, fix or project through define, build, review and s
 
 `${CLAUDE_PLUGIN_ROOT}` is the sdlc plugin's folder (other agents: the installed plugin folder above this file). `R` is this skill's `references/` folder.
 
-# SDLC Orchestrator (sdlc 2.0)
+# SDLC Orchestrator
 
 <!-- commands/start.md carries this text too, so /sdlc:start needs no skill load: change both. -->
 

@@ -11,7 +11,7 @@ If the request is empty, resume the active feature in `.sdlc/` (on a backlog, it
 
 `${CLAUDE_PLUGIN_ROOT}` is the sdlc plugin's folder (other agents: the installed plugin folder). `R` is `${CLAUDE_PLUGIN_ROOT}/skills/orchestrator/references/`.
 
-# SDLC Orchestrator (sdlc 2.0)
+# SDLC Orchestrator
 
 Every change but a trivial one leaves the same record, committed with the code and kept, in two files: `<change>` for people (why, what must be true with each criterion's test, and what the review found) and the state file for the agent (where it stands, how it's built). Paths: `<change>` is the feature's change file (`<docs>/changes/<feature>.md`), `<state>` its state file, `<work>` the folder beside it for working files (backlog, part plans, QA report), `<docs>` the sdlc docs folder (the `sdlc session status` line in your context gives them; without it, `scaffold.py paths <feature>`).
 
