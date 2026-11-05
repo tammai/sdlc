@@ -2,10 +2,10 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
-## Unreleased
+## 3.2.0 — 2026-11-05
 
 ### Changed
-- **The agent runs unattended and asks only when blocked, with a question dialog.** Questions used to arrive as a line at the end of an update ("Reply 'approved'", "say \"merge\" to merge"), which was easy to miss. The orchestrator now settles and records what the request, the code or a sensible default settles, and asks only at a named stop or for a decision only you can make, always through the agent's question tool (Claude Code: `AskUserQuestion`, recommendation first): the high-risk approval, the review choice, a disputed high finding, the owner handover, setup not done, merge at the PR, and setup's hard stops. Two stay typed replies, because their hooks lift only on a prompt you send: the decision past the review round cap and a trust-anchor notice.
+- **The agent runs unattended and asks only when blocked, with a question dialog.** Questions used to arrive as a line at the end of an update ("Reply 'approved'", 'say "merge" to merge'), which was easy to miss. The orchestrator now settles and records what the request, the code or a sensible default settles, and asks only at a named stop or for a decision only you can make, always through the agent's question tool (Claude Code: `AskUserQuestion`, recommendation first): the high-risk approval, the review choice, a disputed high finding, the owner handover, setup not done, merge at the PR, and setup's hard stops. Two stay typed replies, because their hooks lift only on a prompt you send: the decision past the review round cap and a trust-anchor notice.
 
 ### Fixed
 - **The role guard no longer treats a project path starting with two dots as outside the project.** It tested `startswith("..")`, so a folder like `..hidden/` or a file like `..env` slipped past its rules: a code-reviewer could edit there and the qa-tester could read code there. Only `..` or a path starting with `../` counts as outside now.
