@@ -159,8 +159,9 @@ def outputs(root):
     market = json.loads(read(root, ".claude-plugin/marketplace.json"))
     common = {k: plugin[k] for k in ("name", "version", "description", "author", "license", "keywords") if k in plugin}
     repo = "https://github.com/tammai/sdlc"
+    homepage = plugin.get("homepage", repo)
     files = {
-        ".codex-plugin/plugin.json": dump(dict(common, homepage=repo, repository=repo,
+        ".codex-plugin/plugin.json": dump(dict(common, homepage=homepage, repository=repo,
                                                skills=["./skills/", "./hosts/skills/"],
                                                # a folder that doesn't exist: else Codex converts commands/ too
                                                commands="./hosts/codex/commands/",
@@ -170,7 +171,7 @@ def outputs(root):
         ".agents/plugins/marketplace.json": dump({"name": market["name"], "plugins": [
             {"name": plugin["name"], "source": {"source": "local", "path": "./"},
              "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"}, "category": "Developer tools"}]}),
-        ".cursor-plugin/plugin.json": dump(dict(common, homepage=repo, repository=repo, skills="./skills/",
+        ".cursor-plugin/plugin.json": dump(dict(common, homepage=homepage, repository=repo, skills="./skills/",
                                                 commands="./commands/", agents="./hosts/cursor/agents/",
                                                 hooks="./hosts/cursor/hooks.json")),
         ".cursor-plugin/marketplace.json": dump({"name": market["name"], "owner": market.get("owner"), "plugins": [
