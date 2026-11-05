@@ -68,6 +68,23 @@ class StateTest(ProjectTestCase):
         _, out, _, _ = run_hook(FRESHNESS, {"hook_event_name": "Stop", "cwd": self.root}, self.root)
         self.assertEqual(out["decision"], "block")
 
+    def test_a_blocker_starting_with_a_parenthesis_is_kept_listed_and_resolvable(self):
+        for text in ("(owner) needs the API key", "second blocker"):
+            self.assertEqual(self.state("blocker", "login", "raise", text)[0], 0)
+        with open(self.md, encoding="utf-8") as f:
+            self.assertIn("## Open questions\n- (owner) needs the API key\n- second blocker\n", f.read())
+        with open(self.snapshot_path, encoding="utf-8") as f:
+            self.assertEqual(json.load(f)["open_questions"], ["(owner) needs the API key", "second blocker"])
+        self.assertEqual(self.state("blocker", "login", "resolve", "(owner) needs the API key")[0], 0)
+        with open(self.md, encoding="utf-8") as f:
+            self.assertIn("## Open questions\n- second blocker\n", f.read())
+        # The template's own placeholder still goes when the first real line is appended
+        self.write(".sdlc/state/login.md", STATE.replace("## Gate log\n- 2026-10-25 Stage 1: pass — spec approved",
+                                                        "## Gate log\n- (oldest first: each new line goes at the bottom of this list)"))
+        self.assertEqual(self.state("advance", "login", "3", "--gate", "pass")[0], 0)
+        with open(self.md, encoding="utf-8") as f:
+            self.assertNotIn("oldest first", f.read())
+
     def test_new_writes_the_state_file_from_defines_answers(self):
         self.write(".sdlc/config.json", json.dumps({"docs_dir": "docs/sdlc", "commands": {"test": "npm test"}}))
         code, out = self.state("new", "2026-10-30-m-prio", "--track", "M", "--risk", "high", "--risk-why", "public API",

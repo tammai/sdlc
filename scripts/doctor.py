@@ -166,6 +166,23 @@ def rule_paths(text):
     return [x.strip().strip("\"'") for x in re.findall(r"^\s*-\s*(.+)$", m.group(1).split("paths:", 1)[1], re.M)]
 
 
+def not_ignored(root, patterns):
+    """The patterns (setup's .gitignore lines) whose files git would not ignore.
+
+    In a git work tree git answers, so every spelling it honours counts (`.sdlc/.work`, `/.sdlc/.work/`, a parent
+    folder, .git/info/exclude); `--no-index` keeps a tracked file from hiding the rule. Without git, .gitignore's
+    lines are compared with a leading and trailing `/` dropped."""
+    probes = {p: p.replace("*", "x") + ("x" if p.endswith("/") else "") for p in patterns}
+    code, out = run(["git", "-C", root, "check-ignore", "--no-index", "--"] + list(probes.values()))
+    if code in (0, 1):
+        ignored = set(out.splitlines())
+        return [p for p in patterns if probes[p] not in ignored]
+    gi = os.path.join(root, ".gitignore")
+    lines = open(gi, encoding="utf-8").read().splitlines() if os.path.exists(gi) else []
+    lines = {x.strip().strip("/") for x in lines}
+    return [p for p in patterns if p.strip("/") not in lines]
+
+
 def check_repo(r, root):
     g = "repo"
     try:
@@ -249,14 +266,13 @@ def check_repo(r, root):
         r.add(g, "layout", "warn", "sdlc documents are still in .sdlc/ (the layout before 1.7.0)",
               "run /sdlc:upgrade to move them to docs/sdlc or a location you choose")
 
-    gi = os.path.join(root, ".gitignore")
-    lines = open(gi, encoding="utf-8").read().split() if os.path.exists(gi) else []
-    # The control contract's runtime files (state.py, spec 12): setup adds these; repos set up before get them
-    # from /sdlc:upgrade, which re-runs the gitignore step
-    contract = [x for x in (".sdlc/state/*.json", ".sdlc/state/*.events.jsonl", ".sdlc/state/*.commands/")
-                if x not in lines]
     if os.path.isdir(os.path.join(root, ".sdlc")):
-        if ".sdlc/.work/" not in lines:
+        # The control contract's runtime files (state.py, spec 12): setup adds these; repos set up before get them
+        # from /sdlc:upgrade, which re-runs the gitignore step
+        missing = not_ignored(root, [".sdlc/.work/", ".sdlc/state/*.json", ".sdlc/state/*.events.jsonl",
+                                     ".sdlc/state/*.commands/"])
+        contract = [x for x in missing if x != ".sdlc/.work/"]
+        if ".sdlc/.work/" in missing:
             r.add(g, ".gitignore", "warn", ".sdlc/.work/ is not git-ignored (scratch files may get committed)",
                   "add `.sdlc/.work/` to .gitignore")
         elif contract:

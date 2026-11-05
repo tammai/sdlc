@@ -80,6 +80,28 @@ class ShipTest(ProjectTestCase):
         with open(self.path(".sdlc/.work/commit-msg.txt"), encoding="utf-8") as f:
             self.assertEqual(f.read(), "Change\n\nRecord: .sdlc/login/change.md\n")  # the change file's title
 
+    def test_on_the_feature_branch_named_by_origin_head_it_stages_there(self):
+        # a new repo whose first push was the feature branch: origin/HEAD names the branch being shipped
+        self.git("switch", "-q", "-c", "login")
+        self.git("update-ref", "refs/remotes/origin/login", "HEAD")
+        self.git("symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/login")
+        code, out = self.ship()
+        self.assertEqual(code, 0, out)
+        self.assertEqual(self.out("branch", "--show-current").strip(), "login")
+        self.assertIn("src/store.py", self.out("diff", "--cached", "--name-only").split())
+        self.assertIn("Status: done", self.state_text())
+
+    def test_a_refused_branch_switch_leaves_the_state_as_it_was(self):
+        self.git("branch", "login")  # on main, and a branch named after the feature exists already
+        code, out = self.ship()
+        self.assertEqual(code, 1, out)
+        self.assertIn("login", out)
+        text = self.state_text()
+        self.assertIn("Current: Stage 2", text)
+        self.assertNotIn("Status: done", text)
+        self.assertEqual(self.out("branch", "--show-current").strip(), "main")
+        self.assertEqual(self.out("diff", "--cached", "--name-only"), "")
+
     def test_a_failing_verify_moves_nothing(self):
         self.write(".sdlc/config.json", json.dumps({"commands": {"test": "python3 -c \"raise SystemExit(1)\""}}))
         code, out = self.ship()

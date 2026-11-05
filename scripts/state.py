@@ -79,13 +79,18 @@ def section(lines, heading):
     return None
 
 
+def is_placeholder(item):
+    """The template's own example line, "(oldest first: …)". Real items may start with "(" too: they stay."""
+    return item.startswith("(oldest first")
+
+
 def section_items(text, heading):
     lines = text.split("\n")
     span = section(lines, heading)
     if not span:
         return []
     return [l[2:].strip() for l in lines[span[0]:span[1]]
-            if l.startswith("- ") and l[2:].strip() and not l[2:].lstrip().startswith("(")]
+            if l.startswith("- ") and l[2:].strip() and not is_placeholder(l[2:].strip())]
 
 
 def append_to_section(text, heading, item):
@@ -95,7 +100,8 @@ def append_to_section(text, heading, item):
         return text.rstrip("\n") + f"\n\n## {heading}\n- {item}\n"
     start, end = span
     # Drop blanks, the empty "-" and the template's example lines ("- (oldest first …)", "- <date> Stage n: …")
-    body = [l for l in lines[start:end] if l.strip() and l.strip() != "-" and not l.startswith("- (")
+    body = [l for l in lines[start:end] if l.strip() and l.strip() != "-"
+            and not (l.startswith("- ") and is_placeholder(l[2:].strip()))
             and not re.match(r"- (<date>|Round 1 — <commit>)", l)]
     return with_newline("\n".join(lines[:start] + body + [f"- {item}"]
                                   + ([""] + lines[end:] if end < len(lines) else [])))
