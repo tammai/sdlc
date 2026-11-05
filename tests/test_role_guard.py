@@ -54,6 +54,16 @@ class RoleGuardTest(ProjectTestCase):
         self.assertEqual(self.call("Grep", "src", "sdlc:qa-tester"), "deny")
         self.assertIsNone(self.call("Write", ".sdlc/login/qa-report.md", "sdlc:qa-tester"))
 
+    def test_names_starting_with_two_dots_are_inside_the_project(self):
+        # `..hidden/` and `..env` are project paths; only `..` or `../…` leave the project
+        self.assertEqual(self.call("Edit", "..hidden/app.py", "sdlc:code-reviewer"), "deny")
+        self.assertEqual(self.call("Write", "..env", "sdlc:code-reviewer"), "deny")
+        self.assertEqual(self.call("Read", "..hidden/app.py", "sdlc:qa-tester"), "deny")
+
+    def test_paths_outside_the_project_are_left_alone(self):
+        self.assertIsNone(self.call("Edit", "../elsewhere/app.py", "sdlc:code-reviewer"))
+        self.assertIsNone(self.call("Read", "../elsewhere/app.py", "sdlc:qa-tester"))
+
 
 if __name__ == "__main__":
     unittest.main()
