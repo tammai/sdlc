@@ -685,7 +685,7 @@ STACK_ALIASES = {"typescript": "node", "ts": "node", "javascript": "node", "js":
                  "csharp": "dotnet", "fsharp": "dotnet", "cargo": "rust", "bash": "shell", "sh": "shell"}
 CI_SETUP = {
     "node": ["- uses: actions/setup-node@v7", "  with:", '    node-version: "{node_version}"', "- run: corepack enable"],
-    "python": ["- uses: astral-sh/setup-uv@v10"],
+    "python": ["- uses: astral-sh/setup-uv@v10.3.3"],  # setup-uv has no moving major tag: pin a full version
     "go": ["- uses: actions/setup-go@v7", "  with:", "    go-version-file: {go_mod}"],
     "rust": ["- uses: dtolnay/rust-toolchain@stable", "  with:", "    components: clippy, rustfmt"],
     "dart": ["- uses: dart-lang/setup-dart@v1"],
