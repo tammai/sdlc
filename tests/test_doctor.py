@@ -314,6 +314,16 @@ class DoctorTest(ProjectTestCase):
         self.write("knowledge/index.md", "- [Naming](conventions/naming.md)\n- [Gone](gotchas/gone.md)\n- [Site](https://x.dev)\n")
         self.assertEqual(self.check("knowledge index")["detail"], "broken links: gotchas/gone.md")
 
+    def test_knowledge_index_links_with_spaces(self):
+        self.write("knowledge/deploy runbook.md", "x")
+        self.write("knowledge/on call.md", "x")
+        self.write("knowledge/index.md", "- [Deploy runbook](deploy%20runbook.md)\n- [On call](<on call.md>)\n"
+                   "- [Section](<on call.md#rota>)\n- [Top](#top)\n")
+        c = self.check("knowledge index")
+        self.assertEqual((c["status"], c["detail"]), ("ok", "3 links resolve"))
+        self.write("knowledge/index.md", "- [Gone](<gone file.md>)\n- [Also](also%20gone.md)\n")
+        self.assertEqual(self.check("knowledge index")["detail"], "broken links: gone file.md, also%20gone.md")
+
     def test_feature_state(self):
         self.write(".sdlc/a/state.md", "Status: active\nProcess: 3\nCurrent: Stage 2 – Build\n")
         self.assertEqual(self.check("features")["status"], "ok")
