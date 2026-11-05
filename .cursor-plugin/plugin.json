@@ -18,7 +18,7 @@
     "monorepo",
     "claude-code-plugin"
   ],
-  "homepage": "https://github.com/tammai/sdlc",
+  "homepage": "https://github.com/tammai/sdlc/wiki",
   "repository": "https://github.com/tammai/sdlc",
   "skills": "./skills/",
   "commands": "./commands/",
