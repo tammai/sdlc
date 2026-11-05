@@ -4,6 +4,9 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
+### Changed
+- **The agent runs unattended and asks only when blocked, with a question dialog.** Questions used to arrive as a line at the end of an update ("Reply 'approved'", "say \"merge\" to merge"), which was easy to miss. The orchestrator now settles and records what the request, the code or a sensible default settles, and asks only at a named stop or for a decision only you can make, always through the agent's question tool (Claude Code: `AskUserQuestion`, recommendation first): the high-risk approval, the review choice, a disputed high finding, the owner handover, setup not done, merge at the PR, and setup's hard stops. Two stay typed replies, because their hooks lift only on a prompt you send: the decision past the review round cap and a trust-anchor notice.
+
 ### Fixed
 - **The role guard no longer treats a project path starting with two dots as outside the project.** It tested `startswith("..")`, so a folder like `..hidden/` or a file like `..env` slipped past its rules: a code-reviewer could edit there and the qa-tester could read code there. Only `..` or a path starting with `../` counts as outside now.
 - **`hosts.py` ignores stray entries in `hosts/skills/` and `hosts/cursor/agents/`.** A file there such as the `.DS_Store` macOS writes, or a folder without a `SKILL.md`, made `check` report it as stale on every run and `build` crash with `NotADirectoryError` before writing anything. Only what a build writes now counts: a folder holding a `SKILL.md`, and a `.md` file in `hosts/cursor/agents/`. Generated files whose command or agent was removed are still deleted.
