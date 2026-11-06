@@ -7,6 +7,15 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 ### Fixed
 - **`/sdlc:setup` joins a repo another agent set up, even when the session status line says `setup complete`.** It answered "already set up" from that line, which doesn't show the recorded agents, instead of running `scaffold.py host` and joining.
 
+### Known issues
+- Setup's context diet doesn't always show its table (plugin, tokens per call, verdict, reason) before asking: in the smoke test it summarised `context_diet.py`'s output into a one-line question.
+- `scaffold.py eject --apply` reports `.claude/settings.json` and `.gitignore` as `unmerged` with empty lists although it removed their lines, leaves `"allow": []`, and leaves `.sdlc/state/` runtime files untracked once their ignore lines are gone. A guardrail kept as "keep edit, stay managed" at upgrade is listed for plain deletion.
+- `ship.py --waive-baseline` waives any failing test step without comparing test names to `baseline.md`; that comparison is left to the agent.
+- A join can recommend different places for the plugin keys (`settings.local.json` or `settings.json`) in similar repos, and setup writes the UI rule and guardrail into a repo with no UI when the design mode is `builtin`.
+- Antigravity's slash menu shows the commands as `/sdlc:..:hosts:skills:<name>`; they work.
+
+Checked on 2026-11-06 at commit bca6380: the full suite (424 tests, Python 3.10), `claude plugin validate`, and the smoke test in real sessions under `tmux` with the plugin loaded by `--plugin-dir`: A–H in Claude Code 2.1.318–319 (every must item passes; C.4's trim table and E.6's security-review skip are the gaps: the first wasn't shown, the second couldn't run without API credentials; G's audit batches didn't run on a sample that small), J in Codex 0.154.0 and Antigravity 1.5.1, including Claude Code joining each repo after the other agent set it up. Not run: Windows (I), Cursor, and the desktop app's layout.
+
 ## 3.2.0 — 2026-11-05
 
 ### Changed
