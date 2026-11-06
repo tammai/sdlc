@@ -2,6 +2,11 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
+## 3.2.1 — 2026-11-06
+
+### Fixed
+- **`/sdlc:setup` joins a repo another agent set up, even when the session status line says `setup complete`.** It answered "already set up" from that line, which doesn't show the recorded agents, instead of running `scaffold.py host` and joining.
+
 ## 3.2.0 — 2026-11-05
 
 ### Changed
