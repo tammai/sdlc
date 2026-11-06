@@ -35,6 +35,7 @@ One line per doc: path — what it answers (≤12 words). Keep this file under ~
 - [gotchas/zsh-does-not-split-a-command-variable.md](gotchas/zsh-does-not-split-a-command-variable.md) — `S="python3 x"; $S` fails in zsh; use a function
 - [gotchas/macos-stock-bash-and-no-timeout.md](gotchas/macos-stock-bash-and-no-timeout.md) — bash 3.2 has no EPOCHREALTIME; a Mac has no timeout binary
 - [gotchas/review-refuses-heredocs-so-helpers-read-a-file.md](gotchas/review-refuses-heredocs-so-helpers-read-a-file.md) — a script run in Review takes a file the Write tool made, not stdin
+- [gotchas/question-tool-answer-is-not-a-prompt.md](gotchas/question-tool-answer-is-not-a-prompt.md) — AskUserQuestion fires no prompt hook; hook gates stay typed replies
 
 ## Runbooks
 - [../docs/runbook.md](../docs/runbook.md) — maintainer procedures: releases, smoke test, phase rules, scaffold internals

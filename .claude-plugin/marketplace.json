@@ -46,22 +46,6 @@
         "stepper",
         "status"
       ]
-    },
-    {
-      "name": "product-rebuild",
-      "source": {
-        "source": "github",
-        "repo": "tammai/product-rebuild"
-      },
-      "description": "A gated, agent-orchestrated pipeline that rebuilds an existing product end to end on top of sdlc: mining the reference, a feature matrix, slices, architecture ADRs and contracts, then each slice built through sdlc. Claude Code only; installs sdlc and sdlc-extras with it.",
-      "license": "MIT",
-      "keywords": [
-        "product-rebuild",
-        "feature-matrix",
-        "adr",
-        "gated-pipeline",
-        "agent-orchestrated"
-      ]
     }
   ]
 }

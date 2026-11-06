@@ -8,7 +8,7 @@ How the plugin is laid out, how to run and test it from a checkout, and how to s
 sdlc/
 ├── .claude-plugin/
 │   ├── plugin.json          name, version (repos record it at setup and upgrade), homepage, repository
-│   └── marketplace.json     marketplace entries for /plugin install: sdlc, sdlc-extras, sdlc-stepper and product-rebuild
+│   └── marketplace.json     marketplace entries for /plugin install: sdlc, sdlc-extras and sdlc-stepper
 ├── .claude/CLAUDE.md, .claude/rules/   notes for contributors to this repo (a plugin's root CLAUDE.md is never loaded)
 ├── .codex-plugin/, .agents/plugins/, .cursor-plugin/, plugin.json, hooks.json, hosts/
 │                            Codex, Cursor and Antigravity manifests, Cursor agents, hosts/skills (the commands as skills)
