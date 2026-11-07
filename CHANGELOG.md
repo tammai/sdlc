@@ -2,6 +2,11 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
+## Unreleased
+
+### Fixed
+- **Eject's report names only what it keeps that exists.** `scaffold.py eject` listed the baseline, design system, PRD and feature folders under `keep` whether or not the repo had them, and the eject steps repeated a fixed list, so a greenfield repo with no UI was told its `.sdlc/baseline.md` and `docs/sdlc/design-system.md` were kept. The `keep` list now holds only paths that exist (a `<feature>` pattern only when its folder does), and the report reads it.
+
 ## 3.3.0 — 2026-11-07
 
 ### Changed
