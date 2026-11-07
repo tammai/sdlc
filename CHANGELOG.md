@@ -2,6 +2,11 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
+## 3.3.0 — 2026-11-07
+
+### Changed
+- **Setup, upgrade and eject merge their branch locally without asking.** Local merge was always the answer, so setup's `finalize` (and Join, and `/sdlc:setup design`), `/sdlc:upgrade` and `/sdlc:eject` now merge their branch into the one it was made from and delete it; nothing is pushed and no PR is opened unless you ask.
+
 ## 3.2.1 — 2026-11-06
 
 ### Fixed
@@ -21,9 +26,6 @@ Checked on 2026-11-06 at commit bca6380: the full suite (424 tests, Python 3.10)
 ### Changed
 - **The agent runs unattended and asks only when blocked, with a question dialog.** Questions used to arrive as a line at the end of an update ("Reply 'approved'", 'say "merge" to merge'), which was easy to miss. The orchestrator now settles and records what the request, the code or a sensible default settles, and asks only at a named stop or for a decision only you can make, always through the agent's question tool (Claude Code: `AskUserQuestion`, recommendation first): the high-risk approval, the review choice, a disputed high finding, the owner handover, setup not done, merge at the PR, and setup's hard stops. Two stay typed replies, because their hooks lift only on a prompt you send: the decision past the review round cap and a trust-anchor notice.
 - **product-rebuild is no longer in the sdlc marketplace.** `/plugin install product-rebuild@sdlc` stops working; it has its own marketplace now: `/plugin marketplace add tammai/product-rebuild`, then `/plugin install product-rebuild@product-rebuild` (keep the `sdlc` marketplace added; its dependencies come from there). A copy installed as `product-rebuild@sdlc` no longer updates; reinstall it as `product-rebuild@product-rebuild`.
-
-### Changed
-- **Setup, upgrade and eject merge their branch locally without asking.** Local merge was always the answer, so setup's `finalize` (and Join, and `/sdlc:setup design`), `/sdlc:upgrade` and `/sdlc:eject` now merge their branch into the one it was made from and delete it; nothing is pushed and no PR is opened unless you ask.
 
 ### Fixed
 - **The role guard no longer treats a project path starting with two dots as outside the project.** It tested `startswith("..")`, so a folder like `..hidden/` or a file like `..env` slipped past its rules: a code-reviewer could edit there and the qa-tester could read code there. Only `..` or a path starting with `../` counts as outside now.
