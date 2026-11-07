@@ -66,7 +66,7 @@ The test suite runs hooks and scripts as subprocesses; this checks the installed
 2. It works on a `sdlc/setup` branch with one commit per step; `.sdlc/config.json` has the five commands; it runs them and they pass.
 3. The repo has `.claude/rules/sdlc*.md`, `.claude/hookify/sdlc-*.md`, `.github/workflows/sdlc-verify.yml` and `sdlc-invariants.yml`, `.sdlc/ci/invariants.py`, `docs/sdlc/prd.md` (written after you approve the interview's draft), `docs/sdlc/constitution.md`, `knowledge/index.md`, `.sdlc/scaffold.lock.json`, and `.gitignore` lists `.sdlc/.work/` and the `.sdlc/state/*.json` contract patterns; `CLAUDE.md` untouched.
 4. `enable-plugin` and context diet (should): run from the installed plugin, setup asks where the plugin keys go; pick this machine and it writes the sdlc marketplace and `enabledPlugins` to `.claude/settings.local.json` only (`.claude/settings.json` gets no plugin keys); the team file (`--team`) puts them in `.claude/settings.json` and commits it, with superpowers' turn-off still local, and turns on the companions (`sdlc-extras`, `sdlc-stepper`) beside sdlc; run with `--plugin-dir`, sdlc itself isn't written and the setup report says it was skipped. After that it asks whether to trim plugins. Accept. It shows a table of plugins with estimated tokens per call, verdicts and reasons, and writes `.claude/settings.local.json` only after you approve; no commit includes that file, and it adds no `true`.
-5. It asks PR or local merge; pick local merge. `/sdlc:doctor` now shows the repo checks ✅.
+5. It merges `sdlc/setup` locally on its own. `/sdlc:doctor` now shows the repo checks ✅.
 6. Interrupt test (should): in a second throwaway repo, stop setup midway (Esc), run `/sdlc:setup` again; it resumes after the last finished step.
 
 **D. Guardrails reach Claude (must)**
@@ -97,7 +97,7 @@ The test suite runs hooks and scripts as subprocesses; this checks the installed
 1. In the greenfield repo, edit one guardrail file in `.claude/hookify/` and simulate an older scaffold: set `scaffold_version` in `.sdlc/scaffold.lock.json` to an older release, such as `3.0.0` (the only time to edit the lock by hand).
 2. `/sdlc:status` reports the repo as behind and suggests `/sdlc:upgrade`.
 3. `/sdlc:upgrade --dry-run` shows the plan and changes nothing (`git status` clean).
-4. `/sdlc:upgrade` works on its own branch, asks about the guardrail you edited (apply / skip / keep mine), and ends asking PR or local merge.
+4. `/sdlc:upgrade` works on its own branch, asks about the guardrail you edited (apply / skip / keep mine), and ends by merging locally on its own.
 5. `/sdlc:eject` shows a dry run first; applied on a branch, it removes the plugin's files, keeps `.sdlc/config.json`, the PRD, the constitution, knowledge and specs.
 
 **I. Windows (should, if the team uses it).** A teammate runs B–E on Windows in Git Bash.

@@ -2,6 +2,16 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
+## 3.3.0 — 2026-11-07
+
+### Changed
+- **Setup, upgrade and eject merge their branch locally without asking.** Local merge was always the answer, so setup's `finalize` (and Join, and `/sdlc:setup design`), `/sdlc:upgrade` and `/sdlc:eject` now merge their branch into the one it was made from and delete it; nothing is pushed and no PR is opened unless you ask.
+
+### Known issues
+- Eject's report lists `.sdlc/baseline.md` and `docs/sdlc/design-system.md` as kept in a greenfield repo with no UI, where neither exists.
+
+Checked on 2026-11-07 at commit 9ed4107: the full suite (424 tests, Python 3.10), `claude plugin validate`, and, by the maintainer's choice, only the parts of the smoke test this release changes: C (greenfield setup) and H (upgrade and eject), headless in Claude Code with the plugin loaded by `--plugin-dir`. Setup, upgrade and eject each merged their branch into `main` locally, deleted it, pushed nothing and asked no merge question. A, B, D–G, I and J were not run.
+
 ## 3.2.1 — 2026-11-06
 
 ### Fixed

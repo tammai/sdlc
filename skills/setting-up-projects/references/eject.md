@@ -19,6 +19,6 @@ Clean working tree, branch `sdlc/eject`, then:
 1. `$S eject --apply --also <edited files the user agreed to delete>`
 2. Imports the user added during setup now point at deleted files: the `eslint.sdlc.mjs` import in `eslint.config.*`, `extend = ".sdlc/lint/ruff.sdlc.toml"` in `pyproject.toml`. Propose a diff for each (approved) so nothing is left broken.
 3. Run the verify commands (`$S commands` before ejecting, or from `.sdlc/config.json`) to confirm the project still builds.
-4. Commit, then **ask**: open a PR or merge locally.
+4. Commit, then merge the branch locally as in setup's `finalize`, without asking.
 
 Report what was removed, what was kept (including any plugin key under the result's `kept`: one sdlc wrote that the user has since changed, so it stays), and that the plugin can be uninstalled (`/plugin uninstall sdlc`) or set up again later with `/sdlc:setup`.

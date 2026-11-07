@@ -67,7 +67,6 @@ Autopilot won't start a session while a notice is open; its JSON `stopped` reaso
 | Running setup, the stack, the recorded commands | You approve |
 | Each audit batch, each AI-config migration | You approve, edit or drop |
 | Upgrade: edited plugin files, new workflows, migrations | You choose per file / per migration |
-| PR or local merge after setup, upgrade, eject | You |
 | Adding a failure to the baseline | You, recorded as a deviation |
 | Waiving a high finding | You, recorded as a deviation |
 | Design-system changes a reviewer proposes | You |

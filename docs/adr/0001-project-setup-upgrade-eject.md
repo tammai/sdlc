@@ -21,7 +21,7 @@ A dedicated setup phase, versioned upgrades and a clean eject, built on an expli
 | Always-on text | `.claude/rules/sdlc.md`, plugin-owned and regenerated on upgrade. `CLAUDE.md` belongs to the user and is never touched. |
 | Upgrades | Generic material is read from the plugin at runtime; generated files are regenerated; seeded files are replaced only if unedited; user-owned files change only through versioned migrations the user approves. Declined migrations are recorded and not asked again (`--revisit` to reconsider). |
 | Drift and team skew | `/sdlc:start` and `/sdlc:status` report a repo behind the plugin and offer `/sdlc:upgrade`; they never block. The repo pins `min_plugin_version`; an older plugin gets a warning. |
-| Git | Setup, upgrade and eject each run on their own branch, one commit per step, then ask: open a PR or merge locally. |
+| Git | Setup, upgrade and eject each run on their own branch, one commit per step, then merge locally without asking; nothing is pushed or opened as a PR unless asked (amended 2026-11-07: local merge was always the answer). |
 | Eject | Remove what the plugin owns, keep the user's work. |
 
 ### File ownership
@@ -42,11 +42,11 @@ Keeping most material in the Runtime class is the main lever: anything generic s
 
 ### Flows
 
-**Setup:** detect greenfield (no source files; ask if unclear) or brownfield → stack and commands (greenfield) or commands, baseline, audit and AI-config migration (brownfield) → CI → common steps (policy rules, guardrails, lint snippets, allowlist, `.gitignore`, constitution, knowledge) → PR or local merge. Progress is recorded per step, so a rerun resumes.
+**Setup:** detect greenfield (no source files; ask if unclear) or brownfield → stack and commands (greenfield) or commands, baseline, audit and AI-config migration (brownfield) → CI → common steps (policy rules, guardrails, lint snippets, allowlist, `.gitignore`, constitution, knowledge) → local merge. Progress is recorded per step, so a rerun resumes.
 
-**Upgrade:** plan (regenerate / replace / review / restore / template gone, plus pending migrations) → its own branch → apply bucket by bucket, asking about edited files → migrations in version order, each an approved diff → bump the recorded version → PR or local merge. `--dry-run` writes nothing.
+**Upgrade:** plan (regenerate / replace / review / restore / template gone, plus pending migrations) → its own branch → apply bucket by bucket, asking about edited files → migrations in version order, each an approved diff → bump the recorded version → local merge. `--dry-run` writes nothing.
 
-**Eject:** dry run first → delete generated and unedited seeded files, ask about edited ones, remove recorded keyed-merge entries and the lock → fix imports left pointing at deleted files → PR or local merge.
+**Eject:** dry run first → delete generated and unedited seeded files, ask about edited ones, remove recorded keyed-merge entries and the lock → fix imports left pointing at deleted files → local merge.
 
 The procedures are in `skills/setting-up-projects/`; the bookkeeping is `scripts/scaffold.py` (command reference in the [runbook](../runbook.md#setup-upgrade-eject-internals)).
 
