@@ -35,3 +35,4 @@
 - 2026-11-03 update knowledge/gotchas/hooks-module-validator-and-test-kit.md — no state file before the end of Define, skill.prompt skipped notice, generated tsconfig, test stubs (from 3.0.2 release distill)
 - 2026-11-03 add knowledge/gotchas/review-refuses-heredocs-so-helpers-read-a-file.md — review_report.py reads a findings file because Review refuses heredocs (from 3.0.3 release distill)
 - 2026-11-05 add knowledge/gotchas/question-tool-answer-is-not-a-prompt.md — the round cap and trust anchor can't move to AskUserQuestion (from 3.2.0 release distill)
+- 2026-11-07 add knowledge/gotchas/rebased-changelog-lands-in-a-released-section.md — a rebase put the 3.3.0 note under 3.2.0 without a conflict (from 3.3.0 release distill)
