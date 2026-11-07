@@ -10,7 +10,7 @@ Before the first feature, `/sdlc:setup` prepares the repo once; `/sdlc:start` of
 - **Brownfield** (existing code): the commands the repo already uses, shown to you before they're written; a **baseline** of what already fails; an audit (conventions, git-history gotchas, decisions, area rules) drafted by explorer agents and written only as you approve each batch; existing AI configs (long CLAUDE.md, AGENTS.md, Cursor rules, ADRs) migrated into the three knowledge tiers, one diff per source.
 - **Common steps, both modes:** policy rules (`.claude/rules/sdlc*.md`); hookify guardrails; sdlc lint snippets, only for a linter the project already has; a permission allowlist for the project's commands; sdlc and its companion plugins turned on, asked where: `.claude/settings.local.json`, this machine's file, never committed, or the committed `.claude/settings.json`, so teammates get them too (cloud sessions don't: see [Cloud sessions](Cloud-sessions.md)) (the companion plugins `sdlc-extras` and `sdlc-stepper` are on by default; setup lists them in one line, and the companion skill Cloudflare's `security-audit` with its install command when it isn't installed, which sdlc never runs for you; a conflicting plugin such as superpowers is turned off for this repo only, with a warning, and spec-kit's files are reported, with removal asked); with your approval, a context diet (`/sdlc:context-diet`) for this project; a CI workflow from the recorded commands (asked first if the repo already has CI); the sdlc block in `AGENTS.md` when another agent (Codex, Cursor, Antigravity) uses the repo; `.gitignore` entries; a product doc (PRD: an existing one used as is, else drafted from a short interview or from the code with every guess marked "inferred, confirm", approved before it's written to `docs/sdlc/prd.md`); a constitution (with the default Simplicity principle); a design system (projects with UI); and the knowledge folder. The steps that write `.claude/` run only under Claude Code.
 
-Setup runs on an `sdlc/setup` branch with one commit per step, resumes where it stopped, and ends by asking whether to open a PR or merge locally.
+Setup runs on an `sdlc/setup` branch with one commit per step, resumes where it stopped, and ends by merging the branch locally, without asking; nothing is pushed.
 
 **Who owns which file.** Everything the plugin puts in a repo is tracked in `.sdlc/scaffold.lock.json` with a class that decides what an upgrade may do:
 
@@ -64,7 +64,7 @@ A project with UI can hand its design work to the [impeccable](https://github.co
 │   └─ 6. docs/sdlc/design-system.md = a short pointer to DESIGN.md
 │
 ├─ knowledge
-└─ finalize                       HARD STOP: PR or local merge
+└─ finalize                       local merge (no question, no push)
 ```
 
 What you end up with:

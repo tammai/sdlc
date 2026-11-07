@@ -76,7 +76,7 @@ Teams that try to fix this assemble several plugins and conventions by hand, eac
 |---|---|
 | PRD-1 | Everything a core phase needs ships in one plugin under the `sdlc:` namespace. Niche parts (the Ralph loop, hookify's list, configure and help commands, four extra review agents) are in the optional `sdlc-extras` plugin, which no core phase needs. |
 | PRD-2 | Hooks and scripts are Python 3.9+ standard library only, and never fail the user's session on their own error. |
-| PRD-3 | The plugin never merges, deploys to production, runs migrations or installs tools without the user's explicit go-ahead. It pushes a feature branch and opens a PR only at the end of Ship. |
+| PRD-3 | The plugin never merges a feature, deploys to production, runs migrations or installs tools without the user's explicit go-ahead. It pushes a feature branch and opens a PR only at the end of Ship. Setup, upgrade and eject are the exception: each merges its own branch locally at the end, never pushed. |
 | PRD-4 | Files the plugin writes into a project are tracked by ownership class; a user's edits are never overwritten without asking. |
 | PRD-5 | Vendored material keeps its license and attribution (`NOTICE.md`, `licenses/`). |
 | PRD-6 | Always-loaded context stays small: phase text is read only when that phase starts (the orchestrator core is about 1,000 words), each job has one entry point (duplicates are reference files), and `CLAUDE.md` is never written by the plugin. |

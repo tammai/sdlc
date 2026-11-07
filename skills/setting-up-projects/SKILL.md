@@ -76,7 +76,7 @@ Plugin-owned files are named `sdlc-*` (or `sdlc.md`); everything else belongs to
 | `constitution` | `sdlc:project-constitution`, inferring from the repo, the PRD and the interview; keep the default **V. Simplicity**. User approves. |
 | `design-system` | Follow `references/design-mode.md`. Only when the project has UI. The design mode, `builtin` or `impeccable`, is a hard stop asked every time, even when the answer looks obvious; record it with `$S design <mode>` and put the user's reason in the step's commit. impeccable installed but off for this repo → offer `$S design impeccable --enable`; it loads next session, so the step stays pending (`$S step-done design-system --pending <why>`) and setup resumes it after a restart. The UI guardrail is swapped only once impeccable's detector hook runs. User approves the design system doc. |
 | `knowledge` | If `knowledge/index.md` is missing: `sdlc:managing-knowledge` setup, **steps 1 and 3 only** (index, log, folders, area rules). Skip its `CLAUDE.md` step: the knowledge pointer already lives in `.claude/rules/sdlc.md` (and in the `AGENTS.md` block for the other agents), and setup never creates or edits `CLAUDE.md`. Brownfield: the audit's approved drafts go here. User-owned from the start. |
-| `finalize` | `$S status` lists `pending_steps`: any → don't finalize; commit, say what each waits for and that `/sdlc:setup` resumes it (a pending `design-system` needs a restart first). Else `$S step-done finalize --complete`, final commit, then **ask**: open a PR (`gh pr create`, body lists what was added and why) or merge `sdlc/setup` locally. Never push or merge without the answer. |
+| `finalize` | `$S status` lists `pending_steps`: any → don't finalize; commit, say what each waits for and that `/sdlc:setup` resumes it (a pending `design-system` needs a restart first). Else `$S step-done finalize --complete`, final commit, then merge `sdlc/setup` locally into the branch it was made from, without asking (`git switch <that branch>` then `git merge --no-ff sdlc/setup`) and delete `sdlc/setup`. Never push or open a PR unless the user asks; a merge conflict stops for the user. |
 
 ## Join: a second agent in a set-up repo
 
@@ -85,7 +85,7 @@ The repo's shared setup (config and commands, baseline, PRD, constitution, desig
 1. `$S add-host <host>`.
 2. Host is `claude-code`: run the **Claude Code** steps (`rules`, `guardrails`, `allowlist`, `enable-plugin`, `context-diet` with its question, the `.claude/*.local.md` ignore line). Any other host: nothing of its own to write.
 3. `$S agents`: rebuilds the `AGENTS.md` block for every recorded host and, with Claude Code recorded, the `.claude/rules/sdlc-agents-md.md` copy of the team's own `AGENTS.md` text. What the first agent's team wrote (`CLAUDE.md`, `.claude/rules/`, `AGENTS.md`) is carried over, never rewritten.
-4. Check: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/doctor.py"` reports no fails. One commit (`chore(sdlc): join – <host>`), then **ask**: PR or local merge.
+4. Check: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/doctor.py"` reports no fails. One commit (`chore(sdlc): join – <host>`), then merge the branch locally as in `finalize`, without asking.
 
 Report: the host added, the hosts now recorded, files written.
 

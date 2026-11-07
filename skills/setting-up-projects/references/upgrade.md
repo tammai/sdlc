@@ -28,6 +28,6 @@ Clean working tree, then branch `sdlc/upgrade-<from>-<to>`. One commit per bucke
 7. **Commands:** `$S contract`. A newly required command missing → propose it in `.sdlc/config.json` (diff, approved). Commands changed since setup → the CI workflow shows up under *replace* or *review* above (it's generated from them), and a changed command's old run no longer counts (`contract` drops it from `runs`). If `runs` lacks any command (changed, or the repo was set up before runs were recorded), run `$S run-commands` and report any under `not_runnable` to the user.
 8. **Migrations**, in the order listed: read `${CLAUDE_PLUGIN_ROOT}/<path>` for each, apply its steps as diffs the user approves, then `$S migration <id> --applied`. Declined → `$S migration <id> --skipped "<reason>"`; it's never asked again unless the user runs upgrade with `--revisit` (`$S migrations --revisit` lists them).
 9. **Version:** `$S set-version <plugin version> --min-plugin <highest min_plugin_version among applied migrations, if any>`.
-10. Final commit, then **ask**: open a PR or merge locally.
+10. Final commit, then merge the branch locally as in setup's `finalize`, without asking.
 
 Report: from → to, files per bucket, migrations applied/skipped (with reasons), anything left for review next time.
