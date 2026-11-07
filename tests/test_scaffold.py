@@ -530,6 +530,13 @@ class ScaffoldTest(ProjectTestCase):
         self.assertNotIn("extraKnownMarketplaces", settings)
         self.assertNotIn(".sdlc/.work/", self.read(".gitignore"))
 
+    def test_eject_keep_lists_only_what_exists(self):
+        self.setup_for_eject()  # a config, but no baseline or design system
+        keep = self.sc("eject")["keep"]
+        self.assertIn(".sdlc/config.json", keep)
+        self.assertNotIn(".sdlc/baseline.md", keep)
+        self.assertFalse([k for k in keep if "design-system" in k], keep)
+
     def test_eject_keeps_the_prd_where_setup_recorded_it(self):
         self.setup_for_eject()
         self.write("product/PRD.md", "# Planner\n")  # one the user already had, used as is

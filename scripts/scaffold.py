@@ -1555,8 +1555,9 @@ def eject_plan(p):
             layout["state_root"] + ("<feature>.md" if layout["layout"] == "new" else "<feature>/"),
             layout["changes_root"] + ("<feature>.md" if layout["layout"] == "new" else "<feature>/change.md"),
             layout["intents_root"] + "<feature>/"]
-    plan = {"delete": [], "ask": [], "already_gone": [], "unmerge": lock.get("merged", {}),
-            "keep": list(dict.fromkeys(keep))}
+    # Only what is there: the report reads this list, and a repo may have no baseline, design system or features
+    keep = [k for k in dict.fromkeys(keep) if os.path.exists(p.path(k.split("<feature>")[0]))]
+    plan = {"delete": [], "ask": [], "already_gone": [], "unmerge": lock.get("merged", {}), "keep": keep}
     for path, e in sorted(lock.get("files", {}).items()):
         state = p.file_state(path, e)
         if state == "missing":
