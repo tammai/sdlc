@@ -9,6 +9,10 @@ from test_autopilot import BACKLOG
 
 
 class SpecQuestionAutopilotTest(test_autopilot.AutopilotTest):
+    def setUp(self):
+        super().setUp()
+        self.write(".sdlc/config.json", "{\"spec_lock\": \"lock.json\"}")  # a spec-backed repo
+
     def test_a_spec_question_blocks_only_its_part(self):
         self.write("docs/sdlc/intents/login/backlog.md", BACKLOG.replace(
             "| B1 | Form | FR-01 | 1 | — | S | todo |", "| B1 | Form | FR-01 | 1 | — | S | blocked: spec question SQ-0001 on F-APP-01.AC1 |")
@@ -16,6 +20,10 @@ class SpecQuestionAutopilotTest(test_autopilot.AutopilotTest):
         out, calls = self.autopilot("done")
         self.assertEqual(calls, ["/sdlc:start B2 --autopilot"])
         self.assertIn("waiting on spec questions", out["stopped"])
+        self.write(".sdlc/config.json", "{}")  # a standalone repo: a blocked part stops the run, as in 3.4.0
+        out, calls = self.autopilot("done")
+        self.assertEqual(calls, ["/sdlc:start B2 --autopilot"])  # the log holds the first run's call only
+        self.assertIn("blocked: B1 blocked: spec question", out["stopped"])
 
     def test_a_state_file_it_cannot_read_stops_with_a_reason_not_a_traceback(self):
         self.write(".sdlc/state/login.md", "# login\nStatus: active\nProcess: 3\nCurrent: Stage 3 – Review\n\n"

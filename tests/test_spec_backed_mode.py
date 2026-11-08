@@ -53,6 +53,21 @@ class ModeVerifyTest(test_verify.VerifyTest):
         self.assertNotIn("warning:", out)
         self.assertNotIn("lint", rec["last"])
 
+    def test_a_standalone_repo_reads_an_arrow_as_text(self):
+        # An AC that looks like a citation is the project's own wording without a lock: no lock check, as in 3.4.0
+        self.red_then_built()
+        self.write(".sdlc/login/change.md", self.read(".sdlc/login/change.md").replace(
+            "- **AC-001** something observable", "- **AC-001** → F-AB-1.AC2 sign-in shows the name"))
+        code, out, _ = self.verify()
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("lock", out)
+        code, out, _ = self.verify("trace")
+        self.assertEqual(code, 0, out)
+
+    def read(self, rel):
+        with open(self.path(rel), encoding="utf-8") as f:
+            return f.read()
+
     def test_a_spec_backed_repo_locks_its_tests(self):
         self.write("docs/specs/app/criteria.lock.json", "{}")  # tracked: the repo holds an rspec criteria lock
         self.git("add", "-A")

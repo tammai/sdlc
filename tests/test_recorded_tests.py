@@ -196,6 +196,14 @@ class AcceptanceBundleTest(VerifyBase):
         finally:
             os.environ["PATH"] = path
 
+    def test_a_config_that_is_not_json_is_not_run_not_a_traceback(self):
+        self.bundle()
+        self.write(".sdlc/config.json", "{not json")
+        code, out, _ = self.verify("red", "AC-001")
+        self.assertEqual(code, 1, out)
+        self.assertIn("isn't valid JSON", out)
+        self.assertNotIn("Traceback", out)
+
     def test_an_untrusted_bundle_row_fails(self):
         for kwargs, word in (({"visibility": "hidden"}, "hidden"), ({"sha": "0" * 64}, "sha256"),
                              ({"runner": "cli"}, "not run")):
@@ -206,13 +214,23 @@ class AcceptanceBundleTest(VerifyBase):
                 self.assertIn(word, out)
 
 
-import test_role_guard  # noqa: E402
-from helpers import run_hook  # noqa: E402
+from helpers import HOOKS, ProjectTestCase, run_hook  # noqa: E402
 
-HOOK = test_role_guard.HOOK
+# The read-only rule runs in the hookify PreToolUse hook, which already runs on exactly these tools for every host
+HOOK = ["python3", os.path.join(HOOKS, "pretooluse.py")]
+ADAPTER = ["python3", os.path.join(PLUGIN_ROOT, "hosts", "hook.py")]
 
 
-class RecordedTestGuardTest(test_role_guard.RoleGuardTest):
+class RecordedTestGuardTest(ProjectTestCase):
+    def call(self, tool, rel, agent=None):
+        payload = {"hook_event_name": "PreToolUse", "cwd": self.root, "tool_name": tool,
+                   "tool_input": {"file_path": self.path(rel)}}
+        if agent:
+            payload["agent_type"] = agent
+        code, out, raw, err = run_hook(HOOK, payload, self.root)
+        self.assertEqual(code, 0, err)
+        return (out or {}).get("hookSpecificOutput", {}).get("permissionDecision")
+
     def bundle(self):
         self.write("acceptance/manifest.json", '{"contracts": "1.0.0", "tests": [{"criterion": "F-APP-01.AC1", '
                    '"runner": "http", "path": "http/F-APP-01.AC1.yaml", "visibility": "open"}]}')
@@ -290,6 +308,21 @@ class RecordedTestGuardTest(test_role_guard.RoleGuardTest):
         self.bundle()
         self.assertEqual(self.call("Write", test), "deny")
         self.assertEqual(self.bash(f"echo x > {test}"), "deny")
+        self.assertEqual(self.bash(f"echo x >| {test}"), "deny")  # the redirect that overwrites despite noclobber
+
+    def test_another_agent_is_held_to_it_too(self):
+        def codex(**fields):
+            code, out, raw, err = run_hook(ADAPTER + ["codex", "PreToolUse"], dict(
+                {"hook_event_name": "PreToolUse", "cwd": self.root, "session_id": "s"}, **fields), self.root)
+            self.assertEqual(code, 0, err)
+            return (out or {}).get("hookSpecificOutput", {}).get("permissionDecision")
+        patch = ("*** Begin Patch\n*** Update File: acceptance/http/F-APP-01.AC1.yaml\n@@\n-criterion: F-APP-01.AC1\n"
+                 "+criterion: F-APP-01.AC9\n*** End Patch")
+        self.write("acceptance/http/F-APP-01.AC1.yaml", "criterion: F-APP-01.AC1\n")
+        self.assertIsNone(codex(tool_name="apply_patch", tool_input={"command": patch}))  # no manifest: allowed
+        self.bundle()
+        self.assertEqual(codex(tool_name="apply_patch", tool_input={"command": patch}), "deny")
+        self.assertEqual(codex(tool_name="Bash", tool_input={"command": "rm acceptance/manifest.json"}), "deny")
 
 
 def load_tests(loader, tests, pattern):

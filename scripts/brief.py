@@ -77,7 +77,8 @@ def brief(root, name=None, criteria=()):
     if name:
         parts.append(section("paths", json.dumps(sdlc_layout.paths(root, name), indent=1)))
         change = read(root, sdlc_layout.paths(root, name)["change"])
-        ids += [cid for found in spec_lock.cited(spec_lock.entries(change)).values() for cid in found]
+        if spec_lock.spec_backed_repo(root):  # a standalone repo's brief stays as in 3.4.0
+            ids += [cid for found in spec_lock.cited(spec_lock.entries(change)).values() for cid in found]
     if ids:
         parts.append(section("cited criteria", criteria_text(root, ids)))
     for rel in (".sdlc/config.json", ".sdlc/baseline.md", "knowledge/index.md", f"{docs}/recurring-defects.md",

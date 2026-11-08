@@ -124,6 +124,19 @@ class TestLockTest(VerifyBase):
         self.assertEqual(code, 1, out)
         self.assertIn("test lock: tests/t.py changed", out)
 
+    def test_red_at_copies_only_a_test_inside_the_repo(self):
+        self.locked()
+        outside = os.path.join(os.path.dirname(self.root), os.path.basename(self.root) + "-outside.py")
+        with open(outside, "w") as f:
+            f.write("")
+        self.addCleanup(os.remove, outside)
+        rel = "../" + os.path.basename(outside)
+        self.plan([("AC-001", f"{rel} › ok", self.RUN)], tasks=["1. t `tests/t.py` `done`"])
+        base = re.search(r"^Base:\s*(\S+)", self.read_state(), re.M).group(1)
+        code, out, _ = self.verify("red", "--at", base, "AC-001")
+        self.assertEqual(code, 1, out)
+        self.assertIn("isn't a path inside the repo", out)
+
     def test_red_at_runs_only_at_the_features_base(self):
         self.locked()
         self.write("other.txt", "x")

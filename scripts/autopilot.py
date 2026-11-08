@@ -93,8 +93,9 @@ def autopilot(root, feature, mode, ran):
         if not re.search(r"^Status:\s*active\b", read(state), re.M | re.I):
             raise Stop(f"{feature} isn't active: {state}")
         asked_dir = os.path.join(root, state_py.QUESTIONS)
-        if re.search(r"^## Spec questions\s*$", read(state), re.M) or any(  # only a feature that asked one
-                n.startswith(f"{feature}-SQ-") for n in (os.listdir(asked_dir) if os.path.isdir(asked_dir) else ())):
+        backed = state_py.spec_lock.spec_backed_repo(root)  # spec questions exist only in a spec-backed repo
+        if backed and (re.search(r"^## Spec questions\s*$", read(state), re.M) or any(  # a feature that asked one
+                n.startswith(f"{feature}-SQ-") for n in (os.listdir(asked_dir) if os.path.isdir(asked_dir) else ()))):
             try:
                 state_py.run(argparse.Namespace(root=root, feature=feature, cmd="questions"))
             except Exception as e:  # one JSON object, never a traceback
@@ -106,9 +107,10 @@ def autopilot(root, feature, mode, ran):
         bad = [r["id"] for r in rows if not re.fullmatch(r"B\d+", r["id"])]
         if bad:
             raise Stop("slice IDs must be B<n>: " + ", ".join(bad))
-        asked = [f"{r['id']} {r['status']}" for r in rows if r["status"].startswith("blocked: spec question")]
+        asked = [f"{r['id']} {r['status']}" for r in rows
+                 if backed and r["status"].startswith("blocked: spec question")]
         blocked = [f"{r['id']} {r['status']}" for r in rows
-                   if r["status"].startswith("blocked") and not r["status"].startswith("blocked: spec question")]
+                   if r["status"].startswith("blocked") and f"{r['id']} {r['status']}" not in asked]
         if blocked:
             raise Stop("blocked: " + "; ".join(blocked))
         if all(backlog.is_done(r) for r in rows):

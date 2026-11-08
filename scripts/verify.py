@@ -373,12 +373,14 @@ def full(root, feature, timeout=1800, whole=False):
                 elif recorded and build.ensure():
                     failures.append(f"{ac}: {build.error}")
                 else:
-                    code, out = run_once(ran, resolve(row["run"]), root, timeout, build.env if recorded else None)
+                    code, out = run_once(ran, resolve(row["run"]) if recorded else row["run"], root, timeout,
+                                         build.env if recorded else None)
                     if code:
                         failures.append(f"{ac}: its test fails (exit {code})\n{out[-500:]}")
         finally:
             build.close()
-    if spec_lock.spec_backed_repo(root):  # the test lock is on only in a spec-backed repo
+    backed = spec_lock.spec_backed_repo(root)  # sdlc 3.5: the test lock and cited criteria, in such a repo only
+    if backed:
         failures += lock_failures(root, feature, rows or [], rec)
     drifted = drift(root, feature, later)
     if drifted is None:
@@ -386,8 +388,9 @@ def full(root, feature, timeout=1800, whole=False):
     for d in drifted or []:
         if not d["covered"]:
             failures.append(f"drift: {d['item']} has no Deviations entry with What:, Why: and Effect:")
-    failures += spec_backed(root, feature) or []
-    cited_count = len({c for ids in spec_lock.cited(ac_entries(docs(root, feature)[0])).values() for c in ids})
+    failures += (spec_backed(root, feature) if backed else None) or []
+    cited_count = len({c for ids in spec_lock.cited(ac_entries(docs(root, feature)[0])).values() for c in ids}) \
+        if backed else 0
     if cited_count > 10:
         notes.append(f"warning: {cited_count} cited criteria: a change takes about 10; split the slice")
     traced = trace(root, feature) or []  # advisory: a note, never a failure, until its false-positive rate is known
@@ -474,6 +477,8 @@ def red_at(root, feature, ref, acs, timeout=1800):
             reasons.append(f"{ac}: no test row to run at {ref}")
         elif bundle_check(root, row) is not None:
             reasons.append(f"{ac}: a recorded acceptance test isn't locked: its manifest's sha256 guards it")
+        elif spec_lock.inside(root, row["file"]) is None:  # it is copied into the temporary worktree
+            reasons.append(f"{ac}: {row['file']} isn't a path inside the repo")
         elif not os.path.isfile(os.path.join(root, row["file"])):
             reasons.append(f"{ac}: {row['file']} not found")
         else:
@@ -588,7 +593,12 @@ def resolve(cmd):
 def accept_target(root):
     """((start command, base URL, cwd), None) from config `accept` (the root's, else the one package that sets a
     start), or (None, the reason it can't start)."""
-    config = json.loads(read(os.path.join(root, ".sdlc", "config.json")) or "{}")
+    try:
+        config = json.loads(read(os.path.join(root, ".sdlc", "config.json")) or "{}")
+    except ValueError as e:
+        return None, f"not run: .sdlc/config.json isn't valid JSON ({e})"
+    if not isinstance(config, dict):
+        return None, "not run: .sdlc/config.json isn't a JSON object"
     found = [(sc["accept"], sc["path"]) for sc in scaffold.scopes(config)
              if isinstance(sc.get("accept"), dict) and sc["accept"].get("start")]
     if isinstance(config.get("accept"), dict) and config["accept"].get("start"):
@@ -744,7 +754,7 @@ def red_one(root, rows, ac, timeout, ran, build):
         if build.ensure():
             return None, f"{ac}: {build.error}"
         env = build.env
-    code, out = run_once(ran, resolve(row["run"]), root, timeout, env)
+    code, out = run_once(ran, resolve(row["run"]) if recorded else row["run"], root, timeout, env)
     if code == 0:
         return None, f"{ac}: its test passes before its code exists, so it proves nothing"
     # The vendored runner says `not run: <reason>` when it couldn't run a recorded test; for the project's own tests
@@ -805,7 +815,8 @@ def main(argv=None):
         print(json.dumps(status(root, feature), indent=2))
         return 0
     if a.action == "trace":
-        cited, found = spec_backed(root, feature), trace(root, feature)
+        cited = spec_backed(root, feature) if spec_lock.spec_backed_repo(root) else None
+        found = trace(root, feature)
         if found is None and cited is None:
             print("trace: no spec refs in the ACs, nothing to trace")
             return 0

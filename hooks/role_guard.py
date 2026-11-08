@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """sdlc role guard: recorded acceptance tests stay read-only, and the plugin's own subagents stay in their role.
 
-PreToolUse on file tools, Bash and PowerShell (other agents: through hosts/hook.py).
-Recorded acceptance tests (spec 03 S3), for every caller: in a repo with acceptance/manifest.json, denies a file tool
-writing the manifest or a test it lists, and a shell command whose text writes, moves or removes one (a redirect, tee,
-sed -i, cp/mv, rm, truncate, git checkout/restore/rm, PowerShell write cmdlets; through cd, git -C and bash -c too).
-It reads command text only: a program that opens the file itself isn't seen (a guard is not a sandbox).
+PreToolUse on file tools (roles, main()).
+Recorded acceptance tests (spec 03 S3), for every caller: bundle_problem(), which hooks/pretooluse.py calls on the
+edit tools, Bash and PowerShell, for every host (so a repo without a bundle runs no extra hook): in a repo with
+acceptance/manifest.json, denies a file tool writing the manifest or a test it lists, and a shell command whose text
+writes, moves or removes one (a redirect, tee, sed -i, cp/mv, rm, truncate, git checkout/restore/rm, PowerShell write
+cmdlets; through cd, git -C and bash -c too). It reads command text only: a program that opens the file itself isn't
+seen (a guard is not a sandbox).
 Roles: Claude Code names the subagent making a call in `agent_type` (`sdlc:<agent>`); calls from the main session
 or other plugins' agents get no output from this part. Denies, with the reason the agent sees:
   - a reviewer editing any file but its report under .sdlc/.work/findings/: reviewers report, they don't fix
@@ -175,7 +177,7 @@ def segments(command):
             buf = []
         elif ch == ">":
             j = i + 1
-            if j < len(command) and command[j] == ">":
+            if j < len(command) and command[j] in ">|":  # `>>` appends, `>|` overwrites despite noclobber
                 j += 1
             if j < len(command) and command[j] == "&":  # 2>&1: a stream, not a file
                 i = j + 1
@@ -301,8 +303,8 @@ def main():
         root = os.path.abspath(os.environ.get("CLAUDE_PROJECT_DIR") or data.get("cwd") or os.getcwd())
         # A session started above the repo (a workbench of repos): judge the call against the repo it acts in
         root = sdlc_layout.target_repo(root, data.get("tool_name", ""), data.get("tool_input"), data.get("cwd")) or root
-        reason = bundle_problem(data, root)
-        if not reason and agent.startswith(("sdlc:", "sdlc-extras:")):  # sdlc-extras: the companion's reviewers
+        reason = None
+        if agent.startswith(("sdlc:", "sdlc-extras:")):  # sdlc-extras: the companion's reviewers
             rel = rel_path(root, data.get("tool_input") or {}, data.get("cwd"))
             reason = problem(agent.split(":", 1)[1], data.get("tool_name", ""), rel, root)
         if reason:

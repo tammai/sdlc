@@ -6,14 +6,13 @@ Claude Code's
 
 Turns the host's payload into Claude Code's, runs the hook scripts Claude Code runs for that event, unchanged, as child
 processes, and turns their output back into the host's:
-  - PreToolUse         hooks/pretooluse.py, hooks/review_rounds.py, hooks/role_guard.py   a deny from any denies the call
+  - PreToolUse         hooks/pretooluse.py (hookify), hooks/review_rounds.py   a deny from any of them denies the call
   - PostToolUse(Failure) hooks/verify_freshness.py                      edits make Stage 3 results stale, full runs fresh
   - UserPromptSubmit   hooks/userpromptsubmit.py, hooks/trust_anchor.py, hooks/review_rounds.py
   - Stop               hooks/stop.py, hooks/verify_freshness.py, hooks/trust_anchor.py   a block from any keeps the agent going
-Left out: the security review and the Ralph loop (bash launchers and model calls), the role guard's role rules (no
-host names the plugin's agents on tool calls; its recorded-test rule runs), the model router (subagent dispatches
-carry no model) and the prove budget (no host's command payload has been checked for a timeout or background flag to
-change).
+Left out: the security review and the Ralph loop (bash launchers and model calls), the role guard (no host names the
+plugin's agents on tool calls), the model router (subagent dispatches carry no model) and the prove budget (no host's
+command payload has been checked for a timeout or background flag to change).
 
 Codex: payloads are Claude Code's, except that edits arrive as `apply_patch` with the patch text, which becomes one
 Write or Edit per file, and a command's output arrives with no exit code, so a full test run records `unknown`, not
@@ -35,7 +34,7 @@ import time
 
 PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPTS = {
-    "PreToolUse": ["pretooluse.py", "review_rounds.py", "role_guard.py"],
+    "PreToolUse": ["pretooluse.py", "review_rounds.py"],
     "PostToolUse": ["verify_freshness.py"],
     "PostToolUseFailure": ["verify_freshness.py"],
     "UserPromptSubmit": ["userpromptsubmit.py", "trust_anchor.py", "review_rounds.py"],
