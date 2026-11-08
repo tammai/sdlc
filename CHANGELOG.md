@@ -2,6 +2,11 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
+## Unreleased
+
+### Changed
+- **Build writes against what Review checks.** On the 3.5 parts, round-1 findings were mostly bad loaded data reaching the user as a traceback, other parts that read a reshaped file or counter, open-ended shell and path spellings, and stale docs. The builder never saw the defect list the reviewer used. Now `brief.py` also prints the plugin's `recurring-defects.md`, flow.md's Build names those classes to check while writing (no extra pass, no agent), a fix keeps the other shells, platforms and readers working, and S's Build step names the list too. Effect on review findings: not measured yet.
+
 ## 3.4.0 — 2026-11-08
 
 ### Changed

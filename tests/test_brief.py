@@ -30,6 +30,8 @@ class BriefTest(ProjectTestCase):
         self.assertIn("line 199\n... (50 more lines: read the file for the rest)", out)
         self.assertNotIn("line 200\n", out)
         self.assertIn("## Acceptance tests", out)  # the plugin's change template
+        # the builder gets the plugin's defect list too, not only the reviewer
+        self.assertIn("===== plugin recurring defects =====\n# Recurring defects", out)
 
 
 if __name__ == "__main__":
