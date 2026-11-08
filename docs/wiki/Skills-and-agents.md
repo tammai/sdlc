@@ -17,7 +17,7 @@
 | Agent | Used for |
 |---|---|
 | `code-explorer` | Brownfield setup's audit: trace existing code |
-| `code-reviewer` | Review: the code review at default or high depth with the shared reviewer brief; the security review with the security-only brief |
+| `code-reviewer` | Review: the code review (one full depth) with the shared reviewer brief; the security review with the security-only brief |
 | `ui-reviewer` | Review, when the diff touches UI files: design-system conformance, AI-slop styling, states, accessibility; screenshots on request |
 | `qa-tester` | On request: runs the feature as a user would, without reading the code |
 | `pr-test-analyzer`, `silent-failure-hunter` | `/sdlc:review-pr`, chosen by the diff |

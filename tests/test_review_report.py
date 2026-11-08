@@ -42,6 +42,20 @@ class ReviewReportTest(ProjectTestCase):
         self.assertTrue(self.text("code-reviewer-r2.md").endswith("- none\n\nVERDICT: PASS\n"))
         self.assertEqual(trust_anchor.failed_verdicts(self.root, "login"), [])  # the latest round decides
 
+    def test_from_round_two_only_a_high_fails_and_bugs_are_listed_to_fix(self):
+        self.report([{"id": "C1", "severity": "high", "text": "old account's reply saved"}])
+        self.report([{"id": "R2-1", "severity": "medium", "bug": True, "text": "stale reply after switch"}],
+                    "code-reviewer", 2)
+        text = self.text("code-reviewer-r2.md")
+        self.assertIn("Fix before Ship, test first, no new round: R2-1", text)
+        self.assertTrue(text.endswith("VERDICT: PASS\n"), text)
+        self.report([{"id": "R3-1", "severity": "high", "text": "token reaches the log"}], "code-reviewer", 3)
+        self.assertTrue(self.text("code-reviewer-r3.md").endswith("VERDICT: FAIL — R3-1\n"))
+        # an audit first run in round 2 is still that review's first, full look: its bugs fail it
+        self.report([{"id": "D1", "severity": "medium", "bug": True, "text": "pinned to a vulnerable range"}],
+                    "dependency-audit", 2)
+        self.assertTrue(self.text("dependency-audit-r2.md").endswith("VERDICT: FAIL — D1\n"))
+
     def test_the_dependency_audit_has_a_report_the_trust_anchor_reads(self):
         code, out = self.report([{"id": "D1", "severity": "high", "text": "lodash 4.17.15: prototype pollution"}],
                                 "dependency-audit", 1, "--command", "npm audit --omit=dev")

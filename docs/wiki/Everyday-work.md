@@ -20,7 +20,7 @@
 1. **Define:** if anything that would change what gets built is unclear, the agent asks first, one question at a time, each built on your last answer. Then it writes the record, once: the change file (what it's for, why now, the decisions with what was ruled out and why; about 10 or fewer acceptance criteria numbered `AC-001` onward, each with its test in `## Acceptance tests`; out of scope; must-never-break lines and failure modes) and the state file's plan sections (how the build runs, the tasks with their files, the Public Surface listing everything new others can see).
 2. **You read and approve.** One message with the path to the change file, the approach and what was ruled out, each acceptance criterion with its test (`manual` ones apart, with their reasons), how the build runs (inline, parts in fresh sessions, or parallel subagents) and any extras the agent would drop unless you keep them. It asks in a question dialog: approve, or change something.
 3. **Build:** from the files, in the session by default. Every criterion's test, then one `verify.py red AC-001 AC-002 …` to record them failing, then the code. `verify.py` once at the end runs the checks, every criterion's test and the drift check. Changes from the plan go in the state file's `## Deviations` (`state.py deviation`, "What: … Why: … Effect: …"); they never stop the build.
-4. **Review:** the agent recommends reviews from what actually changed (security, code at default or high depth, UI, advisor, or none), each with a reason, and **stops for you to choose**. Each chosen review runs once, fresh: in Claude Code the code review on S and M is the built-in `/code-review`, every other review (and every review in other agents) on `opus` ([6](#6-choose-the-reviews-and-act-on-findings)).
+4. **Review:** the agent recommends reviews from what actually changed (security, code, UI, advisor, or none), each with a reason, and **stops for you to choose**. Each chosen review runs once, fresh: in Claude Code the code review on S and M is the built-in `/code-review`, every other review (and every review in other agents) on `opus` ([6](#6-choose-the-reviews-and-act-on-findings)).
 5. **Ship:** Learn, then the final commit, push, PR and CI. It stops with the PR open; the merge waits for your word.
 
 **Good habits:** state what's out of scope up front; answer the questions briefly; challenge any addition you didn't ask for at the approval, not after the code exists. Too big for one session? See [19](Big-work-and-autopilot.md#19-a-big-feature-becomes-a-backlog).
@@ -66,8 +66,7 @@ After Build's passing `verify.py`, the agent looks at what actually changed and 
 | Review | Recommended when |
 |---|---|
 | Security | `Risk: high`, or the diff touches `areas.sensitive` or `areas.migrations`, or untrusted input reaches a shell, file path or database |
-| Code, high | the spec has must-never-break lines or failure modes, a public interface changed, or the diff is large |
-| Code, default | a typical M or L change |
+| Code | a public interface changed, the diff is large, L, `Risk: high`, or the spec names a crash mid-write or concurrent use (one depth, the full one) |
 | UI | the diff touches `areas.ui`: always recommended |
 | Advisor | only where the agent has one, for a real open judgment call |
 | None | a small, contained, fully tested change touching nothing above |
@@ -76,7 +75,7 @@ After Build's passing `verify.py`, the agent looks at what actually changed and 
 
 Each chosen review runs **once**, as a fresh agent on `opus`, and ends its report with `VERDICT: PASS` or `VERDICT: FAIL — <ids>`.
 
-- **High findings** go back to Build, each fixed with a failing test first, then `verify.py` again. Then round 2 checks only the fixes: the review that failed runs again on just the files they touched, confirming each finding is gone and no fix added a bug; anything new elsewhere is a ticket. **When round 2 still fails,** the agent stops and asks you (one more fix round, a waiver, or stop), and a hook holds every edit and command until you reply. Each reply allows one more round.
+- **High findings and bugs** go back to Build, each fixed with a failing test first that covers the finding's whole class, not just the reported instance, then `verify.py` again. Then round 2, the closing check: the review that failed runs again at full depth on the fixes and the code around them, confirming each finding is gone everywhere and no fix added a bug. Only a high fails it; a medium or low bug it lists is fixed test first without another round. **When round 2 still fails on a high,** the agent stops and asks you (one more fix round, a waiver, or stop), and a hook holds every edit and command until you reply. Each reply allows one more round.
 - **You disagree, or the agent does:** a high finding the agent thinks is wrong comes to you with its case. Only you can waive one, recorded as a deviation.
 - **Medium and low** findings that are bugs in code the change touched (wrong behaviour, a crash, an unhandled error, a missing test) are fixed too, test first, without asking you. The rest (improvements, code the change didn't touch) are ticketed in the change file's `## Review`.
 
