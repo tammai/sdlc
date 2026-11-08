@@ -8,9 +8,9 @@ Usage: review_report.py [--root DIR] FEATURE --agent code-reviewer|dependency-au
   writes them to FILE with the Write tool (Review refuses a heredoc):
       {"findings": [{"id": "C1", "severity": "high|medium|low", "bug": false, "text": "what and where"}]}
   This writes `.sdlc/.work/findings/<feature>/<agent>-r<N>.md` (never over an earlier one) and ends it with the verdict
-  the ratings give: `VERDICT: FAIL — <ids>` for every high and, in round 1 only, every `bug`, else `VERDICT: PASS`
-  (from round 2 a non-high bug is listed to fix before Ship, test first, with no new round). The caller doesn't
-  type the verdict, so it can't disagree with the ratings above it. An empty list is a pass.
+  the ratings give: `VERDICT: FAIL — <ids>` for every high and, on this review's first run, every `bug`, else
+  `VERDICT: PASS` (on a later run a non-high bug is listed to fix before Ship, test first, with no new round).
+  The caller doesn't type the verdict, so it can't disagree with the ratings above it. An empty list is a pass.
 Exit 0 written (prints the path), 1 refused, 2 usage. Stdlib only, Python 3.9+.
 """
 import argparse
@@ -56,11 +56,11 @@ def one_line(text):
     return " ".join(text.split())  # a newline in a finding must not start a line that looks like the verdict
 
 
-def render(agent, n, findings, command=None, summary=None):
-    # Round 1 fails on every high and every bug. From round 2 only a high fails: a bug is fixed test first and closed
-    # by verify.py, without another review round (cuti-os and bug-hunter needed 5-9 rounds chasing fix-of-a-fix bugs).
-    failing = [f["id"] for f in findings if f["severity"] == "high" or (n == 1 and f.get("bug"))]
-    to_fix = [f["id"] for f in findings if n > 1 and f.get("bug") and f["severity"] != "high"]
+def render(agent, n, findings, command=None, summary=None, first=True):
+    # A review's first run fails on every high and every bug. Its closing check fails only on a high: a bug is fixed
+    # test first and closed by verify.py, without another round (cuti-os and bug-hunter took 5-9 rounds of fix-of-a-fix).
+    failing = [f["id"] for f in findings if f["severity"] == "high" or (first and f.get("bug"))]
+    to_fix = [f["id"] for f in findings if not first and f.get("bug") and f["severity"] != "high"]
     lines = [f"# {AGENTS[agent]}, round {n}", ""]
     if command:
         lines += [f"Command: `{one_line(command).replace('`', chr(39))}`", ""]
@@ -83,8 +83,12 @@ def write(root, feature, agent, n, findings_file, command=None, summary=None):
         raise Refused(f"{feature!r} isn't a feature name")
     if n < 1:
         raise Refused("rounds start at 1")
-    text = render(agent, n, load(findings_file), command, summary)
     folder = os.path.join(root, ".sdlc", ".work", "findings", feature)
+    try:
+        earlier = [f for f in os.listdir(folder) if re.fullmatch(rf"{re.escape(agent)}-r(\d+)\.md", f)]
+    except OSError:
+        earlier = []
+    text = render(agent, n, load(findings_file), command, summary, first=not earlier)
     path = os.path.join(folder, f"{agent}-r{n}.md")
     if os.path.exists(path):
         raise Refused(f"{os.path.relpath(path, root)} exists: a round's report is never overwritten (next round: r{n + 1})")

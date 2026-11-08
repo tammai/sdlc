@@ -54,6 +54,7 @@ Every addition is traced to a request from intent to diff, and review gets measu
 
 ## Known gaps
 
+- A medium or low bug the closing check (round 2) lists is fixed test first by instruction only: its report passes, and no gate checks that each listed bug got its test and fix (`verify.py` doesn't know the finding ids).
 - Tracing through the change file and the plan is instructions plus, on M and L, the user's approval; on S nobody reads them before the build.
 - Which reviews run is a recommendation; on S a recommendation of none means no reviewer checks the surface flags.
 - Reviewers can't edit files: the code-reviewer has Write only for its report under `.sdlc/.work/findings/`, and the role-guard hook denies every other file edit to every `sdlc:` and `sdlc-extras:` reviewer, `ui-reviewer` included (any file under `.sdlc/.work/findings/` is allowed, so a misnamed report there isn't caught). They keep Bash (for `git diff`, tests and browsers), so a shell edit is still only instructed against; the freshness hook's worktree diff catches one during Review (Stage 3).
