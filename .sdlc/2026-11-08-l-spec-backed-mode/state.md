@@ -1,5 +1,5 @@
 # 2026-11-08-l-spec-backed-mode
-Status: active
+Status: done
 Process: 3
 Change: .sdlc/2026-11-08-l-spec-backed-mode/change.md   (this feature's record for people)
 Track: L   (sized up because: several distinct parts: contracts, spec-backed trace and questions, recorded tests, test lock, setup keys; footprint: 30 files)
@@ -10,13 +10,13 @@ Started: 2026-11-08
 Base: 03a25e3
 Owner: tammai.it@gmail.com
 Tool: claude-code
-Verified: 7df6749 tree b67777ef8f4999614274ccc0ed3ce0e1b8302f8e
-Current: Stage 2 – Build
+Verified: 784f739 tree b5e82d1c0457ce6ea2a9c0cf2a0a415657bc7775
+Current: Stage 4 – Ship
 
 ## Stages
 - [x] 1 Define   — the change file, the plan sections below
 - [x] 2 Build
-- [ ] 3 Review   — the change file's ## Review
+- [x] 3 Review   — the change file's ## Review
 - [ ] 4 Ship     — PR: (Learn: knowledge, recurring-defects.md)
 
 ## How the build runs
@@ -56,6 +56,8 @@ inline: a port from the rc commits onto sdlc--v3.4.0
 - 2026-11-08 Stage 2: pass
 - 2026-11-08 review: ran code (L), self-chosen: L. Security did not fire: risk low, no areas.sensitive (no config); the ported shell and path handling (role guard, bundle paths, red --at worktrees) is in the code review's security basics. UI did not fire.
 - 2026-11-08 Stage 3: fail — round 1: CR-1, CR-3, CR-11 and fix-in-passing CR-2, CR-6 (>|), CR-8, CR-9 back to Build
+- 2026-11-08 Stage 2: pass
+- 2026-11-08 Stage 3: pass — round 2 PASS; tickets in ## Review; ship local: commit and annotated tag, nothing pushed (orchestrator)
 
 ## Deviations
 - 2026-11-08 red step What: AC-004..AC-010 were recorded red against 3.4.0's code (the ported files and contracts set aside), AC-001..AC-003 against rc.5's code (aa83fbb), then the port was restored; rc.5's red wrote a ## Test lock that was removed. Why: the code is a port that existed before its tests, and the standalone ACs assert 3.4.0 behaviour, which only the rc code breaks. Effect: every AC was seen failing on the code it guards against.
