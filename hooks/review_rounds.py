@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""sdlc review rounds: one review fixes its own findings, one round checks the fixes; then only the user decides.
+"""sdlc review rounds: one full review, its fixes, one closing check of them; then only the user decides.
 
 A round is one set of review reports, `.sdlc/.work/findings/<feature>/<reviewer>-r<N>.md`: round 1 reviews the change
-and its bugs are fixed test first, round 2 checks the fixes. When an active feature's round 2 (or later) still ends
-`VERDICT: FAIL` and the user hasn't waived it (`waived round <N>`), PreToolUse denies every edit, shell command,
+and its bugs are fixed test first, round 2 checks the fixes and fails only on a high. When an active feature's round 2
+(or later) still ends `VERDICT: FAIL` and the user hasn't waived it (`waived round <N>`), PreToolUse denies every edit, shell command,
 subagent and skill, so the agent can only read and ask the user: one more round, waive, or stop. Writes to
 `.sdlc/.work/findings/` stay open, so a round-3 reviewer still finishing its report isn't cut off, and so do the
 project's test command and the plugin's verify.py, which change no code (the freshness hook asks for a run before

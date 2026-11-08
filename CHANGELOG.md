@@ -4,6 +4,13 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
+### Changed
+- **Review aims for two rounds: one full review, one closing check.** On cuti-os and bug-hunter, features took 3 to 9 rounds. Almost every failure after round 1 was a bug a fix added, a finding fixed in one place but not the others, or the next variant of one class (another encoding of a secret, another env var). So:
+  - Round 1 runs at full depth always (the built-in `code-review` as `high --max-findings all`). The reviewer has no confidence-80 cut-off, no 30-line report limit and no limit to the diff's own files. Unsure findings are marked `unconfirmed` and never fail the round. Each finding names its root cause, every place it shows, and what its fix must keep working.
+  - The fix pass fixes the whole class with a test that covers its variants. An open-ended class gets the structural fix the reviewer names. An `unconfirmed` finding gets a test, and is fixed or dropped by its result.
+  - Round 2 checks the fixes and the code around them at full depth, and fails only on a high. A medium or low bug it lists is fixed test first and closed by `verify.py`, without a round 3 (`review_report.py` writes that verdict). The round cap still stops for you when round 2 fails on a high.
+  - Cost: round 1 now costs more than before; this hasn't been measured against the M bar yet.
+
 ### Fixed
 - **Eject's report names only what it keeps that exists.** `scaffold.py eject` listed the baseline, design system, PRD and feature folders under `keep` whether or not the repo had them, and the eject steps repeated a fixed list, so a greenfield repo with no UI was told its `.sdlc/baseline.md` and `docs/sdlc/design-system.md` were kept. The `keep` list now holds only paths that exist (a `<feature>` pattern only when its folder does), and the report reads it.
 

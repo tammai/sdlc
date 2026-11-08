@@ -44,12 +44,12 @@ The same matrix as a table, with the step names in full:
 | 3.1 Review decision from the fixed table | · | ● | ● | ● | ● | ● |
 | 3.2 Stage 3 entered (else Build goes straight to Ship) | · | · | ◐ | ● | ● | ● |
 | 3.3 Security review | · | ◐ | ◐ | ● | ◐ | ◐ |
-| 3.4 Code review, default depth | · | ◐ | ◐ | · | ● | ● |
-| 3.5 Code review, high depth | · | · | ◐ | ● | ◐ | ◐ |
+| 3.4 Code review, one full depth | · | ◐ | ◐ | ● | ● | ● |
+| 3.5 Round 1 reports every finding, by root cause and class | · | ◐ | ◐ | ● | ● | ● |
 | 3.6 UI review | · | ◐ | ◐ | ◐ | ◐ | ◐ |
 | 3.7 Advisor | · | · | ◐ | ◐ | ◐ | ◐ |
 | 3.8 **Stop:** you pick the reviews | · | · | · | ● | ◐ | ◐ |
-| 3.9 Fix round, then a check of the fixes | · | ◐ | ◐ | ◐ | ◐ | ◐ |
+| 3.9 Fix round, then one closing check | · | ◐ | ◐ | ◐ | ◐ | ◐ |
 | 3.10 `## Review` in the change file (one line if no review ran) | · | ● | ● | ● | ● | ● |
 | **Ship (Stage 4) with Learn** | | | | | | |
 | 4.1 Learn: a non-obvious lesson into knowledge | · | ◐ | ◐ | ◐ | ◐ | ◐ |
@@ -76,12 +76,12 @@ The step numbers are for talking about the matrix; they aren't in the flow files
 | 2.4 | the build departs from the plan; Build never stops for it |
 | 3.2 (M low) | a review fires; otherwise Build goes straight to Ship |
 | 3.3 | `Risk: high`, or the diff touches `areas.sensitive` or `areas.migrations`, or untrusted input reaches a shell, file path or database. Always on M high, because it is `Risk: high` |
-| 3.4 | `## Public Surface` isn't `- none`, or the diff is large (over 5 source files or 300 added code lines); always on L. M high takes the high depth instead, since the deepest row that fires is the only code review |
-| 3.5 | `Risk: high`, or the spec names a crash mid-write or concurrent use as a failure mode |
+| 3.4 | `## Public Surface` isn't `- none`, the diff is large (over 5 source files or 300 added code lines), `Risk: high`, or the spec names a crash mid-write or concurrent use as a failure mode; always on L and M high |
+| 3.5 | whenever 3.4 runs: no confidence-80 cut-off or length limit, unsure findings `unconfirmed` (never failing), each with every instance of its cause |
 | 3.6 | the diff touches `areas.ui`; it runs on S, and on M and L you can decline it |
 | 3.7 | an open judgement call the reviews can't settle, and only on an agent that has an advisor |
 | 3.8 (L) | you doubt the table's answer; otherwise L runs what fires and records it |
-| 3.9 | a review finds a high, or a bug in code the change touched; one fix round, then one check of the fixes |
+| 3.9 | a review finds a high, or a bug in code the change touched; one fix round (the whole class, test first), then one closing check that fails only on a high; its medium or low bugs are fixed without another round |
 | 4.1 | the change taught something not obvious from the code or the commit |
 | 4.2 | a high finding fixed in Review that a reviewer could check next time |
 | 4.6 | there is a remote and CI reports checks; one fix if red because of the code |

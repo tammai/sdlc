@@ -8,7 +8,8 @@ Usage: review_report.py [--root DIR] FEATURE --agent code-reviewer|dependency-au
   writes them to FILE with the Write tool (Review refuses a heredoc):
       {"findings": [{"id": "C1", "severity": "high|medium|low", "bug": false, "text": "what and where"}]}
   This writes `.sdlc/.work/findings/<feature>/<agent>-r<N>.md` (never over an earlier one) and ends it with the verdict
-  the ratings give: `VERDICT: FAIL — <ids>` for every high and every `bug`, else `VERDICT: PASS`. The caller doesn't
+  the ratings give: `VERDICT: FAIL — <ids>` for every high and, in round 1 only, every `bug`, else `VERDICT: PASS`
+  (from round 2 a non-high bug is listed to fix before Ship, test first, with no new round). The caller doesn't
   type the verdict, so it can't disagree with the ratings above it. An empty list is a pass.
 Exit 0 written (prints the path), 1 refused, 2 usage. Stdlib only, Python 3.9+.
 """
@@ -56,7 +57,10 @@ def one_line(text):
 
 
 def render(agent, n, findings, command=None, summary=None):
-    failing = [f["id"] for f in findings if f["severity"] == "high" or f.get("bug")]
+    # Round 1 fails on every high and every bug. From round 2 only a high fails: a bug is fixed test first and closed
+    # by verify.py, without another review round (cuti-os and bug-hunter needed 5-9 rounds chasing fix-of-a-fix bugs).
+    failing = [f["id"] for f in findings if f["severity"] == "high" or (n == 1 and f.get("bug"))]
+    to_fix = [f["id"] for f in findings if n > 1 and f.get("bug") and f["severity"] != "high"]
     lines = [f"# {AGENTS[agent]}, round {n}", ""]
     if command:
         lines += [f"Command: `{one_line(command).replace('`', chr(39))}`", ""]
@@ -68,6 +72,8 @@ def render(agent, n, findings, command=None, summary=None):
                   for f in findings]
     else:
         lines.append("- none")
+    if to_fix:
+        lines += ["", f"Fix before Ship, test first, no new round: {', '.join(to_fix)}"]
     verdict = f"VERDICT: FAIL — {', '.join(failing)}" if failing else "VERDICT: PASS"
     return "\n".join(lines + ["", verdict]) + "\n"
 

@@ -1,13 +1,18 @@
 # Reviewer brief (every review)
 
-The reviewer reads this file itself, with `<change>`, the state file (its plan sections and `## Deviations`; a part: also `plan-B<n>.md`) and the diff (`git diff <Base> -- . ':!.sdlc'`, one call). Budget: open other files only to follow a call the diff makes; don't call an advisor; keep the report to about 30 lines.
+The reviewer reads this file itself, with `<change>`, the state file (its plan sections and `## Deviations`; a part: also `plan-B<n>.md`) and the diff (`git diff <Base> -- . ':!.sdlc'`, one call). Round 1 is the one full review, so it aims to leave nothing for a later round: read whatever the diff calls, whatever calls what it changed, and the state and files they share; report every finding, with no length limit; don't call an advisor.
+
+## Coverage (round 1)
+
+- **Every finding, in two tiers.** Confirmed: you can point at the line and say what goes wrong. Unconfirmed: plausible but not proven from reading alone (a race, a timing, an input you suspect breaks something): mark it `(unconfirmed)` with the input or probe that would settle it. An unconfirmed finding never makes the verdict FAIL: the fix pass turns it into a failing test, fixes it when the test fails and drops it when it passes.
+- **Classes, not instances.** For each finding, name its root cause and list every place in the diff with the same cause. When the class is open-ended (encodings or escapes of a value, input shapes, environment variables, platforms, one setter among several sharing state), say so and name the structural fix (one shared check on every path, an allowlist, fail closed, one owner for the state) rather than the instance patch: patching one shape at a time is what makes later rounds find the next one.
+- **What a fix could break.** For each high or bug, say what the obvious fix would have to keep working (identity or cache keys, other callers, shared state, error paths), so the fix pass doesn't trade one bug for the next.
 
 ## Depth (code review)
 
 `verify.py` has already proven each acceptance criterion's test failed before the code and passes now: don't re-prove that.
 
-- **Default:** in one pass: the must-never-break lines and each `manual` AC against the code; error paths (of The edges below, error paths only); silent failures (swallowed errors, fallbacks that hide a failure, missing error paths); test gaps (a behaviour or failure mode the spec implies that no test would catch, rated 1–10, 8 or more is high); simplifications (needless code, abstraction or dependency, with the smaller version); and security basics (injection, untrusted input reaching a shell, file path or database, secrets in the diff).
-- **High:** default, plus a deeper pass on each failure mode the spec names and the edges below, tracing each through the code and its tests.
+One depth, the full one (a lighter first pass only moves its findings into later rounds): the must-never-break lines and each `manual` AC against the code; silent failures (swallowed errors, fallbacks that hide a failure, missing error paths); test gaps (a behaviour or failure mode the spec implies that no test would catch, rated 1–10, 8 or more is high); simplifications (needless code, abstraction or dependency, with the smaller version); security basics (injection, untrusted input reaching a shell, file path or database, secrets in the diff); and every edge below, each traced through the code and its tests.
 
 ## The edges
 
@@ -27,4 +32,8 @@ Security only: injection, authz, secrets, SSRF, XSS, unsafe deserialization, dep
 - **Fix in passing:** code-style rules (comments, naming, formatting, docs wording). Never high.
 - **Medium / low:** everything else. Mark one that's a bug in code this change touched (wrong behaviour, a crash, an unhandled error, a missing test for something it does) `(bug)`: it's fixed before Ship like a high; the rest are ticketed.
 
-Severity is impact, not confidence. Each finding names the requirement it breaks, if any (an AC, a must-never-break line, a section of the spec the change file links, a constitution rule): one that names one is high, whatever else you'd call it. End the report with `VERDICT: PASS` or `VERDICT: FAIL — <ids>`, naming every high and every `(bug)`. Round 2 checks the fixes only: whether each of round 1's findings is gone and whether a fix added a bug, in the files the fixes touched; anything else you notice is a ticket and never makes it FAIL.
+Severity is impact, not confidence. Each finding names the requirement it breaks, if any (an AC, a must-never-break line, a section of the spec the change file links, a constitution rule): one that names one is high, whatever else you'd call it. End the report with `VERDICT: PASS` or `VERDICT: FAIL — <ids>`: in round 1, every high and every confirmed `(bug)`; from round 2, every high only.
+
+## Round 2: the closing check
+
+Round 2 is meant to be the last. It runs at high depth on the fixes (`git diff <round-1 commit or Verified tree>`, or the files the fixes touched), the code that calls them and the state they share, told round 1's findings and their classes. For each round-1 finding: gone, in every instance of its class? For each fix: did it add a bug (the "what a fix could break" list above)? Report everything you find, any severity. Only a high makes it FAIL; a medium or low `(bug)` is listed to fix before Ship, test first, and verify.py closes it without another round; the rest are tickets.
