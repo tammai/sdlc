@@ -1,2 +1,5 @@
 # Shell scripts run under WSL and Linux bash, which fail on CRLF
 *.sh text eol=lf
+
+# Vendored shared contracts: byte-identical to their MANIFEST, so never converted (spec 01, Distribution)
+scripts/contracts/v1/** -text

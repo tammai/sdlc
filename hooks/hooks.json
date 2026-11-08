@@ -172,7 +172,7 @@
         ]
       },
       {
-        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Read|Grep|Glob",
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Read|Grep|Glob|Bash|PowerShell",
         "hooks": [
           {
             "type": "command",

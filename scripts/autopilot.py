@@ -7,7 +7,9 @@ from backlog.md, the feature's state file and the trust anchor between runs, nev
 Stops when:
   - a trust-anchor notice is open (a new -p prompt would accept it without the user seeing it)
   - the feature isn't `Status: active` any more
-  - a slice is `blocked: <reason>`, or nothing is ready while slices remain
+  - a slice is `blocked: <reason>`, or nothing is ready while slices remain. A slice blocked by a spec question
+    (spec 03 S10) doesn't stop it while others are ready: each loop first resolves the questions whose criterion the
+    lock now shows amended (`state.py questions`), and with nothing else ready it stops waiting on them
   - a run exits non-zero, or leaves its slice's status unchanged (it would loop)
   - feature close ends anywhere but Stage 4 (it stopped on a failed gate)
 Passes no permission-bypass flag; `--permission-mode` is handed to claude as given (without it or an allowlist,
@@ -29,6 +31,7 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(os.path.dirname(HERE), "hooks"))
 import backlog  # noqa: E402  (sibling script: backlog table and next-ready choice)
 import sdlc_layout  # noqa: E402  (where the feature's state and documents live)
+import state as state_py  # noqa: E402  (sibling script: spec questions resolved against the lock)
 
 
 class Stop(Exception):
@@ -89,6 +92,13 @@ def autopilot(root, feature, mode, ran):
             raise Stop("trust-anchor notice open: " + "; ".join(notices))
         if not re.search(r"^Status:\s*active\b", read(state), re.M | re.I):
             raise Stop(f"{feature} isn't active: {state}")
+        asked_dir = os.path.join(root, state_py.QUESTIONS)
+        if re.search(r"^## Spec questions\s*$", read(state), re.M) or any(  # only a feature that asked one
+                n.startswith(f"{feature}-SQ-") for n in (os.listdir(asked_dir) if os.path.isdir(asked_dir) else ())):
+            try:
+                state_py.run(argparse.Namespace(root=root, feature=feature, cmd="questions"))
+            except Exception as e:  # one JSON object, never a traceback
+                raise Stop(f"spec questions not checked: {type(e).__name__}: {e}")
         rows = backlog.slices(read(path))
         if not rows:
             raise Stop(f"no table with ID, Deps and Status columns in {path}")
@@ -96,7 +106,9 @@ def autopilot(root, feature, mode, ran):
         bad = [r["id"] for r in rows if not re.fullmatch(r"B\d+", r["id"])]
         if bad:
             raise Stop("slice IDs must be B<n>: " + ", ".join(bad))
-        blocked = [f"{r['id']} {r['status']}" for r in rows if r["status"].startswith("blocked")]
+        asked = [f"{r['id']} {r['status']}" for r in rows if r["status"].startswith("blocked: spec question")]
+        blocked = [f"{r['id']} {r['status']}" for r in rows
+                   if r["status"].startswith("blocked") and not r["status"].startswith("blocked: spec question")]
         if blocked:
             raise Stop("blocked: " + "; ".join(blocked))
         if all(backlog.is_done(r) for r in rows):
@@ -109,7 +121,7 @@ def autopilot(root, feature, mode, ran):
             return "feature close ran: the branch is kept; say merge or PR to go further"
         slice_id = backlog.next_slice(rows)
         if not slice_id:
-            raise Stop("no slice is ready")
+            raise Stop("waiting on spec questions: " + "; ".join(asked) if asked else "no slice is ready")
         before = next(r["status"] for r in rows if r["id"] == slice_id)
         run(root, claude, f"/sdlc:start {slice_id} --autopilot", mode)
         ran.append(slice_id)

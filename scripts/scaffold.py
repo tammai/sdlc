@@ -90,10 +90,13 @@ def rel(root, path):
 # --- versions -----------------------------------------------------------------------
 
 def parse_version(v):
-    m = re.match(r"^v?(\d+)(?:\.(\d+))?(?:\.(\d+))?", str(v or "").strip())
+    """(major, minor, patch, release, n): a pre-release (`3.5.0-rc.2`) is (3, 5, 0, 0, 2) and sorts before its
+    release (3, 5, 0, 1, 0), so a repo upgraded with rc.1 is behind rc.2 and 3.5.0."""
+    m = re.match(r"^v?(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:-(?:[0-9A-Za-z.]*?(\d+)|[0-9A-Za-z.]*))?", str(v or "").strip())
     if not m:
         raise ValueError(f"not a version: {v!r}")
-    return tuple(int(x or 0) for x in m.groups())
+    pre = "-" in m.group(0)
+    return (*(int(x or 0) for x in m.groups()[:3]), 0 if pre else 1, int(m.group(4) or 0))
 
 
 def deep_merge(base, override):
@@ -548,13 +551,15 @@ ROOT_SCOPE = "(root)"
 
 
 def scopes(config):
-    """[{name, path, stack, commands}]: one per package, or the root project when there are no packages."""
+    """[{name, path, stack, commands, accept}]: one per package, or the root project when there are no packages."""
     cfg = effective_config(config)
     pkgs = cfg.get("packages") or []
     if pkgs:
         return [{"name": pk.get("name"), "path": (pk.get("path") or ".").rstrip("/") or ".",
-                 "stack": pk.get("stack"), "commands": pk.get("commands") or {}} for pk in pkgs]
-    return [{"name": ROOT_SCOPE, "path": ".", "stack": None, "commands": cfg.get("commands") or {}}]
+                 "stack": pk.get("stack"), "commands": pk.get("commands") or {}, "accept": pk.get("accept", {})}
+                for pk in pkgs]
+    return [{"name": ROOT_SCOPE, "path": ".", "stack": None, "commands": cfg.get("commands") or {},
+             "accept": cfg.get("accept", {})}]  # accept null: not applicable, kept as None
 
 
 def executable(cmd):
@@ -1423,7 +1428,10 @@ def pending_migrations(p):
     pv = parse_version(plugin_version())
     done = set(lock.get("migrations", {}).get("applied", [])) | set(lock.get("migrations", {}).get("skipped", {}))
     return [m for m in all_migrations()
-            if sv < parse_version(m["version"]) <= pv and m["id"] not in done]
+            # a release's migrations apply from its first candidate on (rc.1 runs 3.5.0's); the ids already
+            # applied keep a later candidate from running them twice
+            if sv < parse_version(m["version"]) and parse_version(m["version"])[:3] <= pv[:3]
+            and m["id"] not in done]
 
 
 def cmd_migrations(p, a):
@@ -1479,6 +1487,34 @@ def cmd_prd(p, a):
         p.save()
     path = sdlc_layout.prd(p.root)
     return {"prd": path, "exists": os.path.isfile(p.path(path))}
+
+
+def cmd_add_config_keys(p, a):
+    """sdlc 3.5's per-package keys (spec 03 S12), only in a spec-backed repo (an rspec criteria lock or an
+    acceptance bundle): `accept.start` and `accept.base_url`, which start and reach the local build for recorded
+    acceptance tests, added empty where missing; set values are kept. Elsewhere it adds nothing. The 3.5.0 migration
+    runs it; safe to run twice."""
+    if p.config is None:
+        raise Refused(f"no {CONFIG}: set the repo up first (/sdlc:setup)")
+    import spec_lock  # sibling script: what makes a repo spec-backed
+    if not spec_lock.spec_backed_repo(p.root):
+        return {"added": [], "note": "not a spec-backed repo (no criteria.lock.json or acceptance/manifest.json): "
+                                     "nothing to add"}
+    pkgs = p.config.get("packages") or []
+    targets = [(pk.get("name") or "?", pk) for pk in pkgs] or [(ROOT_SCOPE, p.config)]
+    added = []
+    for name, entry in targets:
+        where = "" if name == ROOT_SCOPE else f"{name}: "
+        if "accept" in entry and entry["accept"] is None:  # null: no build to reach, left as the user set it
+            continue
+        accept = entry["accept"] = entry.get("accept") if isinstance(entry.get("accept"), dict) else {}
+        for key in ("start", "base_url"):
+            if key not in accept:
+                accept[key] = ""
+                added.append(f"{where}accept.{key}")
+    if added:
+        p.save()
+    return {"added": added}
 
 
 def cmd_set_version(p, a):
@@ -1781,6 +1817,9 @@ def build_parser():
     s.set_defaults(fn=cmd_design)
     sub.add_parser("guardrails", help="the guardrails setup renders for this repo's design mode") \
         .set_defaults(fn=cmd_guardrails)
+    sub.add_parser("add-config-keys", help="in a spec-backed repo, add sdlc 3.5's keys (accept.start, "
+                   "accept.base_url) empty where missing, per package").set_defaults(fn=cmd_add_config_keys)
+
     s = sub.add_parser("set-version", help="set scaffold_version (and raise min_plugin_version)")
     s.add_argument("version")
     s.add_argument("--min-plugin")

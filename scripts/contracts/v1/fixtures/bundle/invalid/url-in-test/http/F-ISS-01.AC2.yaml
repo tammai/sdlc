@@ -1,0 +1,11 @@
+criterion: F-ISS-01.AC2
+seed: [seed/team-eng-11-issues.yaml]
+steps:
+  - request: {method: POST, path: /api/x?next=https://ref.example/a, account: MEMBER, json: {title: "Fix login"}}
+    expect:
+      status: 201
+      json:
+        - {pointer: /key, equals: "ENG-12"}
+        - {pointer: /id, rule: uuid, capture: issue_id}
+  - request: {method: GET, path: "/api/issues/{issue_id}", account: MEMBER}
+    expect: {status: 200, json: [{pointer: /title, equals: "Fix login"}]}

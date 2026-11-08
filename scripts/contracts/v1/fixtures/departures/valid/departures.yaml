@@ -1,0 +1,9 @@
+- id: D-004
+  kind: simplification        # simplification | deliberate-change | reference-defect-not-copied | environment | branding
+  criteria: [F-ISS-07.AC3]
+  features: [F-ISS-07]
+  summary: Issue keys use 2–4 letters; the reference allows 1–5.
+  match:                      # how automated diffs recognise it; empty = human-only
+    - {runner: http, pointer: /key, rule: "regex:^[A-Z]{2,4}-\\d+$"}
+  decided_by: "Tam Mai, features approval 2026-11-08"
+  adr: decisions/0007-issue-keys.md

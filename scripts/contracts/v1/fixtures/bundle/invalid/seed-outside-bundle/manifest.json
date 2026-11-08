@@ -1,0 +1,23 @@
+{
+  "contracts": "1.0.0",
+  "tests": [
+    {
+      "criterion": "F-ISS-01.AC2",
+      "runner": "http",
+      "path": "http/F-ISS-01.AC2.yaml",
+      "sha256": "74c32755fb4654fa32c25bacdd525b276115a8a323a10c4edc82fa1829797219",
+      "level": "integration",
+      "visibility": "open",
+      "recorded_against": {
+        "kind": "oss",
+        "version_or_commit": "v2.7.4",
+        "base_url_env": "ACCEPT_BASE_URL"
+      },
+      "last_green": {
+        "timestamp": "2026-11-08T10:00:00Z",
+        "target": "reference"
+      },
+      "normalize": []
+    }
+  ]
+}

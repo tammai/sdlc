@@ -42,7 +42,7 @@ sdlc/
 │   ├── doctor.py            read-only health check
 │   ├── diff_stats.py        review facts for Review, Public Surface check
 │   ├── brief.py             everything Define reads before the code, printed in one call when a request is sized
-│   ├── verify.py            Build's one proof command: verify plan, each AC's red record and test (from the change file), drift against the state file's plan; `red`, `status`
+│   ├── verify.py            Build's one proof command: verify plan, each AC's red record and test (from the change file), drift against the state file's plan; in a spec-backed repo the test lock and recorded acceptance tests; `red` (`--at`), `status`, `trace`
 │   ├── hosts.py             builds the other agents' manifests from .claude-plugin/ and agents/ (CI checks them)
 │   ├── backlog.py           the next ready part of a feature's backlog.md
 │   ├── state.py             every state change in one call: state.md plus the control contract (beside it, git-ignored)
@@ -50,7 +50,9 @@ sdlc/
 │   ├── review_report.py     writes a review report from rated findings (the built-in code review, the dependency audit) with the VERDICT line their ratings give
 │   ├── autopilot.py         runs a backlog one fresh headless claude session per part (opt-in)
 │   ├── prune.py             lists and deletes merged features' working files (/sdlc:prune)
-│   └── context_diet.py      per-source estimate of what Claude Code lists every call (/sdlc:context-diet)
+│   ├── context_diet.py      per-source estimate of what Claude Code lists every call (/sdlc:context-diet)
+│   ├── spec_lock.py         an rspec spec's criteria lock and the spec-backed switch (spec_backed_repo)
+│   └── contracts/v1/        shared contracts v1, vendored byte-identical from product-rebuild (never edited here; MANIFEST, -text)
 ├── templates/
 │   ├── change-template.md   the feature's record for people, its change file (Define, Review)
 │   ├── plan-template.md     a part's plan-B<n>.md (work split into parts)

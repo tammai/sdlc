@@ -1,0 +1,3 @@
+{"ts": "2026-11-08T10:00:00Z", "plugin": "rspec", "stage": "verify", "agent": "recorder", "tier": "sonnet", "wall_s": 30, "turns": 4, "tokens_in": 1000, "tokens_out": 200, "result": "ok"}
+{"ts": "2026-11-08T10:01:00Z", "plugin": "rspec", "stage": "verify", "agent": "verify-judge", "tier": "opus", "wall_s": 12.5, "turns": 2, "tokens_in": null, "tokens_out": null, "result": "ok"}
+{"ts": "2026-11-08T10:02:00Z", "plugin": "sdlc", "stage": "build", "agent": "session", "tier": "session", "wall_s": 100, "turns": 10, "tokens_in": 5, "tokens_out": 6, "result": "ok"}

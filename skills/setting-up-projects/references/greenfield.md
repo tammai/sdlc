@@ -30,6 +30,8 @@ Write the project's own commands into `.sdlc/config.json` (only what differs fro
 
 Use the commands the generated project already defines (`package.json` scripts, `pyproject` tool config, `cargo`, `go`, …); add a script to the project rather than a long inline command. A step that doesn't exist for the stack is `null` (e.g. `"build": null` for a Python app, `"typecheck": null` for shell scripts).
 
+**Acceptance keys**, only in a spec-backed repo (it holds an rspec `criteria.lock.json`, or `.sdlc/config.json` names one as `spec_lock`, or it has `acceptance/manifest.json`), proposed with the commands and approved with them (per package, or top level without packages): `accept.start`, the command that starts the build locally, and `accept.base_url`, the URL the recorded acceptance tests reach it at (`ACCEPT_BASE_URL`). `$S add-config-keys` adds them, empty, where missing. Any other repo gets no such keys.
+
 Monorepo or several stacks: `packages` instead of `commands`, one entry per package with `name`, `path`, `stack` and its own five commands, each run from its `path`. A workspace tool's root-level test command (`pnpm -r test`, `turbo run test`) can go in root `commands.test`; it then counts as a full run for every package.
 
 Check: `$S contract` → `ok: true` and `tools_ok: true`. Then `$S run-commands` (install first, then the verify plan, each in its `cwd`, every exit recorded in the lock); every command must have run and exited 0. Fix the skeleton, not the command, if they don't.

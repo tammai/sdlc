@@ -1,0 +1,16 @@
+{
+  "id": "BH-0009",
+  "source": "bug-hunter",
+  "class": "spec-gap",
+  "severity": "medium",
+  "criterion": "F-ISS-01.AC2",
+  "rule": null,
+  "repro": null,
+  "observed": null,
+  "route": "rspec",
+  "question": "Does the key counter skip the numbers of deleted issues?",
+  "verified_by": {
+    "agent": null,
+    "result": "not run: spec question"
+  }
+}

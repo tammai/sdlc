@@ -18,9 +18,15 @@ Usage: python3 state.py [--root DIR] advance FEATURE STAGE [--gate pass|fail] [-
                                      set FEATURE FIELD VALUE
                                      sync FEATURE
                                      new FEATURE --track S|M|L --risk low|high --task "<title> | <ACs> | <files>" ...
+                                         [--criteria ID ...]   (the slice's criteria from a spec lock: Slice criteria:)
+                                     lock FEATURE FILE SHA256 ...   (verify.py red: ## Test lock, first hash kept)
+                                     cite FEATURE ID ...      (Define: each cited criterion's lock hash, ## Criteria)
+                                     question FEATURE ID TEXT (a spec question: a finding file, the part blocked)
+                                     questions FEATURE        (resolves each question whose criterion the lock changed)
                                      migrate    (every `Process: 2` state file to this version's stage numbers)
-Everything is computed before anything is written; then backlog.md, state.md, state.json and the event are
-written in that order, each file atomically. Prints one JSON object. Exit 0 ok, 1 refused (unknown feature,
+Everything is computed before anything is written; then a spec question's finding file, backlog.md, state.md,
+state.json and the event are written in that order, each file atomically (a finding nothing came to name is removed
+again), and last an answered question's file moves to spec-questions/resolved/. Prints one JSON object. Exit 0 ok, 1 refused (unknown feature,
 malformed state.md, a failed write; nothing written unless the error says so), 2 usage. Stdlib only, Python 3.9+.
 """
 import argparse
@@ -38,6 +44,7 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(os.path.dirname(HERE), "hooks"))
 import backlog  # noqa: E402  (sibling script: the backlog table)
 import sdlc_layout  # noqa: E402  (where the feature's state and documents live)
+import spec_lock  # noqa: E402  (sibling script: the criteria an rspec spec locked)
 
 CONTRACT_VERSION = 3
 # Four phases, one stage number each (sdlc 3.0; 2.x used 1, 4, 5 and 8). A backlog slice rests at Build with its row
@@ -91,6 +98,52 @@ def section_items(text, heading):
         return []
     return [l[2:].strip() for l in lines[span[0]:span[1]]
             if l.startswith("- ") and l[2:].strip() and not is_placeholder(l[2:].strip())]
+
+
+LOCK_LINE = re.compile(r"^- `([^`]+)` sha256:([0-9a-f]{64})\s*$")
+
+
+def test_lock(text):
+    """[(test file, sha256)] from `## Test lock` (spec 03 S4), in file order; [] without the section."""
+    lines = text.replace("\r\n", "\n").split("\n")
+    span = section(lines, "Test lock")
+    return [m.groups() for m in (LOCK_LINE.match(l) for l in (lines[span[0]:span[1]] if span else ())) if m]
+
+
+CRITERIA_LINE = re.compile(r"^- (F-[A-Z][A-Z0-9]*-[0-9]+\.AC[0-9]+) sha256:([0-9a-f]{64})\s*$")
+QUESTION_LINE = re.compile(r"^- (SQ-\d{4}) (F-[A-Z][A-Z0-9]*-[0-9]+\.AC[0-9]+) sha256:([0-9a-f]{64}) (\S+)\s*$")
+QUESTIONS = os.path.join(".sdlc", ".work", "spec-questions")
+
+
+def section_lines(text, heading, pattern):
+    lines = text.replace("\r\n", "\n").split("\n")
+    span = section(lines, heading)
+    return [m.groups() for m in (pattern.match(l) for l in (lines[span[0]:span[1]] if span else ())) if m]
+
+
+def question_line(qid, cid, sha, part):
+    return f"- {qid} {cid} sha256:{sha} {part}"
+
+
+def criteria_hashes(text):
+    """{criterion ID: the lock's text_sha256 recorded at Define} from `## Criteria` (spec 03 S2)."""
+    return dict(section_lines(text, "Criteria", CRITERIA_LINE))
+
+
+def set_section(text, heading, body):
+    """`## heading` holding exactly `body` (lines), added before Gate log when missing; an empty body drops it."""
+    lines = text.split("\n")
+    span = section(lines, heading)
+    if span:
+        start = span[0] - 1
+        lines[start:span[1]] = ([f"## {heading}"] + body + [""]) if body else []
+        return with_newline("\n".join(lines))
+    if not body:
+        return text
+    block = f"## {heading}\n" + "\n".join(body) + "\n\n"
+    if re.search(r"^## Gate log$", text, re.M):
+        return re.sub(r"^## Gate log$", lambda m: block + m.group(0), text, count=1, flags=re.M)
+    return text.rstrip("\n") + "\n\n" + block
 
 
 def append_to_section(text, heading, item):
@@ -177,6 +230,24 @@ def set_backlog_status(raw, slice_id, status):
             lines[i] = lead + "| " + " | ".join(cells) + " |" + ("\r" if line.endswith("\r") else "")
             return "\n".join(lines)
     raise Refused(f"{slice_id} isn't a row of the backlog table")
+
+
+def backlog_status(raw, slice_id):
+    """The slice's Status cell as written (backlog.slices lowercases it), or None."""
+    cols = None
+    for line in (raw or "").split("\n"):
+        stripped = line.strip().rstrip("\r")
+        if not stripped.startswith("|"):
+            continue
+        cells = backlog.cells(stripped)
+        if cols is None:
+            names = [c.lower() for c in cells]
+            if {"id", "status"} <= set(names):
+                cols = (names.index("id"), names.index("status"))
+            continue
+        if len(cells) > max(cols) and re.sub(r"[*_`~\s]", "", cells[cols[0]]).upper() == slice_id:
+            return cells[cols[1]]
+    return None
 
 
 # --- the contract ---------------------------------------------------------------------------------------------
@@ -275,6 +346,113 @@ def apply(a, text, backlog_raw):
             "type": "verified", "commit": a.commit, "tree": a.tree}
     if a.cmd == "log":
         return append_to_section(text, "Gate log", f"{today()} {a.text}"), None, {"type": a.type, "text": a.text}
+    if a.cmd == "lock":  # spec 03 S4: the hash of each test file a red run recorded failing
+        pairs = list(zip(a.entries[::2], a.entries[1::2]))
+        if len(a.entries) % 2 or not pairs or not all(re.fullmatch(r"[0-9a-f]{64}", sha) for _, sha in pairs):
+            raise Refused("lock takes <file> <sha256> pairs")
+        if any(re.search(r"[`\r\n]", f) or not f.strip() for f, _ in pairs):
+            raise Refused("a locked file name can't hold a backtick or a line break")
+        locked = dict(test_lock(text))
+        for f, sha in pairs:  # the first red run's hash stays: a later one can't re-lock a weakened test
+            locked.setdefault(f, sha)
+        body = [f"- `{f}` sha256:{sha}" for f, sha in sorted(locked.items())]
+        lines = text.split("\n")
+        span = section(lines, "Test lock")
+        if span:
+            lines[span[0]:span[1]] = body + [""]
+            text = "\n".join(lines)
+        else:  # before Gate log, with the plan's sections
+            text = re.sub(r"^## Gate log$", lambda m: "## Test lock\n" + "\n".join(body) + "\n\n" + m.group(0),
+                          text, count=1, flags=re.M) if re.search(r"^## Gate log$", text, re.M) else \
+                text.rstrip("\n") + "\n\n## Test lock\n" + "\n".join(body) + "\n"
+        return with_newline(text), None, {"type": "tests_locked", "files": [f for f, _ in pairs]}
+    if a.cmd == "cite":  # spec 03 S2: the lock's hash of each criterion the change cites, as Define saw it
+        locked, problems = spec_lock.load(a.root)
+        unknown = [cid for cid in a.ids if cid not in locked]
+        if unknown or not a.ids:
+            raise Refused(f"not in the lock: {', '.join(unknown)}" + (f" ({'; '.join(problems)})" if problems else "")
+                          if unknown else "cite needs criterion IDs")
+        hashes = criteria_hashes(text)
+        hashes.update({cid: locked[cid]["text_sha256"] for cid in a.ids})
+        text = set_section(text, "Criteria", [f"- {cid} sha256:{sha}" for cid, sha in hashes.items()])
+        return text, None, {"type": "criteria_cited", "criteria": a.ids}
+    if a.cmd == "question":  # spec 03 S10: a cited criterion is ambiguous, wrong or untestable as written
+        if not a.text.strip():
+            raise Refused("a spec question needs its question")
+        locked, problems = spec_lock.load(a.root)
+        if a.criterion not in locked:
+            raise Refused(f"{a.criterion}: {'; '.join(problems)}" if problems else
+                          f"{a.criterion} is not in the lock: a standalone question goes to the user")
+        open_qs = section_lines(text, "Spec questions", QUESTION_LINE)
+        if any(q[1] == a.criterion for q in open_qs):
+            raise Refused(f"{a.criterion} already has an open spec question: one amend answers both")
+        folder = os.path.join(a.root, QUESTIONS)
+        taken = [int(m.group(1)) for d in (folder, os.path.join(folder, "resolved")) if os.path.isdir(d)
+                 for m in (re.fullmatch(rf"{re.escape(a.feature)}-SQ-(\d{{4}})\.json", n) for n in os.listdir(d)) if m]
+        qid = f"SQ-{max(taken, default=0) + 1:04d}"
+        finding = {"id": qid, "source": "sdlc-question", "class": "spec-gap", "severity": "medium",
+                   "criterion": a.criterion, "rule": None, "repro": None, "observed": None, "route": "rspec",
+                   "question": a.text, "verified_by": {"agent": None, "result": "not run: spec question"}}
+        part = (re.search(r"^Slice:\s*(B\d+)", text, re.M) or [None, None])[1]
+        row = next((r for r in backlog.slices(backlog_raw) if r["id"] == part), None) if part and backlog_raw else None
+        if not row or not row["status"].startswith(("in progress", "blocked")):
+            part = None  # no part is running (the Slice: line names one already done): the question is a blocker
+        reason = f"spec question {qid} on {a.criterion}"
+        new_backlog = None
+        if part:
+            status = backlog_status(backlog_raw, part) or row["status"]
+            new_backlog = set_backlog_status(backlog_raw, part, f"{status}; {reason}"
+                                             if status.lower().startswith("blocked") else f"blocked: {reason}")
+            text = append_to_section(text, "Open questions", f"{part} blocked: {reason}")
+        else:
+            text = append_to_section(text, "Open questions", f"{reason}: {a.text}")
+        text = set_section(text, "Spec questions", [question_line(*q) for q in open_qs] +
+                           [question_line(qid, a.criterion, locked[a.criterion]['text_sha256'], part or '-')])
+        return text, new_backlog, {"type": "spec_question", "id": qid, "criterion": a.criterion, "part": part,
+                                   "_write": {os.path.join(QUESTIONS, f"{a.feature}-{qid}.json"): finding}}
+    if a.cmd == "questions":  # spec 03 S10: the part unblocks when the lock shows the criterion's new hash
+        locked, _ = spec_lock.load(a.root)
+        still, resolved, moves = [], [], []
+        hashes = criteria_hashes(text)
+        new_backlog = backlog_raw
+        for qid, cid, sha, part in section_lines(text, "Spec questions", QUESTION_LINE):
+            now = (locked.get(cid) or {}).get("text_sha256")
+            if not now or now == sha:
+                still.append((qid, cid, sha, part))
+                continue
+            resolved.append(qid)
+            moves.append((os.path.join(QUESTIONS, f"{a.feature}-{qid}.json"),
+                          os.path.join(QUESTIONS, "resolved", f"{a.feature}-{qid}.json")))
+            if cid in hashes:
+                hashes[cid] = now  # the amended text is the one the change now cites
+            for item in section_items(text, "Open questions"):
+                if f"spec question {qid} " in item + " ":
+                    text = remove_from_section(text, "Open questions", item)[0]
+        text = set_section(text, "Spec questions", [question_line(*q) for q in still])
+        # A row blocked by a question no open line holds (answered, or its state write never landed) unblocks
+        open_ids = {q[0] for q in still}
+        for row in backlog.slices(new_backlog) if new_backlog else ():
+            status = backlog_status(new_backlog, row["id"]) or ""
+            if not status.lower().startswith("blocked") or ":" not in status:  # a hand-written block, no reasons
+                continue
+            reasons = [r.strip() for r in status.split(":", 1)[1].split(";") if r.strip()]
+            rest = [r for r in reasons if not (re.match(r"spec question (SQ-\d{4}) ", r, re.I)
+                                               and re.match(r"spec question (SQ-\d{4})", r, re.I).group(1).upper()
+                                               not in open_ids)]
+            if rest != reasons:
+                new_backlog = set_backlog_status(new_backlog, row["id"], f"{status.split(':', 1)[0]}: "
+                                                 + "; ".join(rest) if rest else "todo")
+        # A file no open question names: answered with its move undone, or written by a run killed before its state
+        # (the question was never asked): filed away either way, so nothing waits on it
+        folder = os.path.join(a.root, QUESTIONS)
+        for name in sorted(os.listdir(folder)) if os.path.isdir(folder) else ():
+            m = re.fullmatch(rf"{re.escape(a.feature)}-(SQ-\d{{4}})\.json", name)
+            if m and m.group(1) not in open_ids and m.group(1) not in resolved:
+                moves.append((os.path.join(QUESTIONS, name), os.path.join(QUESTIONS, "resolved", name)))
+        if hashes:
+            text = set_section(text, "Criteria", [f"- {cid} sha256:{h}" for cid, h in hashes.items()])
+        return text, (new_backlog if new_backlog != backlog_raw else None), {
+            "type": "spec_questions_checked", "resolved": resolved, "open": [q[0] for q in still], "_move": moves}
     if a.cmd == "deviation":  # its own section: the sdlc-invariants CI check reads Deviations
         return append_to_section(text, "Deviations", f"{today()} {a.text}"), None, {"type": "deviation_logged",
                                                                                     "text": a.text}
@@ -384,6 +562,8 @@ def new_state(a):
     tasks = task_lines(a.task)
     surface = surface_lines(a.surface) or ["- none"]
     head = [f"# {a.feature}", "Status: active", f"Process: {sdlc_layout.PROCESS}"]
+    if a.criteria:  # spec 03 S2: the criteria assigned to this slice, each cited or set aside in ## Out of scope
+        head.append("Slice criteria: " + " ".join(a.criteria))
     if a.track == "S":
         head += [f"Track: S   ({footprint})", risk, "Top model: opus",
                  f"Base: {git_line(a.root, 'rev-parse', '--short', 'HEAD')}",
@@ -412,6 +592,9 @@ def new_state(a):
 def create(a):
     if not a.task:
         raise Refused("new needs at least one --task")
+    bad = [c for c in a.criteria if not spec_lock.CRITERION_ID.fullmatch(c)]
+    if bad:
+        raise Refused(f"--criteria takes criterion IDs (F-ISS-01.AC2), not {', '.join(bad)}")
     for value in [a.feature, a.risk_why, a.sized, a.build, *a.task, *a.surface, *a.handoff]:
         if isinstance(value, str) and ("\n" in value or "\r" in value):
             raise Refused("values can't contain line breaks")
@@ -463,10 +646,16 @@ def run(a):
         a.verified = current_verified(a.root, a.feature)
     new, new_backlog, event = apply(a, text, backlog_raw)
     check(new)
+    effects = {k: event.pop(k) for k in ("_write", "_move") if event and k in event}
     snap = snapshot(a.feature, new, new_backlog if new_backlog is not None else backlog_raw)
     snapshot_path, events_path = contract_paths(a.root, a.feature)
-    written = []
+    written, findings = [], []
     try:
+        for rel, data in effects.get("_write", {}).items():  # a spec question's finding, before the state naming it
+            dest = os.path.join(a.root, rel)
+            os.makedirs(os.path.dirname(dest), exist_ok=True)
+            write_atomic(dest, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+            findings.append(dest)
         if new_backlog is not None and new_backlog != backlog_raw:
             write_atomic(backlog_path, ("﻿" if bom else "") + new_backlog)
             written.append("backlog.md")
@@ -482,8 +671,22 @@ def run(a):
                 f.flush()
                 os.fsync(f.fileno())
     except OSError as e:
+        if not written:  # nothing names the finding: it goes, so no question waits unasked
+            for path in findings:
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
         done = f"; already written: {', '.join(written)} (run sync once the cause is fixed)" if written else ""
         raise Refused(f"{type(e).__name__}: {e}{done}")
+    try:  # answered questions' files, after the state that resolves them; one left behind is filed next time
+        for src, dst in effects.get("_move", []):
+            if os.path.exists(os.path.join(a.root, src)):
+                os.makedirs(os.path.dirname(os.path.join(a.root, dst)), exist_ok=True)
+                os.replace(os.path.join(a.root, src), os.path.join(a.root, dst))
+    except OSError as e:
+        raise Refused(f"state written, but an answered question's file wasn't filed away ({type(e).__name__}: {e});"
+                      " the next `questions` run files it")
     return event
 
 
@@ -553,6 +756,14 @@ def main(argv=None):
     s = sub.add_parser("log"); s.add_argument("feature"); s.add_argument("text")
     s.add_argument("--type", choices=["note", "review_done"], default="note")
     s = sub.add_parser("deviation"); s.add_argument("feature"); s.add_argument("text")
+    s = sub.add_parser("cite", help="record each cited criterion's lock hash under ## Criteria (Define)")
+    s.add_argument("feature"); s.add_argument("ids", nargs="+")
+    s = sub.add_parser("question", help="ask the spec's owner: a spec-gap finding, the running part blocked")
+    s.add_argument("feature"); s.add_argument("criterion"); s.add_argument("text")
+    s = sub.add_parser("questions", help="resolve each spec question whose criterion the lock has changed")
+    s.add_argument("feature")
+    s = sub.add_parser("lock", help="record test files' sha256 under ## Test lock (verify.py red does this)")
+    s.add_argument("feature"); s.add_argument("entries", nargs="+", metavar="FILE SHA256")
     s = sub.add_parser("slice"); s.add_argument("feature")
     s.add_argument("action", choices=["start", "done", "block"]); s.add_argument("id")
     s.add_argument("commit", nargs="?", help="done: the slice's commit; block: the reason")
@@ -569,6 +780,7 @@ def main(argv=None):
     s.add_argument("--build", default="inline: this session builds it, one part")
     s.add_argument("--handoff", action="append", default=[])
     s.add_argument("--task", action="append", default=[], help='"<title> | <ACs> | <files>"')
+    s.add_argument("--criteria", nargs="+", default=[], metavar="ID", help="the slice's criteria from a spec lock")
     s.add_argument("--surface", action="append", default=[], help='"<kind> <name> — <AC>", kind export|endpoint|command|config|env|dependency')
     for p in sub.choices.values():
         p.error = ap.error
@@ -588,7 +800,8 @@ def main(argv=None):
     except Exception as e:  # never a traceback: a caller parses stdout
         print(json.dumps({"ok": False, "error": f"{type(e).__name__}: {e}"}, ensure_ascii=False))
         return 1
-    print(json.dumps({"ok": True, "feature": a.feature, "event": event}, ensure_ascii=False))
+    extra = {k: event[k] for k in ("resolved", "open")} if a.cmd == "questions" and event else {}
+    print(json.dumps({"ok": True, "feature": a.feature, "event": event, **extra}, ensure_ascii=False))
     return 0
 
 
