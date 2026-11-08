@@ -2,7 +2,7 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
-## Unreleased
+## 3.4.0 — 2026-11-08
 
 ### Changed
 - **Review aims for two rounds: one full review, one closing check.** On cuti-os and bug-hunter, features took 3 to 9 rounds. Almost every failure after round 1 was a bug a fix added, a finding fixed in one place but not the others, or the next variant of one class (another encoding of a secret, another env var). So:
@@ -13,6 +13,20 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ### Fixed
 - **Eject's report names only what it keeps that exists.** `scaffold.py eject` listed the baseline, design system, PRD and feature folders under `keep` whether or not the repo had them, and the eject steps repeated a fixed list, so a greenfield repo with no UI was told its `.sdlc/baseline.md` and `docs/sdlc/design-system.md` were kept. The `keep` list now holds only paths that exist (a `<feature>` pattern only when its folder does), and the report reads it.
+
+### Known issues
+- In the track-matrix diagram (`docs/diagrams/sdlc_track_matrix.svg`), rows 3.4 and 3.5 have new labels, but their marks and the totals still reflect the old two code depths. `docs/track-matrix.md` is current.
+- Fixing the medium and low bugs that round 2 lists is an instruction only: no gate checks that each one got its test and fix.
+- `--max-findings all` stays in effect for your own later `/code-review` calls until you pass `--max-findings default`.
+
+Checked on 2026-11-08: the full suite (426 tests, Python 3.10) and `claude plugin validate`. Only the smoke-test parts this release changes were run, headless in Claude Code with the plugin loaded by `--plugin-dir`, as for 3.3.0:
+- G (brownfield setup) on a tiny Python library: it merged locally.
+- An M feature (`divide` and `parse_number`) through Review:
+  - Both code-review calls were `high --max-findings all`.
+  - Round 1 reported 7 findings and failed on 3 bugs, one with a class named (float overflow on input the regex accepts).
+  - Round 2, the closing check, passed. Its findings were 7 lows, all tickets.
+  - The run took 4.3 minutes, 33 turns and $0.89.
+- A–F, H, I and J were not run.
 
 ## 3.3.0 — 2026-11-07
 
