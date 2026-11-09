@@ -13,10 +13,19 @@ Usage: verify.py [--root DIR] [--feature NAME] [--timeout S] [red AC-nnn [AC-nnn
   the run records them as `skipped` and can't be reused for Review; with no part in progress everything is checked. Then drift from the plan (the state file's
   `## Tasks` and `## Public Surface`; plan.md on 1.x): a changed file no task or acceptance test names, a task whose
   files didn't change, an export or dependency the Public Surface doesn't list; each needs a `## Deviations` line
-  (`state.py deviation`) naming it, with What:, Why: and Effect:.
-`red AC-nnn [AC-nnn ...]`, run before those ACs' code is written: runs each AC's test and records it failing (exit 0).
-  A test that passes, can't be found or can't run is refused (exit 1, and none of the named ACs is recorded): it
-  would prove nothing.
+  (`state.py deviation`) naming it, with What:, Why: and Effect:. Then, only in a spec-backed repo (an rspec
+  criteria.lock.json, config `spec_lock` or acceptance/manifest.json), the test lock (spec 03 S4): a test file locked
+  at its red run that changed or was deleted fails the run, unless a `test-change <file> What: … Why: …` deviation
+  names it and `red --at` ran its ACs with the file as it is now.
+`red AC-nnn [AC-nnn ...]`, run before those ACs' code is written: runs each AC's test and records it failing (exit 0),
+  and, in a spec-backed repo, locks each test file it ran (its sha256 under the state file's `## Test lock`). A test that passes, can't be
+  found or can't run is refused (exit 1, and none of the named ACs is recorded): it would prove nothing.
+`red --at <ref> AC-nnn …`: the ACs' test files as they are now, run in a temporary git worktree at `ref` (the
+  feature's Base); each must fail there, which shows a changed test still fails without the feature.
+Recorded acceptance tests (spec 03 S3): a row whose Test is a file in the repo's `acceptance/` bundle runs only when
+  `acceptance/manifest.json` lists it `open` with its sha256; `contracts.py …` in its Run cell is the vendored
+  runner. The first such row starts `accept.start` and waits for `accept.base_url` (.sdlc/config.json), the rows run
+  with ACCEPT_BASE_URL set, and the build is stopped at the end. Recorded tests aren't locked: the manifest guards them.
 `trace`: when an AC cites a spec (`AC-003 … prd.md §4.2` or `§FR-002`), checks that each cited ref is in that spec and
   that each `FR-nnn` the spec has is named by an AC or set aside in `## Out of scope`; exit 1 on a finding, 0 when it
   traces or no AC cites a spec. L's plan self-approval runs it; a full run prints the same findings as `trace:` notes
@@ -28,12 +37,17 @@ Each run also writes the freshness hook's copy of itself (.sdlc/.work/verify-fre
 Stdlib only, Python 3.9+.
 """
 import argparse
+import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
+import urllib.error
+import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(HERE), "hooks"))
@@ -42,6 +56,8 @@ import backlog  # noqa: E402  (a backlog's parts: which ACs belong to parts not 
 import diff_stats  # noqa: E402  (changed files and the Public Surface check, since the feature's Base)
 import scaffold  # noqa: E402  (the verify plan and the shell that runs project commands)
 import sdlc_layout  # noqa: E402
+import spec_lock  # noqa: E402  (the criteria an rspec spec locked: spec-backed changes)
+import state  # noqa: E402  (the state file: ## Test lock, ## Criteria)
 import verify_freshness as vf  # noqa: E402  (worktree trees)
 
 RECORD = os.path.join(".sdlc", ".work", "verify.json")
@@ -141,11 +157,52 @@ def trace(root, feature):
     return findings
 
 
-def run(cmd, cwd, timeout):
+def spec_backed(root, feature):
+    """Spec 03 S2. None when no AC cites a criterion and the state names no `Slice criteria:`; else the findings,
+    each a failure: a cited ID the lock doesn't hold, one `state.py cite` didn't record at Define, a `stale criterion`
+    whose lock hash changed since, and a slice criterion no AC cites and `## Out of scope` doesn't set aside with a
+    reason."""
+    change = docs(root, feature)[0]
+    citations = spec_lock.cited(ac_entries(change))
+    text = read(os.path.join(root, sdlc_layout.paths(root, feature)["state"])) or ""
+    assigned = spec_lock.CRITERION_ID.findall((re.search(r"^Slice criteria:(.*)$", text, re.M) or [None, ""])[1])
+    if not citations and not assigned:
+        return None
+    locked, findings = spec_lock.load(root)
+    recorded = state.criteria_hashes(text)
+    for ac, ids in citations.items():
+        for cid in ids:
+            entry = locked.get(cid)
+            if entry is None:
+                findings.append(f"{ac}: {cid} is not in the lock")
+            elif spec_lock.criterion_line(root, entry) is None:
+                findings.append(f"{cid}: its line isn't in {entry.get('file')} ({entry.get('spec')}), so nothing "
+                                "shows or checks its text")
+            elif cid not in recorded:
+                findings.append(f"{ac}: {cid} wasn't recorded at Define (`state.py cite {feature} {cid}`)")
+            elif recorded[cid] != entry.get("text_sha256"):
+                findings.append(f"stale criterion: {cid} changed since Define: stop and ask about the amended text, "
+                                f"then `state.py cite {feature} {cid}`")
+    cited_ids = {cid for ids in citations.values() for cid in ids}
+    aside = (section(change, "Out of scope") or "").splitlines()
+    for cid in assigned:
+        # Set aside: a line naming the ID with a reason, which is what's left without the list marker and the IDs
+        if cid not in cited_ids and not any(
+                cid in spec_lock.CRITERION_ID.findall(line)
+                and re.search(r"\w", spec_lock.CRITERION_ID.sub("", re.sub(
+                    r"^\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?", "", line)))
+                for line in aside):
+            findings.append(f"{cid} is not covered: no AC cites it and ## Out of scope doesn't set it aside with a "
+                            "reason")
+    return findings
+
+
+def run(cmd, cwd, timeout, env=None):
     sh = scaffold.shell()
     try:
         p = subprocess.run(sh + [cmd] if sh else cmd, shell=not sh, cwd=cwd, capture_output=True,
-                           encoding="utf-8", errors="replace", timeout=timeout)
+                           encoding="utf-8", errors="replace", timeout=timeout,
+                           env={**os.environ, **env} if env else None)
     except subprocess.TimeoutExpired:
         return 124, f"timed out after {timeout}s"
     return p.returncode, (p.stdout + p.stderr)[-2000:]
@@ -295,30 +352,47 @@ def full(root, feature, timeout=1800, whole=False):
         notes.append("no acceptance tests section: every 2.0 plan has one")
     else:
         by_ac = {r["ac"]: r for r in rows}
-        ran = {}
-        for ac in acs:
-            row = by_ac.get(ac)
-            if not row:
-                failures.append(f"{ac}: no row in ## Acceptance tests")
-            elif row["manual"]:
-                if row["run"]:
-                    manual.append(ac)
+        ran, build = {}, Build(root)
+        try:
+            for ac in acs:
+                row = by_ac.get(ac)
+                recorded = row and not row["manual"] and bundle_check(root, row)
+                if not row:
+                    failures.append(f"{ac}: no row in ## Acceptance tests")
+                elif row["manual"]:
+                    if row["run"]:
+                        manual.append(ac)
+                    else:
+                        failures.append(f"{ac}: a manual row needs its reason in the Run column")
+                elif not os.path.exists(os.path.join(root, row["file"])):
+                    failures.append(f"{ac}: {row['file']} not found")
+                elif recorded and recorded[1]:
+                    failures.append(recorded[1])
+                elif ac not in rec.get("red", {}):
+                    failures.append(f"{ac}: no red run recorded (run `verify.py red {ac}` before writing its code)")
+                elif recorded and build.ensure():
+                    failures.append(f"{ac}: {build.error}")
                 else:
-                    failures.append(f"{ac}: a manual row needs its reason in the Run column")
-            elif not os.path.exists(os.path.join(root, row["file"])):
-                failures.append(f"{ac}: {row['file']} not found")
-            elif ac not in rec.get("red", {}):
-                failures.append(f"{ac}: no red run recorded (run `verify.py red {ac}` before writing its code)")
-            else:
-                code, out = run_once(ran, row["run"], root, timeout)
-                if code:
-                    failures.append(f"{ac}: its test fails (exit {code})\n{out[-500:]}")
+                    code, out = run_once(ran, resolve(row["run"]) if recorded else row["run"], root, timeout,
+                                         build.env if recorded else None)
+                    if code:
+                        failures.append(f"{ac}: its test fails (exit {code})\n{out[-500:]}")
+        finally:
+            build.close()
+    backed = spec_lock.spec_backed_repo(root)  # sdlc 3.5: the test lock and cited criteria, in such a repo only
+    if backed:
+        failures += lock_failures(root, feature, rows or [], rec)
     drifted = drift(root, feature, later)
     if drifted is None:
         notes.append("no plan (the state file's ## Tasks) or no Base:, so drift wasn't checked")
     for d in drifted or []:
         if not d["covered"]:
             failures.append(f"drift: {d['item']} has no Deviations entry with What:, Why: and Effect:")
+    failures += (spec_backed(root, feature) if backed else None) or []
+    cited_count = len({c for ids in spec_lock.cited(ac_entries(docs(root, feature)[0])).values() for c in ids}) \
+        if backed else 0
+    if cited_count > 10:
+        notes.append(f"warning: {cited_count} cited criteria: a change takes about 10; split the slice")
     traced = trace(root, feature) or []  # advisory: a note, never a failure, until its false-positive rate is known
     notes += [f"trace: {t}" for t in traced]
     rec["last"] = {"at": vf.now(), "tree": vf.worktree_tree(root), "head": vf.git_head(root),
@@ -338,18 +412,314 @@ NOT_FOUND = re.compile(r"no tests ran|collected 0 items|No tests found|no tests 
                        r"has no attribute '?test\w*", re.I)
 
 
+def file_sha(path):
+    try:
+        with open(path, "rb") as f:
+            return hashlib.sha256(f.read()).hexdigest()
+    except OSError:
+        return None
+
+
+def lock_failures(root, feature, rows, rec):
+    """Spec 03 S4: a test file locked at its red run that changed or was deleted since, unless the state file has a
+    `test-change <file> What: … Why: …` deviation and every AC whose row names the file was red at Base with the file
+    as it is now (`red --at`). A file deleted that no row names any more needs only the deviation."""
+    text = (read(os.path.join(root, sdlc_layout.paths(root, feature)["state"])) or "").replace("\r\n", "\n")
+    deviations = (section(text, "Deviations") or "").splitlines()
+    # red_at records only a run at the feature's Base or a part's Slice base; one whose base isn't behind HEAD any more
+    # (a rewritten history) proves nothing about this code
+    at_base = {ac: r for ac, r in (rec.get("red_at_base") or {}).items() if r.get("base") and subprocess.run(
+        ["git", "-C", root, "merge-base", "--is-ancestor", r["base"], "HEAD"], capture_output=True).returncode == 0}
+    out = []
+    for f, sha in state.test_lock(text):
+        now = file_sha(os.path.join(root, f))
+        if now == sha:
+            continue
+        owners = [r["ac"] for r in rows if r["file"] == f and not r["manual"]]
+        noted = any(f"test-change {f} " in line and re.search(r"What:\s*\S", line) and re.search(r"Why:\s*\S", line)
+                    for line in deviations)
+        rered = all((at_base.get(ac) or {}).get("sha256") == now for ac in owners) if now else not owners
+        if not (noted and rered):
+            what = "was deleted" if now is None else "changed"
+            out.append(f"test lock: {f} {what} since its red run ({', '.join(owners) or 'no AC names it now'}): "
+                       f"record why with `state.py deviation <feature> \"test-change {f} What: … Why: …\"`, then "
+                       f"`verify.py red --at <Base> {' '.join(owners) or '<AC>'}` to show it still fails without the "
+                       "feature")
+    return out
+
+
+def feature_bases(root, feature):
+    """{commit: name} that `red --at` may run at: the feature's `Base:` and, while a part runs, its `Slice base:`."""
+    text = read(os.path.join(root, sdlc_layout.paths(root, feature)["state"])) or ""
+    names = [m.group(1) for m in (re.search(r"^Base:\s*`?([0-9a-f]{7,40})\b", text, re.M),
+                                  re.search(r"^Slice:.*?\bSlice base:\s*([0-9a-f]{7,40})\b", text, re.M)) if m]
+    return {commit_of(root, n): n for n in names if commit_of(root, n)}
+
+
+def commit_of(root, ref):
+    p = subprocess.run(["git", "-C", root, "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"],
+                       capture_output=True, encoding="utf-8", errors="replace")
+    return p.stdout.strip() or None
+
+
+def red_at(root, feature, ref, acs, timeout=1800):
+    """`red --at <ref>` (spec 03 S4): the ACs' test files as they are now, run in a temporary worktree at `ref` (the
+    code without the feature); each must fail there. Recorded per AC with the file's hash, all or nothing; the
+    worktree is always removed."""
+    if not spec_lock.spec_backed_repo(root):
+        return None, ["red --at: the test lock is on only in a spec-backed repo (an rspec criteria.lock.json, config "
+                      "spec_lock or acceptance/manifest.json); here a changed test needs no re-red"]
+    rows = acceptance(root, feature)[1] or []
+    chosen, reasons = [], []
+    for ac in acs:
+        row = next((r for r in rows if r["ac"] == ac), None)
+        if not row or row["manual"]:
+            reasons.append(f"{ac}: no test row to run at {ref}")
+        elif bundle_check(root, row) is not None:
+            reasons.append(f"{ac}: a recorded acceptance test isn't locked: its manifest's sha256 guards it")
+        elif spec_lock.inside(root, row["file"]) is None:  # it is copied into the temporary worktree
+            reasons.append(f"{ac}: {row['file']} isn't a path inside the repo")
+        elif not os.path.isfile(os.path.join(root, row["file"])):
+            reasons.append(f"{ac}: {row['file']} not found")
+        else:
+            chosen.append(row)
+    bases = feature_bases(root, feature)
+    base = commit_of(root, ref)
+    if base not in bases:
+        reasons.append(f"red --at {ref}: that isn't the feature's Base or its part's Slice base "
+                       f"({', '.join(bases.values()) or 'none recorded'}); the changed test must fail on the code the "
+                       "feature or part started from")
+    if reasons:
+        return None, reasons
+    git = ["git", "-C", root]
+    # A run killed mid-way leaves its worktree folder behind, which prune keeps: remove those first
+    listed = subprocess.run(git + ["worktree", "list", "--porcelain"], capture_output=True, encoding="utf-8",
+                            errors="replace").stdout
+    for line in listed.splitlines():
+        folder = os.path.dirname(line[9:])
+        if line.startswith("worktree ") and os.path.basename(folder).startswith("sdlc-red-at-"):
+            try:
+                # A day: longer than any run, whatever its --timeout and number of rows, so a live one stays
+                stale = time.time() - os.path.getmtime(folder) > 24 * 3600
+            except OSError:
+                stale = True
+            if stale:
+                subprocess.run(git + ["worktree", "remove", "--force", line[9:]], capture_output=True)
+                shutil.rmtree(folder, ignore_errors=True)
+    subprocess.run(git + ["worktree", "prune"], capture_output=True)
+    tmp = tempfile.mkdtemp(prefix="sdlc-red-at-")
+    tree = os.path.join(tmp, "base")
+    try:
+        p = subprocess.run(git + ["worktree", "add", "--detach", tree, ref], capture_output=True, encoding="utf-8",
+                           errors="replace")
+        if p.returncode:
+            return None, [f"red --at {ref}: no worktree ({p.stderr.strip()[-300:]})"]
+        for row in chosen:
+            dest = os.path.join(tree, row["file"])
+            os.makedirs(os.path.dirname(dest) or tree, exist_ok=True)
+            shutil.copyfile(os.path.join(root, row["file"]), dest)
+        ran = {}
+        for row in chosen:
+            code, out = run_once(ran, row["run"], tree, timeout)
+            if code == 0:
+                reasons.append(f"{row['ac']}: its test passes at {ref}, without the feature, so it proves nothing")
+            elif code in NOT_RUNNABLE or NOT_FOUND.search(out):
+                reasons.append(f"{row['ac']}: the test did not run at {ref} (exit {code})\n{out[-500:]}")
+    finally:
+        subprocess.run(git + ["worktree", "remove", "--force", tree], capture_output=True)
+        shutil.rmtree(tmp, ignore_errors=True)
+        subprocess.run(git + ["worktree", "prune"], capture_output=True)
+    if reasons:
+        return None, reasons
+    rec = load_record(root)
+    if rec.get("feature") != feature:
+        rec = {"feature": feature}
+    at = vf.now()
+    for row in chosen:
+        rec.setdefault("red_at_base", {})[row["ac"]] = {"at": at, "ref": ref, "base": base, "file": row["file"],
+                                                        "sha256": file_sha(os.path.join(root, row["file"]))}
+    save_record(root, rec)
+    return [r["ac"] for r in chosen], []
+
+
+# --- recorded acceptance tests (spec 03 S3, contracts C4) ------------------------------------------------------
+
+BUNDLE = "acceptance"
+CONTRACTS = os.path.join(HERE, "contracts", "v1", "contracts.py")
+RUNNERS = ("http", "playwright", "maestro")  # contracts v1 runs HTTP replay; Playwright and Maestro run their own
+
+
+def bundle_check(root, row):
+    """None when the row's test isn't in the repo's acceptance/ bundle; else (manifest entry, problem or None). Only
+    an open entry whose file matches its sha256, for a runner there is, runs."""
+    rel = (row.get("file") or "").replace("\\", "/")
+    if not rel.startswith(BUNDLE + "/"):
+        return None
+    ac = row["ac"]
+    text = read(os.path.join(root, BUNDLE, "manifest.json"))
+    if text is None:  # a folder that happens to be named acceptance: the repo's own tests
+        return None
+    try:
+        manifest = json.loads(text)
+    except ValueError:
+        manifest = None
+    if not isinstance(manifest, dict) or not isinstance(manifest.get("tests"), list):
+        return {}, f"{ac}: {BUNDLE}/manifest.json isn't a manifest (an object with tests), so {rel} can't be trusted"
+    entry = next((t for t in manifest.get("tests") or [] if isinstance(t, dict)
+                  and t.get("path") == rel[len(BUNDLE) + 1:]), None)
+    if entry is None:
+        return {}, f"{ac}: {rel} isn't in {BUNDLE}/manifest.json"
+    if entry.get("visibility") != "open":
+        return entry, f"{ac}: {rel} is a hidden test: the builder never runs it"
+    if entry.get("runner") not in RUNNERS:
+        return entry, f"{ac}: not run: no runner for {entry.get('runner')!r} in contracts v1"
+    if entry.get("runner") == "maestro" and not shutil.which("maestro"):  # `maestro test <path>`, as rspec records
+        return entry, f"{ac}: not run: maestro not installed"
+    if file_sha(os.path.join(root, rel)) != entry.get("sha256"):
+        return entry, (f"{ac}: {rel} differs from the sha256 in {BUNDLE}/manifest.json: a recorded test changes only "
+                       "through the spec's amend flow")
+    return entry, None
+
+
+def resolve(cmd):
+    """`contracts.py …` in a Run cell is the vendored contracts runner, run by this Python."""
+    m = re.match(r"\s*contracts\.py\b", cmd)
+    if not m:
+        return cmd
+    exe, script = sys.executable.replace("\\", "/"), CONTRACTS.replace("\\", "/")
+    return f'"{exe}" "{script}"' + cmd[m.end():]
+
+
+def accept_target(root):
+    """((start command, base URL, cwd), None) from config `accept` (the root's, else the one package that sets a
+    start), or (None, the reason it can't start)."""
+    try:
+        config = json.loads(read(os.path.join(root, ".sdlc", "config.json")) or "{}")
+    except ValueError as e:
+        return None, f"not run: .sdlc/config.json isn't valid JSON ({e})"
+    if not isinstance(config, dict):
+        return None, "not run: .sdlc/config.json isn't a JSON object"
+    found = [(sc["accept"], sc["path"]) for sc in scaffold.scopes(config)
+             if isinstance(sc.get("accept"), dict) and sc["accept"].get("start")]
+    if isinstance(config.get("accept"), dict) and config["accept"].get("start"):
+        found = [(config["accept"], ".")]
+    if len(found) != 1:
+        return None, ("not run: accept.start and accept.base_url aren't set in .sdlc/config.json" if not found else
+                      "not run: several packages set accept.start; set the root's accept to choose")
+    accept, path = found[0]
+    if not accept.get("base_url"):
+        return None, "not run: accept.base_url isn't set in .sdlc/config.json"
+    return (accept["start"], accept["base_url"], os.path.join(root, path)), None
+
+
+class Build:
+    """The local build recorded tests run against: started by the first row that needs it, stopped by close()."""
+    WAIT = 60
+
+    def __init__(self, root):
+        self.root, self.proc, self.env, self.error, self.started = root, None, None, None, False
+
+    def ensure(self):
+        """None once the build answers; else the reason it isn't running (kept in self.error)."""
+        if self.started:
+            return self.error
+        self.started = True
+        target, self.error = accept_target(self.root)
+        if self.error:
+            return self.error
+        start, url, cwd = target
+        if answers(url):
+            self.error = (f"not run: something already answers at {url}; stop it, so the tests reach the build "
+                          "this run starts")
+            return self.error
+        sh = scaffold.shell()
+        spawn = ({"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt"
+                 else {"start_new_session": True})
+        try:
+            self.proc = subprocess.Popen(sh + [start] if sh else start, shell=not sh, cwd=cwd,
+                                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **spawn)
+        except OSError as e:
+            self.error = f"not run: accept.start didn't start ({e})"
+            return self.error
+        deadline = time.time() + self.WAIT
+        while time.time() < deadline:
+            if self.proc.poll() is not None:
+                self.error = f"not run: accept.start exited ({self.proc.returncode}) before {url} answered"
+                return self.error
+            if answers(url):
+                break
+            time.sleep(0.25)
+        else:
+            self.error = f"not run: the build at {url} didn't answer within {self.WAIT}s"
+            return self.error
+        self.env = {"ACCEPT_BASE_URL": url}
+        return None
+
+    def close(self):
+        """Stops the build and everything it started (a shell, a dev server's children). POSIX: the whole process
+        group, even once its first process has exited. Windows: the tree under the first process, while it runs
+        (taskkill can't find children whose parent has exited)."""
+        if not self.proc:
+            return
+        if os.name == "nt":
+            if self.proc.poll() is None:
+                subprocess.run(["taskkill", "/T", "/F", "/PID", str(self.proc.pid)], capture_output=True)
+        else:
+            import signal
+            for sig in (signal.SIGTERM, signal.SIGKILL):
+                try:
+                    os.killpg(self.proc.pid, sig)
+                except OSError:  # the group is gone
+                    break
+                try:
+                    self.proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    continue
+                time.sleep(0.2)  # the group's other processes get the same signal; give them a moment
+        try:
+            self.proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            self.proc.kill()
+
+
+def answers(url):
+    """Any HTTP answer from `url`, an error status included."""
+    try:
+        urllib.request.build_opener(urllib.request.ProxyHandler({})).open(url, timeout=2).close()
+        return True
+    except urllib.error.HTTPError:
+        return True
+    except (urllib.error.URLError, OSError, ValueError):
+        return False
+
+
 def red(root, feature, acs, timeout=1800):
     """({AC: exit code}, []) when every AC's test fails as it should before its code exists, else (None, reasons)
     and nothing is recorded: a batch is recorded whole or not at all."""
     rows, codes, reasons, ran = acceptance(root, feature)[1] or [], {}, [], {}
-    for ac in acs:
-        code, reason = red_one(root, rows, ac, timeout, ran)
-        if reason:
-            reasons.append(reason)
-        else:
-            codes[ac] = code
+    build = Build(root)
+    try:
+        for ac in acs:
+            code, reason = red_one(root, rows, ac, timeout, ran, build)
+            if reason:
+                reasons.append(reason)
+            else:
+                codes[ac] = code
+    finally:
+        build.close()
     if reasons:
         return None, reasons
+    # The test lock (spec 03 S4), in a spec-backed repo only: each builder-written test, as it was when it failed;
+    # recorded tests have their manifest's hash instead
+    entries = []
+    for row in rows if spec_lock.spec_backed_repo(root) else ():
+        if row["ac"] in codes and not row["manual"] and bundle_check(root, row) is None:
+            entries += [row["file"], file_sha(os.path.join(root, row["file"]))]
+    if entries:
+        try:
+            state.run(argparse.Namespace(root=root, feature=feature, cmd="lock", entries=entries))
+        except state.Refused as e:
+            return None, [f"test lock not written: {e}"]
     rec = load_record(root)
     if rec.get("feature") != feature:
         rec = {"feature": feature}
@@ -360,14 +730,14 @@ def red(root, feature, acs, timeout=1800):
     return codes, []
 
 
-def run_once(ran, cmd, root, timeout):
+def run_once(ran, cmd, root, timeout, env=None):
     """One test may prove several ACs (their rows share its Run command): it runs once per verify call."""
     if cmd not in ran:
-        ran[cmd] = run(cmd, root, timeout)
+        ran[cmd] = run(cmd, root, timeout, env)
     return ran[cmd]
 
 
-def red_one(root, rows, ac, timeout, ran):
+def red_one(root, rows, ac, timeout, ran, build):
     """(exit code, None) when the AC's test fails as it should, else (None, reason)."""
     row = next((r for r in rows if r["ac"] == ac), None)
     if not row:
@@ -376,10 +746,20 @@ def red_one(root, rows, ac, timeout, ran):
         return None, f"{ac}: a manual row has no test to run"
     if not os.path.exists(os.path.join(root, row["file"])):
         return None, f"{ac}: {row['file']} not found"
-    code, out = run_once(ran, row["run"], root, timeout)
+    recorded = bundle_check(root, row)
+    if recorded and recorded[1]:
+        return None, recorded[1]
+    env = None
+    if recorded:
+        if build.ensure():
+            return None, f"{ac}: {build.error}"
+        env = build.env
+    code, out = run_once(ran, resolve(row["run"]) if recorded else row["run"], root, timeout, env)
     if code == 0:
         return None, f"{ac}: its test passes before its code exists, so it proves nothing"
-    if code in NOT_RUNNABLE or NOT_FOUND.search(out):
+    # The vendored runner says `not run: <reason>` when it couldn't run a recorded test; for the project's own tests
+    # that text is ordinary output
+    if code in NOT_RUNNABLE or NOT_FOUND.search(out) or recorded and "not run: " in out:
         return None, f"{ac}: the test did not run (exit {code}): check the Test and Run cells\n{out[-500:]}"
     return code, None
 
@@ -422,9 +802,10 @@ def main(argv=None):
     ap.add_argument("--root", default=".")
     ap.add_argument("--feature")
     ap.add_argument("--timeout", type=int, default=1800)
+    ap.add_argument("--at", metavar="REF", help="red only: run the ACs' current tests at REF (the feature's Base)")
     ap.add_argument("action", nargs="?", choices=["red", "status", "trace"])
     ap.add_argument("acs", nargs="*")
-    a = ap.parse_args(argv)
+    a = ap.parse_intermixed_args(argv)  # `red --at <ref> AC-001`: an option between positionals (Python < 3.12)
     root = os.path.abspath(a.root)
     feature = a.feature or active_feature(root)
     if not feature:
@@ -434,10 +815,12 @@ def main(argv=None):
         print(json.dumps(status(root, feature), indent=2))
         return 0
     if a.action == "trace":
+        cited = spec_backed(root, feature) if spec_lock.spec_backed_repo(root) else None
         found = trace(root, feature)
-        if found is None:
+        if found is None and cited is None:
             print("trace: no spec refs in the ACs, nothing to trace")
             return 0
+        found = (cited or []) + (found or [])
         for line in found:
             print(line)
         print(f"trace {feature}: " + (f"{len(found)} finding(s)" if found else "traced"))
@@ -446,11 +829,20 @@ def main(argv=None):
         if not a.acs or not all(AC_ID.fullmatch(ac) for ac in a.acs):
             print("verify red: name the acceptance criteria, e.g. AC-001 AC-002")
             return 2
+        if a.at:
+            done, reasons = red_at(root, feature, a.at, a.acs, a.timeout)
+            for line in reasons or [f"{ac}: fails at {a.at} with its test as it is now" for ac in done]:
+                print(line)
+            print("nothing recorded" if reasons else "recorded: the changed tests still fail without the feature")
+            return 1 if reasons else 0
         codes, reasons = red(root, feature, a.acs, a.timeout)
         for line in reasons or [f"{ac}: red recorded (exit {code})" for ac, code in codes.items()]:
             print(line)
         print("nothing recorded: fix those tests and rerun the whole batch" if reasons else "now write their code")
         return 1 if reasons else 0
+    if a.at:
+        print("verify: --at goes with red")
+        return 2
     last, notes = full(root, feature, a.timeout)
     for line in notes + last["failures"]:
         print(line)

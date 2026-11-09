@@ -31,11 +31,29 @@ def _target_repo(input_data):
         return None
 
 
+def _recorded_test_write(input_data):
+    """sdlc patch (spec 03 S3): the deny reason when this call writes a recorded acceptance test or its manifest, in
+    a repo with acceptance/manifest.json (hooks/role_guard.py bundle_problem); else None, and None on its own error.
+    It runs here because this hook already runs on exactly these tools, for every host (hosts/hook.py)."""
+    try:
+        import role_guard
+        root = os.path.abspath(os.environ.get('CLAUDE_PROJECT_DIR') or input_data.get('cwd') or os.getcwd())
+        root = _target_repo(input_data) or root
+        return role_guard.bundle_problem(input_data, root)
+    except Exception:
+        return None
+
+
 def main():
     """Main entry point for PreToolUse hook."""
     try:
         # Read input from stdin
         input_data = json.load(sys.stdin)
+        reason = _recorded_test_write(input_data)
+        if reason:
+            print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
+                                                     "permissionDecisionReason": reason}}))
+            return
 
         # Determine event type for filtering
         # For PreToolUse, we use tool_name to determine "bash" vs "file" event

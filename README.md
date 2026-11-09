@@ -38,6 +38,8 @@ Optional companions from the same marketplace (`/sdlc:setup` offers them):
 
 **Requirements:** `git`, `gh`, Python 3.9+. Node is needed only for the brainstorm visual companion. Your project needs nothing extra.
 
+**Shared contracts and spec-backed mode:** sdlc reads major version 1 of the contracts it shares with rspec, bug-hunter and product-rebuild (criteria lock, acceptance bundle, findings), vendored byte-identical in `scripts/contracts/v1/`. They apply only in a repo that holds an rspec `criteria.lock.json` or an `acceptance/manifest.json` (spec-backed mode, for product-rebuild); any other repo works as in 3.4.0.
+
 **Other coding agents (experimental):**
 
 | Agent | Install |

@@ -1,0 +1,66 @@
+{
+  "$comment": "contracts-version: 1.1.1",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "one cost.jsonl line (C7)",
+  "type": "object",
+  "required": [
+    "ts",
+    "plugin",
+    "stage",
+    "agent",
+    "tier",
+    "wall_s",
+    "turns",
+    "tokens_in",
+    "tokens_out",
+    "result"
+  ],
+  "properties": {
+    "ts": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "plugin": {
+      "type": "string",
+      "minLength": 1
+    },
+    "stage": {
+      "type": "string",
+      "minLength": 1
+    },
+    "agent": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tier": {
+      "type": "string",
+      "minLength": 1
+    },
+    "wall_s": {
+      "type": "number",
+      "minimum": 0
+    },
+    "turns": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "tokens_in": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "tokens_out": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "result": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

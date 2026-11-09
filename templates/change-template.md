@@ -32,7 +32,8 @@
 <!-- Each an id, AC-001 onward, and a new or changed behaviour a test can prove, so its test fails before the change.
      About 10 or fewer. Never "existing tests still pass": verify.py runs the whole suite anyway.
      A bug: AC-001 is the test that proves it today. A written spec exists: the AC names what it proves
-     (`- **AC-002** prd.md §4.2: Given …`, or `§FR-003`), and `verify.py trace` checks those refs. -->
+     (`- **AC-002** prd.md §4.2: Given …`, or `§FR-003`), and `verify.py trace` checks those refs. A spec-backed
+     change (an rspec criteria.lock.json) cites criteria instead of restating them: `- **AC-003** → F-ISS-01.AC2`. -->
 
 - **AC-001** Given [state], when [action], then [outcome].
 

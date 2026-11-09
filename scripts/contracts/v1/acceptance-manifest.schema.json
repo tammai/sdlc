@@ -1,0 +1,120 @@
+{
+  "$comment": "contracts-version: 1.1.1",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "acceptance/manifest.json (C4)",
+  "type": "object",
+  "required": [
+    "contracts",
+    "tests"
+  ],
+  "properties": {
+    "contracts": {
+      "type": "string",
+      "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+    },
+    "tests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "criterion",
+          "runner",
+          "path",
+          "sha256",
+          "level",
+          "visibility",
+          "recorded_against",
+          "last_green",
+          "normalize"
+        ],
+        "properties": {
+          "criterion": {
+            "type": "string",
+            "pattern": "^(F-[A-Z][A-Z0-9]*-[0-9]+\\.AC[0-9]+|AC-[0-9]{3,})$"
+          },
+          "runner": {
+            "type": "string",
+            "enum": [
+              "http",
+              "playwright",
+              "maestro",
+              "cli"
+            ]
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "unit",
+              "integration",
+              "e2e"
+            ]
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "open",
+              "hidden"
+            ]
+          },
+          "recorded_against": {
+            "type": "object",
+            "required": [
+              "kind",
+              "version_or_commit",
+              "base_url_env"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "minLength": 1
+              },
+              "version_or_commit": {
+                "type": "string",
+                "minLength": 1
+              },
+              "base_url_env": {
+                "type": "string",
+                "pattern": "^ACCEPT_[A-Z0-9_]+$"
+              }
+            }
+          },
+          "last_green": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "timestamp",
+              "target"
+            ],
+            "properties": {
+              "timestamp": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "target": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "normalize": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    }
+  }
+}

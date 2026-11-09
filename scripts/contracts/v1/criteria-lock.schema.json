@@ -1,0 +1,109 @@
+{
+  "$comment": "contracts-version: 1.1.1",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "criteria.lock.json (C3)",
+  "description": "Written by the spec's producer (rspec check, sdlc Define in standalone L); never edited by hand.",
+  "type": "object",
+  "required": [
+    "contracts",
+    "spec",
+    "generated",
+    "criteria"
+  ],
+  "properties": {
+    "contracts": {
+      "type": "string",
+      "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+    },
+    "spec": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generated": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "criteria": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "feature",
+          "file",
+          "text_sha256",
+          "tag",
+          "priority",
+          "level",
+          "test",
+          "departures"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^(F-[A-Z][A-Z0-9]*-[0-9]+\\.AC[0-9]+|AC-[0-9]{3,})$"
+          },
+          "feature": {
+            "type": "string",
+            "pattern": "^F-[A-Z][A-Z0-9]*-[0-9]+$"
+          },
+          "file": {
+            "type": "string",
+            "minLength": 1
+          },
+          "text_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "tag": {
+            "type": "string",
+            "enum": [
+              "docs",
+              "api",
+              "observed",
+              "code",
+              "3p",
+              "inferred",
+              "request",
+              "decision"
+            ]
+          },
+          "priority": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "MVP",
+              "Later",
+              "Drop",
+              null
+            ]
+          },
+          "level": {
+            "type": "integer",
+            "enum": [
+              0,
+              1,
+              2
+            ]
+          },
+          "test": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "departures": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^D-[0-9]{3,}$"
+            }
+          }
+        }
+      }
+    }
+  }
+}

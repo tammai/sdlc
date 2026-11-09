@@ -1,0 +1,3 @@
+steps:
+  - request: {method: POST, path: /seed, json: {team: ENG, issues: 11}}
+    expect: {status: 200}

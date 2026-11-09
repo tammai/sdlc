@@ -183,6 +183,23 @@ def not_ignored(root, patterns):
     return [p for p in patterns if p.strip("/") not in lines]
 
 
+def accept_keys(r, root, scopes):
+    """sdlc 3.5's keys (spec 03 S12), only in a spec-backed repo (spec_lock.spec_backed_repo: a criteria lock or an
+    acceptance bundle): how to start the build and reach it for the recorded acceptance tests. Elsewhere no row."""
+    import spec_lock  # sibling script: what makes a repo spec-backed
+    if not spec_lock.spec_backed_repo(root):
+        return
+    g = "repo"
+    where = lambda sc: "" if sc["name"] == scaffold.ROOT_SCOPE else f"{sc['name']}: "  # noqa: E731
+    # null (the whole block or a key) = not applicable, as for commands; "" or missing = not set yet
+    empty = [f"{where(sc)}accept.{k}" for sc in scopes if sc["accept"] is not None for k in ("start", "base_url")
+             if (sc["accept"] if isinstance(sc["accept"], dict) else {}).get(k, "") == ""]
+    r.add(g, "accept keys", "warn" if empty else "ok",
+          ("spec-backed repo, not set: " + ", ".join(empty)) if empty else "set",
+          "set accept.start (the command that starts the build) and accept.base_url (where the acceptance tests "
+          "reach it) in .sdlc/config.json · /sdlc:setup records them" if empty else None)
+
+
 def check_repo(r, root):
     g = "repo"
     try:
@@ -243,6 +260,7 @@ def check_repo(r, root):
         if status["setup"] == "complete" and unrun:
             r.add(g, "commands run", "warn", "never run successfully since recorded: " + ", ".join(unrun),
                   f"python3 scripts/scaffold.py run-commands · {RUNBOOK} R13")
+        accept_keys(r, root, scaffold.scopes(p.config))
         try:
             agents, cut = scaffold.agents_state(p), scaffold.codex_cut(p)
             if cut:

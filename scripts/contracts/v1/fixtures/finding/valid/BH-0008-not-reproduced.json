@@ -1,0 +1,31 @@
+{
+  "id": "BH-0008",
+  "source": "bug-hunter",
+  "class": "build-defect",
+  "severity": "high",
+  "criterion": "F-ISS-01.AC2",
+  "rule": null,
+  "repro": {
+    "runner": "http",
+    "steps": [
+      {
+        "request": {
+          "method": "GET",
+          "path": "/api/issues/x"
+        },
+        "expect": {
+          "status": 200
+        }
+      }
+    ]
+  },
+  "observed": {
+    "rebuild": "404",
+    "reference": "200"
+  },
+  "route": "sdlc",
+  "verified_by": {
+    "agent": "repro-verifier",
+    "result": "not-reproduced"
+  }
+}

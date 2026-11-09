@@ -51,6 +51,7 @@ Owner: <git email of whoever advances it>
 Tool: <claude-code | codex | cursor | antigravity>
 Verified: <commit> tree <worktree tree at the last passing verify>
 Slice: B<n>   Slice base: <commit>   Slice gates: none   (work split into parts only)
+Slice criteria: <criterion IDs>   (spec-backed: what the slice owes, from state.py new --criteria)
 Current: Stage 1 – Define   (then Stage 2 – Build, Stage 3 – Review, Stage 4 – Ship)
 
 ## Stages            (1 Define, 2 Build, 3 Review, 4 Ship)
@@ -61,6 +62,9 @@ Current: Stage 1 – Define   (then Stage 2 – Build, Stage 3 – Review, Stage
 ## UI mapping          (UI work only)
 ## Gate log
 ## Deviations          (state.py deviation: "What: … Why: … Effect: …")
+## Criteria            (spec-backed: each cited criterion's lock hash, state.py cite)
+## Test lock           (spec-backed: each test file's sha256 at its red run, verify.py red)
+## Spec questions      (spec-backed: open questions on cited criteria, state.py question)
 ## Open questions
 ```
 
