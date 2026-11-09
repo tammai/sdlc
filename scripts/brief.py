@@ -2,7 +2,8 @@
 """sdlc brief: everything Define reads before the code, printed in one call, so reading takes one turn, not four.
 
 Prints, each under a `===== <path> =====` line and cut at a line limit: the feature's paths (with a name), the
-project's .sdlc/config.json, .sdlc/baseline.md, knowledge/index.md, <docs>/recurring-defects.md, the constitution,
+project's .sdlc/config.json, .sdlc/baseline.md, knowledge/index.md, <docs>/recurring-defects.md (and, near the end,
+the plugin's own list, so the builder checks what Review checks), the constitution,
 the PRD, README.md, the package manifest, the tracked files and the plugin's change template. A missing file is one
 `(none)` line. The code the change touches isn't printed: the agent reads that itself, in the same turn. Run when
 sizing a new request, so the router's reading and Define's are one turn.
@@ -87,6 +88,8 @@ def brief(root, name=None, criteria=()):
     manifest = next((m for m in MANIFESTS if os.path.isfile(os.path.join(root, m))), None)
     parts.append(section(manifest or "package manifest", read(root, manifest) if manifest else "", 80))
     parts.append(section("git ls-files", tracked(root), 300))
+    parts.append(section("plugin recurring defects", read(os.path.dirname(HERE), os.path.join(
+        "skills", "orchestrator", "references", "recurring-defects.md"))))
     parts.append(section("change template", read(os.path.dirname(HERE), os.path.join("templates", "change-template.md"))))
     return "\n\n".join(parts) + "\n"
 

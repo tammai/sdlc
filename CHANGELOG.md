@@ -2,9 +2,9 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
-## 3.5.0-rc.6 — 2026-11-08
+## 3.5.0-rc.7 — 2026-11-09
 
-**No standalone behaviour change.** A repo without an rspec `criteria.lock.json` (or `spec_lock` in `.sdlc/config.json`) and without `acceptance/manifest.json` works exactly as with 3.4.0: no test lock, no criteria lint, no new config keys, no new `/sdlc:doctor` rows, no new hook denials and no extra hook process (the read-only rule for recorded tests runs inside the existing hookify PreToolUse hook). Two things every repo sees: a pre-release now sorts before its release (`3.5.0-rc.6` < `3.5.0`), and the 3.5.0 migration runs once and adds nothing outside spec-backed mode. 3.4.0's test suite passes unchanged.
+**No standalone behaviour change except one:** Build now writes against what Review checks (below, under Changed). Otherwise a repo without an rspec `criteria.lock.json` (or `spec_lock` in `.sdlc/config.json`) and without `acceptance/manifest.json` works exactly as with 3.4.0: no test lock, no criteria lint, no new config keys, no new `/sdlc:doctor` rows, no new hook denials and no extra hook process (the read-only rule for recorded tests runs inside the existing hookify PreToolUse hook). Two things every repo sees: a pre-release now sorts before its release (`3.5.0-rc.7` < `3.5.0`), and the 3.5.0 migration runs once and adds nothing outside spec-backed mode. 3.4.0's test suite passes unchanged apart from one added assertion in `tests/test_brief.py`.
 
 3.5.0 adds **spec-backed mode, for product-rebuild**, on only in a repo that holds one of those files (`spec_lock.spec_backed_repo`). This candidate is rebuilt from 3.4.0 (sdlc--v3.4.0), porting only the kept code from rc.1 to rc.3 and the contracts 1.1.1 re-vendor; rc.1 to rc.5 are superseded.
 
@@ -15,6 +15,9 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 - **Test lock** (S4): `verify.py red` records each test file's sha256 under `## Test lock`; a run fails on a locked test that changed or was deleted unless a `test-change` deviation names it and `verify.py red --at <Base>` shows it still fails on Base.
 - **Spec questions** (S10): `state.py question` writes a finding-v1 (`source: sdlc-question`, `class: spec-gap`) and blocks the running part; `state.py questions` unblocks it when the lock shows the amended criterion; autopilot runs the other ready parts meanwhile.
 - **`accept.start` / `accept.base_url`** (S12): `scaffold.py add-config-keys` (the 3.5.0 migration) adds them, empty, in a spec-backed repo only; `/sdlc:doctor` warns while they are empty, in a spec-backed repo only. No mutation-command key.
+
+### Changed (every repo)
+- **Build writes against what Review checks.** On the 3.5 parts, round-1 findings were mostly bad loaded data reaching the user as a traceback, other parts that read a reshaped file or counter, open-ended shell and path spellings, and stale docs. The builder never saw the defect list the reviewer used. Now `brief.py` also prints the plugin's `recurring-defects.md`, flow.md's Build names those classes to check while writing (no extra pass, no agent), a fix keeps the other shells, platforms and readers working, and S's Build step names the list too. Effect on review findings: not measured yet. What every repo sees: the builder gets the recurring-defects list in the brief and the Build checklist on every track, at a small token cost per run.
 
 ### Withdrawn (were in rc.1 to rc.5)
 - **S1** criterion lint in Define and the `Criteria: c1` mark, **S5** the test-auditor, **S6** the mutation probe and `commands.mutation`, **S7** the test-writer, **S8** the QA review row, **S9** the UI render, **S11** the Level column. Why: the rc.5 eval measured tokens +97% on M low and +62% on S against 3.4.0 with no change in quality on the eval tasks; sdlc 1.6.0 had already taken the qa-tester out of the gate for the same reason. They are not part of 3.5.0.

@@ -7,7 +7,7 @@ Every phase ties additions back to a request:
 - **Proposals are dropped by default.** Define adds no hardening, options, config or tooling that neither the request nor an applicable failure mode calls for. Anything else it would add is listed under the change file's proposals not asked for and dropped unless you keep it.
 - **The change file** has acceptance criteria a test can prove, each with its test, and an out-of-scope section.
 - **The state file's plan sections** name each task's files and declare a **Public Surface** (every new export, endpoint, command, config key, env var, dependency). `verify.py` reports a changed file no task names as drift until it has a deviation line.
-- **Review** runs `scripts/diff_stats.py --plan` to flag exports and dependencies missing from the Public Surface; unrequested public surface is high severity. Every reviewer also checks the spec's failure modes and the recurring-defects list (the plugin's seed plus the project's own).
+- **Review** runs `scripts/diff_stats.py --plan` to flag exports and dependencies missing from the Public Surface; unrequested public surface is high severity. Every reviewer also checks the spec's failure modes and the recurring-defects list (the plugin's seed plus the project's own). The builder gets the same list in the brief and writes against it.
 
 ## Verification
 
