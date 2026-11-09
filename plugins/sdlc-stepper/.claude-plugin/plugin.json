@@ -1,7 +1,7 @@
 {
   "name": "sdlc-stepper",
   "displayName": "SDLC stepper",
-  "version": "3.5.0-rc.6",
+  "version": "3.5.0-rc.7",
   "description": "A stepper bar above the Claude Code prompt for the active sdlc feature: Define → Build → Review → Ship, the parts of its backlog, and the part and step the session is on.",
   "author": {
     "name": "Tâm Mai",
