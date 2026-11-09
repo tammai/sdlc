@@ -2,11 +2,11 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
-## 3.5.0-rc.7 — 2026-11-09
+## 3.5.0 — 2026-11-09
 
 **No standalone behaviour change except one:** Build now writes against what Review checks (below, under Changed). Otherwise a repo without an rspec `criteria.lock.json` (or `spec_lock` in `.sdlc/config.json`) and without `acceptance/manifest.json` works exactly as with 3.4.0: no test lock, no criteria lint, no new config keys, no new `/sdlc:doctor` rows, no new hook denials and no extra hook process (the read-only rule for recorded tests runs inside the existing hookify PreToolUse hook). Two things every repo sees: a pre-release now sorts before its release (`3.5.0-rc.7` < `3.5.0`), and the 3.5.0 migration runs once and adds nothing outside spec-backed mode. 3.4.0's test suite passes unchanged apart from one added assertion in `tests/test_brief.py`.
 
-3.5.0 adds **spec-backed mode, for product-rebuild**, on only in a repo that holds one of those files (`spec_lock.spec_backed_repo`). This candidate is rebuilt from 3.4.0 (sdlc--v3.4.0), porting only the kept code from rc.1 to rc.3 and the contracts 1.1.1 re-vendor; rc.1 to rc.5 are superseded.
+3.5.0 adds **spec-backed mode, for product-rebuild**, on only in a repo that holds one of those files (`spec_lock.spec_backed_repo`). It is rebuilt from 3.4.0 (sdlc--v3.4.0), porting only the kept code from rc.1 to rc.3 and the contracts 1.1.1 re-vendor; rc.1 to rc.5 are superseded, and rc.6 and rc.7 are merged into this section.
 
 ### Added (spec-backed repos only)
 - **Shared contracts 1.1.1**, vendored byte-identical in `scripts/contracts/v1/` (MANIFEST sha256 e385f981…de30b, `-text` in `.gitattributes`; `contracts.py vendor-check`).
@@ -21,6 +21,8 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ### Withdrawn (were in rc.1 to rc.5)
 - **S1** criterion lint in Define and the `Criteria: c1` mark, **S5** the test-auditor, **S6** the mutation probe and `commands.mutation`, **S7** the test-writer, **S8** the QA review row, **S9** the UI render, **S11** the Level column. Why: the rc.5 eval measured tokens +97% on M low and +62% on S against 3.4.0 with no change in quality on the eval tasks; sdlc 1.6.0 had already taken the qa-tester out of the gate for the same reason. They are not part of 3.5.0.
+
+Checked on 2026-11-09 on the release commit: the full suite (484 tests, 4 skipped, Python 3.10), `claude plugin validate` and `hosts.py check`; 3.4.0's tests are unchanged apart from `tests/test_brief.py`. The smoke test was not re-run on the release commit.
 
 ## 3.4.0 — 2026-11-08
 
