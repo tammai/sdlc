@@ -2,7 +2,7 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
-## Unreleased
+## 3.6.0 — 2026-11-10
 
 ### Added
 - **Setup asks how the project deploys.** A new `deploy` step records the target (`none` yet, `docker-compose`, `gcp-cloud-run`, `vercel`, `cloudflare` or `other`) and the environments, each routine or not, as `deploy` in `.sdlc/config.json` (`scaffold.py deploy`), and seeds `knowledge/runbooks/deploy.md` from a new template: environments, deploy command, smoke test, rollback, logs and what deploys taught. `/sdlc:setup deploy` runs the step on its own; `/sdlc:upgrade` asks it in repos set up before.
@@ -12,6 +12,11 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ### Fixed
 - **The migrations rule now loads for Drizzle, Alembic and Flyway projects.** The default `areas.migrations` missed `drizzle/`, `alembic/` and `db/migration/`, so `.claude/rules/sdlc-migrations.md` and the migrations security trigger never applied there. Repos that set their own `areas.migrations` keep it.
+
+### Known issues
+- The setup diagram (`docs/diagrams/sdlc_setup_phase.svg`) still draws twelve numbered steps: its description names the deploy step, but the boxes need a relayout to add it.
+- A `.sdlc/config.json` whose top level isn't a JSON object crashes every `scaffold.py` command (`deploy` included) with a traceback instead of an error. It predates 3.6.0.
+- Only GCP Cloud Run has a platform reference; the other targets get the config and the runbook.
 
 ## 3.5.0 — 2026-11-09
 
