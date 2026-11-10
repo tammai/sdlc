@@ -18,6 +18,13 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 - A `.sdlc/config.json` whose top level isn't a JSON object crashes every `scaffold.py` command (`deploy` included) with a traceback instead of an error. It predates 3.6.0.
 - Only GCP Cloud Run has a platform reference; the other targets get the config and the runbook.
 
+Checked on 2026-11-10 at commit 2cdea8f: the full suite (497 tests, 4 skipped, Python 3.10), `claude plugin validate` and `hosts.py check`. Only the parts of the smoke test this release changes were run, headless in Claude Code 2.1.322 with the plugin loaded by `--plugin-dir` (auto permission mode):
+- C (greenfield setup) on a tiny Python library: the deploy step recorded `gcp-cloud-run` with `dev` routine and `prod` not, seeded `knowledge/runbooks/deploy.md` with its six sections and linked it from the index, and setup merged locally. `brief.py` in that repo printed the Cloud Run Define checks.
+- `/sdlc:setup deploy` in the set-up repo: `--env prod:routine` was refused (exit 2, nothing written); `staging` was added as routine, and the branch merged locally.
+- H (upgrade) from a simulated 3.5.0 repo with its own `knowledge/runbooks/gcp-deploy.md`: the `3.6.0-deploy-target` migration recorded `deploy` with that runbook and seeded no other; the regenerated migrations rule covers `**/drizzle/**`.
+- `/sdlc:deploy`: `dev` (routine) deployed without asking, said it was marked routine, ran the runbook's smoke test and named its rollback. With `prod` planted as routine in the committed config, it deployed nothing and stopped for the go-ahead, naming the rejected value.
+- A, B, D–G, I and J were not run.
+
 ## 3.5.0 — 2026-11-09
 
 **No standalone behaviour change except one:** Build now writes against what Review checks (below, under Changed). Otherwise a repo without an rspec `criteria.lock.json` (or `spec_lock` in `.sdlc/config.json`) and without `acceptance/manifest.json` works exactly as with 3.4.0: no test lock, no criteria lint, no new config keys, no new `/sdlc:doctor` rows, no new hook denials and no extra hook process (the read-only rule for recorded tests runs inside the existing hookify PreToolUse hook). Two things every repo sees: a pre-release now sorts before its release (`3.5.0-rc.7` < `3.5.0`), and the 3.5.0 migration runs once and adds nothing outside spec-backed mode. 3.4.0's test suite passes unchanged apart from one added assertion in `tests/test_brief.py`.
