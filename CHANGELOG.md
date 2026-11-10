@@ -2,7 +2,7 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
-## Unreleased
+## 3.6.0 — 2026-11-10
 
 ### Added
 - **Setup asks how the project deploys.** A new `deploy` step records the target (`none` yet, `docker-compose`, `gcp-cloud-run`, `vercel`, `cloudflare` or `other`) and the environments, each routine or not, as `deploy` in `.sdlc/config.json` (`scaffold.py deploy`), and seeds `knowledge/runbooks/deploy.md` from a new template: environments, deploy command, smoke test, rollback, logs and what deploys taught. `/sdlc:setup deploy` runs the step on its own; `/sdlc:upgrade` asks it in repos set up before.
@@ -12,6 +12,18 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ### Fixed
 - **The migrations rule now loads for Drizzle, Alembic and Flyway projects.** The default `areas.migrations` missed `drizzle/`, `alembic/` and `db/migration/`, so `.claude/rules/sdlc-migrations.md` and the migrations security trigger never applied there. Repos that set their own `areas.migrations` keep it.
+
+### Known issues
+- The setup diagram (`docs/diagrams/sdlc_setup_phase.svg`) still draws twelve numbered steps: its description names the deploy step, but the boxes need a relayout to add it.
+- A `.sdlc/config.json` whose top level isn't a JSON object crashes every `scaffold.py` command (`deploy` included) with a traceback instead of an error. It predates 3.6.0.
+- Only GCP Cloud Run has a platform reference; the other targets get the config and the runbook.
+
+Checked on 2026-11-10 at commit 2cdea8f: the full suite (497 tests, 4 skipped, Python 3.10), `claude plugin validate` and `hosts.py check`. Only the parts of the smoke test this release changes were run, headless in Claude Code 2.1.322 with the plugin loaded by `--plugin-dir` (auto permission mode):
+- C (greenfield setup) on a tiny Python library: the deploy step recorded `gcp-cloud-run` with `dev` routine and `prod` not, seeded `knowledge/runbooks/deploy.md` with its six sections and linked it from the index, and setup merged locally. `brief.py` in that repo printed the Cloud Run Define checks.
+- `/sdlc:setup deploy` in the set-up repo: `--env prod:routine` was refused (exit 2, nothing written); `staging` was added as routine, and the branch merged locally.
+- H (upgrade) from a simulated 3.5.0 repo with its own `knowledge/runbooks/gcp-deploy.md`: the `3.6.0-deploy-target` migration recorded `deploy` with that runbook and seeded no other; the regenerated migrations rule covers `**/drizzle/**`.
+- `/sdlc:deploy`: `dev` (routine) deployed without asking, said it was marked routine, ran the runbook's smoke test and named its rollback. With `prod` planted as routine in the committed config, it deployed nothing and stopped for the go-ahead, naming the rejected value.
+- A, B, D–G, I and J were not run.
 
 ## 3.5.0 — 2026-11-09
 

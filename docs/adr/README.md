@@ -27,5 +27,6 @@ Decisions about how the plugin itself is built: what was decided, why, and what 
 | [0021](0021-impeccable-for-ui-design.md) | UI design work can go to impeccable (config `design`); sdlc keeps the record, gates and review verdict | Accepted |
 | [0022](0022-phases-numbered-one-to-four.md) | The phases are numbered 1 to 4 (was 1, 4, 5, 8); `Process: 3`, a migration renumbers state files | Accepted |
 | [0023](0023-two-review-rounds.md) | Review aims for two rounds: one full review, one closing check | Accepted |
+| [0024](0024-deploy-targets.md) | Setup records how a project deploys (config `deploy`, a runbook); production is never routine; platform references give Define its checks | Accepted |
 
 New ADR: copy the shape of an existing one (Status, Context, Decision, Consequences), take the next number, and add a row here.
