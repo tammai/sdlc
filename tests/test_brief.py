@@ -33,6 +33,18 @@ class BriefTest(ProjectTestCase):
         # the builder gets the plugin's defect list too, not only the reviewer
         self.assertIn("===== plugin recurring defects =====\n# Recurring defects", out)
 
+    def test_prints_platform_checks_only_for_a_known_target(self):
+        self.write(".sdlc/config.json", json.dumps({"deploy": {"target": "gcp-cloud-run"}}))
+        out = self.brief()
+        self.assertIn("===== platform: gcp-cloud-run", out)
+        self.assertIn("references/platforms/gcp-cloud-run.md", out)
+        self.assertIn("--max-instances", out)  # the Define checks themselves
+        for target in ("none", "heroku", "../platforms/gcp-cloud-run", "GCP-Cloud-Run"):
+            self.write(".sdlc/config.json", json.dumps({"deploy": {"target": target}}))
+            self.assertNotIn("===== platform", self.brief(), target)
+        self.write(".sdlc/config.json", json.dumps({"deploy": "gcp-cloud-run"}))  # malformed: no crash, no section
+        self.assertNotIn("===== platform", self.brief())
+
 
 if __name__ == "__main__":
     unittest.main()

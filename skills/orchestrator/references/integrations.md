@@ -13,7 +13,7 @@ These connect to outside services (they're MCP servers or need accounts/credenti
 | Review | Extra reviewers | CodeRabbit, Qodo, SonarQube |
 | Review (security) | Deep scans | Claude Security (Anthropic; license doesn't allow bundling — install separately), Semgrep, Aikido, Sonatype Guide, Endor Labs |
 | Ship | PRs, CI status | GitHub, GitLab (the bundled commands also work with plain `gh`) |
-| `/sdlc:deploy` | Hosting | Vercel, Netlify, Railway, Cloudflare, Firebase, AWS (Deploy on AWS / aws-core / AWS Serverless), Azure, Terraform |
+| `/sdlc:deploy` | Hosting | Vercel, Netlify, Railway, Cloudflare, GCP (Cloud Run, Cloud SQL, Firebase), AWS (Deploy on AWS / aws-core / AWS Serverless), Azure, Terraform |
 | Operate (reference only) | Errors, metrics, flags | Sentry, Datadog, PostHog, PagerDuty |
 | Learn | Docs site | Mintlify |
 

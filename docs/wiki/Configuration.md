@@ -13,6 +13,7 @@ Setup writes `.sdlc/config.json`; it's yours to edit and holds only what differs
 | `contract.required` | The commands every package must list, `null` allowed (default all five) |
 | `verify.order` | Order of the verify steps (default lint, typecheck, build, test) |
 | `areas.*` | Path patterns for the policy rules and reviewers: `source`, `ui`, `tests`, `migrations`, `sensitive`, `ci` |
+| `deploy` | How the project deploys, set by setup's `deploy` step (`scaffold.py deploy`; `/sdlc:setup deploy` changes it): `target` (`none`, `docker-compose`, `gcp-cloud-run`, `vercel`, `cloudflare`, `other`), `environments` (`[{"name", "routine"}]`; only a routine one deploys without your go-ahead, and production, any name with a `prod`, `production`, `live` or `prd` part, never is) and `runbook` (a Markdown file in the repo, default `knowledge/runbooks/deploy.md`), which `/sdlc:deploy` follows. A value that fails its check is ignored and reported as `invalid` |
 | `ci` | `os` matrix (default `["ubuntu-latest"]`; add `"windows-latest"` if teammates develop on Windows) and toolchain versions (`node_version`, `java_version`, `dotnet_version`, `oasdiff_version`) for the generated workflow |
 | `baseline` | Where the known-failures baseline lives (default `.sdlc/baseline.md`) |
 | `min_plugin_version` | Teammates on an older plugin get a warning to update |

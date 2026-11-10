@@ -34,6 +34,9 @@
     "migrations": [
       "**/migrations/**",
       "**/migrate/**",
+      "**/db/migration/**",
+      "**/drizzle/**",
+      "**/alembic/**",
       "**/prisma/schema.prisma"
     ],
     "sensitive": [

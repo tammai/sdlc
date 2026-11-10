@@ -17,6 +17,7 @@ import glob
 import hashlib
 import json
 import os
+import posixpath
 import re
 import shutil
 import subprocess
@@ -1517,6 +1518,114 @@ def cmd_add_config_keys(p, a):
     return {"added": added}
 
 
+DEPLOY_TARGETS = ("none", "docker-compose", "gcp-cloud-run", "vercel", "cloudflare", "other")
+DEFAULT_RUNBOOK = "knowledge/runbooks/deploy.md"
+
+
+# never routine, whatever the config says: a committed config is untrusted, and production keeps its go-ahead.
+# A name is production when any of its parts is one of these (`prod-eu`, `eu.live`); names are plain ASCII, so no
+# space, zero-width or look-alike character can split or hide a part.
+PRODUCTION_ENVS = ("prod", "production", "live", "prd")
+ENV_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
+# /sdlc:deploy appends to the runbook: never a hook, the agent's settings or sdlc's own state
+RUNBOOK_EXCLUDED = (".git", ".claude", ".sdlc")
+
+
+def is_production(name):
+    return any(part in PRODUCTION_ENVS for part in re.split(r"[._-]", name.lower()))
+
+
+def runbook_path(root, value):
+    """`value` as a normalised repo-relative path to a Markdown file inside the repo and outside `.git/`, `.claude/`
+    and `.sdlc/`, checked again after symlinks are resolved; else None."""
+    if not isinstance(value, str) or not value.strip():
+        return None
+    raw = value.replace("\\", "/")
+    if raw.startswith("/") or (len(raw) > 1 and raw[1] == ":"):
+        return None
+    norm = posixpath.normpath(raw)
+    if norm in (".", "..") or norm.startswith("../"):
+        return None
+    real_root, real = os.path.realpath(root), os.path.realpath(os.path.join(root, norm))
+    if not real.startswith(real_root + os.sep):
+        return None
+    for path in (norm, os.path.relpath(real, real_root).replace(os.sep, "/")):
+        if not path.lower().endswith(".md") or path.split("/")[0].lower() in RUNBOOK_EXCLUDED:
+            return None
+    return norm
+
+
+def stored_deploy(p):
+    """config `deploy` with every value checked, since repo config is untrusted: a bad one is reported as null (or
+    dropped, or a routine production made non-routine) and named in the second value."""
+    current = (p.config or {}).get("deploy")
+    current = current if isinstance(current, dict) else {}
+    invalid = set()
+    target = current.get("target")
+    if target is not None and target not in DEPLOY_TARGETS:
+        invalid.add("target")
+        target = None
+    raw_envs = current.get("environments", [])
+    if not isinstance(raw_envs, list):
+        invalid.add("environments")
+        raw_envs = []
+    envs = []
+    for e in raw_envs:
+        name = e.get("name") if isinstance(e, dict) else None
+        if not isinstance(name, str) or not ENV_NAME.fullmatch(name) or any(x["name"] == name for x in envs):
+            invalid.add("environments")
+            continue
+        routine = e.get("routine") is True
+        if routine and is_production(name):
+            invalid.add(f"environments.{name}.routine")
+            routine = False
+        envs.append({"name": name, "routine": routine})
+    runbook = runbook_path(p.root, current.get("runbook", DEFAULT_RUNBOOK))
+    if runbook is None:
+        invalid.add("runbook")
+    return {"target": target, "environments": envs, "runbook": runbook}, sorted(invalid)
+
+
+def cmd_deploy(p, a):
+    """How the project deploys (config `deploy`): the target, the environments, each routine (deploys without a
+    go-ahead) or not, and the runbook /sdlc:deploy follows. With flags, records what they give and keeps the rest;
+    --env replaces the whole list. A production name is never routine. Prints only checked values: a stored one that
+    fails its check is null and listed in `invalid`, and recording drops it."""
+    if a.target is not None and a.target not in DEPLOY_TARGETS:
+        raise Refused(f"deploy target is one of {', '.join(DEPLOY_TARGETS)}, not {a.target!r}")
+    envs = []
+    for spec in a.env or []:
+        name, _, flag = spec.partition(":")
+        name = name.strip()
+        if not ENV_NAME.fullmatch(name) or flag not in ("", "routine"):
+            raise Refused(f"--env takes NAME or NAME:routine, NAME in letters, digits, '.', '_' and '-', not {spec!r}")
+        if any(e["name"] == name for e in envs):
+            raise Refused(f"environment {name!r} given twice")
+        if flag and is_production(name):
+            raise Refused(f"{name!r} is production: it always needs the go-ahead, so it can't be routine")
+        envs.append({"name": name, "routine": flag == "routine"})
+    runbook = None
+    if a.runbook is not None:
+        runbook = runbook_path(p.root, a.runbook)
+        if runbook is None:
+            raise Refused(f"runbook {a.runbook!r} is not a file path inside the repo")
+    deploy, invalid = stored_deploy(p)
+    if a.target is not None or a.env or runbook is not None:
+        if a.target is not None:
+            deploy["target"] = a.target
+        if a.env:
+            deploy["environments"] = envs
+        deploy["runbook"] = runbook or deploy["runbook"] or runbook_path(p.root, DEFAULT_RUNBOOK)
+        p.config = p.config or {}
+        p.config["deploy"] = {k: v for k, v in deploy.items() if v is not None}
+        p.save()
+        deploy, invalid = stored_deploy(p)
+    out = {"deploy": deploy}
+    if invalid:
+        out["invalid"] = invalid
+    return out
+
+
 def cmd_set_version(p, a):
     lock = p.require_lock()
     if parse_version(a.version)[0] >= 2 and old_features(p):
@@ -1810,6 +1919,12 @@ def build_parser():
     s = sub.add_parser("prd", help="the product doc's path; with a path, record it in config")
     s.add_argument("path", nargs="?")
     s.set_defaults(fn=cmd_prd)
+    s = sub.add_parser("deploy", help="how the project deploys (target, environments, runbook); with flags, record it")
+    s.add_argument("--target", help=", ".join(DEPLOY_TARGETS))
+    s.add_argument("--env", action="append", metavar="NAME[:routine]",
+                   help="an environment, routine when it deploys without a go-ahead; repeat for each (replaces the list)")
+    s.add_argument("--runbook", help=f"the deploy runbook's path (default {DEFAULT_RUNBOOK})")
+    s.set_defaults(fn=cmd_deploy)
     s = sub.add_parser("design", help="who does UI design work (builtin or impeccable); with a mode, record it")
     s.add_argument("mode", nargs="?")
     s.add_argument("--enable", action="store_true",
