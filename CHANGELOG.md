@@ -2,6 +2,17 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
+## Unreleased
+
+### Added
+- **Setup asks how the project deploys.** A new `deploy` step records the target (`none` yet, `docker-compose`, `gcp-cloud-run`, `vercel`, `cloudflare` or `other`) and the environments, each routine or not, as `deploy` in `.sdlc/config.json` (`scaffold.py deploy`), and seeds `knowledge/runbooks/deploy.md` from a new template: environments, deploy command, smoke test, rollback, logs and what deploys taught. `/sdlc:setup deploy` runs the step on its own; `/sdlc:upgrade` asks it in repos set up before.
+- **`/sdlc:deploy` follows the runbook.** Only an environment marked routine deploys without your go-ahead; the smoke test and rollback come from the runbook, and a fact a deploy teaches (a header shape, a URL) is written back to it.
+- **A GCP Cloud Run platform reference.** With `deploy.target: gcp-cloud-run`, Define sees its checks as failure modes: no state in process memory, Cloud SQL connections against `--max-instances`, the `/cloudsql/` socket URL, Workload Identity Federation instead of keys, `printf '%s'` for secrets, the real `X-Forwarded-For` shape, Firebase Hosting's `__session` cookie, and rollback by traffic not undoing migrations.
+- **Deploy and rollback in the templates.** The change template's failure modes ask whether the migration works with the previous app version and whether anything assumes one process; the migrations rule says why additive steps matter; the constitution template has an optional Release principle.
+
+### Fixed
+- **The migrations rule now loads for Drizzle, Alembic and Flyway projects.** The default `areas.migrations` missed `drizzle/`, `alembic/` and `db/migration/`, so `.claude/rules/sdlc-migrations.md` and the migrations security trigger never applied there. Repos that set their own `areas.migrations` keep it.
+
 ## 3.5.0 — 2026-11-09
 
 **No standalone behaviour change except one:** Build now writes against what Review checks (below, under Changed). Otherwise a repo without an rspec `criteria.lock.json` (or `spec_lock` in `.sdlc/config.json`) and without `acceptance/manifest.json` works exactly as with 3.4.0: no test lock, no criteria lint, no new config keys, no new `/sdlc:doctor` rows, no new hook denials and no extra hook process (the read-only rule for recorded tests runs inside the existing hookify PreToolUse hook). Two things every repo sees: a pre-release now sorts before its release (`3.5.0-rc.7` < `3.5.0`), and the 3.5.0 migration runs once and adds nothing outside spec-backed mode. 3.4.0's test suite passes unchanged apart from one added assertion in `tests/test_brief.py`.

@@ -5,7 +5,9 @@ Prints, each under a `===== <path> =====` line and cut at a line limit: the feat
 project's .sdlc/config.json, .sdlc/baseline.md, knowledge/index.md, <docs>/recurring-defects.md (and, near the end,
 the plugin's own list, so the builder checks what Review checks), the constitution,
 the PRD, README.md, the package manifest, the tracked files and the plugin's change template. A missing file is one
-`(none)` line. The code the change touches isn't printed: the agent reads that itself, in the same turn. Run when
+`(none)` line. When config's `deploy.target` names one of the plugin's platform references, it also
+prints that reference's `## Define checks` and the file's path; a target that isn't a plain slug names no
+file. The code the change touches isn't printed: the agent reads that itself, in the same turn. Run when
 sizing a new request, so the router's reading and Define's are one turn.
 Spec-backed work (spec 03 S2): `--criteria ID ...` (the slice's criteria), and the IDs NAME's change file cites,
 print as `cited criteria`: each criterion's line from the spec, with its level and recorded test from the lock.
@@ -14,10 +16,12 @@ Usage: python3 brief.py [--root DIR] [NAME] [--criteria ID ...]. Read-only. Exit
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+PLATFORMS = "skills/orchestrator/references/platforms"
 sys.path.insert(0, os.path.join(os.path.dirname(HERE), "hooks"))
 import sdlc_layout  # noqa: E402  (where the feature's state and documents live)
 sys.path.insert(0, HERE)
@@ -56,6 +60,24 @@ def tracked(root):
     return p.stdout if p.returncode == 0 else ""
 
 
+def platform(root):
+    """The platform reference's Define checks for config's deploy target, as a section; None when there are none.
+    Repo config is untrusted: only a plain slug may name a file in the plugin."""
+    try:
+        cfg = json.loads(read(root, ".sdlc/config.json") or "{}")
+    except ValueError:
+        return None
+    deploy = cfg.get("deploy") if isinstance(cfg, dict) else None
+    target = deploy.get("target") if isinstance(deploy, dict) else None
+    if not isinstance(target, str) or not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", target):
+        return None
+    rel = f"{PLATFORMS}/{target}.md"
+    m = re.search(r"^## Define checks\n(.*?)(?=^## |\Z)", read(os.path.dirname(HERE), rel), re.M | re.S)
+    if not m:
+        return None
+    return section(f"platform: {target} (the rest: ${{CLAUDE_PLUGIN_ROOT}}/{rel})", m.group(1).strip())
+
+
 def criteria_text(root, ids):
     """One line per criterion ID: its text from the spec, its level and recorded test; or why it can't be shown."""
     locked, problems = spec_lock.load(root)
@@ -85,6 +107,9 @@ def brief(root, name=None, criteria=()):
     for rel in (".sdlc/config.json", ".sdlc/baseline.md", "knowledge/index.md", f"{docs}/recurring-defects.md",
                 f"{docs}/constitution.md", sdlc_layout.prd(root), "README.md"):
         parts.append(section(rel, read(root, rel)))
+    checks = platform(root)
+    if checks:
+        parts.append(checks)
     manifest = next((m for m in MANIFESTS if os.path.isfile(os.path.join(root, m))), None)
     parts.append(section(manifest or "package manifest", read(root, manifest) if manifest else "", 80))
     parts.append(section("git ls-files", tracked(root), 300))

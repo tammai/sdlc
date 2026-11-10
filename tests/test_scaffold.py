@@ -553,6 +553,98 @@ class ScaffoldTest(ProjectTestCase):
         self.assertIn("builtin", self.sc("design", "figma", expect=2)["refused"])
         self.assertEqual(self.sc("design")["design"], "impeccable")  # the refused value changed nothing
 
+    def test_deploy_records_target_environments_and_runbook(self):
+        self.init()
+        self.assertIsNone(self.sc("deploy")["deploy"]["target"])  # nothing recorded yet
+        out = self.sc("deploy", "--target", "gcp-cloud-run", "--env", "dev:routine", "--env", "prod")
+        want = {"target": "gcp-cloud-run", "environments": [{"name": "dev", "routine": True},
+                                                            {"name": "prod", "routine": False}],
+                "runbook": "knowledge/runbooks/deploy.md"}
+        self.assertEqual(out["deploy"], want)
+        self.assertEqual(json.loads(self.read(".sdlc/config.json"))["deploy"], want)
+        self.assertEqual(self.sc("deploy")["deploy"], want)
+        self.assertEqual(self.sc("deploy", "--runbook", "knowledge/runbooks/gcp-deploy.md")["deploy"]["runbook"],
+                         "knowledge/runbooks/gcp-deploy.md")
+        self.assertIn("gcp-cloud-run", self.sc("deploy", "--target", "heroku", expect=2)["refused"])
+        self.sc("deploy", "--target", "vercel", "--env", ":routine", expect=2)
+        self.assertEqual(json.loads(self.read(".sdlc/config.json"))["deploy"]["target"], "gcp-cloud-run")
+
+    def test_deploy_never_marks_production_routine(self):
+        # a committed config is untrusted: it must never let /sdlc:deploy skip production's go-ahead (review r1 S-001)
+        self.init()
+        for name in ("prod", "Production", "live", "prd"):
+            self.sc("deploy", "--target", "vercel", "--env", f"{name}:routine", expect=2)
+        self.assertNotIn("deploy", json.loads(self.read(".sdlc/config.json")))
+        config = json.loads(self.read(".sdlc/config.json"))
+        config["deploy"] = {"target": "vercel", "environments": [{"name": "dev", "routine": True},
+                                                                 {"name": "prod", "routine": True}]}
+        self.write(".sdlc/config.json", json.dumps(config))
+        out = self.sc("deploy")
+        self.assertEqual(out["deploy"]["environments"], [{"name": "dev", "routine": True},
+                                                         {"name": "prod", "routine": False}])
+        self.assertIn("environments.prod.routine", out["invalid"])
+
+    def test_deploy_checks_the_runbook_flag_and_every_stored_value(self):
+        # review r1 M1, S-002/M2: a path outside the repo is refused (exit 2) or reported null, never printed as usable
+        self.init()
+        for bad in ("../x", "/etc/passwd", "", ".", "knowledge/../../x"):
+            self.sc("deploy", "--runbook", bad, expect=2)
+        config = json.loads(self.read(".sdlc/config.json"))
+        config["deploy"] = {"target": "../../x", "environments": "prod", "runbook": "../../.bashrc"}
+        self.write(".sdlc/config.json", json.dumps(config))
+        out = self.sc("deploy")
+        self.assertEqual(out["deploy"], {"target": None, "environments": [], "runbook": None})
+        self.assertEqual(out["invalid"], ["environments", "runbook", "target"])
+        out = self.sc("deploy", "--target", "vercel")  # recording drops what was invalid
+        self.assertEqual(out["deploy"], {"target": "vercel", "environments": [], "runbook": "knowledge/runbooks/deploy.md"})
+        self.assertNotIn("invalid", out)
+        outside = tempfile.mkdtemp(prefix="sdlc-outside-")
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        try:
+            os.symlink(outside, self.path("ops"))
+        except (OSError, NotImplementedError):
+            return  # no symlinks here (Windows without the privilege): the path checks above still ran
+        self.sc("deploy", "--runbook", "ops/deploy.md", expect=2)
+        # a stored or default runbook through the same symlink is reported invalid too (review r2 L-3)
+        config = json.loads(self.read(".sdlc/config.json"))
+        config["deploy"] = {"target": "vercel", "runbook": "ops/deploy.md"}
+        self.write(".sdlc/config.json", json.dumps(config))
+        self.assertIsNone(self.sc("deploy")["deploy"]["runbook"])
+        del config["deploy"]["runbook"]
+        self.write(".sdlc/config.json", json.dumps(config))
+        os.symlink(outside, self.path("knowledge"))
+        out = self.sc("deploy")
+        self.assertIsNone(out["deploy"]["runbook"])
+        self.assertIn("runbook", out["invalid"])
+
+    def test_deploy_production_is_any_name_with_a_production_part(self):
+        # review r2 M2/M-2: one check, on the flag and on stored config; names are plain ASCII so none can hide a part
+        self.init()
+        for name in ("prod-eu", "production_us", "eu.live", "PRD-2", "pro​d", "prod eu", "-x"):
+            self.sc("deploy", "--target", "vercel", f"--env={name}:routine", expect=2)  # `=`: argparse reads -x as a flag
+        out = self.sc("deploy", "--target", "vercel", "--env", "dev:routine", "--env", "product-preview:routine",
+                      "--env", "prod-eu")
+        self.assertEqual([(e["name"], e["routine"]) for e in out["deploy"]["environments"]],
+                         [("dev", True), ("product-preview", True), ("prod-eu", False)])
+        config = json.loads(self.read(".sdlc/config.json"))
+        config["deploy"]["environments"] = [{"name": "prod-eu", "routine": True}, {"name": "pro​d", "routine": True}]
+        self.write(".sdlc/config.json", json.dumps(config))
+        out = self.sc("deploy")
+        self.assertEqual(out["deploy"]["environments"], [{"name": "prod-eu", "routine": False}])
+        self.assertEqual(out["invalid"], ["environments", "environments.prod-eu.routine"])
+
+    def test_deploy_runbook_is_a_markdown_doc_outside_tool_folders(self):
+        # review r2 L-2: /sdlc:deploy appends to the runbook, so it can't name a hook, settings or sdlc's own state
+        self.init()
+        for bad in (".git/hooks/pre-commit", ".git/x.md", ".claude/settings.json", ".claude/rules/x.md",
+                    ".sdlc/config.md", "knowledge/runbooks/deploy.txt", "deploy"):
+            self.sc("deploy", "--runbook", bad, expect=2)
+        self.assertEqual(self.sc("deploy", "--runbook", "docs/ops/deploy.md")["deploy"]["runbook"], "docs/ops/deploy.md")
+        config = json.loads(self.read(".sdlc/config.json"))
+        config["deploy"]["runbook"] = ".claude/settings.json"
+        self.write(".sdlc/config.json", json.dumps(config))
+        self.assertIn("runbook", self.sc("deploy")["invalid"])
+
     def test_impeccable_mode_drops_ui_guardrail(self):
         # impeccable's detector hook does this job; both would report the same value on every edit
         self.template("templates/project/hookify/sdlc-ui-hardcoded-values.md", "ui\n")

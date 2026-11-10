@@ -32,6 +32,10 @@ Changes MUST be the smallest that meet the acceptance criteria. New abstractions
 [PRINCIPLE_6_DESCRIPTION]
 <!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format -->
 
+### VII. Release (optional)
+<!-- sdlc optional: keep when the project deploys somewhere (`deploy` in .sdlc/config.json); drop it otherwise. -->
+Production MUST change only through the project's deploy script, after an explicit go-ahead from a person each time. Secrets MUST live in the platform's secret store, never in the repo, an image or a CI log. A migration MUST work with the app version before it, since a rollback moves traffic back without undoing it.
+
 ## [SECTION_2_NAME]
 <!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
 

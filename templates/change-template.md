@@ -54,8 +54,10 @@
 ## Failure modes
 
 <!-- Only the edges that apply: concurrent use, scale or large inputs, persisted-data migration, partial failure or a
-     crash mid-write, untrusted input, I/O errors. Each one is also an acceptance criterion or a must-never-break line.
-     None apply: say so in one line. -->
+     crash mid-write, untrusted input, I/O errors, deploy and rollback (does the migration work with the previous app
+     version; does anything assume one process). With a deploy target in .sdlc/config.json, the platform's Define
+     checks (brief.py prints them) are candidates too. Each one is also an acceptance criterion or a must-never-break
+     line. None apply: say so in one line. -->
 
 - [failure mode] → AC-00N
 
