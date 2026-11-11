@@ -1,4 +1,4 @@
-# contracts-version: 1.2.0
+# contracts-version: 1.3.0
 """contracts.py — validators for the shared contracts v1 (C1–C7 in CONTRACTS.md), stdlib only.
 
   python3 contracts.py id F-ISS-01.AC2 [--profile rspec|sdlc-s|sdlc-m|sdlc-l]
@@ -38,7 +38,7 @@ import urllib.request
 from xml.sax.saxutils import escape, quoteattr
 
 # Must equal the version in MANIFEST and in every header; vendor-check compares them.
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 # ---------------------------------------------------------------- YAML subset
@@ -640,6 +640,9 @@ def check_lock(lock, root=None):
             issues.append(("error", "%s: id is not under feature %s" % (cid, c["feature"])))
         if c["level"] == 2 and not c["test"]:
             issues.append(("error", "%s: level 2 needs a test (a recorded test passed against the reference)" % cid))
+        if c["level"] == 1 and c["tag"] == "inferred":
+            issues.append(("error", "%s: an [inferred] criterion never reaches level 1 by audit; it needs a source "
+                                    "tag first (C3)" % cid))
     if root is None:
         issues.append(("error", "not run: text_sha256 check (pass --root <repo>)"))
         return issues
