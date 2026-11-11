@@ -1,4 +1,4 @@
-# contracts-version: 1.1.1
+# contracts-version: 1.2.0
 """contracts.py — validators for the shared contracts v1 (C1–C7 in CONTRACTS.md), stdlib only.
 
   python3 contracts.py id F-ISS-01.AC2 [--profile rspec|sdlc-s|sdlc-m|sdlc-l]
@@ -38,7 +38,7 @@ import urllib.request
 from xml.sax.saxutils import escape, quoteattr
 
 # Must equal the version in MANIFEST and in every header; vendor-check compares them.
-VERSION = "1.1.1"
+VERSION = "1.2.0"
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 # ---------------------------------------------------------------- YAML subset
