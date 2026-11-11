@@ -4,6 +4,10 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
+## 3.6.1 — 2026-11-11
+
+A patch that only re-vendors the shared contracts; no behaviour change in sdlc. The smoke test in real sessions (runbook) was not run for this release.
+
 ### Changed
 - **Shared contracts 1.3.0**, vendored byte-identical in `scripts/contracts/v1/` from product-rebuild f4ac06e. `check_lock` now reports an error for a criterion tagged `[inferred]` at level 1 (C3), with a new invalid fixture that `vendor-check` runs; sdlc never writes a criteria lock, so nothing it produces is affected.
 - **Shared contracts 1.2.0**, vendored byte-identical in `scripts/contracts/v1/` from product-rebuild aeff427. C3's level 1 now needs a SUPPORTED verdict, and a criterion tagged `[inferred]` never reaches it by audit; no field or format changes, and nothing in sdlc reads the level rule.
