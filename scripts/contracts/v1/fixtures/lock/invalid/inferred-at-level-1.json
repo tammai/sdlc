@@ -1,0 +1,18 @@
+{
+  "contracts": "1.0.0",
+  "spec": "docs/specs/trackr",
+  "generated": "2026-11-08T10:00:00Z",
+  "criteria": [
+    {
+      "id": "F-ISS-01.AC2",
+      "feature": "F-ISS-01",
+      "file": "features/F-ISS-01-create-issue.md",
+      "text_sha256": "65826a70a33f35d304050cb3796e9b71e5f79f0eecb3b280956f47c3c1ca8e65",
+      "tag": "inferred",
+      "priority": "MVP",
+      "level": 1,
+      "test": null,
+      "departures": []
+    }
+  ]
+}

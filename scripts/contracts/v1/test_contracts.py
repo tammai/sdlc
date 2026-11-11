@@ -1,4 +1,4 @@
-# contracts-version: 1.2.0
+# contracts-version: 1.3.0
 """test_contracts.py — unit tests for contracts.py, one class per contract (C1–C7) plus the YAML subset.
 
   python3 contracts/v1/test_contracts.py                 # all
@@ -233,6 +233,15 @@ class TestC3Lock(unittest.TestCase):
         self.assertTrue(has(errors(C.check_lock(lock, self.root)), "text_sha256"))
         self.assertTrue(has(errors(C.check_lock(make_lock(level=3), self.root)), "level"))
         self.assertTrue(has(errors(C.check_lock(make_lock(tag="[observed]"), self.root)), "tag"))
+
+    def test_inferred_never_at_level_1(self):
+        self.assertTrue(has(errors(C.check_lock(make_lock(tag="inferred", level=1, test=None), self.root)),
+                            "inferred"))
+        self.assertEqual(C.check_lock(make_lock(tag="inferred", level=0, test=None), self.root), [])
+        self.assertEqual(C.check_lock(make_lock(tag="inferred"), self.root), [])
+        self.assertEqual(C.check_lock(make_lock(level=1, test=None), self.root), [])
+        fixture = os.path.join(HERE, "fixtures", "lock", "invalid", "inferred-at-level-1.json")
+        self.assertTrue(has(errors(C._fixture_issues("lock", fixture)), "inferred"))
 
     def test_semantics(self):
         self.assertTrue(has(errors(C.check_lock(make_lock(feature="F-ISS-02"), self.root)), "not under feature"))
@@ -549,13 +558,13 @@ class TestC6Finding(unittest.TestCase):
                                                                     "result": "not run: spec question"})))
         self.assertTrue(has(errors(C.check_finding(make_finding(source="Bug Hunter"))), "source"))
 
-    def test_version_is_1_2_0(self):
-        self.assertEqual(C.VERSION, "1.2.0")
+    def test_version_is_1_3_0(self):
+        self.assertEqual(C.VERSION, "1.3.0")
         for name in sorted(os.listdir(HERE)):
             path = os.path.join(HERE, name)
             if os.path.isfile(path) and name != "MANIFEST" and C.header_for(name):
                 with open(path, encoding="utf-8") as f:
-                    self.assertIn("contracts-version: 1.2.0", f.read(300), name)
+                    self.assertIn("contracts-version: 1.3.0", f.read(300), name)
 
 
 COST = "\n".join([
