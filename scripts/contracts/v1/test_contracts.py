@@ -1,4 +1,4 @@
-# contracts-version: 1.1.1
+# contracts-version: 1.2.0
 """test_contracts.py — unit tests for contracts.py, one class per contract (C1–C7) plus the YAML subset.
 
   python3 contracts/v1/test_contracts.py                 # all
@@ -549,13 +549,13 @@ class TestC6Finding(unittest.TestCase):
                                                                     "result": "not run: spec question"})))
         self.assertTrue(has(errors(C.check_finding(make_finding(source="Bug Hunter"))), "source"))
 
-    def test_version_is_1_1_1(self):
-        self.assertEqual(C.VERSION, "1.1.1")
+    def test_version_is_1_2_0(self):
+        self.assertEqual(C.VERSION, "1.2.0")
         for name in sorted(os.listdir(HERE)):
             path = os.path.join(HERE, name)
             if os.path.isfile(path) and name != "MANIFEST" and C.header_for(name):
                 with open(path, encoding="utf-8") as f:
-                    self.assertIn("contracts-version: 1.1.1", f.read(300), name)
+                    self.assertIn("contracts-version: 1.2.0", f.read(300), name)
 
 
 COST = "\n".join([

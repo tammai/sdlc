@@ -1,4 +1,4 @@
-<!-- contracts-version: 1.1.1 -->
+<!-- contracts-version: 1.2.0 -->
 # Shared contracts v1
 
 The normative part of the shared-contracts spec, used by rspec, sdlc, bug-hunter and product-rebuild. `contracts.py` in this folder checks every rule. Sections C1–C7 are copied from the spec unchanged. "Settled in v1" fixes the details the spec left open.
@@ -55,7 +55,7 @@ Written by the producer of the spec (rspec `check`, sdlc Define in standalone L)
 }
 ```
 
-`level`: **0** written and `check` passes · **1** passed audit (sampled and confirmed, or in an audited population with no contradiction) · **2** a recorded test passed against the running reference (C4). A text change invalidates the level: `text_sha256` mismatch → level drops to 0 until re-verified.
+`level`: **0** written and `check` passes · **1** passed audit (sampled and SUPPORTED by its source, or unsampled in an audited population whose sample has no contradiction); a criterion tagged `[inferred]` never reaches level 1 by audit, since not contradicted is not evidence: it needs a source tag first · **2** a recorded test passed against the running reference (C4). A text change invalidates the level: `text_sha256` mismatch → level drops to 0 until re-verified.
 
 ## C4 Acceptance bundle: `acceptance/`
 

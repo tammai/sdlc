@@ -2,6 +2,11 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
+## Unreleased
+
+### Changed
+- **Shared contracts 1.2.0**, vendored byte-identical in `scripts/contracts/v1/` from product-rebuild aeff427. C3's level 1 now needs a SUPPORTED verdict, and a criterion tagged `[inferred]` never reaches it by audit; no field or format changes, and nothing in sdlc reads the level rule.
+
 ## 3.6.0 — 2026-11-10
 
 ### Added
