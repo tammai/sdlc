@@ -5,6 +5,7 @@ import unittest
 from helpers import HOOKS, ProjectTestCase, run_hook
 
 HOOK = ["python3", os.path.join(HOOKS, "review_rounds.py")]
+ASKED = ["python3", os.path.join(HOOKS, "user_answer.py")]
 STATE = "# login\nStatus: active\nProcess: 3\nTrack: M\nRisk: low\nCurrent: Stage 3 – Review\n"
 
 
@@ -41,6 +42,31 @@ class ReviewRoundsTest(ProjectTestCase):
         self.assertIsNone(self.edit())
         self.report(3, "FAIL — 1 high: H1")
         self.assertEqual(self.edit(), "deny")  # the granted round failed too: ask again
+
+    def answer(self, header="Review cap", forged=False, use_id="toolu_1"):
+        q = {"question": "One more round?", "header": header, "options": [{"label": "One more round"}, {"label": "Stop"}]}
+        given = {q["question"]: "One more round"}
+        _, out, _, _ = run_hook(ASKED, {"hook_event_name": "PreToolUse", "cwd": self.root, "tool_name": "AskUserQuestion",
+                                        "tool_use_id": use_id,
+                                        "tool_input": dict({"questions": [q]}, **({"answers": given} if forged else {}))},
+                                self.root)
+        if forged:
+            return (out or {}).get("hookSpecificOutput", {}).get("permissionDecision")
+        run_hook(HOOK, {"hook_event_name": "PostToolUse", "cwd": self.root, "tool_name": "AskUserQuestion",
+                        "tool_use_id": use_id, "tool_input": {"questions": [q], "answers": given},
+                        "tool_response": {"questions": [q], "answers": given}}, self.root)
+
+    def test_the_users_answer_to_the_review_cap_question_grants_one_round(self):
+        self.report(1, "FAIL — 1 high: H1")
+        self.report(2, "FAIL — 1 high: H1")
+        self.assertEqual(self.edit(), "deny")
+        self.answer(header="Color")  # an answer to another question grants nothing
+        self.assertEqual(self.answer(forged=True, use_id="toolu_forged"), "deny")  # an answer the agent filled in
+        self.assertEqual(self.edit(), "deny")
+        self.answer()
+        self.assertIsNone(self.edit())
+        self.report(3, "FAIL — 1 high: H1")
+        self.assertEqual(self.edit(), "deny")
 
     def test_with_no_active_feature_it_writes_nothing(self):
         # Setup commits as it goes, before its .gitignore step: a store written here would land in those commits

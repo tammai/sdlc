@@ -51,7 +51,7 @@ When the maintainer says "release", the agent runs every step below through to t
 
 ### Smoke test before a release
 
-The test suite runs hooks and scripts as subprocesses; this checks the installed plugin in real sessions, which the suite can't. About 45 minutes. Use throwaway repos outside any real project, a **fresh session** for each part, and write down anything that doesn't match (what you did, what you saw, the session's transcript path). **Must** items block the release; **should** items become known issues in the changelog.
+The test suite runs hooks and scripts as subprocesses; this checks the installed plugin in real sessions, which the suite can't. Driven by an agent under tmux, A–H took about 80 minutes for 3.7.0 (most of it waiting on the sessions), and longer with the release steps around it; plan for that, not a quick check. Use throwaway repos outside any real project, a **fresh session** for each part, and write down anything that doesn't match (what you did, what you saw, the session's transcript path). **Must** items block the release; **should** items become known issues in the changelog.
 
 **A. Install from the checkout (must)**
 1. In a new terminal: `claude`, then `/plugin marketplace add <path to this checkout>` and `/plugin install sdlc@sdlc`. Restart the session.
@@ -81,7 +81,7 @@ The test suite runs hooks and scripts as subprocesses; this checks the installed
 4. S has no Review phase: with no trigger firing (no `Risk: high`, no sensitive, migration or UI path, no Public Surface) it goes from Build straight to Ship, and the change file's `## Review` says no review ran and why. A trigger that fires runs its review **without stopping**; any review agent in `.sdlc/.work/dispatches.jsonl` has `model: opus`.
 5. Freshness in Review: in that repo, `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/state.py" advance <feature> 3` on a feature still active (or start an M change whose Public Surface isn't `- none`, so a review fires), then ask Claude to change a source file **with a shell command** (e.g. `sed -i`) and end the turn: it's **blocked**, and the message names the test command. Run it; the turn then ends normally.
 6. Ship runs the verified-tree check and Learn, makes the final commit on a feature branch and, with a remote, pushes and opens a PR, then stops; without a remote it stops with the branch ready. It never merges. Its security review is skipped (not security-touched): it is recorded as reviewed with no model call. `git status` never shows `.sdlc/state/*.json`.
-7. Trust anchor (should): in a new S feature, ask Claude to run `state.py set <feature> Risk high`: a "Stricter process" message, no block. Then `Risk low`: the stop is blocked once, and your next message clears it.
+7. Trust anchor (should): in a new S feature, ask Claude to run `state.py set <feature> Risk high`: a "Stricter process" message, no block. Then `Risk low`: the stop is blocked once, Claude asks in a `Trust anchor` dialog, and your answer clears it.
 
 **F. Security hooks (should)**
 1. Ask Claude to add `eval(input)` to a file: a security warning appears in Claude's context.
