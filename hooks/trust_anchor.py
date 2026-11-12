@@ -16,8 +16,8 @@ check, so this can't prevent a change; it makes one visible. For each active fea
   - a feature seen active stopped being active, other than by finishing (`Status: done`)
 Only current features (`Process: 3`) are anchored; an older one is migrated by `state.py migrate`, and a current one whose `Process:`
 line changes keeps its anchor, so the change is a notice. A new notice blocks the stop once, with a systemMessage so the user sees it; it doesn't block again. The user's
-next prompt accepts it: the current values become the new anchor. Only a prompt clears a notice, because only
-the user can send one. A damaged record is a notice too; a deleted one can't be told from a first run (Known
+reply accepts it: the current values become the new anchor. Only the user's reply clears a notice: a prompt, or their
+answer to an AskUserQuestion headed `Trust anchor` that user_answer.py saw asked without answers. A damaged record is a notice too; a deleted one can't be told from a first run (Known
 gaps in spec 02). State: .sdlc/.work/trust-anchor.json. Any error: no output.
 """
 import hashlib
@@ -28,9 +28,11 @@ import sys
 from datetime import datetime, timezone
 
 import sdlc_layout  # sibling module: where feature state and sdlc documents live
+import user_answer  # sibling hook: an AskUserQuestion answer the user gave in the dialog
 import verify_freshness as vf  # sibling hook: project root, git, worktree trees, freshness state
 
 STATE = os.path.join(".sdlc", ".work", "trust-anchor.json")
+HEADER = "Trust anchor"  # the AskUserQuestion header whose answer accepts the notices
 # Base: the baseline and commands are compared at it. Process: 3 marks a current feature, the only kind the hooks act on
 FIELDS = ("Track", "Risk", "Top model", "Base", "Process")
 # Ordered weakest first: a move up one of these only adds checks, so it needs no second word from the user
@@ -236,7 +238,10 @@ def main():
     data = json.load(sys.stdin)
     event = data.get("hook_event_name")
     root = vf.project_root(data.get("cwd"))
-    if not root or event not in ("Stop", "UserPromptSubmit"):
+    if not root or event not in ("Stop", "UserPromptSubmit", "PostToolUse"):
+        return
+    replied = event == "UserPromptSubmit" or bool(user_answer.answered(root, data, HEADER))
+    if event == "PostToolUse" and not replied:
         return
     path = os.path.join(root, STATE)
     corrupt = False
@@ -269,7 +274,7 @@ def main():
         if was.get("status") == "active" and name not in seen:
             left.append(f"{name}: its state.md was removed while active")
             was["status"] = "removed"
-    if event == "UserPromptSubmit":
+    if replied:
         for anchor in saved.values():
             if anchor.get("notices"):
                 accept(anchor)
@@ -294,9 +299,11 @@ def main():
             if data.get("stop_hook_active"):
                 print(json.dumps({"systemMessage": "⚠ " + msg}))
             else:
-                print(json.dumps({"decision": "block", "systemMessage": "⚠ " + msg + " Your next message accepts it.",
-                                  "reason": msg + " Tell the user, in your reply, what changed and why; don't undo "
-                                  "or redo it on your own. Their next message accepts it."}))
+                print(json.dumps({"decision": "block", "systemMessage": "⚠ " + msg + " Your answer accepts it.",
+                                  "reason": msg + " Tell the user what changed and why, then ask with AskUserQuestion, "
+                                  f"header `{HEADER}`, without `answers` (options such as Accept, Undo it); don't undo "
+                                  "or redo it on your own. Their answer, or their next message, accepts it. In an --autopilot "
+                                  "session no one can answer: say what changed and end; don't ask."}))
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(saved, f, indent=2)

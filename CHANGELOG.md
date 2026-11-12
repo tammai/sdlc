@@ -4,6 +4,9 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
+### Changed
+- **The review round cap and a trust-anchor notice ask in a dialog.** They used to stop the turn and wait for you to type a reply. Now each one asks with `AskUserQuestion` (headers `Review cap` and `Trust anchor`), and picking an option lifts the gate. A new `user_answer.py` hook denies a question that arrives with its answers already filled in and records the others; the two gates accept only an answer to a recorded question with their header, so the agent still can't answer for you. A typed message still works, and under Codex, Cursor and Antigravity it's still the only way.
+
 ## 3.6.1 — 2026-11-11
 
 A patch that only re-vendors the shared contracts; no behaviour change in sdlc. The smoke test in real sessions (runbook) was not run for this release.

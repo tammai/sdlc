@@ -31,6 +31,7 @@ sdlc/
 │   ├── session_status.py    SessionStart: the sdlc setup, paths and active features in one line (original)
 │   ├── trust_anchor.py      shows the user changes to what verification trusts (original)
 │   ├── review_rounds.py     when round 2 (the closing check of the fixes) still fails on a high, holds every edit and command until the user replies (original)
+│   ├── user_answer.py       lets the user's AskUserQuestion answer lift those two gates; denies pre-filled answers (original)
 │   ├── pretooluse.py, stop.py, userpromptsubmit.py   hookify entry points (vendored)
 │   ├── security_reminder_hook.py + modules, sg-python.sh   security-guidance (vendored; patched to ask sdlc_review_gate.py)
 │   └── sdlc_review_gate.py  while a feature is active: one commit security review per review-ready diff, skipped unless security-touched (original)
@@ -84,7 +85,7 @@ sdlc/
 ├── CHANGELOG.md  NOTICE.md  LICENSE  README.md
 ```
 
-Original to this plugin: the orchestrator and setting-up-projects skills (with `setting-up-projects/references/trimming-context.md` and `design-mode.md`), `managing-knowledge`, the `qa-tester` and `ui-reviewer` agents, `verify_freshness.py`, `sdlc_review_gate.py`, `model_router.py`, `role_guard.py`, `prove_budget.py`, `session_status.py`, `trust_anchor.py`, `review_rounds.py`, `commands/deploy.md`, everything in `scripts/`, `templates/project/`, `templates/knowledge/`, `templates/design-system-template.md`, `templates/backlog-template.md`, `migrations/`, `tests/`, `docs/`. Everything else is vendored; `NOTICE.md` says what came from where and what was changed.
+Original to this plugin: the orchestrator and setting-up-projects skills (with `setting-up-projects/references/trimming-context.md` and `design-mode.md`), `managing-knowledge`, the `qa-tester` and `ui-reviewer` agents, `verify_freshness.py`, `sdlc_review_gate.py`, `model_router.py`, `role_guard.py`, `prove_budget.py`, `session_status.py`, `trust_anchor.py`, `review_rounds.py`, `user_answer.py`, `commands/deploy.md`, everything in `scripts/`, `templates/project/`, `templates/knowledge/`, `templates/design-system-template.md`, `templates/backlog-template.md`, `migrations/`, `tests/`, `docs/`. Everything else is vendored; `NOTICE.md` says what came from where and what was changed.
 
 ## Dev loop
 

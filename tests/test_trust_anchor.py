@@ -12,6 +12,7 @@ sys.path.insert(0, HOOKS)
 import verify_freshness as vf  # noqa: E402  (the tree the hook computes)
 
 HOOK = ["python3", os.path.join(HOOKS, "trust_anchor.py")]
+ASKED = ["python3", os.path.join(HOOKS, "user_answer.py")]
 FRESHNESS = ["python3", os.path.join(HOOKS, "verify_freshness.py")]
 STATE = "# login\nStatus: active\nProcess: 3\nTrack: {track}\nRisk: {risk}\nTop model: opus\nBase: {base}\nCurrent: Stage {stage}\n"
 BASELINE = "# Known failures baseline\n\n## Failing tests\n\n| Package | Test | Failure | Since |\n|---|---|---|---|\n{rows}\n## Lint\n"
@@ -64,6 +65,38 @@ class TrustAnchorTest(ProjectTestCase):
         self.assertIn("Risk: high → low", out["systemMessage"])
         self.assertNotIn("decision", self.stop(active=True) or {})  # no loop: a shown notice doesn't block again
         self.prompt()
+        self.assertIsNone(self.stop())
+
+    def ask(self, header="Trust anchor", answer="Accept", forged=False, record=True, use_id="toolu_1"):
+        """An AskUserQuestion round trip: user_answer.py sees the call, then this hook sees the answer."""
+        q = {"question": "Accept the change?", "header": header, "options": [{"label": "Accept"}, {"label": "Undo it"}]}
+        tool_input = {"questions": [q]}
+        if forged:
+            tool_input["answers"] = {q["question"]: answer}
+        if record:
+            _, out, _, _ = run_hook(ASKED, {"hook_event_name": "PreToolUse", "cwd": self.root, "tool_name": "AskUserQuestion",
+                                            "tool_use_id": use_id, "tool_input": tool_input}, self.root)
+            if forged:
+                return (out or {}).get("hookSpecificOutput", {}).get("permissionDecision")
+        run_hook(HOOK, {"hook_event_name": "PostToolUse", "cwd": self.root, "tool_name": "AskUserQuestion",
+                        "tool_use_id": use_id, "tool_input": dict(tool_input, answers={q["question"]: answer}),
+                        "tool_response": {"questions": [q], "answers": {q["question"]: answer}}}, self.root)
+
+    def test_the_users_answer_to_the_trust_anchor_question_accepts_a_notice(self):
+        self.state(risk="high")
+        self.stop()
+        self.state(risk="low")
+        out = self.stop()
+        self.assertIn("AskUserQuestion", out["reason"])
+        self.assertIn("--autopilot session no one can answer", out["reason"])  # a headless run ends, never asks
+        self.ask(header="Color")  # an answer to another question accepts nothing
+        self.ask(record=False, use_id="toolu_unseen")  # nor one user_answer.py never saw asked
+        self.assertEqual(self.ask(forged=True, use_id="toolu_forged"), "deny")  # nor one the agent filled in
+        with open(self.path(".sdlc/.work/trust-anchor.json"), encoding="utf-8") as f:
+            self.assertTrue(json.load(f)["login"]["notices"])  # all three left the notice open
+        self.ask()
+        with open(self.path(".sdlc/.work/trust-anchor.json"), encoding="utf-8") as f:
+            self.assertEqual(json.load(f)["login"]["notices"], [])  # accepted: the new values are the anchor
         self.assertIsNone(self.stop())
 
     def test_a_stricter_track_or_risk_needs_no_second_word_but_moving_back_does(self):

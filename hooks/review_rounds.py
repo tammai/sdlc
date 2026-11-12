@@ -8,7 +8,8 @@ subagent and skill, so the agent can only read and ask the user: one more round,
 `.sdlc/.work/findings/` stay open, so a round-3 reviewer still finishing its report isn't cut off, and so do the
 project's test command and the plugin's verify.py, which change no code (the freshness hook asks for a run before
 Review's turn ends).
-The user's next prompt grants one more round; nothing the agent writes can, since only the user sends a prompt. The
+The user's reply grants one more round: their next prompt, or their answer to an AskUserQuestion headed `Review cap`
+that user_answer.py saw asked without answers; nothing the agent writes can. The
 highest round seen is kept in `.sdlc/.work/review-rounds.json`, so deleting a report doesn't reset the count.
 Silent outside an active 2.0 feature; any error: no output.
 """
@@ -20,10 +21,12 @@ import sys
 import prove_budget as pb  # sibling hook: what counts as the project's own command
 import sdlc_layout  # sibling module: where feature state and sdlc documents live
 import trust_anchor  # sibling hook: the latest round's failed reports and the user's waiver
+import user_answer  # sibling hook: an AskUserQuestion answer the user gave in the dialog
 import verify_freshness as vf  # sibling hook: project root
 
 CAP = 2  # the review, then the check of its fixes
 STATE = os.path.join(".sdlc", ".work", "review-rounds.json")
+HEADER = "Review cap"  # the AskUserQuestion header whose answer grants a round
 GUARDED = {"Edit", "Write", "MultiEdit", "NotebookEdit", "Bash", "PowerShell", "Agent", "Task", "Skill"}
 
 
@@ -81,17 +84,20 @@ def main():
     data = json.load(sys.stdin)
     event = data.get("hook_event_name")
     root = vf.project_root(data.get("cwd"))
-    if not root or event not in ("PreToolUse", "UserPromptSubmit"):
+    if not root or event not in ("PreToolUse", "UserPromptSubmit", "PostToolUse"):
+        return
+    replied = event == "UserPromptSubmit" or bool(user_answer.answered(root, data, HEADER))
+    if event == "PostToolUse" and not replied:
         return
     saved = load(root)
     before = json.dumps(saved, sort_keys=True)
     over = capped(root, saved)
-    if event == "UserPromptSubmit":
+    if replied:
         for name in over:  # the user has answered: one more round
             saved[name]["granted"] = int(saved[name].get("granted") or 0) + 1
     if json.dumps(saved, sort_keys=True) != before:  # never an empty store: setup commits before it ignores .sdlc/.work/
         save(root, saved)
-    if event == "UserPromptSubmit":
+    if replied:
         return
     tool = data.get("tool_name")
     if not over or tool not in GUARDED:
@@ -104,8 +110,10 @@ def main():
         return
     rounds = ", ".join(f"{n} (round {r})" for n, r in over.items())
     reason = (f"sdlc: {rounds}: the check of the review's fixes (round {CAP}) still fails, so the fixing stops here. Tell the "
-              "user which findings are left (the latest reports in .sdlc/.work/findings/) and ask: one more fix round, "
-              "waive them (`waived round <N>` deviation), or stop. Their reply lifts this for one round.")
+              "user which findings are left (the latest reports in .sdlc/.work/findings/), then ask with AskUserQuestion, "
+              f"header `{HEADER}`, without `answers`: one more fix round, waive them (`waived round <N>` deviation), or "
+              "stop. Their answer, or their next message, lifts this for one round. In an --autopilot session no one can "
+              "answer: block the part (`state.py slice <f> block`) and end instead.")
     print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
                                              "permissionDecisionReason": reason}}))
 

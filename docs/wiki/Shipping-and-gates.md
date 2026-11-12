@@ -23,7 +23,7 @@ Hard stops (merge, production deploy, migrations, anything irreversible) still w
 
 ## 21. The trust anchor stopped me
 
-The trust anchor watches what verification relies on. When something weakens it, the turn stops once with `⚠ Verification anchors changed: … Your next message accepts it.` The agent tells you what changed and why, and doesn't undo it on its own.
+The trust anchor watches what verification relies on. When something weakens it, the turn stops once with `⚠ Verification anchors changed: … Your answer accepts it.` The agent tells you what changed and why, and asks you in a `Trust anchor` dialog; it doesn't undo the change on its own.
 
 It reports, per active feature:
 
@@ -70,7 +70,7 @@ Autopilot won't start a session while a notice is open; its JSON `stopped` reaso
 | Adding a failure to the baseline | You, recorded as a deviation |
 | Waiving a high finding | You, recorded as a deviation |
 | Design-system changes a reviewer proposes | You |
-| Accepting a trust-anchor notice | You, with your next message |
+| Accepting a trust-anchor notice | You, with your answer to its dialog or your next message |
 | Skipping a gate | You, recorded as a deviation |
 
 **The agent's calls:**
