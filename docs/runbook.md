@@ -51,7 +51,7 @@ When the maintainer says "release", the agent runs every step below through to t
 
 ### Smoke test before a release
 
-The test suite runs hooks and scripts as subprocesses; this checks the installed plugin in real sessions, which the suite can't. About 45 minutes. Use throwaway repos outside any real project, a **fresh session** for each part, and write down anything that doesn't match (what you did, what you saw, the session's transcript path). **Must** items block the release; **should** items become known issues in the changelog.
+The test suite runs hooks and scripts as subprocesses; this checks the installed plugin in real sessions, which the suite can't. Driven by an agent under tmux, A–H took about 80 minutes for 3.7.0 (most of it waiting on the sessions), and longer with the release steps around it; plan for that, not a quick check. Use throwaway repos outside any real project, a **fresh session** for each part, and write down anything that doesn't match (what you did, what you saw, the session's transcript path). **Must** items block the release; **should** items become known issues in the changelog.
 
 **A. Install from the checkout (must)**
 1. In a new terminal: `claude`, then `/plugin marketplace add <path to this checkout>` and `/plugin install sdlc@sdlc`. Restart the session.
