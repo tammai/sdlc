@@ -6,6 +6,12 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## 3.7.0 — 2026-11-12
 
+Smoke test (runbook A–H) passed on 2026-11-12 against 4b82ea5, with the `Trust anchor` and `Review cap` dialogs and the pre-filled-answer denial checked in real sessions. Known issues (should):
+- Setup's context-diet table can sit collapsed under "· summary" in the terminal before its question.
+- Setup's report says `.claude/settings.local.json` "was not written" when only sdlc's own key was skipped; the companion keys were written.
+- Under auto mode, the classifier can block `scaffold.py allow --from-commands` during `/sdlc:upgrade` as self-modification, which pauses the upgrade until you run it.
+- After `/sdlc:eject`, `.sdlc/state/` and `.sdlc/.work/` show as untracked, because eject removes their `.gitignore` lines.
+
 ### Changed
 - **The review round cap and a trust-anchor notice ask in a dialog.** They used to stop the turn and wait for you to type a reply. Now each one asks with `AskUserQuestion` (headers `Review cap` and `Trust anchor`), and picking an option lifts the gate. A new `user_answer.py` hook denies a question that arrives with its answers already filled in and records the others; the two gates accept only an answer to a recorded question with their header, so the agent still can't answer for you. A typed message still works, and under Codex, Cursor and Antigravity it's still the only way.
 
