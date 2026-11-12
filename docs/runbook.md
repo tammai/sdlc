@@ -39,7 +39,7 @@ When the maintainer says "release", the agent runs every step below through to t
    - anything a project owns (required commands, config keys, knowledge layout, renamed paths, ignore patterns): add `migrations/<version>-<slug>.md` with frontmatter `version`, `summary` and, if old plugins must stop, `min_plugin_version`, then the steps in prose.
 5. **Distill knowledge** with `sdlc:managing-knowledge` (`CLAUDE.md` ≤ 60 lines, `.claude/rules/<area>.md` with `paths:`, `knowledge/` linked from `knowledge/index.md` and logged in `knowledge/log.md`). Sources: the changelog notes, `git log <last tag>..HEAD` (fix commits especially), smoke-test and review findings, and corrections made more than once. Run its "File a lesson" steps for each durable lesson, then its Audit. Decisions about how the plugin works go to `docs/adr/`, procedures to this runbook, and anything corrected twice and checkable becomes a test or guardrail. `python3 scripts/doctor.py` checks the CLAUDE.md budget and the index links.
 6. **Stale-docs round over the whole release:** run the [stale-docs audit](../CONTRIBUTING.md#stale-docs-audit) once more, now for everything since the last tag, not one change. List the names the release added, renamed or removed (`git diff --stat sdlc--v<last>..HEAD`, `git log sdlc--v<last>..HEAD --oneline`, the changelog section), then grep each, and the wording it replaces, across `README.md`, `CONTRIBUTING.md`, `knowledge/`, `.claude/rules/`, `docs/` (the wiki pages in `docs/wiki/`, runbook, prd, specs, ADRs), the plugin and marketplace descriptions (`.claude-plugin/*.json`, then `python3 scripts/hosts.py build`), and every diagram in `docs/diagrams/*.svg`: its `<desc>` **and** its visible labels (render it, [rendering SVG diagrams](../knowledge/gotchas/rendering-svg-diagrams.md)). Fix what's stale; a diagram that needs relayout rather than a text edit goes in the changelog's notes as a known gap. Commit as `docs: stale-docs round for <version>`.
-7. On a branch `release/<version>`, commit (`release: sdlc <version>`), then run the [smoke test](#smoke-test-before-a-release) against that commit. Every **must** item has to pass. Skip it only when the maintainer says so, and say in the changelog section that it wasn't run.
+7. On a branch `release/<version>`, commit (`release: sdlc <version>`), then run the [smoke test](#smoke-test-before-a-release) against that commit, scoped to what the release touches and in parallel. Every **must** item has to pass. Skip it only when the maintainer says so, and say in the changelog section that it wasn't run.
 8. Push the branch and open a PR to `main` (`gh pr create --base main --head release/<version> --title "release: sdlc <version>"`). Wait for CI (`gh pr checks <n> --watch`), then merge it with a merge commit (`gh pr merge <n> --merge --delete-branch`) and fast-forward local `main` (`git pull --ff-only`).
 9. On the merge commit: `claude plugin tag . --dry-run`, then `claude plugin tag . --push` (creates and pushes `sdlc--v<version>`; `-f` if unrelated files in the working tree are uncommitted).
 10. Publish the GitHub release; the tag alone doesn't make one. As the `tammai` account (`gh auth switch -u tammai`), with the version's changelog section as the notes:
@@ -51,7 +51,22 @@ When the maintainer says "release", the agent runs every step below through to t
 
 ### Smoke test before a release
 
-The test suite runs hooks and scripts as subprocesses; this checks the installed plugin in real sessions, which the suite can't. Driven by an agent under tmux, A–H took about 80 minutes for 3.7.0 (most of it waiting on the sessions), and longer with the release steps around it; plan for that, not a quick check. Use throwaway repos outside any real project, a **fresh session** for each part, and write down anything that doesn't match (what you did, what you saw, the session's transcript path). **Must** items block the release; **should** items become known issues in the changelog.
+The test suite runs hooks and scripts as subprocesses; this checks the installed plugin in real sessions, which the suite can't. Run only the parts the release touches, at the same time, so it takes about 15–25 minutes; one agent running all of A–H in sequence took 78 minutes for 3.7.0.
+
+**Scope.** A and B run on every release. Each other part runs when `git diff --name-only sdlc--v<last>..HEAD` touches what it covers; a major version runs them all. Say in the changelog which parts ran and why the others didn't.
+
+| Part | Runs when the release touches |
+|---|---|
+| C greenfield setup | `skills/setting-up-projects/`, `scripts/scaffold.py`, `scripts/context_diet.py`, `templates/`, `commands/setup.md`, `commands/context-diet.md` |
+| D guardrails | `hooks/pretooluse.py`, `hooks/userpromptsubmit.py`, `skills/hookify/`, `core/`, `matchers/`, `utils/`, hookify templates in `templates/` |
+| E feature flow | `skills/orchestrator/`, `commands/start.md`, `scripts/state.py`, `verify.py`, `brief.py`, `ship.py`, `review_report.py`, `diff_stats.py`, `backlog.py`, any hook not named in D or F, `agents/` |
+| F security hooks | `hooks/security_reminder_hook.py`, `hooks/review_api.py`, `hooks/llm.py`, `hooks/ensure_agent_sdk.py`, `hooks/sdlc_review_gate.py` |
+| G brownfield setup | what C covers, and the baseline in `scripts/verify.py` |
+| H upgrade and eject | `scripts/scaffold.py`, `migrations/`, `commands/upgrade.md`, `commands/eject.md`, `templates/` |
+
+A part that checks something the release changed also gets that check written in (as 3.7.0 added its dialogs to E7).
+
+**In parallel.** One background agent per group, each in its own throwaway repo under the scratchpad and its own tmux session, each loading the checkout with `--plugin-dir` (and `--settings` turning an installed `sdlc@sdlc` off for that session). Groups: A+B; C then D, E and H in C's repo (D, E and H need a set-up repo; when C is out of scope, the group still sets one up with `/sdlc:setup` and skips C's checks); F; G. Give each session `--model sonnet` unless the part checks model routing. Use throwaway repos outside any real project, a **fresh session** for each part, and write down anything that doesn't match (what you did, what you saw, the session's transcript path). **Must** items block the release; **should** items become known issues in the changelog.
 
 **A. Install from the checkout (must)**
 1. In a new terminal: `claude`, then `/plugin marketplace add <path to this checkout>` and `/plugin install sdlc@sdlc`. Restart the session.
