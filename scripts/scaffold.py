@@ -1134,6 +1134,77 @@ def cmd_gitignore(p, a):
     return {"added": added, "removed": removed, "owned": ours, "untracked": untracked}
 
 
+# --- workbench: repos cloned inside a parent workbench repo ----------------------------------
+
+def _write_atomic(path, text):
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(text)
+    os.replace(tmp, path)
+
+
+def _workbench_data(p):
+    """The manifest file's whole object (validated through sdlc_scopes.manifest), or a new one."""
+    sdlc_scopes.manifest(p.root)
+    path = p.path(sdlc_scopes.WORKBENCH_FILE)
+    return read_json(path) if os.path.exists(path) else {"repos": []}
+
+
+def _gitignore_lines(p):
+    try:
+        with open(p.path(GITIGNORE), encoding="utf-8") as f:
+            return f.read().splitlines()
+    except FileNotFoundError:
+        return []
+
+
+def cmd_workbench(p, a):
+    """List, add (clone, gitignore, record) or remove (record and gitignore line only) a repo of a workbench."""
+    if not sdlc_scopes.is_workbench(p.root, need_manifest=False):
+        raise ValueError("not a workbench: .sdlc/config.json has no \"workbench\": true")
+    if a.action == "list":
+        return {"repos": sdlc_scopes.manifest(p.root)}
+    data = _workbench_data(p)
+    if a.action == "remove":
+        name = sdlc_scopes.check_name(a.target)
+        if not any(r.get("name") == name for r in data["repos"]):
+            raise ValueError(f"no repo named {name!r} in {sdlc_scopes.WORKBENCH_FILE}")
+        data["repos"] = [r for r in data["repos"] if r.get("name") != name]
+        lines = [x for x in _gitignore_lines(p) if x != f"/{name}/"]
+        _write_atomic(p.path(sdlc_scopes.WORKBENCH_FILE), json.dumps(data, indent=2) + "\n")
+        _write_atomic(p.path(GITIGNORE), "\n".join(lines) + ("\n" if lines else ""))
+        return {"removed": name, "folder_kept": name if os.path.isdir(p.path(name)) else None}
+    url = a.target
+    raw_name = a.name if a.name is not None else re.sub(r"\.git$", "", url.rstrip("/\\").replace("\\", "/")
+                                                         .rsplit("/", 1)[-1].rsplit(":", 1)[-1])
+    entry = {"name": raw_name, "url": url, "role": a.role, "write": bool(a.write)}
+    if a.owner:
+        entry["owner"] = a.owner
+    if a.contract:
+        kind, _, version = a.contract.partition(":")
+        entry["contract"] = {kind: version}
+    checked = sdlc_scopes._check_entry(len(data["repos"]), entry, {r.get("name") for r in data["repos"]})
+    name = checked["name"]
+    dest = p.path(name)
+    if os.path.lexists(dest):
+        if not os.path.isdir(os.path.join(dest, ".git")):
+            raise ValueError(f"{name}/ exists and isn't a git repo: move it away or pick another --name")
+        cloned = False
+    else:
+        proc = subprocess.run(["git", "clone", "-q", "--", url, dest], capture_output=True, encoding="utf-8",
+                              errors="replace")
+        if proc.returncode:
+            raise ValueError(f"git clone failed: {(proc.stdout + proc.stderr).strip()[-300:]}")
+        cloned = True
+    data["repos"].append(entry)
+    lines = _gitignore_lines(p)
+    if f"/{name}/" not in lines:
+        lines.append(f"/{name}/")
+    _write_atomic(p.path(sdlc_scopes.WORKBENCH_FILE), json.dumps(data, indent=2) + "\n")
+    _write_atomic(p.path(GITIGNORE), "\n".join(lines) + "\n")
+    return {"added": checked, "cloned": cloned}
+
+
 # --- hosts: which coding agents run this repo's sdlc ---------------------------------------
 # Neither signal is an official contract: the plugin's install folder names its host reliably, the environment
 # markers vary between releases, so the folder wins and the environment only decides when it is unambiguous.
@@ -1871,6 +1942,15 @@ def build_parser():
     s.add_argument("--if-unchanged", action="store_true", help="refuse (exit 2) if the user edited the file")
     s.set_defaults(fn=cmd_render)
 
+    s = sub.add_parser("workbench", help="list, add (clone + gitignore + record) or remove a repo of a workbench")
+    s.add_argument("action", choices=["list", "add", "remove"])
+    s.add_argument("target", nargs="?", default="", help="add: the clone URL; remove: the repo's name")
+    s.add_argument("--name", help="add: folder and manifest name (default: from the URL)")
+    s.add_argument("--role", choices=list(sdlc_scopes.ROLES), default="app")
+    s.add_argument("--write", action="store_true", help="add: sdlc may change this repo (apps this project owns)")
+    s.add_argument("--owner", help="add: the owning team's handle")
+    s.add_argument("--contract", help="add: provides:v<N> or consumes:v<N>")
+    s.set_defaults(fn=cmd_workbench)
     sub.add_parser("contract", help="check the project's commands in config (per package in a monorepo)") \
         .set_defaults(fn=cmd_contract)
     s = sub.add_parser("run-commands", help="run install and the verify plan once; record each exit in the lock")

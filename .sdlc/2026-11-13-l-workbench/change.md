@@ -64,7 +64,7 @@ a review of the monorepo support (this session) and the wish to decouple apps.
 | Each app repo has a small sdlc setup: `.sdlc/config.json` with its commands, its lock, CI, guardrail hooks; never feature records | sdlc only in the workbench | The user's choice. A session or teammate in `api/` alone keeps guardrails; upgrade patches each repo's own files against its own lock; the nested-repo routing in `hooks/sdlc_layout.py` already keys on a repo's `.sdlc/config.json`. Commands live once, in the app. |
 | Repos other teams own are read-only to sdlc | Opening PRs in them | The user's choice. |
 | Existing monorepos keep support; only new greenfield multi-app setups get a workbench | An upgrade that converts a monorepo | The user's choice. ADR 0005 is superseded for new projects only. |
-| sdlc's manifest is `workbench.yaml`; a workbench is detected by `"workbench": true` in its `.sdlc/config.json`, never by a file name | Sharing product-rebuild's `repos.yaml` | The user's choice (keep apart). product-rebuild's guards switch on for any repo listed in a `repos.yaml`; a shared name would make each plugin misread the other's workbench. |
+| sdlc's manifest is `workbench.json`; a workbench is detected by `"workbench": true` in its `.sdlc/config.json`, never by a file name | Sharing product-rebuild's `repos.yaml` | The user's choice (keep apart). product-rebuild's guards switch on for any repo listed in a `repos.yaml`; a shared name would make each plugin misread the other's workbench. |
 | Adding or removing a repo after setup is a setup step (`$S workbench add <url>` / `remove <name>`) | Manifest written once at setup | The user's choice (in scope). |
 | The API contract lives in the workbench, versioned by folder (`contract/v1/openapi.yaml`); the workbench's CI runs the oasdiff check | A contract repo; the contract in the api repo; a registry | [recommended] The contract describes the product; folder versioning is ADR 0005's proven rule. |
 | An app's CI checks out the workbench branch with its own branch's name when one exists, else `main` | Pinning a workbench tag per app; the workbench as an app submodule | [my call] With one branch name per feature across repos, a web PR sees the same feature's unmerged contract change; additions-only keeps `main` safe for everyone else; no tags or pin bumps to manage. |
@@ -90,7 +90,7 @@ a review of the monorepo support (this session) and the wish to decouple apps.
 
 ```
 <project>-workbench/          git repo; every session starts here
-  workbench.yaml              the map (below)
+  workbench.json              the map (below)
   .gitignore                  one line per cloned repo folder
   .sdlc/                      config ("workbench": true), lock, feature records
   CLAUDE.md, .claude/         rules, settings, knowledge, as in any sdlc repo
@@ -100,7 +100,7 @@ a review of the monorepo support (this session) and the wish to decouple apps.
   specs/  qa/  designs/       other teams' repos, read-only (gitignored)
 ```
 
-**`workbench.yaml`.** One entry per repo: `name` (also its folder; one level deep only), `url`, `role` (`app`,
+**`workbench.json`.** One entry per repo: `name` (also its folder; one level deep only), `url`, `role` (`app`,
 `specs`, `tests`, `designs`, `other`), `owner` (team handle), `write` (true only for app repos this project owns), and
 for apps `contract` (`provides: v1` or `consumes: v1`). No commands: an app's commands live in its own
 `.sdlc/config.json`. Doctor reports listed repos that are missing (and offers to clone them), unlisted nested repos,
@@ -134,7 +134,7 @@ Review, the review brief says what changed.
 
 **Setup (greenfield, two or more apps).** Make the session's folder the workbench repo; interview as `monorepo.md`
 does (stacks, owners, contract, `infras/`); create each app repo with its ecosystem's generator in its folder, give
-it a remote, run the small sdlc setup in it; write `workbench.yaml`; gitignore the folders; add other teams' repos by
+it a remote, run the small sdlc setup in it; write `workbench.json`; gitignore the folders; add other teams' repos by
 URL; tell the user what token app CI needs to read the workbench. `profile` shrinks to which `docs/` folders and
 owners to set up; CODEOWNERS is per repo and optional. One app: unchanged (single repo). Brownfield and existing
 monorepos: unchanged.
@@ -166,7 +166,7 @@ Where-things-live; the stale-docs audit in CONTRIBUTING.md.
   `role_guard.py`, `scripts/ship.py`, `prune.py`, `diff_stats.py`, and the orchestrator's git and worktree
   references).
 - Whether a workbench feature uses worktrees per repo or works on branches in place.
-- `workbench.yaml` schema details beyond the fields above.
+- `workbench.json` schema details beyond the fields above.
 
 **Proposals not asked for:** None.
 
@@ -181,10 +181,10 @@ B1 · one scope parser
   top-level `packages` key, not `project`.
 
 B2 · the workbench manifest
-- **AC-004** Given `"workbench": true` in `.sdlc/config.json` and a `workbench.yaml`, when scopes are read, then
+- **AC-004** Given `"workbench": true` in `.sdlc/config.json` and a `workbench.json`, when scopes are read, then
   there is one scope per `write: true` repo (its folder, its own config's commands) plus the workbench itself; a
   folder with only product-rebuild's `repos.yaml`, or no `workbench` key, is not a workbench; a malformed manifest
-  (not a mapping, `null` fields, wrong types) gives `not run: workbench.yaml …`, never a traceback.
+  (not a mapping, `null` fields, wrong types) gives `not run: workbench.json …`, never a traceback.
 - **AC-005** Given a workbench, when `scaffold.py workbench add <url> --role app --write` runs, then the repo is
   cloned into `<name>/`, `<name>/` is gitignored and the entry written; `workbench remove <name>` drops the entry and
   the gitignore line and leaves the folder; a name that isn't a plain folder name (`@org/web`, `a/b`, `..`, `a\b`,
@@ -276,7 +276,7 @@ B8 · preferred stacks
 - A read-only repo force-pushed under a recorded commit → AC-012.
 - The session's cwd moved into an app folder → AC-007.
 - A feature started from inside an app repo → AC-009.
-- Untrusted manifest values (a committed `workbench.yaml` names folders and clone URLs) → AC-005 (plain-name
+- Untrusted manifest values (a committed `workbench.json` names folders and clone URLs) → AC-005 (plain-name
   allowlist, kept inside the workbench, away from `.git/`, `.claude/`, `.sdlc/`), AC-004 (malformed values), and the
   must-never-break line above. Clone URLs reach `git clone` only as an argument after `--`, never through a shell.
 - Windows paths in the manifest (`a\b`, `C:x`) → AC-005.
