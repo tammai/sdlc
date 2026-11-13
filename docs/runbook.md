@@ -102,7 +102,7 @@ A part that checks something the release changed also gets that check written in
 
 **F. Security hooks (should)**
 1. Ask Claude to add `eval(input)` to a file: a security warning appears in Claude's context.
-2. At the end of that turn, a security review of the turn's changes runs (or, without credentials, you're told once that it's skipped).
+2. At the end of that turn, with an active feature that is security-touched (`Risk: high` or a sensitive path) or `SDLC_SECURITY_REVIEW=always`, a security review of the turn's changes runs (ADR 0019: no review without such a feature); without credentials you're told once a week that it's skipped.
 
 **G. Brownfield setup (must)**
 1. Copy a small real repo (or a sample with two packages in different languages) into `/tmp/sdlc-smoke-brown`, add one deliberately failing test, commit.

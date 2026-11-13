@@ -4,6 +4,20 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## 3.8.0 — 2026-11-13
 
+Smoke test (runbook A–H and the new K, workbench) passed on 2026-11-13 against 7a777a2. All parts ran, because the release touches each one's scope; they ran in five parallel groups and took about 46 minutes, set by the C→D,E,H group. K ran the workbench in real sessions for the first time:
+- writes into a read-only repo were denied, naming its owner;
+- a change made outside the session was reported after the next call and blocked Stop;
+- the message `accept read-only specs` was accepted;
+- an S change in an app repo was branched before its first write and shipped with a commit message and PR body per repo.
+
+Known issues (should):
+- Undoing a read-only change you already accepted counts as a new change, so you accept again.
+- Setup's context-diet table still doesn't show before its trim question (seen in 3.7.0 too).
+- `ship.py --waive-baseline` waives any failure of the test step without checking that `.sdlc/baseline.md` lists it; the agent's own check is all that stands in the way (not new in 3.8.0).
+- After `/sdlc:upgrade` applies a merge to an edited guardrail, `/sdlc:eject` deletes that file, and your edit survives only in git history.
+- Under auto mode, the classifier can still block `scaffold.py allow --from-commands` during setup and upgrade.
+- The plugin-layers and setup-phase diagrams in `docs/diagrams/` predate the workbench and need relayout.
+
 ### Added
 - **Workbench: one repo per app, beside the monorepo, for new multi-app projects** ([ADR 0025](docs/adr/0025-workbench-for-multi-app-projects.md), extending ADR 0005). Greenfield setup with two or more apps now asks which layout: one repo holding every app (the monorepo, as before) or a workbench. A workbench makes the session's folder a `<project>-workbench` repo holding `workbench.json`, the API contract (`contract/v<N>/`) and every feature record, with each app its own repo cloned inside it and set up with its own commands, CI and guardrails (`references/workbench.md`). Existing monorepos are unchanged.
 - **Guards follow calls into app repos.** In a session started in a workbench, hookify rules and the role guard act for the app repo a call targets; a write into a read-only repo (`write: false`) is denied, naming its owner (behind that, a new `read_only_watch.py` hook reports any change in a read-only repo after the call that made it and blocks Stop until the user undoes or accepts it, and read-only repos get a push URL that points nowhere; outside a workbench the hook exits at once), and a write into an app repo the active feature hasn't branched (`state.py repo`) is denied, naming the command; `state.py new` refuses in an app repo and points to the workbench.

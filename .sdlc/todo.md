@@ -17,6 +17,9 @@
 - [ ] A fake `state.py pr <feature> <repo> <url>` during Ship turns an app repo's commit review off (only the URL's shape is checked); a done feature whose PR is never recorded owns that repo's commits forever (security-r7 SR7-M4, SR7-L2) (2026-11-13)
 - [ ] The read-only watch's accept and baseline are protected by a text check only: a deliberate agent can still feed the hook a fake event, import it, or remove both files under another spelling; forged `refs/remotes` make a local commit look pushed; the trust anchor doesn't watch app repos' commands (security-r7 SR7-M1/M2, code-reviewer-r4 M-5/M-7) (2026-11-13)
 - [ ] The guard denies reads that merely name the watch's files (`grep read-only-seeded`, a commit message): narrow it to writes and runs (security-r7 SR7-L4) (2026-11-13)
+- [ ] `ship.py --waive-baseline` waives any `test: exit` failure without checking that `.sdlc/baseline.md` lists it (a new failing test, or a new `(root) test` failure, ships with the waiver); match the failures against the baseline's rows — 3.8.0 smoke test G (2026-11-13)
+- [ ] Undoing a read-only change the user already accepted counts as a new change (the accepted baseline holds the change); consider accepting a return to the first look silently — 3.8.0 smoke test K (2026-11-13)
+- [ ] After `/sdlc:upgrade` applies a merge to an edited guardrail, `/sdlc:eject` deletes it; the eject dialog offered to keep it but the report said it wasn't kept — 3.8.0 smoke test H (2026-11-13)
 
 ## Done
 
