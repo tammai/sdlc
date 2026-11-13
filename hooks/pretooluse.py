@@ -53,7 +53,8 @@ def _read_only_write(input_data):
         import sdlc_scopes
         cwd = input_data.get('cwd') or os.getcwd()
         # Hosts without CLAUDE_PROJECT_DIR (Codex): the nearest workbench at or above the call's folder
-        root = os.path.abspath(os.environ.get('CLAUDE_PROJECT_DIR') or sdlc_scopes.workbench_root(cwd) or cwd)
+        root = os.path.abspath(os.environ.get('CLAUDE_PROJECT_DIR')
+                               or sdlc_scopes.workbench_root(cwd, guarded=True) or cwd)
         return role_guard.read_only_problem(input_data, root) or role_guard.unbranched_problem(input_data, root)
     except Exception:
         return None

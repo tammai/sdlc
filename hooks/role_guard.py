@@ -155,8 +155,8 @@ def hits(root, cwd, operand, protected, tree=False, folders=False):
             return True
         if glob:
             g, s = c.split("/"), p.split("/")
-            if (len(g) == len(s) or tree and len(g) < len(s) or folders and len(g) > len(s)) and all(fnmatch.fnmatchcase(a, b)
-                                                                      for a, b in zip(s, g)):
+            depth_ok = len(g) == len(s) or tree and len(g) < len(s) or folders and len(g) > len(s)
+            if depth_ok and all(fnmatch.fnmatchcase(a, b) for a, b in zip(s, g)):
                 return True
     if folders and not glob:  # through a link to the folder (the path itself may not exist yet)
         real = os.path.normcase(os.path.realpath(full))
@@ -183,93 +183,212 @@ def hits(root, cwd, operand, protected, tree=False, folders=False):
 KEYWORDS = {"!", "{", "}", "if", "then", "else", "elif", "do", "while", "until", "fi", "done", "coproc"}
 
 
-def segments(command):
-    """[(simple command, its redirect targets)] of a shell command line, splitting on ; & | && || ( ) and newlines
-    and finding `>`/`>>` only outside quotes, so a `>` in a commit message is text. Each target stays with its own
-    command, so it resolves against the folder a `cd` before it moved to. A subshell's `(` and `)` come as
-    ("(", None) and (")", None), so a `cd` inside one ends with it. A backtick substitution stays whole (see
-    substitutions)."""
-    parts, targets, buf, quote, i = [], [], [], None, 0
-    while i < len(command):
-        ch = command[i]
-        if quote:
+class TooDeep(Exception):
+    """Substitutions nested past MAX_NEST: the guard denies rather than guess (a hook error would let it through)."""
+
+
+MAX_NEST = 24
+
+
+def lex(command, dialect="sh"):
+    """[(simple command, its redirect targets)] of a command line in a shell's own syntax (`sh`, `ps` for PowerShell,
+    `cmd`), split on ; & | && || and newlines outside quotes, so a `>` in a commit message is text. Each target stays
+    with its own command, so it resolves against the folder a `cd` before it moved to. A subshell, and every command
+    substitution (`$( )`, backticks, `<( )`; PowerShell's `$( )`), comes inline between ("(", None) and (")", None),
+    so a `cd` inside it ends with it; the substitution leaves `_` in its command's text. Comments, `\\`-newline
+    continuations and here-doc bodies are never commands; `case` patterns' `)` close nothing."""
+    events, _ = _lex(command, 0, None, dialect, 0)
+    return events
+
+
+def _lex(s, i, stop, dialect, nest):
+    if nest > MAX_NEST:
+        raise TooDeep()
+    events, buf, targets, quote, stack, heredocs = [], [], [], None, [], []
+    esc = {"sh": "\\", "ps": "`", "cmd": "^"}[dialect]
+    quotes = "\"" if dialect == "cmd" else "\"'"
+
+    def flush():
+        text = "".join(buf)
+        if text.strip() or targets:
+            events.append((text, list(targets)))
+        buf.clear()
+        targets.clear()
+
+    def at_word_start():
+        return i == 0 or s[i - 1] in " \t\n;|&()"
+
+    def command_start():
+        words = "".join(buf).split()
+        return not words or words[-1] in KEYWORDS
+
+    def substitute(j, close):
+        inner, j = _lex(s, j, close, dialect, nest + 1)
+        flush_keep = "".join(buf)
+        events.append(("(", None))
+        events.extend(inner)
+        events.append((")", None))
+        buf[:] = [flush_keep, "_"]
+        return j
+
+    while i < len(s):
+        ch = s[i]
+        if quote == "'" or (quote == '"' and dialect == "cmd"):  # no escapes or substitutions inside
             buf.append(ch)
-            if ch == quote:
+            quote = None if ch == quote else quote
+            i += 1
+            continue
+        if ch == esc:
+            if i + 1 < len(s) and s[i + 1] == "\n":  # a line continuation: the command goes on
+                i += 2
+                continue
+            if dialect == "ps":  # PowerShell's escape, spelled the way shlex reads one
+                buf.append("\\" + s[i + 1] if i + 1 < len(s) else "")
+            else:
+                buf.append(s[i:i + 2] if dialect == "sh" else s[i + 1:i + 2])
+            i += 2
+            continue
+        if quote == '"':
+            if ch == '"':
                 quote = None
-        elif ch in "\"'`":
+                buf.append(ch)
+                i += 1
+            elif s.startswith("$(", i) and dialect in ("sh", "ps"):
+                i = substitute(i + 2, ")")
+            elif ch == "`" and dialect == "sh":
+                i = substitute(i + 1, "`")
+            else:
+                buf.append(ch)
+                i += 1
+            continue
+        # Outside quotes
+        if stop == "`" and ch == "`":
+            flush()
+            return events, i + 1
+        if ch in quotes:
             quote = ch
             buf.append(ch)
-        elif ch in ";|&\n":
-            parts.append(("".join(buf), targets))
-            buf, targets = [], []
-        elif ch in "()":
-            parts.append(("".join(buf), targets))
-            parts.append((ch, None))
-            buf, targets = [], []
-        elif ch == ">":
-            j = i + 1
-            if j < len(command) and command[j] in ">|":  # `>>` appends, `>|` overwrites despite noclobber
-                j += 1
-            if j < len(command) and command[j] == "&":
-                j += 1
-                if j < len(command) and (command[j].isdigit() or command[j] == "-"):  # 2>&1, >&-: a stream
-                    i = j + 1
-                    continue
-            while j < len(command) and command[j] in " \t":
+        elif ch == "#" and dialect != "cmd" and at_word_start():
+            nl = s.find("\n", i)
+            i = len(s) if nl < 0 else nl
+            continue
+        elif dialect == "ps" and s.startswith("<#", i):
+            end = s.find("#>", i + 2)
+            i = len(s) if end < 0 else end + 2
+            continue
+        elif s.startswith("$(", i) and dialect in ("sh", "ps"):
+            i = substitute(i + 2, ")")
+            continue
+        elif dialect == "sh" and (s.startswith("<(", i) or s.startswith(">(", i)):
+            i = substitute(i + 2, ")")
+            continue
+        elif ch == "`" and dialect == "sh":
+            i = substitute(i + 1, "`")
+            continue
+        elif ch == "\n":
+            flush()
+            i += 1
+            for delim, dash in heredocs:  # the bodies that start on the next line: data, never commands
+                while i <= len(s):
+                    nl = s.find("\n", i)
+                    line = s[i:] if nl < 0 else s[i:nl]
+                    i = len(s) if nl < 0 else nl + 1
+                    if (line.lstrip("\t") if dash else line) == delim or nl < 0:
+                        break
+            heredocs.clear()
+            continue
+        elif ch in ";|&":
+            flush()
+        elif ch == "(":
+            if dialect == "sh":
+                flush()
+                events.append(("(", None))
+                stack.append("(")
+            elif dialect == "cmd":
+                flush()
+            else:  # a PowerShell expression: part of its command's words
+                stack.append("(")
+                buf.append(ch)
+        elif ch == ")":
+            if stack and stack[-1] == "(":
+                stack.pop()
+                if dialect == "sh":
+                    flush()
+                    events.append((")", None))
+                else:
+                    buf.append(ch)
+            elif stack and stack[-1] == "case":
+                buf.append(ch)  # a case pattern's end
+            elif stop == ")":
+                flush()
+                return events, i + 1
+            elif dialect == "cmd":
+                flush()
+            else:
+                buf.append(ch)  # stray: closes nothing
+        elif dialect == "sh" and s.startswith("<<", i) and not s.startswith("<<<", i):
+            j = i + 2
+            dash = j < len(s) and s[j] == "-"
+            j += dash
+            while j < len(s) and s[j] in " \t":
                 j += 1
             k = j
-            if k < len(command) and command[k] in "\"'":
-                end = command.find(command[k], k + 1)
-                k = len(command) if end < 0 else end + 1
-            else:
-                while k < len(command) and command[k] not in " \t;|&<>()\n":
+            while k < len(s) and s[k] not in " \t\n;|&<>()":
+                if s[k] in "\"'":
+                    end = s.find(s[k], k + 1)
+                    k = len(s) if end < 0 else end + 1
+                else:
                     k += 1
-            targets.append(command[j:k])
+            delim = re.sub(r"[\"'\\\\]", "", s[j:k])
+            if delim:
+                heredocs.append((delim, dash))
+            buf.append(" ")
+            i = k
+            continue
+        elif ch == ">":
+            j = i + 1
+            if j < len(s) and s[j] in ">|":  # `>>` appends, `>|` overwrites despite noclobber
+                j += 1
+            if j < len(s) and s[j] == "&":
+                j += 1
+                if j < len(s) and (s[j].isdigit() or s[j] == "-"):  # 2>&1, >&-: a stream
+                    i = j + 1
+                    continue
+            while j < len(s) and s[j] in " \t":
+                j += 1
+            k = j
+            if k < len(s) and s[k] in "\"'":
+                end = s.find(s[k], k + 1)
+                k = len(s) if end < 0 else end + 1
+            else:
+                while k < len(s) and s[k] not in " \t;|&<>()\n":
+                    k += 1
+            targets.append(s[j:k])
             i = k
             continue
         else:
+            if dialect == "sh" and ch.isalpha() and at_word_start() and command_start():
+                m = re.match(r"(case|esac)(?=[\s;)]|$)", s[i:])
+                if m and m.group(1) == "case":
+                    stack.append("case")
+                elif m and "case" in stack:
+                    while stack and stack.pop() != "case":
+                        pass
             buf.append(ch)
         i += 1
-    parts.append(("".join(buf), targets))
-    return [(p, t) for p, t in parts if t is None or p.strip() or t]
+    flush()
+    return events, i
 
 
-def substitutions(part):
-    """The commands a simple command's text runs inside it: `$( … )` in double quotes (an unquoted one is split by
-    segments) and backticks, never inside single quotes."""
-    out, quote, i = [], None, 0
-    while i < len(part):
-        ch = part[i]
-        if quote == "'":
-            quote = None if ch == "'" else quote
-        elif ch == "\\":
-            i += 1
-        elif ch == "'" and quote is None:
-            quote = "'"
-        elif ch == '"':
-            quote = None if quote == '"' else '"'
-        elif ch == "`":
-            end = part.find("`", i + 1)
-            end = len(part) if end < 0 else end
-            out.append(part[i + 1:end])
-            i = end
-        elif part.startswith("$(", i):
-            depth, j = 0, i + 1
-            while j < len(part):
-                depth += {"(": 1, ")": -1}.get(part[j], 0)
-                if depth == 0:
-                    break
-                j += 1
-            out.append(part[i + 2:j])
-            i = j
-        i += 1
-    return out
-
-
-def shell_write(command, root, cwd, protected, depth=0, folders=False):
-    """The protected path a shell command line writes, moves or removes, or None (`folders`: see hits)."""
+def shell_write(command, root, cwd, protected, depth=0, folders=False, dialect="sh"):
+    """The protected path a command line in `dialect` (see lex) writes, moves or removes, or None (`folders`: see
+    hits)."""
+    try:
+        events = lex(command, dialect)
+    except TooDeep:
+        return "(substitutions nested too deep to check)"
     outer = []  # the folder each open subshell started in
-    for part, targets in segments(command):
+    for part, targets in events:
         if targets is None:
             if part == "(":
                 outer.append(cwd)
@@ -279,15 +398,12 @@ def shell_write(command, root, cwd, protected, depth=0, folders=False):
         for t in targets:
             if hits(root, cwd, t, protected, folders=folders):
                 return t.strip("\"'")
-        if depth < 3:
-            for inner in substitutions(part):
-                found = shell_write(inner, root, cwd, protected, depth + 1, folders)
-                if found:
-                    return found
+        # sh reads its own escapes; on PowerShell and cmd a backslash is a path separator
+        text = part if dialect == "sh" else re.sub(r"\\(?=[\w.$~-])", "/", part)
         try:
-            words = shlex.split(re.sub(r"\\(?=[\w.$~-])", "/", part), posix=True)
+            words = shlex.split(text, posix=True)
         except ValueError:
-            words = re.sub(r"\\(?=[\w.$~-])", "/", part).split()
+            words = text.split()
         env_words = []
         while words and (re.match(r"^[A-Za-z_]\w*=", words[0]) or words[0].lower() in PREFIXES
                          or words[0] in KEYWORDS):
@@ -305,9 +421,10 @@ def shell_write(command, root, cwd, protected, depth=0, folders=False):
             cwd = os.path.join(cwd or root, operand.strip("\"'")) if operand else root
             continue
         if verb in SHELLS:
+            inner = "ps" if verb in ("pwsh", "powershell") else "cmd" if verb == "cmd" else "sh"
             for n, w in enumerate(args[:-1]):
                 if w.lower() in ("-c", "-command", "/c") and depth < 3:
-                    found = shell_write(args[n + 1], root, cwd, protected, depth + 1, folders)
+                    found = shell_write(args[n + 1], root, cwd, protected, depth + 1, folders, inner)
                     if found:
                         return found
             continue
@@ -376,7 +493,8 @@ def written(data, root, protected, folders=False):
         path = tin.get("file_path") or tin.get("notebook_path") or tin.get("path") or ""
         return path if path and hits(root, cwd, path, protected, folders=folders) else None
     if tool in ("Bash", "PowerShell"):
-        return shell_write(str(tin.get("command") or ""), root, cwd, protected, folders=folders)
+        return shell_write(str(tin.get("command") or ""), root, cwd, protected, folders=folders,
+                           dialect="ps" if tool == "PowerShell" else "sh")
     return None
 
 
@@ -386,7 +504,7 @@ def read_only_problem(data, root):
     others; a file that isn't JSON with a `repos` list fails closed: every folder of the workbench that isn't its own
     (sdlc_scopes.RESERVED, dot folders) is guarded until the file is fixed."""
     import sdlc_scopes
-    if not sdlc_scopes.is_workbench(root):
+    if not sdlc_scopes.guarded_workbench(root):
         return None
     names = sdlc_scopes.read_only_names(root)
     if names is None:
@@ -417,7 +535,7 @@ def unbranched_problem(data, root):
     read (setup and doctor handle those)."""
     import sdlc_layout
     import sdlc_scopes
-    if not sdlc_scopes.is_workbench(root):
+    if not sdlc_scopes.guarded_workbench(root):
         return None
     try:
         writable = [r["name"] for r in sdlc_scopes.manifest(root) if r["write"]]

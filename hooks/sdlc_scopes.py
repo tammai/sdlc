@@ -80,6 +80,21 @@ def is_workbench(root, need_manifest=True):
     return declared and (not need_manifest or os.path.isfile(os.path.join(root, WORKBENCH_FILE)))
 
 
+def guarded_workbench(root):
+    """For the write guards: a workbench (is_workbench), or a folder holding workbench.json whose .sdlc/config.json
+    exists but can't be read as an object (a merge-conflict marker, a bad edit). The guards fail closed there."""
+    import os
+    if is_workbench(root):
+        return True
+    config = os.path.join(root, ".sdlc", "config.json")
+    if not os.path.isfile(os.path.join(root, WORKBENCH_FILE)) or not os.path.exists(config):
+        return False
+    try:
+        return not isinstance(_read_json(config), dict)
+    except Exception:
+        return True
+
+
 def workbench_of(root):
     """The workbench an app repo belongs to (its config's `"workbench": "<name>"`), else None; any read error: None."""
     import os
@@ -324,12 +339,13 @@ def read_only_names(root):
     return out
 
 
-def workbench_root(start):
-    """The nearest folder at or above `start` that is a workbench, else None (hosts without CLAUDE_PROJECT_DIR)."""
+def workbench_root(start, guarded=False):
+    """The nearest folder at or above `start` that is a workbench (with `guarded`, guarded_workbench), else None
+    (hosts without CLAUDE_PROJECT_DIR)."""
     import os
     here = os.path.abspath(start or ".")
     while True:
-        if is_workbench(here):
+        if (guarded_workbench if guarded else is_workbench)(here):
             return here
         up = os.path.dirname(here)
         if up == here:

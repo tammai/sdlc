@@ -1240,8 +1240,17 @@ def cmd_workbench(p, a):
         entry["contract"] = {kind: version}
     checked = sdlc_scopes._check_entry(len(data["repos"]), entry, {str(r.get("name")).lower() for r in data["repos"]})
     name = checked["name"]
-    _ignore(p, name)  # before the clone: a crash after it leaves an ignored folder, never a repo git would commit
-    cloned = _clone_into(p, name, url)
+    dest = sdlc_scopes.repo_dir(p.root, name)
+    if os.path.lexists(dest) and not os.path.isdir(os.path.join(dest, ".git")):
+        raise ValueError(f"{name}/ exists and isn't a git repo: move it away or pick another --name")
+    added = _ignore(p, name)  # before the clone: a crash after it leaves an ignored folder, never a repo git commits
+    try:
+        cloned = _clone_into(p, name, url)
+    except ValueError:
+        if added:  # a refused clone leaves the .gitignore as it was
+            lines = [x for x in _gitignore_lines(p) if sdlc_scopes.ignored_name(x) != name]
+            _write_atomic(p.path(GITIGNORE), "\n".join(lines) + ("\n" if lines else ""), "surrogateescape")
+        raise
     data["repos"].append(entry)
     _write_atomic(p.path(sdlc_scopes.WORKBENCH_FILE), json.dumps(data, indent=2) + "\n")
     return {"added": checked, "cloned": cloned}
@@ -1263,9 +1272,12 @@ def _clone_into(p, name, url):
 
 
 def _ignore(p, name):
+    """Add /<name>/ to the workbench's .gitignore unless a line already ignores it; True when it added one."""
     lines = _gitignore_lines(p)
-    if not any(sdlc_scopes.ignored_name(x) == name for x in lines):
-        _write_atomic(p.path(GITIGNORE), "\n".join(lines + [f"/{name}/"]) + "\n", "surrogateescape")
+    if any(sdlc_scopes.ignored_name(x) == name for x in lines):
+        return False
+    _write_atomic(p.path(GITIGNORE), "\n".join(lines + [f"/{name}/"]) + "\n", "surrogateescape")
+    return True
 
 
 def _workbench_clone(p, target):

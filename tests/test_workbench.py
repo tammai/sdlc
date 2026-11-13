@@ -959,8 +959,8 @@ class ReviewRound2Manifest(WorkbenchTestCase):
         from unittest import mock
         args = argparse.Namespace(action="add", target="https://example.com/api.git", name=None, role="app",
                                   write=True, owner=None, contract=None)
-        with mock.patch.object(scaffold, "_clone_into", side_effect=ValueError("killed mid-clone")):
-            with self.assertRaises(ValueError):
+        with mock.patch.object(scaffold, "_clone_into", side_effect=KeyboardInterrupt()):  # killed mid-clone
+            with self.assertRaises(KeyboardInterrupt):
                 scaffold.cmd_workbench(scaffold.Project(self.root), args)
         self.assertIn("/api/", self.gitignore())
 
@@ -1063,6 +1063,69 @@ class ReviewRound2Ship(WorkbenchShipCase):
         with self.assertRaises(ship.Refused) as cm:
             ship.check_repos(self.root, self.state_text())
         self.assertIn("git -C api switch feat-x", str(cm.exception))
+
+
+class ReviewRound3Guards(WorkbenchGuardsCase):
+    """Review round 3: the guard lexes each shell's own syntax (comments, escapes, continuations, here-docs, case
+    patterns; PowerShell's backtick escape and expressions) and fails closed on a config it can't read."""
+
+    def test_bash_syntax_never_hides_a_write(self):
+        denied = ["# it's a note\nrm specs/a.md", "echo it\\'s > specs/a.md", "cp a.md \\\nspecs/a.md",
+                  "rm -rf \\\nspecs/old", "git -C specs \\\ncommit -m x",
+                  "cat <<'EOF' > notes.txt\nit's (\nEOF\nrm specs/a.md", "cat <<-END\n\tx`\n\tEND\ntouch specs/b",
+                  "(cd specs; case $x in a) true;; esac; echo x > b.md)", "echo \\` ; rm specs/a.md",
+                  "x=1 # comment\ncd specs && touch b"]
+        for command in denied:
+            self.assertIsNotNone(self.pre("Bash", command=command), command)
+        allowed = ["git commit -m \"$(cat <<'EOF'\nfix: rm specs/a.md -> specs/x (see `specs`)\nEOF\n)\"",
+                   "echo '# rm specs/a.md'", "echo hi # > specs/a.md", "case $x in a) echo a;; esac; echo x > b.md",
+                   "gh pr create --body \"$(cat <<'EOF'\nwrites `touch specs/b`\nEOF\n)\"",
+                   "echo a#b > out.txt"]
+        for command in allowed:
+            self.assertIsNone(self.pre("Bash", command=command), command)
+
+    def test_powershell_and_cmd_syntax_never_hide_a_write(self):
+        for command in ('Write-Output "say `"hi`""; Remove-Item specs/a.md', "Remove-Item (Join-Path specs a.md)",
+                        'Write-Output "$(Remove-Item specs/a.md)"', "Set-Location specs # go\nRemove-Item a.md"):
+            self.assertIsNotNone(self.pre("PowerShell", command=command), command)
+        self.assertIsNone(self.pre("PowerShell", command="Get-Content specs/a.md | Out-File out.txt"))
+        for command in ('cmd /c "cd /d specs && del a.md"', 'pwsh -Command "Remove-Item (Join-Path specs a.md)"'):
+            self.assertIsNotNone(self.pre("Bash", command=command), command)
+
+    def test_an_unreadable_config_keeps_the_guards_on(self):
+        self.write(".sdlc/config.json", "<<<<<<< HEAD\n{\"workbench\": true}\n=======\n")
+        reason = self.pre("Write", file_path=self.path("specs/b.md"), content="x")
+        self.assertIsNotNone(reason)
+        self.assertIsNotNone(self.pre("Bash", command="cd specs && echo x > b.md"))
+        self.assertIsNone(self.pre("Write", file_path=self.path("docs/a.md"), content="x"))
+
+
+class ReviewRound3Feature(WorkbenchFeatureCase):
+    def test_an_unreadable_config_keeps_the_branch_backstop_on(self):
+        self.write(".sdlc/config.json", "{ broken")
+        self.assertIsNotNone(pre_hook(self, "Write", file_path=self.path("api/a.py"), content="x"))
+
+
+class ReviewRound3Manifest(WorkbenchTestCase):
+    def test_a_refused_add_leaves_no_ignore_line(self):
+        self.write("api/notes.txt", "mine")  # a folder of the user's, not a repo
+        code, out, err = self.run_scaffold("workbench", "add", "https://example.com/api.git", "--role", "app")
+        self.assertNotEqual(code, 0, (out, err))
+        self.assertFalse([x for x in self.gitignore() if x.strip("/") == "api"], self.gitignore())
+        self.assertTrue(os.path.isfile(self.path("api/notes.txt")))
+
+
+class ReviewRound3Ship(WorkbenchShipCase):
+    def test_status_reads_a_full_url_without_the_clone(self):
+        import shutil
+        url = "https://example.com/api/pull/2"
+        self.assertEqual(self.state("pr", "feat", "api", url)[0], 0)
+        shutil.rmtree(self.path("api"))
+        script = self.write("gh_ok.py", "import json\nprint(json.dumps({'state': 'MERGED', "
+                            "'mergedAt': '2026-11-13T10:00:00Z'}))\n")
+        r = json.loads(self.ship("--status", env={"SDLC_GH": f'"{sys.executable}" "{script}"'})[1])
+        self.assertEqual(r["prs"][0]["state"], "MERGED")
+        self.assertNotIn("errors", r)
 
 
 if __name__ == "__main__":

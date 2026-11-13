@@ -274,8 +274,10 @@ def status(root, feature):
     for name in sdlc_scopes.merge_order(root, list(prs)):
         try:
             where = root if name == sdlc_scopes.WORKBENCH_SCOPE else sdlc_scopes.repo_dir(root, name)
+            if not os.path.isdir(where) and not prs[name].isdigit():
+                where = root  # a full URL names its repo itself
             st, merged, error = pr_state(prs[name], where) if os.path.isdir(where) else (
-                "UNKNOWN", None, f"{name}/ isn't cloned")
+                "UNKNOWN", None, f"{name}/ isn't cloned, and a bare PR number needs its repo")
         except ValueError as e:
             st, merged, error = "UNKNOWN", None, str(e)
         rows.append({"repo": name, "url": prs[name], "state": st, "merged_at": merged if st == "MERGED" else None})
