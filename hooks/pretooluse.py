@@ -37,9 +37,12 @@ def _recorded_test_write(input_data):
     It runs here because this hook already runs on exactly these tools, for every host (hosts/hook.py)."""
     try:
         import role_guard
-        root = os.path.abspath(os.environ.get('CLAUDE_PROJECT_DIR') or input_data.get('cwd') or os.getcwd())
-        root = _target_repo(input_data) or root
-        return role_guard.bundle_problem(input_data, root)
+        project = os.path.abspath(os.environ.get('CLAUDE_PROJECT_DIR') or input_data.get('cwd') or os.getcwd())
+        target = _target_repo(input_data)
+        # The repo the call is routed to, and the session's own root: at a workbench's root that covers every app
+        # repo's recorded tests, whatever path or folder change the command uses to reach them
+        return ((target and role_guard.bundle_problem(input_data, target))
+                or role_guard.bundle_problem(input_data, project))
     except Exception:
         return None
 

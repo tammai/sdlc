@@ -1222,13 +1222,22 @@ def cmd_workbench(p, a):
     if a.action == "remove":
         name = sdlc_scopes.check_name(a.target)
         if not any(r.get("name") == name for r in data["repos"]):
+            lines = _gitignore_lines(p)
+            if not os.path.lexists(p.path(name)) and any(sdlc_scopes.ignored_name(x) == name for x in lines):
+                # removed earlier while its folder was there: the folder is gone now, so its ignore line goes
+                rest = [x for x in lines if sdlc_scopes.ignored_name(x) != name]
+                _write_atomic(p.path(GITIGNORE), "\n".join(rest) + ("\n" if rest else ""), "surrogateescape")
+                return {"removed": name, "folder_kept": None}
             raise ValueError(f"no repo named {name!r} in {sdlc_scopes.WORKBENCH_FILE}")
         data["repos"] = [r for r in data["repos"] if r.get("name") != name]
-        lines = [x for x in _gitignore_lines(p) if sdlc_scopes.ignored_name(x) != name]
-        # The record goes first: a crash between the two leaves an extra ignore line, never a listed repo unignored
         _write_atomic(p.path(sdlc_scopes.WORKBENCH_FILE), json.dumps(data, indent=2) + "\n")
-        _write_atomic(p.path(GITIGNORE), "\n".join(lines) + ("\n" if lines else ""), "surrogateescape")
-        return {"removed": name, "folder_kept": name if os.path.isdir(p.path(name)) else None}
+        kept = name if os.path.lexists(p.path(name)) else None
+        if not kept:  # while the folder is there its ignore line stays, so the workbench never commits the repo
+            lines = [x for x in _gitignore_lines(p) if sdlc_scopes.ignored_name(x) != name]
+            _write_atomic(p.path(GITIGNORE), "\n".join(lines) + ("\n" if lines else ""), "surrogateescape")
+        return {"removed": name, "folder_kept": kept,
+                **({"note": f"/{name}/ stays in .gitignore until you delete {name}/; run remove again after"}
+                   if kept else {})}
     url = a.target
     raw_name = a.name if a.name is not None else re.sub(r"\.git$", "", url.rstrip("/\\").replace("\\", "/")
                                                          .rsplit("/", 1)[-1].rsplit(":", 1)[-1])
@@ -1269,8 +1278,22 @@ def _clone_into(p, name, url, read_only=False):
     if proc.returncode:
         raise ValueError(f"git clone failed: {(proc.stdout + proc.stderr).strip()[-300:]}")
     if read_only:
-        sdlc_scopes.disable_push(dest)
+        try:
+            sdlc_scopes.disable_push(dest)
+        except ValueError:
+            _remove_tree(dest)  # never left behind able to push to another team's remote
+            raise
     return True
+
+
+def _remove_tree(path):
+    """Remove a folder git wrote, its read-only object files too (Windows refuses to delete them)."""
+    import stat
+
+    def writable(func, p, _):
+        os.chmod(p, stat.S_IWRITE)
+        func(p)
+    shutil.rmtree(path, onerror=writable)
 
 
 def _ignore(p, name):

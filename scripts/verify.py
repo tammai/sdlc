@@ -306,10 +306,12 @@ def drift(root, feature, later=()):
     facts = diff_stats.collect(root, m.group(1), [plan_path] if os.path.exists(plan_path) else [])
     docs_dir = sdlc_layout.docs_dir(root)
     in_repos = repo_changes(root, feature)  # a workbench: what the feature changed in each app repo
-    every = facts["changed_files"] + in_repos
-    changed = [f for f in facts["changed_files"] if not f.startswith(".sdlc/") and not f.lower().endswith(".md")
-               and not (docs_dir and f.startswith(docs_dir + "/")) and not GENERATED.search(f)]
-    changed += [f for f in in_repos if "/.sdlc/" not in f and not f.lower().endswith(".md") and not GENERATED.search(f)]
+    every = sorted(set(facts["changed_files"]) | set(in_repos))
+    # One source for app-repo files (diff_stats lists branched repos' files too): in_repos, filtered the same way
+    own = [f for f in facts["changed_files"] if f not in set(in_repos) and not f.startswith(".sdlc/")
+           and not (docs_dir and f.startswith(docs_dir + "/"))]
+    changed = [f for f in own + in_repos if "/.sdlc/" not in f and not f.lower().endswith(".md")
+               and not GENERATED.search(f)]
     tasks, task_acs, current = {}, {}, None
     for line in (section(plan_text, "Tasks") or "").splitlines():
         t = TASK_START.match(line)

@@ -585,6 +585,25 @@ def written(data, root, protected, folders=False):
     return None
 
 
+def accepts(command, dialect):
+    """True when a command line runs read_only_watch.py --accept, in any spelling quoting allows (`--acc''ept`)."""
+    if "read_only_watch" in command and "--accept" in command:
+        return True
+    try:
+        events = lex(command, dialect)
+    except TooDeep:
+        return True
+    words = []
+    for part, targets in events:
+        if isinstance(targets, list):
+            try:
+                words += shlex.split(part, posix=True)
+            except ValueError:
+                words += part.split()
+    joined = [w.replace("\\", "/") for w in words]
+    return any("read_only_watch" in w for w in joined) and any(w.startswith("--acc") for w in joined)
+
+
 def read_only_problem(data, root):
     """The deny reason when this call writes into a `write: false` repo of the workbench at root, naming the repo and
     its owner; None outside a workbench. Entries are read one by one, so one malformed entry never unguards the
@@ -597,7 +616,7 @@ def read_only_problem(data, root):
     if deep_reason(found):
         return deep_reason(found)
     command = str((data.get("tool_input") or {}).get("command") or "")
-    if found or ("read_only_watch" in command and "--accept" in command):
+    if found or accepts(command, "ps" if data.get("tool_name") == "PowerShell" else "sh"):
         return ("sdlc: the read-only watch's baseline is the user's to change: only they accept a change in a "
                 "read-only repo (they run read_only_watch.py --accept with `!`). Tell them what changed instead.")
     names = sdlc_scopes.read_only_names(root)
@@ -661,7 +680,17 @@ def unbranched_problem(data, root):
 
 
 def bundle_problem(data, root):
-    protected = protected_paths(root)
+    """The deny reason when this call writes a recorded acceptance test or its manifest in the repo at root, or, at a
+    workbench's root, in any repo cloned inside it (its paths prefixed with the repo's folder); else None."""
+    import sdlc_scopes
+    protected = set(protected_paths(root) or ())
+    if sdlc_scopes.guarded_workbench(root):
+        try:
+            children = [d for d in os.listdir(root) if not d.startswith(".") and os.path.isdir(os.path.join(root, d))]
+        except OSError:
+            children = []
+        for child in children:
+            protected |= {canon(f"{child}/{p}") for p in protected_paths(os.path.join(root, child)) or ()}
     if not protected:
         return None
     found = written(data, root, protected)

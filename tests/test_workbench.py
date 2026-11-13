@@ -179,8 +179,15 @@ class WorkbenchManifest(WorkbenchTestCase):
         code, out, err = self.run_scaffold("workbench", "remove", "api")
         self.assertEqual(code, 0, (out, err))
         self.assertEqual([r["name"] for r in sdlc_scopes.manifest(self.root)], [name])
-        self.assertNotIn("/api/", self.gitignore())
+        # The folder is kept, so its ignore line stays (the workbench never commits the repo); once the user
+        # deletes the folder, remove drops the line
         self.assertTrue(os.path.isdir(self.path("api")))
+        self.assertIn("/api/", self.gitignore())
+        self.assertIn("api", out["note"])
+        rmtree(self.path("api"))
+        code, out, err = self.run_scaffold("workbench", "remove", "api")
+        self.assertEqual(code, 0, (out, err))
+        self.assertNotIn("/api/", self.gitignore())
         # Names that aren't plain folder names are refused and nothing is written
         def snapshot():
             with open(self.path("workbench.json"), encoding="utf-8") as f:
@@ -807,6 +814,7 @@ class ReviewRound1Manifest(WorkbenchTestCase):
         code, out, err = self.run_scaffold("workbench", "clone", "nope")
         self.assertNotEqual(code, 0)
         # remove drops the line in any spelling
+        rmtree(self.path("specs"))
         code, out, err = self.run_scaffold("workbench", "remove", "specs")
         self.assertEqual(code, 0, (out, err))
         self.assertFalse([x for x in self.gitignore() if x.strip("/") == "specs"], self.gitignore())
@@ -1262,9 +1270,35 @@ class ReadOnlyBackstop(WorkbenchFeatureCase):
         self.assertIn("tests/", out["reason"])
         self.assertNotEqual(git_out(self.path("tests"), "remote", "get-url", "--push", "origin"), url)
 
+    def test_a_removed_baseline_and_a_reset_are_differences(self):
+        specs = self.path("specs")
+        self.watch("SessionStart")
+        self.write("specs/b.md", "x")
+        os.remove(self.path(".sdlc/.work/read-only-baseline.json"))  # one call that writes and hides it
+        out = self.watch("PostToolUseFailure")
+        self.assertEqual(out.get("decision"), "block", out)
+        self.assertIn("baseline", out["reason"])
+        self.assertEqual(out["hookSpecificOutput"]["hookEventName"], "PostToolUseFailure")
+        self.assertEqual(self.watch("Stop").get("decision"), "block")
+        os.remove(self.path("specs/b.md"))
+        self.accept()
+        # A reset to a commit a remote already has: no file changes, no unpushed commit, still a change
+        self.write("specs/c.md", "c")
+        git(specs, "add", "-A")
+        git(specs, "commit", "-q", "-m", "c")
+        git(specs, "update-ref", "refs/remotes/origin/main", "HEAD")
+        self.accept()
+        git(specs, "reset", "-q", "--hard", "HEAD~1")
+        self.assertIn("moved", self.watch("Stop").get("reason", ""))
+        # A pull (forward to a commit a remote has) is not
+        self.accept()
+        git(specs, "merge", "-q", "--ff-only", "origin/main")
+        self.assertEqual(self.watch("Stop"), {})
+
     def test_the_agent_cannot_accept_or_edit_the_baseline(self):
         self.watch("SessionStart")
         for command in ("python3 hooks/read_only_watch.py --accept specs", "rm .sdlc/.work/read-only-baseline.json",
+                        "python3 hooks/read_only_watch.py --acc''ept specs", "python3 hooks/read_only_watch.py \\--accept",
                         "echo {} > .sdlc/.work/read-only-baseline.json", "git -C specs remote set-url --push origin x",
                         "git -C specs remote remove origin", "git -C specs config remote.origin.pushurl x",
                         "git -C specs update-index --assume-unchanged a.md"):
@@ -1299,6 +1333,100 @@ class ReadOnlyBackstop(WorkbenchFeatureCase):
         git(self.path("specs"), "remote", "add", "origin", url)
         self.assertEqual(self.state("repo", "feat", "specs")[0], 0)
         self.assertNotEqual(git_out(self.path("specs"), "remote", "get-url", "--push", "origin"), url)
+
+
+class PluginReviewWorkbench(WorkbenchFeatureCase):
+    """The whole-plugin review (session sdlc-f2): H4 app-repo commits keep their security review, H5 Bash can't
+    reach an app repo's recorded tests from the workbench root, W2 app commands count in Review's hooks, W3 doctor,
+    W8 the baseline waiver, W9 drift, W10 clone and remove."""
+
+    def test_app_repo_commits_are_reviewed_for_the_workbench_feature(self):
+        import sdlc_review_gate as gate
+        api = self.path("api")
+        self.assertEqual(self.state("repo", "feat", "api")[0], 0)
+        self.write("api/a.py", "x = 1\n")
+        git(api, "add", "-A")
+        git(api, "commit", "-q", "-m", "x")
+        sha = git_out(api, "rev-parse", "HEAD")
+        d = gate.decide(api, [sha], set())
+        self.assertFalse(d.get("off"), d)
+        self.assertFalse(d["defer"], d)
+        self.assertEqual(self.state("set", "feat", "Risk", "high")[0], 0)
+        d = gate.decide(api, [sha], set())
+        self.assertFalse(d.get("skip") or d.get("off") or d["defer"], d)  # Risk: high is always reviewed
+        self.assertEqual(self.state("set", "feat", "Status", "done")[0], 0)
+        self.assertTrue(gate.decide(api, [sha], set()).get("off"))  # nothing active in the workbench
+
+    def test_app_test_commands_count_in_review(self):
+        import prove_budget
+        import review_rounds
+        self.assertIn("python3 check.py", prove_budget.project_commands(self.root))
+        self.assertTrue(review_rounds.runs_tests(self.root, "cd api && python3 check.py"))
+        self.assertFalse(review_rounds.runs_tests(self.root, "cd api && sleep 900"))
+
+    def test_doctor_passes_a_workbench_without_root_commands(self):
+        import doctor
+        from unittest import mock
+        status = {"setup": "complete", "drift": "current", "scaffold_version": "3.7.0", "plugin_version": "3.7.0",
+                  "files": {}, "completed_steps": []}
+        r = doctor.Report()
+        with mock.patch.object(doctor.scaffold, "cmd_status", return_value=status):
+            try:
+                doctor.check_repo(r, self.root)
+            except Exception:  # later rows need a real setup; the commands row comes first
+                pass
+        rows = {c["check"]: c for c in r.checks}
+        self.assertEqual(rows["commands"]["status"], "ok", rows["commands"])
+
+    def test_an_app_failure_is_never_waived_by_the_workbench_baseline(self):
+        import ship
+        from unittest import mock
+        self.assertEqual(self.state("repo", "feat", "api")[0], 0)
+        self.write(".sdlc/baseline.md", "## Failing tests\n\n| Package | Test |\n|---|---|\n| (root) | t_old |\n")
+        last = {"result": "fail", "failures": ["api: (root) test: exit 1\nboom"], "head": "h", "tree": "t"}
+        with mock.patch.object(ship.verify, "status", return_value={"reuse": False}), \
+                mock.patch.object(ship.verify, "full", return_value=(last, [])):
+            with self.assertRaises(ship.Refused):
+                ship.verified(self.root, "feat", 60, waive_baseline=True)
+
+    def test_drift_counts_each_app_file_once_and_never_its_sdlc_folder(self):
+        import verify
+        self.assertEqual(self.state("repo", "feat", "api")[0], 0)
+        self.write("api/a.py", "x = 1\n")
+        self.write_json("api/.sdlc/config.json", {"workbench": "shop-workbench", "commands": {"test": "python3 check.py"},
+                                                 "x": 1})
+        items = [d["item"] for d in verify.drift(self.root, "feat") or []]
+        self.assertNotIn("api/.sdlc/config.json", items)
+        self.assertEqual(items.count("api/a.py"), items.count("api/a.py") and 1, items)
+
+    def test_a_clone_that_cannot_drop_its_push_url_is_removed(self):
+        from unittest import mock
+        url = self.origin("tests")
+        self.write_json("workbench.json", {"repos": [{"name": "tests", "url": url, "role": "tests"}]})
+        with mock.patch.object(scaffold.sdlc_scopes, "disable_push", side_effect=ValueError("no")):
+            with self.assertRaises(ValueError):
+                scaffold._clone_into(scaffold.Project(self.root), "tests", url, read_only=True)
+        self.assertFalse(os.path.exists(self.path("tests")))
+
+
+class PluginReviewGuards(WorkbenchGuardsCase):
+    def test_bash_never_reaches_an_app_repos_recorded_tests(self):
+        self.write_json("api/acceptance/manifest.json", {"tests": [{"path": "tests/a.spec.ts"}]})
+        self.write("api/acceptance/tests/a.spec.ts", "test")
+        for command in ("echo x > api/acceptance/tests/a.spec.ts", "rm api/acceptance/tests/a.spec.ts",
+                        "cp /tmp/x api/acceptance/manifest.json", "cd web && echo x > ../api/acceptance/tests/a.spec.ts",
+                        "ls web; echo x > api/acceptance/tests/a.spec.ts"):
+            reason = self.pre("Bash", command=command)
+            self.assertIsNotNone(reason, command)
+            self.assertIn("recorded acceptance test", reason)
+        for command in ("cat api/acceptance/tests/a.spec.ts", "echo x > api/src/a.ts"):
+            self.assertIsNone(self.pre("Bash", command=command), command)
+
+    def test_the_s_track_and_flow_carry_the_workbench_steps(self):
+        s_track = read_doc("skills", "orchestrator", "references", "s-track.md")
+        for needed in ("workbench", "$S repo <name>", "$S pr <name>", "git switch -c <name>"):
+            self.assertIn(needed, s_track, needed)
+        self.assertIn("git switch -c <f>", read_doc("skills", "orchestrator", "references", "flow.md"))
 
 
 if __name__ == "__main__":

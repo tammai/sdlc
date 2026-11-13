@@ -5,7 +5,8 @@
 applied at that first look). role_guard denies the writes it can read in a command's text; this sees a change
 whatever made it.
 
-  SessionStart, PreToolUse   the first look, if there is none yet (so the first call's change is never absorbed)
+  SessionStart, PreToolUse   the first look, if there is none yet (so the first call's change is never absorbed);
+                             only here: a baseline gone after a call is itself a difference
   PostToolUse(Failure)       after a call that can write: a new difference is said once, naming what changed
   Stop                       any difference blocks Stop once (never a loop)
   --accept [NAME…]           the user's step: take the repos as they are now (the guard denies it to the agent)
@@ -45,12 +46,31 @@ def snapshot(repo):
     unpushed = git(repo, "rev-list", *head, "--branches", "--not", "--remotes").split()
     push = sorted(" ".join(line.split()[:2]) for line in git(repo, "remote", "-v").splitlines()
                   if line.endswith("(push)"))
-    return {"status": sorted(status), "unpushed": sorted(unpushed), "push": push}
+    refs = dict(line.split(" ", 1)[::-1] for line in
+                git(repo, "for-each-ref", "--format=%(objectname) %(refname)", "refs/heads").splitlines() if " " in line)
+    refs["HEAD"] = git(repo, "rev-parse", "HEAD").strip() if head else ""
+    return {"status": sorted(status), "unpushed": sorted(unpushed), "push": push, "refs": refs}
 
 
-def changes(base, now):
-    """Lines naming what differs between two snapshots of one repo."""
+def fast_forward(repo, old, new):
+    """True when `new` only moves `old` forward to a commit a remote has (a pull), never a reset or a rewrite."""
+    try:
+        if subprocess.run(["git", "-C", repo, "merge-base", "--is-ancestor", old, new], capture_output=True,
+                          timeout=GIT_TIMEOUT).returncode:
+            return False
+        return bool(git(repo, "branch", "-r", "--contains", new).strip())
+    except (RuntimeError, OSError, subprocess.SubprocessError):
+        return False
+
+
+def changes(base, now, repo=None):
+    """Lines naming what differs between two snapshots of one repo (refs that only moved forward to a commit a
+    remote has, a pull, aren't a change)."""
     lines = []
+    for ref in sorted(set(base.get("refs") or {}) | set(now.get("refs") or {})) if base.get("refs") is not None else []:
+        old, new = (base.get("refs") or {}).get(ref), now["refs"].get(ref)
+        if old != new and not (old and new and repo and fast_forward(repo, old, new)):
+            lines.append(f"{ref.replace('refs/heads/', '')} moved: {(old or 'none')[:12]} -> {(new or 'none')[:12]}")
     added = sorted(set(now["status"]) - set(base["status"]))
     gone = sorted(set(base["status"]) - set(now["status"]))
     if added:
@@ -98,6 +118,9 @@ def look(root, seed_only=False):
     if listed is None:
         return []  # an unreadable manifest: the PreToolUse guard denies writes into every folder meanwhile
     data = load(path)
+    if data is None and not seed_only:
+        # Seeded only before a call (SessionStart, PreToolUse): gone or broken now means a call removed it
+        return [f"the baseline ({BASELINE}) is missing or unreadable, so changes can't be checked"] if listed else []
     if data is None:
         repos = {}
         for name in listed:
@@ -126,14 +149,14 @@ def look(root, seed_only=False):
         try:
             if name not in base:  # cloned since the first look: a fresh clone holds no change of its own
                 now = first_look(folder)
-                base[name] = {"status": [], "unpushed": [], "push": now["push"]}
+                base[name] = {"status": [], "unpushed": [], "push": now["push"], "refs": now["refs"]}
                 grown = True
             else:
                 now = snapshot(folder)
         except (RuntimeError, ValueError, OSError, subprocess.SubprocessError) as e:
             report.append(f"{name}/ (can't be read: {e})")
             continue
-        lines = changes(base[name], now)
+        lines = changes(base[name], now, folder)
         if lines:
             report.append(f"{name}/ ({'; '.join(lines)})")
     if grown:
@@ -196,11 +219,12 @@ def main():
     path = os.path.join(root, BASELINE)
     state = load(path)
     signature = " | ".join(report)
-    if state is not None and state.get("reported") != (signature or None):
-        state["reported"] = signature or None
-        save(path, state)
-    elif event != "Stop":
-        return  # said already after an earlier call: once is enough until something changes
+    if state is not None:
+        if state.get("reported") == (signature or None) and event != "Stop":
+            return  # said already after an earlier call: once is enough until something changes
+        if state.get("reported") != (signature or None):
+            state["reported"] = signature or None
+            save(path, state)
     if not report:
         return
     reason = message(report)
@@ -208,7 +232,7 @@ def main():
         out = {"systemMessage": reason} if data.get("stop_hook_active") else {"decision": "block", "reason": reason}
     else:
         out = {"decision": "block", "reason": reason,
-               "hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext": reason}}
+               "hookSpecificOutput": {"hookEventName": event, "additionalContext": reason}}
     print(json.dumps(out))
 
 

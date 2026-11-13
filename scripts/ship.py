@@ -102,7 +102,10 @@ def verified(root, feature, timeout, waive_baseline=False):
     if last["result"] == "pass":
         return last["head"], last["tree"], None
     listed = baseline_failures(root)
-    if waive_baseline and listed and all(re.match(r"[^\n]*\btest: exit", f) for f in last["failures"]):
+    # The workbench's baseline lists its own tests: an app repo's failure (`api: … test: exit`) is never waived by it
+    apps = tuple(f"{name}: " for name, _ in verify.branched_repos(root, feature))
+    if waive_baseline and listed and all(re.match(r"[^\n]*\btest: exit", f) and not (apps and f.startswith(apps))
+                                         for f in last["failures"]):
         return last["head"], last["tree"], f"Stage 4: baseline failures waived: only the test step failed; {len(listed)} listed in .sdlc/baseline.md"
     hint = "\nIf only the test step failed and every failure is in .sdlc/baseline.md, rerun with --waive-baseline." if listed else ""
     raise Refused("verify failed:\n" + "\n".join(notes + last["failures"]) + hint)

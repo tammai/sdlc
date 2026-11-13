@@ -79,6 +79,24 @@ def _active_feature(root, shas=()):
     return found[0] if len(found) == 1 else None
 
 
+def _workbench_feature(repo_root):
+    """For an app repo of a workbench (its config names one, and a workbench folder sits above it): the one active
+    feature's state text there that branched or recorded this repo (`## Repos`); "" when the workbench has active
+    features but they can't be told apart; None when it isn't a workbench app repo or nothing there is active."""
+    import sdlc_scopes  # noqa: PLC0415
+    if not sdlc_scopes.workbench_of(repo_root):
+        return None
+    wb = sdlc_scopes.workbench_root(os.path.dirname(os.path.abspath(repo_root)))
+    if not wb:
+        return None
+    found = _active_features(wb)
+    if not found:
+        return None
+    name = os.path.basename(os.path.abspath(repo_root))
+    mine = [t for t in found if name in sdlc_scopes.feature_repos(t)]
+    return mine[0] if len(mine) == 1 else ("" if mine or len(found) > 1 else found[0])
+
+
 def _always():
     return os.environ.get("SDLC_SECURITY_REVIEW", "").strip().lower() == "always"
 
@@ -209,7 +227,16 @@ def decide(repo_root, shas, reviewed):
     given = {"defer": False, "shas": list(shas), "own": list(shas), "range": None, "active": False}
     try:
         if not _always() and not _active_features(repo_root, shas):
-            return {"defer": True, "off": True, "shas": [], "own": [], "range": None, "active": False}
+            owner = _workbench_feature(repo_root)
+            if owner is None:
+                return {"defer": True, "off": True, "shas": [], "own": [], "range": None, "active": False}
+            # An app repo's commit, for the workbench's feature: never deferred (the app repo has no stage of its
+            # own); judged by the feature's Risk and the app's own security areas, and reviewed when unsure
+            full = [_git(repo_root, "rev-parse", "--verify", "-q", s) or s for s in shas]
+            if owner and not _touches_guarded_paths(repo_root, full, NEVER_SKIP) \
+                    and not _security_touched(repo_root, owner, None, None, full):
+                return {"defer": False, "skip": True, "shas": full, "own": full, "range": None, "active": True}
+            return {"defer": False, "shas": full, "own": full, "range": None, "active": True}
         text = _active_feature(repo_root, shas)
         stage = re.search(r"^Current:\s*Stage\s*(\d+)\b", text or "", re.M)
         base = re.search(r"^Base:\s*`?([0-9a-f]{7,40})\b", text or "", re.M)

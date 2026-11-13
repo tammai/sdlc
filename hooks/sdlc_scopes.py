@@ -432,6 +432,24 @@ def must_follow(root, before, after):
     return bool(early.get("provides")) and early.get("provides") == late.get("consumes")
 
 
+def command_sets(root):
+    """Every commands object the project at root runs: its own `commands`, each package's, and in a workbench each
+    writable app repo's (from the app's own config). Unreadable config: what can be read ([] at worst)."""
+    import os
+    try:
+        config = _read_json(os.path.join(root, ".sdlc", "config.json"))
+    except (OSError, ValueError):
+        config = {}
+    config = config if isinstance(config, dict) else {}
+    sets = [config.get("commands")] + [p.get("commands") for p in config.get("packages") or [] if isinstance(p, dict)]
+    if is_workbench(root):
+        try:
+            sets += [scope["commands"] for scope in workbench_scopes(root) if scope["repo"]]
+        except ValueError:
+            pass
+    return [s for s in sets if isinstance(s, dict)]
+
+
 def root_commands(config):
     """The root `commands` beside `packages` (workspace-wide), else {}: without packages they are the root scope's."""
     cfg = _dict(config)

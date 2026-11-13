@@ -1,5 +1,5 @@
 # 2026-11-13-l-workbench
-Status: done
+Status: active
 Process: 3
 Change: .sdlc/2026-11-13-l-workbench/change.md   (this feature's record for people)
 Track: L   (sized up because: several distinct parts across setup, hooks, verify, ship and CI; footprint: 30 files)
@@ -12,7 +12,7 @@ Owner: 3235400+tammai@users.noreply.github.com
 Tool: claude-code
 Verified: 423e930 tree d66908af960ce6c2c100ca0722107ec2dc803638
 Slice: B8   Slice base: 9388559   Slice gates: none
-Current: Stage 4 – Ship
+Current: Stage 2 – Build
 
 ## Stages
 - [x] 1 Define   — the change file, the plan sections below
@@ -74,6 +74,8 @@ parts in fresh sessions, because seven parts across the core won't fit one conte
 - 2026-11-13 review round 5 (security only): PASS; its medium and low bugs (S26-S38) fixed test first, closed by the suite and verify.py without another round (flow: from round 2 only a high fails)
 - 2026-11-13 Stage 2: pass — review rounds ran: code r1-r3, security r1-r5
 - 2026-11-13 Stage 3: pass
+- 2026-11-13 Stage 4: fail — reopened: whole-plugin review (session sdlc-f2) found H4-H6, W1-W10 in the workbench; user chose to fix on this branch
+- 2026-11-13 scope: whole-plugin review findings H4-H6 and W1-W10 fixed on this branch (user's choice); H1-H3 and older mediums go to .sdlc/todo.md
 
 ## Deviations
 - 2026-11-13 setup What: went on with setup none (no .sdlc/config.json). Why: the plugin's own repo has always run sdlc without setup (e.g. 2026-11-08-l-spec-backed-mode). Effect: verify.py runs the AC tests; the full suite is run by hand with python3.10 -m unittest discover -s tests -t tests.
@@ -122,6 +124,7 @@ parts in fresh sessions, because seven parts across the core won't fit one conte
 - 2026-11-13 hooks/hooks.json hosts/hook.py hooks/read_only_watch.py git snapshot read_only_repos changes load save check main; hooks/role_guard.py deep_reason What: the backstop hook's registration (PostToolUse on edits/Bash/PowerShell, Stop; also run by hosts/hook.py) and its internal helpers, and the too-deep deny reason. Why: review round 4 (structural backstop the user chose; S24). Effect: internal; one hook process per write call that exits at once outside a workbench.
 - 2026-11-13 hooks/read_only_watch.py look first_look repo_folder message accept project_root, hooks/hooks.json, hosts/hook.py, hooks/role_guard.py GIT_REMOTE_WRITES GIT_CONFIG_WRITES WATCH_BASELINE What: one baseline per workbench taken at SessionStart or before the first writing call (new clones start empty), push URLs disabled at first look and watched, failed calls watched, a missing or unreadable repo reported, each difference said once and Stop blocked across sessions; only the user accepts (--accept with !), the guard denies the agent that command, writes to the baseline, git remote/config/update-index changes in read-only repos; PowerShell expressions keep Set-Location; bash <<< word read as a script; unbalanced (( no longer swallows the line. Why: review round 5 S26-S38. Effect: docs GRD-FR-034, wiki Hooks, workbench.md, ADR 0025, CHANGELOG.
 - 2026-11-13 hooks/role_guard.py shell_write backslash, tests/test_workbench.py rmtree What: a backslash before a path character counts as a separator in Bash too (Windows paths reach Git Bash); tests remove git repos with a helper that clears read-only object files. Why: CI on windows-latest: git -C C:\...\specs commit got past the read-only guard after round 3's lexer read it as escapes, and shutil.rmtree can't delete .git objects there. Effect: the guard fails closed on Windows paths; test-only helper.
+- 2026-11-13 hooks/sdlc_review_gate.py _workbench_feature, hooks/pretooluse.py, hooks/role_guard.py bundle_problem accepts, hooks/sdlc_scopes.py command_sets, hooks/prove_budget.py project_commands, hooks/review_rounds.py runs_tests, hooks/read_only_watch.py fast_forward changes, scripts/doctor.py check_repo, scripts/ship.py verified, scripts/verify.py drift, scripts/scaffold.py _remove_tree _clone_into cmd_workbench remove, skills/orchestrator/references/s-track.md flow.md, .sdlc/todo.md What: whole-plugin review fixes: an app repo's commit is judged by the workbench's active feature (never off or deferred); Bash from the workbench root can't write any app repo's recorded tests; the S track carries the workbench steps and the gate call creates the workbench branch, read-only repos recorded at Build start; app repos' commands count in Review's budget and round cap; doctor passes a workbench; the watch records HEAD and branch refs (a pull is not a change), treats a missing baseline after a call as a difference, names its event; --accept is matched on dequoted words; the workbench baseline never waives an app failure; drift counts app files once, never their .sdlc/; a clone that can't drop its push URL is removed, and remove keeps the ignore line while the folder exists. Why: whole-plugin review (session sdlc-f2) H4-H6, W1-W10; the user chose to fix them on this branch. Effect: H1-H3, the Stop review of uncommitted app changes and the older mediums are todos.
 
 ## Open questions
 -

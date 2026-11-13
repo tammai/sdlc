@@ -54,13 +54,9 @@ def in_prove(root):
 
 
 def project_commands(root):
-    try:
-        with open(os.path.join(root, ".sdlc", "config.json"), encoding="utf-8") as f:
-            config = json.load(f)
-    except (OSError, ValueError):
-        return []
-    sets = [config.get("commands")] + [pk.get("commands") for pk in config.get("packages") or [] if isinstance(pk, dict)]
-    return [c.strip() for s in sets if isinstance(s, dict) for c in s.values() if isinstance(c, str) and c.strip()]
+    """The project's own commands, a workbench's app repos' included (run as `cd <repo> && <command>`)."""
+    import sdlc_scopes
+    return [c.strip() for s in sdlc_scopes.command_sets(root) for c in s.values() if isinstance(c, str) and c.strip()]
 
 
 def is_plugin_verify(command):

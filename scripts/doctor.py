@@ -279,29 +279,33 @@ def check_repo(r, root):
                   f"/sdlc:upgrade restores or regenerates them · {RUNBOOK} R14")
         else:
             r.add(g, "plugin files", "ok", f"{len(files)} tracked" + (f"; you edited: {', '.join(edited)}" if edited else ""))
-        contract = scaffold.cmd_contract(p, None)
-        problems, tools = [], []
-        for name, sc in contract["scopes"].items():
-            where = "" if name == scaffold.ROOT_SCOPE else f"{name}: "
-            problems += [where + x for x in sc["problems"]]
-            if sc["missing"]:
-                problems.append(f"{where}no {', '.join(sc['missing'])} command")
-            tools += [f"{where}{key} needs `{exe}`" for key, exe in sc["not_found"].items()]
-        r.add(g, "commands", "fail" if problems else "ok",
-              "; ".join(problems) if problems else
-              f"defined for {len(contract['scopes'])} {'package' if contract['monorepo'] else 'project'}"
-              f"{'s' if len(contract['scopes']) > 1 else ''}",
-              f"set them in .sdlc/config.json · {RUNBOOK} R13" if problems else None)
-        if tools:
-            r.add(g, "command tools", "warn", "not found on PATH: " + "; ".join(tools),
-                  f"install the tool, or fix the command in .sdlc/config.json · {RUNBOOK} R13")
-        runs = contract.get("runs") or {}
-        unrun = [f"{'' if name == scaffold.ROOT_SCOPE else name + ': '}{key}"
-                 for name, sc in contract["scopes"].items() for key in scaffold.verify_steps(p.config, name)
-                 if not (runs.get(name, {}).get(key) or {}).get("ran")]
-        if status["setup"] == "complete" and unrun:
-            r.add(g, "commands run", "warn", "never run successfully since recorded: " + ", ".join(unrun),
-                  f"python3 scripts/scaffold.py run-commands · {RUNBOOK} R13")
+        if scaffold.sdlc_scopes.is_workbench(root):
+            # A workbench holds no product code: each app repo records and runs its own commands (doctor there)
+            r.add(g, "commands", "ok", "a workbench: each app repo holds its own commands (run /sdlc:doctor in it)")
+        else:
+            contract = scaffold.cmd_contract(p, None)
+            problems, tools = [], []
+            for name, sc in contract["scopes"].items():
+                where = "" if name == scaffold.ROOT_SCOPE else f"{name}: "
+                problems += [where + x for x in sc["problems"]]
+                if sc["missing"]:
+                    problems.append(f"{where}no {', '.join(sc['missing'])} command")
+                tools += [f"{where}{key} needs `{exe}`" for key, exe in sc["not_found"].items()]
+            r.add(g, "commands", "fail" if problems else "ok",
+                  "; ".join(problems) if problems else
+                  f"defined for {len(contract['scopes'])} {'package' if contract['monorepo'] else 'project'}"
+                  f"{'s' if len(contract['scopes']) > 1 else ''}",
+                  f"set them in .sdlc/config.json · {RUNBOOK} R13" if problems else None)
+            if tools:
+                r.add(g, "command tools", "warn", "not found on PATH: " + "; ".join(tools),
+                      f"install the tool, or fix the command in .sdlc/config.json · {RUNBOOK} R13")
+            runs = contract.get("runs") or {}
+            unrun = [f"{'' if name == scaffold.ROOT_SCOPE else name + ': '}{key}"
+                     for name, sc in contract["scopes"].items() for key in scaffold.verify_steps(p.config, name)
+                     if not (runs.get(name, {}).get(key) or {}).get("ran")]
+            if status["setup"] == "complete" and unrun:
+                r.add(g, "commands run", "warn", "never run successfully since recorded: " + ", ".join(unrun),
+                      f"python3 scripts/scaffold.py run-commands · {RUNBOOK} R13")
         accept_keys(r, root, scaffold.scopes(p.config))
         try:
             agents, cut = scaffold.agents_state(p), scaffold.codex_cut(p)
