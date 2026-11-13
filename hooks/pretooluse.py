@@ -44,12 +44,23 @@ def _recorded_test_write(input_data):
         return None
 
 
+def _read_only_write(input_data):
+    """sdlc patch: the deny reason when this call writes into a read-only repo of the workbench the session started in
+    (hooks/role_guard.py read_only_problem); else None, and None on its own error."""
+    try:
+        import role_guard
+        root = os.path.abspath(os.environ.get('CLAUDE_PROJECT_DIR') or input_data.get('cwd') or os.getcwd())
+        return role_guard.read_only_problem(input_data, root)
+    except Exception:
+        return None
+
+
 def main():
     """Main entry point for PreToolUse hook."""
     try:
         # Read input from stdin
         input_data = json.load(sys.stdin)
-        reason = _recorded_test_write(input_data)
+        reason = _read_only_write(input_data) or _recorded_test_write(input_data)
         if reason:
             print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
                                                      "permissionDecisionReason": reason}}))

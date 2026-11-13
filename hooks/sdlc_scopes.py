@@ -80,6 +80,16 @@ def is_workbench(root, need_manifest=True):
     return declared and (not need_manifest or os.path.isfile(os.path.join(root, WORKBENCH_FILE)))
 
 
+def workbench_of(root):
+    """The workbench an app repo belongs to (its config's `"workbench": "<name>"`), else None; any read error: None."""
+    import os
+    try:
+        value = _read_json(os.path.join(root, ".sdlc", "config.json")).get("workbench")
+    except Exception:
+        return None
+    return value.strip() if isinstance(value, str) and value.strip() else None
+
+
 def check_name(name):
     """The name when it is a plain folder name, else ValueError."""
     ok = (isinstance(name, str) and 0 < len(name) <= 100 and set(name) <= _NAME_CHARS

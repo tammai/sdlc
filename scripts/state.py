@@ -590,6 +590,13 @@ def new_state(a):
 
 
 def create(a):
+    import sdlc_scopes  # noqa: PLC0415
+    workbench = sdlc_scopes.workbench_of(a.root)
+    if workbench:  # an app repo of a workbench: its features are recorded once, in the workbench
+        parent = os.path.dirname(a.root)
+        where = f" ({parent})" if sdlc_scopes.is_workbench(parent) else ""
+        raise Refused(f"{a.root} is an app repo of the workbench {workbench}: features live in the workbench, "
+                      f"never in an app repo. Start it from the workbench{where} with /sdlc:start.")
     if not a.task:
         raise Refused("new needs at least one --task")
     bad = [c for c in a.criteria if not spec_lock.CRITERION_ID.fullmatch(c)]

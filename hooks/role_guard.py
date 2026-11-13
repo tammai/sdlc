@@ -8,6 +8,8 @@ acceptance/manifest.json, denies a file tool writing the manifest or a test it l
 writes, moves or removes one (a redirect, tee, sed -i, cp/mv, rm, truncate, git checkout/restore/rm, PowerShell write
 cmdlets; through cd, git -C and bash -c too). It reads command text only: a program that opens the file itself isn't
 seen (a guard is not a sandbox).
+Read-only repos of a workbench: read_only_problem(), also called from hooks/pretooluse.py, denies the same writes into
+a `write: false` repo's folder (and touch, mkdir, and git commands that change that repo), naming its owner.
 Roles: Claude Code names the subagent making a call in `agent_type` (`sdlc:<agent>`); calls from the main session
 or other plugins' agents get no output from this part. Denies, with the reason the agent sees:
   - a reviewer editing any file but its report under .sdlc/.work/findings/: reviewers report, they don't fix
@@ -86,6 +88,11 @@ WHOLE_TREE = {"mv", "move", "move-item", "mi", "rename-item", "rni", "rd", "rmdi
 MOVES = {"mv", "move", "move-item", "mi"}
 # ... and only the destination counts for a copy
 COPY = {"cp", "install", "ln", "rsync", "copy-item", "cpi", "copy"}
+# A read-only repo (folder mode) also counts these: they create or change files in it ...
+FOLDER_WRITES = {"touch", "mkdir", "md", "chmod", "chown"}
+# ... and git commands that change a repo run inside it (pull and fetch stay open: they only follow upstream)
+GIT_REPO_WRITES = {"commit", "push", "add", "am", "cherry-pick", "revert", "merge", "rebase", "stash", "tag",
+                   "clean", "rm", "mv", "apply", "reset", "commit-tree", "update-ref"}
 
 
 def canon(rel):
@@ -121,8 +128,9 @@ def protected_paths(root):
     return {canon(p) for p in paths}
 
 
-def hits(root, cwd, operand, protected, tree=False):
-    """The operand (a path, folder or glob, from `cwd`) names a protected file, or with `tree` a folder holding one."""
+def hits(root, cwd, operand, protected, tree=False, folders=False):
+    """The operand (a path, folder or glob, from `cwd`) names a protected file, or with `tree` a folder holding one.
+    With `folders`, the protected entries are folders and any path at or under one counts (links resolved)."""
     if not operand or operand.startswith("-"):
         return False
     operand = operand.strip("\"'").replace("\\", "/")
@@ -137,12 +145,18 @@ def hits(root, cwd, operand, protected, tree=False):
         return False
     glob = any(ch in c for ch in "*?[")
     for p in protected:
-        if c == p or tree and (c == "" or p.startswith(c + "/")):
+        if c == p or tree and (c == "" or p.startswith(c + "/")) or folders and c.startswith(p + "/"):
             return True
         if glob:
             g, s = c.split("/"), p.split("/")
-            if (len(g) == len(s) or tree and len(g) < len(s)) and all(fnmatch.fnmatchcase(a, b)
+            if (len(g) == len(s) or tree and len(g) < len(s) or folders and len(g) > len(s)) and all(fnmatch.fnmatchcase(a, b)
                                                                       for a, b in zip(s, g)):
+                return True
+    if folders and not glob:  # through a link to the folder (the path itself may not exist yet)
+        real = os.path.normcase(os.path.realpath(full))
+        for p in protected:
+            target = os.path.normcase(os.path.realpath(os.path.join(root, p)))
+            if real == target or real.startswith(target.rstrip(os.sep) + os.sep):
                 return True
     # Another name for the same file: a short name (ACCEPT~1), a link
     if not glob and os.path.exists(full):
@@ -201,11 +215,11 @@ def segments(command):
     return [p for p in parts if p.strip()], targets
 
 
-def shell_write(command, root, cwd, protected, depth=0):
-    """The protected path a shell command line writes, moves or removes, or None."""
+def shell_write(command, root, cwd, protected, depth=0, folders=False):
+    """The protected path a shell command line writes, moves or removes, or None (`folders`: see hits)."""
     parts, targets = segments(command)
     for t in targets:
-        if hits(root, cwd, t, protected):
+        if hits(root, cwd, t, protected, folders=folders):
             return t.strip("\"'")
     for part in parts:
         try:
@@ -226,7 +240,7 @@ def shell_write(command, root, cwd, protected, depth=0):
         if verb in SHELLS:
             for n, w in enumerate(args[:-1]):
                 if w.lower() in ("-c", "-command", "/c") and depth < 3:
-                    found = shell_write(args[n + 1], root, cwd, protected, depth + 1)
+                    found = shell_write(args[n + 1], root, cwd, protected, depth + 1, folders)
                     if found:
                         return found
             continue
@@ -239,6 +253,8 @@ def shell_write(command, root, cwd, protected, depth=0):
                     args = args[2:]
                 else:
                     args = args[1:]
+            if folders and args and args[0] in GIT_REPO_WRITES and hits(root, here, ".", protected, folders=True):
+                return here or root
             if args and args[0] in ("checkout", "restore", "rm", "mv", "apply", "reset"):
                 for w in args[1:]:
                     if w.startswith("-"):
@@ -248,7 +264,7 @@ def shell_write(command, root, cwd, protected, depth=0):
                                                       root)) == ""
                     except ValueError:  # another drive: not in the repo, and the next operand still counts
                         continue
-                    if hits(root, here, w, protected, tree=not whole):
+                    if hits(root, here, w, protected, tree=not whole, folders=folders):
                         return w
             continue
         operands = [w for w in args if not w.startswith("-")]
@@ -258,23 +274,53 @@ def shell_write(command, root, cwd, protected, depth=0):
         if verb == "sed":
             if any(re.match(r"^-[a-zA-Z]*i", w) or w.startswith("--in-place") for w in args):
                 for w in operands:
-                    if hits(root, cwd, w, protected):
+                    if hits(root, cwd, w, protected, folders=folders):
                         return w
         named = next((args[n + 1] for n, w in enumerate(args[:-1]) if w.lower() in ("-destination", "-t")), None)
         # Where a copy or a move goes: -Destination/-t, else the last operand when there are two or more
         dest = named or (operands[-1] if len(operands) > 1 or verb in COPY and operands else None)
         sources = [w for w in operands if w != dest] if named else operands[:-1] if dest else operands
-        if verb != "sed" and verb in ANY_OPERAND:
+        if verb != "sed" and (verb in ANY_OPERAND or folders and verb in FOLDER_WRITES):
             # A move takes its sources away; its destination is checked below as a copy's
             for w in sources if verb in MOVES else operands:
-                if hits(root, cwd, w, protected, tree=recursive or verb in WHOLE_TREE):
+                if hits(root, cwd, w, protected, tree=recursive or verb in WHOLE_TREE, folders=folders):
                     return w
         if (verb in COPY or verb in MOVES) and dest:
             folder = dest.endswith("/") or dest in (".", "..") or os.path.isdir(os.path.join(cwd or root, dest))
             for src in sources or [dest]:
                 into = os.path.join(dest, os.path.basename(src.rstrip("/"))) if folder else dest
-                if hits(root, cwd, into, protected, tree=recursive):
+                if hits(root, cwd, into, protected, tree=recursive, folders=folders):
                     return into
+    return None
+
+
+def written(data, root, protected, folders=False):
+    """The protected path (or, with `folders`, a path inside a protected folder) this call writes, or None."""
+    tool, tin, cwd = data.get("tool_name", ""), data.get("tool_input") or {}, data.get("cwd")
+    if tool in WRITES:
+        path = tin.get("file_path") or tin.get("notebook_path") or tin.get("path") or ""
+        return path if path and hits(root, cwd, path, protected, folders=folders) else None
+    if tool in ("Bash", "PowerShell"):
+        return shell_write(str(tin.get("command") or ""), root, cwd, protected, folders=folders)
+    return None
+
+
+def read_only_problem(data, root):
+    """The deny reason when this call writes into a `write: false` repo of the workbench at root, naming the repo and
+    its owner; None outside a workbench or with a manifest it can't read (doctor reports that)."""
+    import sdlc_scopes
+    if not sdlc_scopes.is_workbench(root):
+        return None
+    try:
+        repos = [r for r in sdlc_scopes.manifest(root) if not r["write"]]
+    except ValueError:
+        return None
+    for repo in repos:
+        found = written(data, root, {canon(repo["name"])}, folders=True)
+        if found:
+            owner = repo["owner"] or "its owners"
+            return (f"sdlc: {found} is in {repo['name']}/, a read-only repo owned by {owner} (workbench.json): "
+                    f"sdlc doesn't change other teams' repos. Ask {owner} for the change.")
     return None
 
 
@@ -282,14 +328,7 @@ def bundle_problem(data, root):
     protected = protected_paths(root)
     if not protected:
         return None
-    tool, tin, cwd = data.get("tool_name", ""), data.get("tool_input") or {}, data.get("cwd")
-    if tool in WRITES:
-        path = tin.get("file_path") or tin.get("notebook_path") or tin.get("path") or ""
-        found = path if path and hits(root, cwd, path, protected) else None
-    elif tool in ("Bash", "PowerShell"):
-        found = shell_write(str(tin.get("command") or ""), root, cwd, protected)
-    else:
-        return None
+    found = written(data, root, protected)
     if not found:
         return None
     return (f"sdlc: {found} is a recorded acceptance test or its manifest ({MANIFEST}): the spec owns it, so it is "

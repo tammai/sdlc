@@ -217,5 +217,116 @@ class WorkbenchManifest(WorkbenchTestCase):
         self.assertEqual(r.checks, [])
 
 
+def block_rule(name, word, event="bash", field="command"):
+    return (f"---\nname: {name}\nenabled: true\nevent: {event}\naction: block\nconditions:\n"
+            f"  - field: {field}\n    operator: regex_match\n    pattern: {word}\n---\n{name} says no\n")
+
+
+class WorkbenchGuards(WorkbenchTestCase):
+    """A session started in the workbench (which has its own .sdlc/): api/ is a writable app repo with its own
+    guardrails, specs/ another team's read-only repo."""
+
+    def setUp(self):
+        super().setUp()
+        self.write_json("workbench.json", {"repos": [
+            {"name": "api", "url": "u1", "role": "app", "write": True},
+            {"name": "specs", "url": "u2", "role": "specs", "owner": "@org/ba"},
+        ]})
+        self.write_json("api/.sdlc/config.json", {"workbench": "shop-workbench", "commands": {}})
+        self.write("api/.claude/hookify/no-x.md", block_rule("no-x", "forbidden"))
+        self.write("api/.claude/hookify/no-secret.md", block_rule("no-secret", "SECRET", "file", "new_text"))
+        self.write("specs/a.md", "spec\n")
+
+    def pre(self, tool, cwd=None, **tool_input):
+        from helpers import run_hook
+        payload = {"hook_event_name": "PreToolUse", "tool_name": tool, "tool_input": tool_input,
+                   "cwd": cwd or self.root}
+        code, out, raw, err = run_hook(["python3", os.path.join(HOOKS, "pretooluse.py")], payload, self.root)
+        self.assertEqual(code, 0, err)
+        hso = (out or {}).get("hookSpecificOutput", {})
+        return hso.get("permissionDecisionReason", "") if hso.get("permissionDecision") == "deny" else None
+
+    def guard(self, path, agent):
+        from helpers import run_hook
+        payload = {"hook_event_name": "PreToolUse", "cwd": self.root, "tool_name": "Write",
+                   "tool_input": {"file_path": path}, "agent_type": agent}
+        code, out, raw, err = run_hook(["python3", os.path.join(HOOKS, "role_guard.py")], payload, self.root)
+        self.assertEqual(code, 0, err)
+        return (out or {}).get("hookSpecificOutput", {}).get("permissionDecision")
+
+    def test_guards_route_into_an_app_repo_from_a_workbench(self):
+        api = self.path("api")
+        self.assertIn("no-x", self.pre("Bash", command="cd api && echo forbidden") or "")
+        self.assertIn("no-x", self.pre("Bash", cwd=api, command="echo forbidden") or "")
+        self.assertIn("no-secret", self.pre("Write", file_path=self.path("api/src/a.ts"), content="SECRET=1") or "")
+        self.assertIsNone(self.pre("Write", file_path=self.path("docs/a.md"), content="SECRET=1"))
+        # The role guard judges api's files against api, and the workbench's own findings folder stays open
+        self.assertEqual(self.guard(self.path("api/src/a.ts"), "sdlc:code-reviewer"), "deny")
+        self.assertIsNone(self.guard(self.path(".sdlc/.work/findings/f/r.md"), "sdlc:code-reviewer"))
+        # A repo that isn't a workbench (no key, or the key without a manifest) behaves as before
+        for config, manifest in (({}, True), ({"workbench": True}, False), ({"workbench": "yes"}, True)):
+            self.write_json(".sdlc/config.json", config)
+            if not manifest:
+                os.remove(self.path("workbench.json"))
+            self.assertIsNone(self.pre("Bash", command="cd api && echo forbidden"), config)
+            self.assertIsNone(self.pre("Write", file_path=self.path("api/src/a.ts"), content="SECRET=1"), config)
+
+    def test_writes_into_a_read_only_repo_are_denied(self):
+        specs = self.path("specs")
+        denied = [("Write", {"file_path": self.path("specs/b.md"), "content": "x"}),
+                  ("Edit", {"file_path": "specs/a.md", "old_string": "spec", "new_string": "x"}),
+                  ("Write", {"file_path": self.path("specs/deep/c.md"), "content": "x"}),
+                  ("Bash", {"command": "echo hi > specs/a.md"}),
+                  ("Bash", {"command": "cd specs && rm a.md"}),
+                  ("Bash", {"command": "sed -i s/a/b/ specs/a.md"}),
+                  ("Bash", {"command": "cp README.md specs/"}),
+                  ("Bash", {"command": "mv specs/a.md ."}),
+                  ("Bash", {"command": "touch specs/new.md"}),
+                  ("Bash", {"command": "bash -c 'mkdir specs/x'"}),
+                  ("Bash", {"command": f"git -C {specs} commit -am x"}),
+                  ("Bash", {"command": "cd specs && git push origin main"}),
+                  ("Bash", {"command": "rm -rf ./specs"}),
+                  ("PowerShell", {"command": "Set-Content specs\\a.md x"})]
+        if os.path.normcase("A") == "a" or sys.platform == "darwin":
+            denied.append(("Write", {"file_path": self.path("SPECS/b.md"), "content": "x"}))
+        for tool, tin in denied:
+            reason = self.pre(tool, **tin)
+            self.assertIsNotNone(reason, (tool, tin))
+            self.assertIn("specs", reason)
+            self.assertIn("@org/ba", reason)
+        # Writes from inside the repo, and through a link to it
+        self.assertIsNotNone(self.pre("Bash", cwd=specs, command="echo x > b.md"))
+        os.symlink(specs, self.path("s2"))
+        self.assertIsNotNone(self.pre("Write", file_path=self.path("s2/b.md"), content="x"))
+        # Reads, and writes elsewhere, stay open
+        for tool, tin in [("Bash", {"command": "cat specs/a.md"}), ("Bash", {"command": f"git -C {specs} log"}),
+                          ("Bash", {"command": "cd specs && git pull"}),
+                          ("Bash", {"command": "cp specs/a.md docs/a.md"}),
+                          ("Write", {"file_path": self.path("api/a.ts"), "content": "x"}),
+                          ("Write", {"file_path": self.path("specsx/a.md"), "content": "x"})]:
+            self.assertIsNone(self.pre(tool, **tin), (tool, tin))
+        # Not a workbench: no read-only repos
+        self.write_json(".sdlc/config.json", {})
+        self.assertIsNone(self.pre("Write", file_path=self.path("specs/b.md"), content="x"))
+
+    def test_no_feature_starts_in_an_app_repo(self):
+        import subprocess
+        def new(root):
+            p = subprocess.run([sys.executable, os.path.join(PLUGIN_ROOT, "scripts", "state.py"), "--root", root,
+                                "new", "feat", "--track", "S", "--risk", "low", "--task", "x | AC-001 | a.py"],
+                               capture_output=True, encoding="utf-8", errors="replace")
+            return p.returncode, p.stdout
+        api = self.path("api")
+        before = sorted(os.listdir(os.path.join(api, ".sdlc")))
+        code, out = new(api)
+        self.assertEqual(code, 1, out)
+        self.assertIn("shop-workbench", out)
+        self.assertIn(self.root, json.loads(out)["error"])
+        self.assertEqual(sorted(os.listdir(os.path.join(api, ".sdlc"))), before)
+        # The workbench itself starts features
+        code, out = new(self.root)
+        self.assertEqual(code, 0, out)
+
+
 if __name__ == "__main__":
     unittest.main()
