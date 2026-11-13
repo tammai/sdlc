@@ -66,6 +66,17 @@ class ScopeParsing(ProjectTestCase):
         self.assertIn("top-level `packages`", text)
 
 
+def rmtree(path):
+    """shutil.rmtree that also removes git's read-only object files (Windows refuses to delete them)."""
+    import shutil
+    import stat
+
+    def writable(func, p, _):
+        os.chmod(p, stat.S_IWRITE)
+        func(p)
+    shutil.rmtree(path, onerror=writable)
+
+
 def git(cwd, *args):
     import subprocess
     subprocess.run(["git", "-c", "user.email=t@example.com", "-c", "user.name=t", *args], cwd=cwd, check=True,
@@ -845,7 +856,7 @@ class ReviewRound1Feature(WorkbenchFeatureCase):
         self.assertEqual(sdlc_scopes.feature_repos(self.state_text())["web"], {"branch": "feat-x", "base": base})
         # A link out of the workbench is refused
         import shutil
-        shutil.rmtree(self.path("api"))
+        rmtree(self.path("api"))
         os.symlink(self.origin("elsewhere"), self.path("api"))
         code, out = self.state("repo", "feat", "api")
         self.assertEqual(code, 1, out)
@@ -1005,7 +1016,7 @@ class ReviewRound2Feature(WorkbenchFeatureCase):
     def test_a_link_to_a_sibling_repo_is_refused(self):
         import shutil
         import sdlc_scopes
-        shutil.rmtree(self.path("web"))
+        rmtree(self.path("web"))
         os.symlink("specs", self.path("web"))
         with self.assertRaises(ValueError):
             sdlc_scopes.repo_dir(self.root, "web")
@@ -1120,7 +1131,7 @@ class ReviewRound3Ship(WorkbenchShipCase):
         import shutil
         url = "https://example.com/api/pull/2"
         self.assertEqual(self.state("pr", "feat", "api", url)[0], 0)
-        shutil.rmtree(self.path("api"))
+        rmtree(self.path("api"))
         script = self.write("gh_ok.py", "import json\nprint(json.dumps({'state': 'MERGED', "
                             "'mergedAt': '2026-11-13T10:00:00Z'}))\n")
         r = json.loads(self.ship("--status", env={"SDLC_GH": f'"{sys.executable}" "{script}"'})[1])
@@ -1160,6 +1171,9 @@ class ReviewRound4Guards(WorkbenchGuardsCase):
         self.assertIsNotNone(self.pre("Bash", command="sh <<< 'cd specs && touch b'"))
         self.assertIsNotNone(self.pre("Bash", command="(( x\nrm specs/a.md"))
         self.assertIsNone(self.pre("Bash", command="cat <<< \"rm specs/a.md\""))
+        # Windows paths reach Git Bash: a backslash before a path character is a separator, never an escape
+        for command in ("rm specs\\a.md", "git -C .\\specs commit -am x"):
+            self.assertIsNotNone(self.pre("Bash", command=command), command)
 
     def test_too_deep_is_denied_for_that_reason(self):
         reason = self.pre("Bash", command="echo " + "$(" * 30 + "x" + ")" * 30)

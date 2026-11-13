@@ -476,8 +476,9 @@ def shell_write(command, root, cwd, protected, depth=0, folders=False, dialect="
         for t in targets:
             if hits(root, cwd, t, protected, folders=folders):
                 return t.strip("\"'")
-        # sh reads its own escapes; on PowerShell and cmd a backslash is a path separator
-        text = part if dialect == "sh" else re.sub(r"\\(?=[\w.$~-])", "/", part)
+        # A backslash before a path character is a separator in every shell: Windows paths reach Git Bash too, and
+        # reading one as an escape would hide the folder (the lexer has already taken continuations and `\'`)
+        text = re.sub(r"\\(?=[\w.$~-])", "/", part)
         try:
             words = shlex.split(text, posix=True)
         except ValueError:
