@@ -1,5 +1,5 @@
 # 2026-11-13-l-workbench
-Status: active
+Status: done
 Process: 3
 Change: .sdlc/2026-11-13-l-workbench/change.md   (this feature's record for people)
 Track: L   (sized up because: several distinct parts across setup, hooks, verify, ship and CI; footprint: 30 files)
@@ -10,14 +10,14 @@ Started: 2026-11-13
 Base: 58acb2e
 Owner: 3235400+tammai@users.noreply.github.com
 Tool: claude-code
-Verified: 9fb2d64 tree a0defd24108b1a648a4c85f2e253706026a382f0
+Verified: 423e930 tree d66908af960ce6c2c100ca0722107ec2dc803638
 Slice: B8   Slice base: 9388559   Slice gates: none
-Current: Stage 2 – Build
+Current: Stage 4 – Ship
 
 ## Stages
 - [x] 1 Define   — the change file, the plan sections below
 - [x] 2 Build
-- [ ] 3 Review   — the change file's ## Review
+- [x] 3 Review   — the change file's ## Review
 - [ ] 4 Ship     — PR: (Learn: knowledge, recurring-defects.md)
 
 ## How the build runs
@@ -72,6 +72,8 @@ parts in fresh sessions, because seven parts across the core won't fit one conte
 - 2026-11-13 review round 3: both reviewers PASS; S16, S17, R3-M2 raised to high (writes into a read-only repo get through, a must-never-break line); user chose fix all, then one more security check (Review cap)
 - 2026-11-13 review round 4 (security only): FAIL S20-S23 (lexer gaps); user chose fixes plus a structural backstop, then one security closing check (Review cap)
 - 2026-11-13 review round 5 (security only): PASS; its medium and low bugs (S26-S38) fixed test first, closed by the suite and verify.py without another round (flow: from round 2 only a high fails)
+- 2026-11-13 Stage 2: pass — review rounds ran: code r1-r3, security r1-r5
+- 2026-11-13 Stage 3: pass
 
 ## Deviations
 - 2026-11-13 setup What: went on with setup none (no .sdlc/config.json). Why: the plugin's own repo has always run sdlc without setup (e.g. 2026-11-08-l-spec-backed-mode). Effect: verify.py runs the AC tests; the full suite is run by hand with python3.10 -m unittest discover -s tests -t tests.

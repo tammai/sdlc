@@ -291,3 +291,48 @@ B8 · preferred stacks
 - Parallel per-repo lanes.
 - Changing product-rebuild or sharing its `repos.yaml`.
 - Nesting repos more than one level below the workbench.
+
+## Review
+
+- **Recommended and chosen:** code and security, because the track is L, the risk is high (committed `workbench.json` and state values reach git, gh, file paths and suggested shell lines) and the change adds Public Surface; chosen by the trigger list (L: self-chosen, Gate log). Past round 2, each further round was the user's answer to `Review cap`: one more fix round after round 2; fix all plus one security check after round 3; fixes plus a structural backstop after round 4.
+- **Verdicts:**
+  - code-reviewer: `.sdlc/.work/findings/2026-11-13-l-workbench/code-reviewer-r1.md` FAIL (H1–H6, M1–M4, L1, L2) → `-r2.md` FAIL (R2-H1, R2-H2) → `-r3.md` PASS.
+  - security: `security-r1.md` FAIL (S1–S4) → `-r2.md` FAIL (S9, S10) → `-r3.md` PASS, with S16, S17 and R3-M2 raised to high by the builder (each let a write into a read-only repo through, a must-never-break line) → `-r4.md` FAIL (S20–S23) → `-r5.md` PASS.
+- **Fixed:**
+  - The orchestrator never reached the per-repo machinery (H1): flow.md and review-brief.md gained the workbench steps, and a hook denies writes into an app repo no feature has branched. A read-only repo is recorded before its first read (R2-H2).
+  - Untrusted manifest and state values (S1–S4, S11, S12, H6): one check per value on every path. Clone URLs are refused when they could act as an option, shell text or a `<transport>::` helper. Folders are plain names, and links (even to a sibling repo) are refused. Branch names are restricted to git-safe characters. Suggested commands are shell-quoted. PR URLs come after `--`, and a bare number is resolved in its own repo (S10).
+  - The read-only guard (S1, R2-H1/S9, S16, R3-M2, S17, S20–S23): it now reads commands with a dialect-aware lexer (sh, PowerShell, cmd). That covers subshells, groups, keywords, substitutions, comments, escapes, continuations, here-docs and here-strings (including a body a shell reads), and PowerShell here-strings, expressions and blocks. It fails closed on an unreadable `workbench.json` or `.sdlc/config.json`.
+  - The read-only backstop: no text parser covers every syntax, so the user chose a structural backstop. `hooks/read_only_watch.py` keeps each read-only repo as first seen (status, local commits, push URLs), says a difference after the call and blocks Stop. Read-only repos' push URLs point nowhere. Only the user accepts a change.
+  - Ship and diff_stats: refusals come before the state moves (M1, M5). An unignored nested repo is refused rather than committed as a gitlink (R2-M2). diff_stats scans each branched app repo (R2-M1). A root `commands.test` is the only root step beside packages (H3).
+  - Each fix has a test seen failing first: the `ReviewRound1*` to `ReviewRound4*` classes and `ReadOnlyBackstop` in `tests/test_workbench.py`.
+- **Tickets:**
+  - S14: the PR body publishes any token embedded in a remote URL.
+  - S15 / S19 / R3-M3 / S25 / S36: shell forms the text guard still doesn't read (`eval`, `timeout`/`nice`, `find -exec`/`-delete`, `$CLAUDE_PROJECT_DIR` or `~` paths, `$'…'` quoting, `$( )` inside `@"…"@`, `curl -o`, `tar -C`, `perl -pi`). The read-only watch backs all of these.
+  - R2-L3: the unbranched backstop takes the union of every active feature's repos.
+  - R2-L4 / S40: `git checkout <branch>` and `git clone` into a read-only folder; a HEAD that moves to another remote commit.
+  - R2-L6: `file://` and local-path clone URLs are accepted.
+  - R2-L7: no test for the Codex path in `target_repo`.
+  - R2-L8: a killed write can leave a `.tmp-*` file.
+  - S34: tracked changes hidden by `--assume-unchanged` set before the first look.
+  - R3-L2: reads during Define come before the state file exists.
+  - `_write_atomic` duplicates `state.py`'s `write_atomic`.
+  - Lines over 120 characters already in these files.
+- **Drift and manual checks:** no `manual` AC. Each Deviations line, by subject:
+  - setup none (plugin repo);
+  - `tests/test_scaffold.py` unnamed package key;
+  - `sdlc_scopes.py` shared parser exports;
+  - the Configuration and greenfield root-test wording;
+  - B8 preferred stacks added mid-build;
+  - `workbench.json` instead of `workbench.yaml`;
+  - the B2–B8 internal helpers, commands (`state.py repo`, `state.py pr`) and spec rows (GRD-FR-033/034, SCO-FR-026/031, VER-FR-055, CTL-FR-009, ORC-FR-044, SET-FR-051–054);
+  - ship commits staged per repo with the commit in the caller's command;
+  - the stale-docs audits;
+  - the round 1–5 fixes listed above;
+  - the Public Surface as built (`workbench.json`, `scaffold.py workbench list|add|remove|clone`, `state.py repo` and `pr`, `ship.py --status`, the `WORKBENCH_TOKEN` secret, the `SDLC_GH` test seam);
+  - the scope change the user made in Review: the monorepo stays a full option, setup asks which layout and recommends by team, and ADR 0025 extends ADR 0005.
+- **Security:**
+  - No dependency audit to run: the plugin is stdlib-only Python with no packages.
+  - The security hooks raised nothing.
+  - No secrets in the diff (security-r1 to r5).
+  - Open security findings are tickets only (above).
+- **Lessons filed:** [knowledge/gotchas/hooks-read-command-text.md](../../knowledge/gotchas/hooks-read-command-text.md) (a text guard needs a structural backstop); two lines in [.sdlc/recurring-defects.md](../recurring-defects.md).
