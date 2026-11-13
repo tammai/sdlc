@@ -10,7 +10,7 @@ Record: the feature's change file (`scaffold.py paths 2026-11-13-l-workbench` �
 | B4 | One feature across repos: per-repo branch and base, verify and freshness per repo, moved read-only repos | — | 10, 11, 12 | B3 | M | done |
 | B5 | Ship across repos: commits per repo, merge order, linked PRs, out-of-order warning | — | 13, 14 | B4 | M | done |
 | B6 | App CI checks out the workbench; contract check in the workbench | — | 15 | B2 | S | done |
-| B7 | Setup reference, ADR 0025, wiki, CHANGELOG, stale-docs audit | — | 16 | B5, B6 | M | todo |
+| B7 | Setup reference, ADR 0025, wiki, CHANGELOG, stale-docs audit | — | 16 | B5, B6 | M | done |
 | B8 | Preferred stacks reference that greenfield setup proposes from | — | 17 | B7 | S | todo |
 
 <!--

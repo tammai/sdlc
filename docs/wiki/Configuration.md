@@ -7,6 +7,7 @@ Setup writes `.sdlc/config.json`; it's yours to edit and holds only what differs
 | `commands` | `install`, `test`, `lint`, `typecheck`, `build` as the team runs them. `null` means the step doesn't apply |
 | `packages` | Monorepo instead of `commands`: `[{"name", "path", "stack", "commands"}]`, each run from its path. Root `commands` beside it are workspace-wide: a root `install` runs first, the rest (e.g. `turbo run test`) from the root after every package's steps, in verify and CI; a full run of the root test counts for every package |
 | `project.kind` | `greenfield` or `brownfield`, set by setup |
+| `workbench` | `true` in a workbench repo (with `workbench.json` beside `.sdlc/`; both are needed); in an app repo of a workbench, the workbench's repo name (`shop-workbench`, or `acme/shop-workbench` under another account), which its CI checks out for the contract and which stops features starting there |
 | `project.profile`, `project.owners` | Multi-app repos: `lean` or `large` (the answer to "who works here"), and for `large` the CODEOWNERS entries (`{pattern: [handles]}`, in order) |
 | `api_contract` | Multi-app repos with the contract check: `{"path", "spec"}` of the versioned API contract |
 | `docs_dir` | Where the sdlc documents live (default `docs/sdlc`; `.sdlc` or another in-repo folder if `docs/` is published as a site). Without it a repo is on the old all-in-`.sdlc/` layout |

@@ -2,7 +2,7 @@
 
 # Greenfield monorepo
 
-Two or more apps (web, api, mobile, …) become one polyglot monorepo. It replaces the `stack`, `skeleton`, `commands` and `ci` steps of `greenfield.md`; the step names stay, so resume still works. One app: this file doesn't apply, follow `greenfield.md` as is. Decision: `${CLAUDE_PLUGIN_ROOT}/docs/adr/0005-greenfield-monorepo-layout.md`.
+Only when the user asks for one repo holding every app: new projects with two or more apps get a workbench by default (`workbench.md`, ADR 0025, which supersedes ADR 0005 for new projects). Repos already laid out this way keep working as they are. It replaces the `stack`, `skeleton`, `commands` and `ci` steps of `greenfield.md`; the step names stay, so resume still works. One app: this file doesn't apply, follow `greenfield.md` as is. Decision: `${CLAUDE_PLUGIN_ROOT}/docs/adr/0005-greenfield-monorepo-layout.md`.
 
 The layout is the same for every team size. No git subtrees or per-app repos: per-app CI, tags and release branches give each team its own cadence inside one repo.
 

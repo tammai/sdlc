@@ -522,6 +522,36 @@ class WorkbenchCI(WorkbenchTestCase):
                       scaffold.generate_contract_check(scaffold.Project(self.root)))
 
 
+def read_doc(*parts):
+    with open(os.path.join(PLUGIN_ROOT, *parts), encoding="utf-8") as f:
+        return f.read()
+
+
+class WorkbenchDocs(unittest.TestCase):
+    def test_setup_and_docs_describe_the_workbench(self):
+        refs = ("skills", "setting-up-projects", "references")
+        greenfield = read_doc(*refs, "greenfield.md")
+        route = next(line for line in greenfield.splitlines() if "Two or more apps" in line)
+        self.assertIn("workbench.md", route)
+        self.assertNotIn("follow `monorepo.md`", route)
+        workbench = read_doc(*refs, "workbench.md")
+        for needed in ("workbench.json", '"workbench": true', "scaffold.py\" workbench add", "state.py",
+                       " repo ", "ship.py", "--status", "WORKBENCH_TOKEN", "contract/v1/openapi.yaml",
+                       "write", "0025"):
+            self.assertIn(needed, workbench, needed)
+        self.assertIn("workbench.md", read_doc("skills", "setting-up-projects", "SKILL.md"))
+        self.assertIn("0025", read_doc(*refs, "monorepo.md"))
+        adr = read_doc("docs", "adr", "0025-workbench-for-multi-app-projects.md")
+        self.assertIn("Supersedes [ADR 0005]", adr)
+        self.assertIn("0025", read_doc("docs", "adr", "README.md"))
+        self.assertIn("Superseded for new projects by [ADR 0025]",
+                      read_doc("docs", "adr", "0005-greenfield-monorepo-layout.md"))
+        for page in ("Project-setup.md", "Configuration.md", "Where-things-live.md"):
+            self.assertIn("workbench", read_doc("docs", "wiki", page).lower(), page)
+        self.assertIn("workbench.json", read_doc("docs", "wiki", "Where-things-live.md"))
+        self.assertIn("Workbench", read_doc("CHANGELOG.md").split("## 3.7.0")[0])
+
+
 class WorkbenchShip(WorkbenchFeatureCase):
     CHANGE = "# Shop checkout\n\n## Acceptance criteria\n\n## Acceptance tests\n\n| AC | Test | Run |\n|---|---|---|\n"
 

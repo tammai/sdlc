@@ -4,6 +4,17 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
+### Added
+- **Workbench: one repo per app for new multi-app projects** ([ADR 0025](docs/adr/0025-workbench-for-multi-app-projects.md), superseding ADR 0005 for new projects). Greenfield setup with two or more apps makes the session's folder a `<project>-workbench` repo holding `workbench.json`, the API contract (`contract/v<N>/`) and every feature record, with each app its own repo cloned inside it and set up with its own commands, CI and guardrails (`references/workbench.md`). Existing monorepos are unchanged, and setup still builds one on request.
+- **Guards follow calls into app repos.** In a session started in a workbench, hookify rules and the role guard act for the app repo a call targets; a write into a read-only repo (`write: false`) is denied, naming its owner; `state.py new` refuses in an app repo and points to the workbench.
+- **One feature across repos.** `state.py repo <feature> <name>` branches a writable repo from its default branch (refused while dirty) or records the commit of a read-only one; `verify.py` runs each touched repo's commands in its folder and records its tree; freshness and drift are per repo; `diff_stats.py` lists read-only repos that moved since.
+- **Ship across repos.** `ship.py` stages each touched repo with its own commit message and a PR body linking the others, in merge order (workbench, provider, consumers); `state.py pr` records each PR and `ship.py <feature> --status` warns on an out-of-order merge without blocking.
+- **App CI follows the workbench.** A consuming app's `builtin:ci` checks out the workbench branch named like its PR's (else `main`) for the contract; a private workbench needs a `WORKBENCH_TOKEN` secret.
+- **`scaffold.py workbench list|add|remove`** maps repos after setup; `/sdlc:doctor` reports repos not cloned, unlisted nested repos, folders not gitignored and apps without their own config.
+
+### Changed
+- **A root `commands.test` beside `packages` now runs** in the verify plan and CI, from the root after every package's steps, and still counts as a full run of every package. Scripts and hooks read scopes through one parser.
+
 ## 3.7.0 — 2026-11-12
 
 Smoke test (runbook A–H) passed on 2026-11-12 against 4b82ea5, with the `Trust anchor` and `Review cap` dialogs and the pre-filled-answer denial checked in real sessions. Known issues (should):

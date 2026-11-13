@@ -20,7 +20,7 @@ sdlc/
 ├── skills/                  skills; orchestrator/ is the conductor (a short router plus one reference per track: s-track for S,
 │                            flow for M and L; review-brief, backlog-slices, ui-work when named), setting-up-projects/ runs setup/upgrade/eject
 │                            (references/trimming-context.md: /sdlc:context-diet; design-mode.md: the design step and
-│                            /sdlc:setup design); managing-knowledge/references/ holds
+│                            /sdlc:setup design; workbench.md: greenfield with two or more apps); managing-knowledge/references/ holds
 │                            claude-md-improver.md and its folder
 ├── hooks/
 │   ├── hooks.json           which script runs on which event; every hook starts the Python sg-python.sh remembered, else sg-python.sh
@@ -34,6 +34,7 @@ sdlc/
 │   ├── user_answer.py       lets the user's AskUserQuestion answer lift those two gates; denies pre-filled answers (original)
 │   ├── pretooluse.py, stop.py, userpromptsubmit.py   hookify entry points (vendored)
 │   ├── security_reminder_hook.py + modules, sg-python.sh   security-guidance (vendored; patched to ask sdlc_review_gate.py)
+│   ├── sdlc_scopes.py       the project's scopes, read one way by scripts and hooks; the workbench manifest, ## Repos and ## PRs (original)
 │   └── sdlc_review_gate.py  while a feature is active: one commit security review per review-ready diff, skipped unless security-touched (original)
 ├── core/                    hookify rule loader and engine (vendored, patched; see NOTICE.md)
 ├── matchers/, utils/        empty hookify packages (vendored)
@@ -47,7 +48,7 @@ sdlc/
 │   ├── hosts.py             builds the other agents' manifests from .claude-plugin/ and agents/ (CI checks them)
 │   ├── backlog.py           the next ready part of a feature's backlog.md
 │   ├── state.py             every state change in one call: state.md plus the control contract (beside it, git-ignored)
-│   ├── ship.py              Ship's one command: reuses or reruns verify, advances to Stage 4, branches, stages the change, writes the commit message
+│   ├── ship.py              Ship's one command: reuses or reruns verify, advances to Stage 4, branches, stages the change, writes the commit message; in a workbench each repo in merge order, and `--status` for the PRs
 │   ├── review_report.py     writes a review report from rated findings (the built-in code review, the dependency audit) with the VERDICT line their ratings give
 │   ├── autopilot.py         runs a backlog one fresh headless claude session per part (opt-in)
 │   ├── prune.py             lists and deletes merged features' working files (/sdlc:prune)

@@ -1,6 +1,6 @@
 # ADR 0005: Greenfield multi-app repos are one monorepo with a versioned contract
 
-- **Status:** Accepted, 2026-10-23. Builds on [ADR 0002](0002-record-the-repos-own-commands.md).
+- **Status:** Accepted, 2026-10-23. Builds on [ADR 0002](0002-record-the-repos-own-commands.md). Superseded for new projects by [ADR 0025](0025-workbench-for-multi-app-projects.md): existing monorepos keep this layout and its support.
 - **Deciders:** Tâm Mai.
 
 ## Context
