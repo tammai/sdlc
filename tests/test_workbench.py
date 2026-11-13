@@ -1194,22 +1194,31 @@ class ReadOnlyBackstop(WorkbenchFeatureCase):
     """Review round 4: whatever a command's syntax, a change in a read-only repo is reported after the call that
     made it and blocks Stop until it is undone; read-only repos can't push."""
 
+    def setUp(self):
+        super().setUp()
+        import tempfile
+        self.data = os.path.realpath(tempfile.mkdtemp(prefix="sdlc-data-"))
+        self.addCleanup(rmtree, self.data)
+
     def watch(self, event, session="s1", tool="Bash", **extra):
         from helpers import run_hook
         payload = {"hook_event_name": event, "session_id": session, "cwd": self.root, **extra}
         if event in ("PreToolUse", "PostToolUse", "PostToolUseFailure"):
             payload.update(tool_name=tool, tool_input={"command": "x"}, tool_response={})
-        code, out, raw, err = run_hook(["python3", os.path.join(HOOKS, "read_only_watch.py")], payload, self.root)
+        code, out, raw, err = run_hook(["python3", os.path.join(HOOKS, "read_only_watch.py")], payload, self.root,
+                                       {"CLAUDE_PLUGIN_DATA": self.data})
         self.assertEqual(code, 0, err)
         return out or {}
 
     def accept(self, *names):
-        import subprocess
-        p = subprocess.run([sys.executable, os.path.join(HOOKS, "read_only_watch.py"), "--accept", *names],
-                           cwd=self.root, capture_output=True, encoding="utf-8", errors="replace",
-                           env={**os.environ, "CLAUDE_PROJECT_DIR": self.root})
-        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
-        return json.loads(p.stdout)
+        """The user's message `accept read-only [names]`: the only way a new baseline is taken."""
+        out = self.watch("UserPromptSubmit", prompt=" ".join(("accept read-only",) + names))
+        self.assertIn("accepted", out.get("systemMessage", ""), out)
+        return out
+
+    def baseline_file(self):
+        [name] = [f for f in os.listdir(self.data) if f.startswith("read-only-baseline-")]
+        return os.path.join(self.data, name)
 
     def test_any_change_in_a_read_only_repo_is_reported_and_blocks_stop(self):
         specs = self.path("specs")
@@ -1220,7 +1229,7 @@ class ReadOnlyBackstop(WorkbenchFeatureCase):
         self.assertEqual(out.get("decision"), "block", out)
         self.assertIn("specs", out["reason"])
         self.assertIn("b.md", out["reason"])
-        self.assertIn("--accept", out["reason"])
+        self.assertIn("accept read-only", out["reason"])
         self.assertIn("specs", out["hookSpecificOutput"]["additionalContext"])
         self.assertEqual(self.watch("PostToolUse"), {})  # said once, not after every call
         self.assertEqual(self.watch("Stop").get("decision"), "block")
@@ -1246,7 +1255,8 @@ class ReadOnlyBackstop(WorkbenchFeatureCase):
         self.assertEqual(self.watch("PostToolUse"), {})
         # The user accepts a change of their own; a repo that goes missing is a change
         self.write("specs/c.md", "x")
-        self.assertEqual(self.accept("specs")["accepted"], ["specs"])
+        self.assertIn("specs", self.accept("specs")["systemMessage"])
+        self.assertEqual(self.watch("UserPromptSubmit", prompt="please accept read-only specs"), {})  # exact only
         self.assertEqual(self.watch("Stop"), {})
         import shutil
         shutil.move(specs, self.path("specs-moved"))
@@ -1274,13 +1284,23 @@ class ReadOnlyBackstop(WorkbenchFeatureCase):
         specs = self.path("specs")
         self.watch("SessionStart")
         self.write("specs/b.md", "x")
-        os.remove(self.path(".sdlc/.work/read-only-baseline.json"))  # one call that writes and hides it
+        os.remove(self.baseline_file())  # one call that writes and hides it
         out = self.watch("PostToolUseFailure")
         self.assertEqual(out.get("decision"), "block", out)
         self.assertIn("baseline", out["reason"])
         self.assertEqual(out["hookSpecificOutput"]["hookEventName"], "PostToolUseFailure")
+        self.assertEqual(self.watch("PreToolUse"), {})  # the next call never takes a new one
         self.assertEqual(self.watch("Stop").get("decision"), "block")
+        # The marker gone (git clean -fdX in the workbench) is the same, and so is a damaged entry
         os.remove(self.path("specs/b.md"))
+        self.accept()
+        os.remove(self.path(".sdlc/.work/read-only-seeded"))
+        self.watch("PreToolUse")
+        self.assertIn("marker", self.watch("Stop").get("reason", ""))
+        self.accept()
+        with open(self.baseline_file(), "w", encoding="utf-8") as f:
+            json.dump({"repos": {"specs": {}}}, f)
+        self.assertIn("damaged", self.watch("Stop").get("reason", ""))
         self.accept()
         # A reset to a commit a remote already has: no file changes, no unpushed commit, still a change
         self.write("specs/c.md", "c")
@@ -1297,13 +1317,13 @@ class ReadOnlyBackstop(WorkbenchFeatureCase):
 
     def test_the_agent_cannot_accept_or_edit_the_baseline(self):
         self.watch("SessionStart")
-        for command in ("python3 hooks/read_only_watch.py --accept specs", "rm .sdlc/.work/read-only-baseline.json",
-                        "python3 hooks/read_only_watch.py --acc''ept specs", "python3 hooks/read_only_watch.py \\--accept",
-                        "echo {} > .sdlc/.work/read-only-baseline.json", "git -C specs remote set-url --push origin x",
+        for command in ("rm ~/.cache/sdlc/read-only-baseline-0123.json", "rm .sdlc/.work/read-only-seeded",
+                        "echo {} > \"$CLAUDE_PLUGIN_DATA/read-only-baseline-0123.json\"",
+                        "git -C specs remote set-url --push origin x",
                         "git -C specs remote remove origin", "git -C specs config remote.origin.pushurl x",
                         "git -C specs update-index --assume-unchanged a.md"):
             self.assertIsNotNone(pre_hook(self, "Bash", command=command), command)
-        self.assertIsNotNone(pre_hook(self, "Write", file_path=self.path(".sdlc/.work/read-only-baseline.json"),
+        self.assertIsNotNone(pre_hook(self, "Write", file_path=self.path(".sdlc/.work/read-only-seeded"),
                                       content="{}"))
         for command in ("git -C specs remote -v", "git -C specs config --get remote.origin.url",
                         "git -C specs config user.name"):
@@ -1354,8 +1374,22 @@ class PluginReviewWorkbench(WorkbenchFeatureCase):
         self.assertEqual(self.state("set", "feat", "Risk", "high")[0], 0)
         d = gate.decide(api, [sha], set())
         self.assertFalse(d.get("skip") or d.get("off") or d["defer"], d)  # Risk: high is always reviewed
+        # Ship sets Status: done before the app repos commit: still reviewed until the repo's PR is recorded
         self.assertEqual(self.state("set", "feat", "Status", "done")[0], 0)
-        self.assertTrue(gate.decide(api, [sha], set()).get("off"))  # nothing active in the workbench
+        self.assertFalse(gate.decide(api, [sha], set()).get("off"))
+        self.assertEqual(self.state("pr", "feat", "api", "https://example.com/api/pull/1")[0], 0)
+        self.assertTrue(gate.decide(api, [sha], set()).get("off"))  # shipped: nothing owns its commits now
+
+    def test_the_app_repos_own_config_never_turns_its_review_off(self):
+        import sdlc_review_gate as gate
+        api = self.path("api")
+        self.assertEqual(self.state("repo", "feat", "api")[0], 0)
+        self.write_json("api/.sdlc/config.json", {"commands": {"test": "python3 check.py"}})  # back-reference gone
+        self.write("api/a.py", "x = 1\n")
+        git(api, "add", "-A")
+        git(api, "commit", "-q", "-m", "x")
+        d = gate.decide(api, [git_out(api, "rev-parse", "HEAD")], set())
+        self.assertFalse(d.get("off") or d["defer"], d)
 
     def test_app_test_commands_count_in_review(self):
         import prove_budget
@@ -1395,9 +1429,17 @@ class PluginReviewWorkbench(WorkbenchFeatureCase):
         self.write("api/a.py", "x = 1\n")
         self.write_json("api/.sdlc/config.json", {"workbench": "shop-workbench", "commands": {"test": "python3 check.py"},
                                                  "x": 1})
+        self.write("api/b.py", "y = 1\n")  # no task names it: drift, listed once
         items = [d["item"] for d in verify.drift(self.root, "feat") or []]
         self.assertNotIn("api/.sdlc/config.json", items)
-        self.assertEqual(items.count("api/a.py"), items.count("api/a.py") and 1, items)
+        self.assertEqual(items.count("api/b.py"), 1, items)
+
+    def test_an_existing_clone_added_read_only_cannot_push(self):
+        url = self.origin("tests")
+        git(self.root, "clone", "-q", url, "tests")
+        code, out, err = self.run_scaffold("workbench", "add", url, "--name", "tests", "--role", "tests")
+        self.assertEqual(code, 0, (out, err))
+        self.assertNotEqual(git_out(self.path("tests"), "remote", "get-url", "--push", "origin"), url)
 
     def test_a_clone_that_cannot_drop_its_push_url_is_removed(self):
         from unittest import mock
@@ -1421,6 +1463,13 @@ class PluginReviewGuards(WorkbenchGuardsCase):
             self.assertIn("recorded acceptance test", reason)
         for command in ("cat api/acceptance/tests/a.spec.ts", "echo x > api/src/a.ts"):
             self.assertIsNone(self.pre("Bash", command=command), command)
+
+    def test_escaped_paths_are_read_both_ways(self):
+        self.write_json("api/acceptance/manifest.json", {"tests": [{"path": "tests/a.spec.ts"}]})
+        for command in ("rm api/acceptance/manifest\\.json", "rm api/acc\\eptance/tests/a.spec.ts",
+                        "sed -i s/a/b/ api/acceptance/manifest\\.json", "git -C spec\\s commit -am x",
+                        "rm specs\\a.md"):
+            self.assertIsNotNone(self.pre("Bash", command=command), command)
 
     def test_the_s_track_and_flow_carry_the_workbench_steps(self):
         s_track = read_doc("skills", "orchestrator", "references", "s-track.md")

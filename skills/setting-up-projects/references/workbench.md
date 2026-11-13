@@ -94,7 +94,7 @@ a required check in the workbench.
 - Sessions start in the workbench. Guards follow each call into the app repo it acts in; any write into a read-only
   repo is denied, naming its owner. Behind that guard, a change in a read-only repo (a changed file, a local
   commit or a push URL, whatever command made it) is reported after the call and blocks Stop until the user undoes
-  it or accepts it (`! python3 <plugin>/hooks/read_only_watch.py --accept <repo>`), and read-only repos can't push:
+  it or accepts it by sending `accept read-only <repo>` as a message, and read-only repos can't push:
   sdlc points their push URL nowhere the first time it sees them (pull keeps working).
 - One feature, recorded once in the workbench, drives a branch and PR per repo it touches. The first time Build
   touches a repo: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/state.py" repo <feature> <name>` (a writable repo gets the

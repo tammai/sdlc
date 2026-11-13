@@ -1,32 +1,49 @@
 #!/usr/bin/env python3
 """The backstop under the read-only guard, in a session started in a workbench: every read-only repo
 (`write: false` in workbench.json) must keep what it held when sdlc first looked at it: the same working-tree changes
-(`git status`), the same local commits no remote has, and push URLs that point nowhere (sdlc_scopes.disable_push,
-applied at that first look). role_guard denies the writes it can read in a command's text; this sees a change
-whatever made it.
+(`git status`), the same local commits no remote has, the same branch refs and HEAD (a pull, forward to a commit a
+remote has, is not a change), and push URLs that point nowhere (sdlc_scopes.disable_push, applied at that first look).
+role_guard denies the writes it can read in a command's text; this sees a change whatever made it.
 
-  SessionStart, PreToolUse   the first look, if there is none yet (so the first call's change is never absorbed);
-                             only here: a baseline gone after a call is itself a difference
+  SessionStart, PreToolUse   the first look, when the workbench was never seeded (so the first call's change is never
+                             absorbed)
   PostToolUse(Failure)       after a call that can write: a new difference is said once, naming what changed
-  Stop                       any difference blocks Stop once (never a loop)
-  --accept [NAME…]           the user's step: take the repos as they are now (the guard denies it to the agent)
+  Stop                       any difference blocks Stop once (never a loop); never seeded yet: the first look
+  UserPromptSubmit           the user's prompt `accept read-only [REPO…]` takes the repos as they are now; no command
+                             the agent can run does that
 
-The baseline is one per workbench (.sdlc/.work/read-only-baseline.json), not per session, so a difference no one
-resolved is still there in the next session. A repo cloned later starts from an empty baseline (a fresh clone has no
-changes). A listed repo that goes missing, or can't be read, is a difference too. Files the repo ignores are not
-seen. Silent outside a workbench; never blocks on its own error.
+The baseline lives outside the repo, in the plugin's data folder (CLAUDE_PLUGIN_DATA, else ~/.cache/sdlc), one file
+per workbench; a marker in the workbench (.sdlc/.work/read-only-seeded) remembers that it was seeded. Either one
+gone while the other remains is a difference that only the user's accept clears. A repo cloned later starts from an
+empty baseline (a fresh clone has no changes). A listed repo that goes missing or can't be read, or a damaged
+baseline entry, is a difference too. Files the repo ignores are not seen. Silent outside a workbench; never blocks on
+its own error.
 """
+import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import sdlc_scopes  # noqa: E402
 
-BASELINE = ".sdlc/.work/read-only-baseline.json"
+MARKER = ".sdlc/.work/read-only-seeded"
+BASELINE_NAME = "read-only-baseline"  # role_guard denies commands and writes naming it or the marker
 WRITERS = {"Edit", "Write", "MultiEdit", "NotebookEdit", "Bash", "PowerShell"}
 GIT_TIMEOUT = 4  # each git call; the hook has 10 s
+ACCEPT = re.compile(r"^\s*accept\s+read-only\b(?P<names>[\w.\- \t]*)$", re.I)
+KEYS = ("status", "unpushed", "push", "refs")
+
+
+def data_dir():
+    return os.environ.get("CLAUDE_PLUGIN_DATA") or os.path.join(os.path.expanduser("~"), ".cache", "sdlc")
+
+
+def baseline_path(root):
+    key = hashlib.sha256(os.path.normcase(os.path.realpath(root)).encode("utf-8")).hexdigest()[:16]
+    return os.path.join(data_dir(), f"{BASELINE_NAME}-{key}.json")
 
 
 def git(repo, *args):
@@ -38,8 +55,8 @@ def git(repo, *args):
 
 
 def snapshot(repo):
-    """{"status": [porcelain entries], "unpushed": [commits on a local branch or HEAD no remote ref has],
-    "push": ["<remote> <push url>"]}."""
+    """{"status", "unpushed", "push", "refs"}: porcelain entries, commits on a local branch or HEAD no remote ref has,
+    "<remote> <push url>" lines, and {ref: commit} for refs/heads and HEAD."""
     status = [e for e in git(repo, "status", "--porcelain", "-z", "--untracked-files=all").split("\0") if e]
     head = ["HEAD"] if subprocess.run(["git", "-C", repo, "rev-parse", "-q", "--verify", "HEAD"],
                                       capture_output=True, timeout=GIT_TIMEOUT).returncode == 0 else []
@@ -63,13 +80,12 @@ def fast_forward(repo, old, new):
         return False
 
 
-def changes(base, now, repo=None):
-    """Lines naming what differs between two snapshots of one repo (refs that only moved forward to a commit a
-    remote has, a pull, aren't a change)."""
+def changes(base, now, repo):
+    """Lines naming what differs between two snapshots of one repo."""
     lines = []
-    for ref in sorted(set(base.get("refs") or {}) | set(now.get("refs") or {})) if base.get("refs") is not None else []:
-        old, new = (base.get("refs") or {}).get(ref), now["refs"].get(ref)
-        if old != new and not (old and new and repo and fast_forward(repo, old, new)):
+    for ref in sorted(set(base["refs"]) | set(now["refs"])):
+        old, new = base["refs"].get(ref), now["refs"].get(ref)
+        if old != new and not (old and new and fast_forward(repo, old, new)):
             lines.append(f"{ref.replace('refs/heads/', '')} moved: {(old or 'none')[:12]} -> {(new or 'none')[:12]}")
     added = sorted(set(now["status"]) - set(base["status"]))
     gone = sorted(set(base["status"]) - set(now["status"]))
@@ -82,9 +98,14 @@ def changes(base, now, repo=None):
         lines.append(f"{len(new_commits)} new local commit(s): {', '.join(c[:12] for c in new_commits[:5])}")
     elif set(base["unpushed"]) - set(now["unpushed"]):
         lines.append("local commits removed, rewritten or pushed")
-    if base.get("push") is not None and now["push"] != base["push"]:
+    if now["push"] != base["push"]:
         lines.append("push URL changed: " + (", ".join(now["push"]) or "none"))
     return lines
+
+
+def entry_ok(entry):
+    return (isinstance(entry, dict) and all(k in entry for k in KEYS) and isinstance(entry["refs"], dict)
+            and all(isinstance(entry[k], list) for k in ("status", "unpushed", "push")))
 
 
 def load(path):
@@ -104,36 +125,51 @@ def save(path, data):
     os.replace(tmp, path)
 
 
+def repo_folder(root, name):
+    try:
+        folder = sdlc_scopes.repo_dir(root, name)
+    except ValueError:
+        return None
+    return folder if os.path.exists(os.path.join(folder, ".git")) else None
+
+
 def first_look(folder):
     """A read-only repo seen for the first time: its push URLs pointed nowhere, then its snapshot."""
     sdlc_scopes.disable_push(folder)
     return snapshot(folder)
 
 
-def look(root, seed_only=False):
-    """The differences in the workbench's read-only repos, as report lines ([] when none). The first look of all
-    takes the baseline instead; with seed_only, nothing more."""
-    path = os.path.join(root, BASELINE)
-    listed = sdlc_scopes.read_only_names(root)
-    if listed is None:
-        return []  # an unreadable manifest: the PreToolUse guard denies writes into every folder meanwhile
+def seed(root, listed, names=None):
+    """Take the named repos (default: every listed one) as they are now, and mark the workbench seeded."""
+    path = baseline_path(root)
+    data = load(path) or {"repos": {}}
+    done = []
+    for name in names if names is not None else list(listed):
+        folder = repo_folder(root, name) if name in listed else None
+        if not folder:
+            continue
+        try:
+            data["repos"][name] = first_look(folder)
+            done.append(name)
+        except (RuntimeError, ValueError, OSError, subprocess.SubprocessError):
+            continue  # unreadable now: reported at the next look
+    data.pop("reported", None)
+    save(path, data)
+    marker = os.path.join(root, MARKER)
+    os.makedirs(os.path.dirname(marker), exist_ok=True)
+    with open(marker, "w", encoding="utf-8") as f:
+        f.write("the read-only watch's baseline for this workbench lives in the plugin's data folder\n")
+    return done
+
+
+def look(root, listed):
+    """The differences in the workbench's read-only repos, as report lines ([] when none)."""
+    path = baseline_path(root)
     data = load(path)
-    if data is None and not seed_only:
-        # Seeded only before a call (SessionStart, PreToolUse): gone or broken now means a call removed it
-        return [f"the baseline ({BASELINE}) is missing or unreadable, so changes can't be checked"] if listed else []
-    if data is None:
-        repos = {}
-        for name in listed:
-            folder = repo_folder(root, name)
-            if folder:
-                try:
-                    repos[name] = first_look(folder)
-                except (RuntimeError, ValueError, OSError, subprocess.SubprocessError):
-                    continue  # unreadable now: reported at the next look, once it has a baseline
-        save(path, {"repos": repos})
-        return []
-    if seed_only:
-        return []
+    seeded = os.path.exists(os.path.join(root, MARKER))
+    if data is None or not seeded:
+        what = "the baseline in the plugin's data folder" if seeded else f"the workbench's marker ({MARKER})"
+        return [f"{what} is missing or unreadable, so changes can't be checked"]
     report, grown = [], False
     base = data["repos"]
     for name in list(base):
@@ -151,6 +187,9 @@ def look(root, seed_only=False):
                 now = first_look(folder)
                 base[name] = {"status": [], "unpushed": [], "push": now["push"], "refs": now["refs"]}
                 grown = True
+            elif not entry_ok(base[name]):
+                report.append(f"{name}/ (its baseline entry is damaged)")
+                continue
             else:
                 now = snapshot(folder)
         except (RuntimeError, ValueError, OSError, subprocess.SubprocessError) as e:
@@ -164,36 +203,11 @@ def look(root, seed_only=False):
     return report
 
 
-def repo_folder(root, name):
-    try:
-        folder = sdlc_scopes.repo_dir(root, name)
-    except ValueError:
-        return None
-    return folder if os.path.exists(os.path.join(folder, ".git")) else None
-
-
 def message(report):
-    script = os.path.abspath(__file__)
     return ("sdlc: a read-only repo changed: " + " | ".join(report) + ". sdlc never changes other teams' repos, and "
             "its guard won't run commands there. Stop and tell the user what changed and which call did it: they "
-            "undo it (git -C <repo> restore . / clean -fd / reset) or accept it as it is with: "
-            f"! python3 \"{script}\" --accept <repo>")
-
-
-def accept(root, names):
-    """The user's step: take the named read-only repos (default: every one) as they are now."""
-    path = os.path.join(root, BASELINE)
-    data = load(path) or {"repos": {}}
-    listed = sdlc_scopes.read_only_names(root) or {}
-    done = []
-    for name in names or list(listed):
-        folder = repo_folder(root, name) if name in listed else None
-        if folder:
-            data["repos"][name] = first_look(folder)
-            done.append(name)
-    data.pop("reported", None)
-    save(path, data)
-    return {"accepted": done}
+            "undo it (git -C <repo> restore . / clean -fd / reset) or accept it as it is by typing "
+            "`accept read-only <repo>` as their message.")
 
 
 def project_root(cwd):
@@ -209,14 +223,28 @@ def main():
     root = project_root(data.get("cwd") or os.getcwd())
     if not root:
         return
-    if event in ("SessionStart", "PreToolUse"):
-        if not os.path.exists(os.path.join(root, BASELINE)):
-            look(root, seed_only=True)
+    listed = sdlc_scopes.read_only_names(root)
+    if listed is None:
+        return  # an unreadable manifest: the PreToolUse guard denies writes into every folder meanwhile
+    never = not os.path.exists(os.path.join(root, MARKER)) and load(baseline_path(root)) is None
+    if event == "UserPromptSubmit":
+        m = ACCEPT.match(str(data.get("prompt") or ""))
+        if not m:
+            return
+        names = m.group("names").split() or None
+        done = seed(root, listed, names)
+        note = f"sdlc: accepted the read-only repos as they are now: {', '.join(done) or 'none found'}."
+        print(json.dumps({"systemMessage": note,
+                          "hookSpecificOutput": {"hookEventName": event, "additionalContext": note}}))
+        return
+    if event in ("SessionStart", "PreToolUse") or never:
+        if never:  # the first look of all; afterwards only the user's accept takes a new one
+            seed(root, listed)
         return
     if event not in ("PostToolUse", "PostToolUseFailure", "Stop"):
         return
-    report = look(root)
-    path = os.path.join(root, BASELINE)
+    report = look(root, listed)
+    path = baseline_path(root)
     state = load(path)
     signature = " | ".join(report)
     if state is not None:
@@ -237,13 +265,6 @@ def main():
 
 
 if __name__ == "__main__":
-    if sys.argv[1:2] == ["--accept"]:
-        here = project_root(os.getcwd())
-        if not here:
-            print(json.dumps({"error": "not in a workbench"}))
-            sys.exit(1)
-        print(json.dumps(accept(here, sys.argv[2:])))
-        sys.exit(0)
     try:
         main()
     except Exception:  # never blocks on its own error

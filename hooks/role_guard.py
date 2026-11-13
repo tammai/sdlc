@@ -135,7 +135,7 @@ def protected_paths(root):
     tests = manifest.get("tests") if isinstance(manifest, dict) else None
     paths = {MANIFEST} | {"acceptance/" + t["path"].lstrip("/") for t in tests or []
                           if isinstance(t, dict) and isinstance(t.get("path"), str)}
-    return {canon(p) for p in paths}
+    return {c for c in (canon(p) for p in paths) if c}  # a path above the repo protects nothing here
 
 
 def hits(root, cwd, operand, protected, tree=False, folders=False):
@@ -194,7 +194,7 @@ class TooDeep(Exception):
 MAX_NEST = 24
 TOO_DEEP = "(substitutions nested too deep to check)"
 SUB = "__sdlc_sub__"  # what a substitution leaves in its command's words
-WATCH_BASELINE = ".sdlc/.work/read-only-baseline.json"  # hooks/read_only_watch.py's first look
+WATCH_FILES = ("read-only-baseline", "read-only-seeded")  # hooks/read_only_watch.py's baseline and marker
 
 
 def deep_reason(found):
@@ -448,7 +448,13 @@ def _lex(s, i, stop, dialect, nest):
 
 def shell_write(command, root, cwd, protected, depth=0, folders=False, dialect="sh"):
     """The protected path a command line in `dialect` (see lex) writes, moves or removes, or None (`folders`: see
-    hits)."""
+    hits). A backslash before a path character is read both ways, as a Windows separator and as a shell escape
+    (`spec\\s`, `manifest\\.json`): either reading that writes a protected path counts."""
+    return (_shell_write(command, root, cwd, protected, depth, folders, dialect, slash=True)
+            or _shell_write(command, root, cwd, protected, depth, folders, dialect, slash=False))
+
+
+def _shell_write(command, root, cwd, protected, depth, folders, dialect, slash):
     try:
         events = lex(command, dialect)
     except TooDeep:
@@ -458,7 +464,7 @@ def shell_write(command, root, cwd, protected, depth=0, folders=False, dialect="
     bodies = []  # (subshell level, here-doc body) inside substitutions: `bash -c "$(cat <<EOF …)"` runs them
     for part, targets in events:
         if targets == "heredoc":
-            found = reader and depth < 3 and shell_write(part, root, cwd, protected, depth + 1, folders, reader)
+            found = reader and depth < 3 and _shell_write(part, root, cwd, protected, depth + 1, folders, reader, slash)
             if found:
                 return found
             bodies.append((len(outer), part))
@@ -478,7 +484,7 @@ def shell_write(command, root, cwd, protected, depth=0, folders=False, dialect="
                 return t.strip("\"'")
         # A backslash before a path character is a separator in every shell: Windows paths reach Git Bash too, and
         # reading one as an escape would hide the folder (the lexer has already taken continuations and `\'`)
-        text = re.sub(r"\\(?=[\w.$~-])", "/", part)
+        text = re.sub(r"\\(?=[\w.$~-])", "/", part) if slash else part
         try:
             words = shlex.split(text, posix=True)
         except ValueError:
@@ -508,7 +514,7 @@ def shell_write(command, root, cwd, protected, depth=0, folders=False, dialect="
                 if w.lower() in ("-c", "-command", "/c") and depth < 3:
                     scripts = [args[n + 1]] + (inside if SUB in args[n + 1] else [])
                     for script in scripts:
-                        found = shell_write(script, root, cwd, protected, depth + 1, folders, inner)
+                        found = _shell_write(script, root, cwd, protected, depth + 1, folders, inner, slash)
                         if found:
                             return found
             continue
@@ -585,25 +591,6 @@ def written(data, root, protected, folders=False):
     return None
 
 
-def accepts(command, dialect):
-    """True when a command line runs read_only_watch.py --accept, in any spelling quoting allows (`--acc''ept`)."""
-    if "read_only_watch" in command and "--accept" in command:
-        return True
-    try:
-        events = lex(command, dialect)
-    except TooDeep:
-        return True
-    words = []
-    for part, targets in events:
-        if isinstance(targets, list):
-            try:
-                words += shlex.split(part, posix=True)
-            except ValueError:
-                words += part.split()
-    joined = [w.replace("\\", "/") for w in words]
-    return any("read_only_watch" in w for w in joined) and any(w.startswith("--acc") for w in joined)
-
-
 def read_only_problem(data, root):
     """The deny reason when this call writes into a `write: false` repo of the workbench at root, naming the repo and
     its owner; None outside a workbench. Entries are read one by one, so one malformed entry never unguards the
@@ -612,13 +599,11 @@ def read_only_problem(data, root):
     import sdlc_scopes
     if not sdlc_scopes.guarded_workbench(root):
         return None
-    found = written(data, root, {canon(WATCH_BASELINE)})
-    if deep_reason(found):
-        return deep_reason(found)
-    command = str((data.get("tool_input") or {}).get("command") or "")
-    if found or accepts(command, "ps" if data.get("tool_name") == "PowerShell" else "sh"):
-        return ("sdlc: the read-only watch's baseline is the user's to change: only they accept a change in a "
-                "read-only repo (they run read_only_watch.py --accept with `!`). Tell them what changed instead.")
+    tin = data.get("tool_input") or {}
+    named = " ".join(str(tin.get(k) or "") for k in ("command", "file_path", "notebook_path", "path"))
+    if any(token in named.replace("\\", "/").lower() for token in WATCH_FILES):
+        return ("sdlc: the read-only watch's baseline and marker are the user's: only their message "
+                "`accept read-only <repo>` takes a change in a read-only repo. Tell them what changed instead.")
     names = sdlc_scopes.read_only_names(root)
     if names is None:
         try:

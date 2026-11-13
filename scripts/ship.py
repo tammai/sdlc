@@ -107,7 +107,9 @@ def verified(root, feature, timeout, waive_baseline=False):
     if waive_baseline and listed and all(re.match(r"[^\n]*\btest: exit", f) and not (apps and f.startswith(apps))
                                          for f in last["failures"]):
         return last["head"], last["tree"], f"Stage 4: baseline failures waived: only the test step failed; {len(listed)} listed in .sdlc/baseline.md"
-    hint = "\nIf only the test step failed and every failure is in .sdlc/baseline.md, rerun with --waive-baseline." if listed else ""
+    waivable = listed and not (apps and any(f.startswith(apps) for f in last["failures"]))
+    hint = ("\nIf only the test step failed and every failure is in .sdlc/baseline.md, rerun with --waive-baseline."
+            if waivable else "")
     raise Refused("verify failed:\n" + "\n".join(notes + last["failures"]) + hint)
 
 

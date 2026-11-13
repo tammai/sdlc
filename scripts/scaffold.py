@@ -1223,9 +1223,9 @@ def cmd_workbench(p, a):
         name = sdlc_scopes.check_name(a.target)
         if not any(r.get("name") == name for r in data["repos"]):
             lines = _gitignore_lines(p)
-            if not os.path.lexists(p.path(name)) and any(sdlc_scopes.ignored_name(x) == name for x in lines):
-                # removed earlier while its folder was there: the folder is gone now, so its ignore line goes
-                rest = [x for x in lines if sdlc_scopes.ignored_name(x) != name]
+            if not os.path.lexists(p.path(name)) and f"/{name}/" in (x.strip() for x in lines):
+                # removed earlier while its folder was there: the folder is gone now, so the line sdlc wrote goes
+                rest = [x for x in lines if x.strip() != f"/{name}/"]
                 _write_atomic(p.path(GITIGNORE), "\n".join(rest) + ("\n" if rest else ""), "surrogateescape")
                 return {"removed": name, "folder_kept": None}
             raise ValueError(f"no repo named {name!r} in {sdlc_scopes.WORKBENCH_FILE}")
@@ -1255,7 +1255,7 @@ def cmd_workbench(p, a):
     added = _ignore(p, name)  # before the clone: a crash after it leaves an ignored folder, never a repo git commits
     try:
         cloned = _clone_into(p, name, url, read_only=not checked["write"])
-    except ValueError:
+    except (ValueError, OSError):
         if added:  # a refused clone leaves the .gitignore as it was
             lines = [x for x in _gitignore_lines(p) if sdlc_scopes.ignored_name(x) != name]
             _write_atomic(p.path(GITIGNORE), "\n".join(lines) + ("\n" if lines else ""), "surrogateescape")
@@ -1272,6 +1272,8 @@ def _clone_into(p, name, url, read_only=False):
     if os.path.lexists(dest):
         if not os.path.isdir(os.path.join(dest, ".git")):
             raise ValueError(f"{name}/ exists and isn't a git repo: move it away or pick another --name")
+        if read_only:  # adopted as it is: it still never pushes to the other team's remote
+            sdlc_scopes.disable_push(dest)
         return False
     proc = subprocess.run(["git", "clone", "-q", "--", sdlc_scopes.check_url(url), dest], capture_output=True,
                           encoding="utf-8", errors="replace")
@@ -1293,7 +1295,10 @@ def _remove_tree(path):
     def writable(func, p, _):
         os.chmod(p, stat.S_IWRITE)
         func(p)
-    shutil.rmtree(path, onerror=writable)
+    if sys.version_info >= (3, 12):
+        shutil.rmtree(path, onexc=writable)
+    else:
+        shutil.rmtree(path, onerror=writable)
 
 
 def _ignore(p, name):

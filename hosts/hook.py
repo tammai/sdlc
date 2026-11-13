@@ -40,7 +40,7 @@ SCRIPTS = {
     "PreToolUse": ["pretooluse.py", "review_rounds.py", "read_only_watch.py"],
     "PostToolUse": ["verify_freshness.py", "read_only_watch.py"],
     "PostToolUseFailure": ["verify_freshness.py", "read_only_watch.py"],
-    "UserPromptSubmit": ["userpromptsubmit.py", "trust_anchor.py", "review_rounds.py"],
+    "UserPromptSubmit": ["userpromptsubmit.py", "trust_anchor.py", "review_rounds.py", "read_only_watch.py"],
     "Stop": ["stop.py", "verify_freshness.py", "trust_anchor.py", "read_only_watch.py"],
 }
 CHILD_TIMEOUT = 10  # each script's own timeout in hooks/hooks.json

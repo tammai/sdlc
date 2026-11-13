@@ -310,8 +310,8 @@ def drift(root, feature, later=()):
     # One source for app-repo files (diff_stats lists branched repos' files too): in_repos, filtered the same way
     own = [f for f in facts["changed_files"] if f not in set(in_repos) and not f.startswith(".sdlc/")
            and not (docs_dir and f.startswith(docs_dir + "/"))]
-    changed = [f for f in own + in_repos if "/.sdlc/" not in f and not f.lower().endswith(".md")
-               and not GENERATED.search(f)]
+    changed = [f for f in own + [f for f in in_repos if "/.sdlc/" not in f]
+               if not f.lower().endswith(".md") and not GENERATED.search(f)]
     tasks, task_acs, current = {}, {}, None
     for line in (section(plan_text, "Tasks") or "").splitlines():
         t = TASK_START.match(line)
