@@ -23,4 +23,9 @@ updated: 2026-11-13
   text guard as the first, best-effort line and back it with state: `hooks/read_only_watch.py` compares each
   read-only repo with its first look after every writing call and at Stop, and a push URL that points nowhere stops
   pushes structurally.
+- What a guard compares against must sit where the agent can't simply rewrite it. An in-repo baseline was deleted and
+  then silently re-taken, and an `--accept` command was quote-spelled around. Both were fixed by moving the baseline to
+  the plugin's data folder with a marker in the repo (either one gone is a standing difference) and by making accept
+  the user's own prompt (UserPromptSubmit). A path escaped with `\` must be read both ways, as a Windows separator and
+  as a shell escape; reading it only one way let `manifest\.json` or `C:\…\specs` through.
 - Don't widen a command parser to fit what agents type: move the work out of the guarded state instead (a reviewed change advances to Stage 4 when it writes `## Review`, so Ship runs outside Review's budget), and take free text out of the command (`ship.py` reads the commit subject from the change file).

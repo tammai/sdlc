@@ -2,7 +2,7 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
-## Unreleased
+## 3.8.0 — 2026-11-13
 
 ### Added
 - **Workbench: one repo per app, beside the monorepo, for new multi-app projects** ([ADR 0025](docs/adr/0025-workbench-for-multi-app-projects.md), extending ADR 0005). Greenfield setup with two or more apps now asks which layout: one repo holding every app (the monorepo, as before) or a workbench. A workbench makes the session's folder a `<project>-workbench` repo holding `workbench.json`, the API contract (`contract/v<N>/`) and every feature record, with each app its own repo cloned inside it and set up with its own commands, CI and guardrails (`references/workbench.md`). Existing monorepos are unchanged.
