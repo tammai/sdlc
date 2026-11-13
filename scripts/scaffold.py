@@ -759,6 +759,8 @@ def generate_ci(p, package=None):
             lines += [pad + x.format(**values) for x in CI_SETUP[st]]
         else:
             lines.append(pad + f"# TODO: add the toolchain setup for '{st}'")
+    if not package:
+        lines += [pad + x for x in workbench_checkout(p)]
     for step in plan["install"] + plan["verify"]:
         label = step["step"] if step["scope"] == ROOT_SCOPE else f"{step['scope']} · {step['step']}"
         lines.append(pad + f"- name: {json.dumps(label, ensure_ascii=False)}")
@@ -766,6 +768,41 @@ def generate_ci(p, package=None):
             lines.append(pad + f"  working-directory: {step['cwd']}")
         lines += [pad + "  run: |", pad + "    " + step["run"]]
     return "\n".join(lines) + "\n"
+
+
+WORKBENCH_REPO = re.compile(r"^(?:[A-Za-z0-9][A-Za-z0-9-]{0,38}/)?[A-Za-z0-9._-]{1,100}$")
+
+
+def workbench_checkout(p):
+    """The CI steps that check out the workbench for an app repo that consumes its contract, else []: the app's
+    config names its workbench (`"workbench": "<name>"` or `"<owner>/<name>"`) and the workbench above it lists the
+    app with `contract.consumes`. The branch with the PR's own name when the workbench has one (the same feature's
+    unmerged contract change), else main; the contract lands at ../contract, where the app's generate step reads it.
+    The branch reaches the script only through env."""
+    name = sdlc_scopes.workbench_of(p.root)
+    if not name or not WORKBENCH_REPO.match(name) or name.startswith(".") or "/." in name:
+        return []
+    parent = os.path.dirname(p.root)
+    if not sdlc_scopes.is_workbench(parent):
+        return []
+    try:
+        entry = next((r for r in sdlc_scopes.manifest(parent) if r["name"] == os.path.basename(p.root)), None)
+    except ValueError:
+        return []
+    if not entry or not entry["contract"].get("consumes"):
+        return []
+    repo = name if "/" in name else "${{ github.repository_owner }}/" + name
+    token = "${{ secrets.WORKBENCH_TOKEN || github.token }}"
+    return [
+        "# The workbench holds the API contract: its branch named like this PR's, else main (a private workbench",
+        "# needs a WORKBENCH_TOKEN secret that can read it)",
+        "- name: \"workbench branch\"", "  id: workbench", "  env:", f"    GH_TOKEN: {token}",
+        "    BRANCH: ${{ github.head_ref || github.ref_name }}", "  run: |",
+        f'    if gh api "repos/{repo}/branches/$BRANCH" --silent 2>/dev/null; then',
+        '      echo "ref=$BRANCH" >> "$GITHUB_OUTPUT"', "    else", '      echo "ref=main" >> "$GITHUB_OUTPUT"', "    fi",
+        "- uses: actions/checkout@v7", "  with:", f"    repository: {repo}",
+        "    ref: ${{ steps.workbench.outputs.ref }}", "    path: .workbench", f"    token: {token}",
+        "- name: \"workbench contract\"", "  run: |", "    rm -rf ../contract && cp -R .workbench/contract ../contract"]
 
 
 def generate_contract_check(p):

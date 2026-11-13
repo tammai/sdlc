@@ -489,6 +489,39 @@ class WorkbenchFeature(WorkbenchFeatureCase):
         self.assertTrue(any("no longer exists" in f for f in stats()["flags"]))
 
 
+class WorkbenchCI(WorkbenchTestCase):
+    def test_app_ci_checks_out_the_workbench(self):
+        self.write_json(".sdlc/config.json", {"workbench": True,
+                                              "api_contract": {"path": "contract", "spec": "openapi.yaml"}})
+        self.write_json("workbench.json", {"repos": [
+            {"name": "api", "url": "u1", "role": "app", "write": True, "contract": {"provides": "v1"}},
+            {"name": "web", "url": "u2", "role": "app", "write": True, "contract": {"consumes": "v1"}},
+        ]})
+        for name in ("api", "web"):
+            self.write_json(f"{name}/.sdlc/config.json", {"workbench": "shop-workbench", "project": {"stack": "node"},
+                                                          "commands": {"install": "pnpm install",
+                                                                       "test": "pnpm test"}})
+        ci = scaffold.generate_ci(scaffold.Project(self.path("web")))
+        self.assertIn("repository: ${{ github.repository_owner }}/shop-workbench", ci)
+        self.assertIn("github.head_ref || github.ref_name", ci)
+        self.assertIn("ref=main", ci)
+        self.assertIn("../contract", ci)
+        # Before the install step, and the branch reaches the script only through env, never inlined
+        self.assertLess(ci.index("shop-workbench"), ci.index("pnpm install"))
+        self.assertNotIn("${{ github.head_ref }}\n", ci.split("run: |", 1)[1].split("env:")[0])
+        # An owner/name back-reference is used as is
+        self.write_json("web/.sdlc/config.json", {"workbench": "acme/shop-workbench",
+                                                  "commands": {"test": "pnpm test"}})
+        self.assertIn("repository: acme/shop-workbench", scaffold.generate_ci(scaffold.Project(self.path("web"))))
+        # The provider, a repo outside a workbench, and a bad back-reference get no workbench checkout
+        self.assertNotIn("shop-workbench", scaffold.generate_ci(scaffold.Project(self.path("api"))))
+        self.write_json("web/.sdlc/config.json", {"workbench": "a b; rm -rf /", "commands": {"test": "pnpm test"}})
+        self.assertNotIn("rm -rf", scaffold.generate_ci(scaffold.Project(self.path("web"))))
+        # The workbench's contract check reads api_contract.path unchanged
+        self.assertIn('"origin/${{ github.base_ref }}" contract openapi.yaml',
+                      scaffold.generate_contract_check(scaffold.Project(self.root)))
+
+
 class WorkbenchShip(WorkbenchFeatureCase):
     CHANGE = "# Shop checkout\n\n## Acceptance criteria\n\n## Acceptance tests\n\n| AC | Test | Run |\n|---|---|---|\n"
 

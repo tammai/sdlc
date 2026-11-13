@@ -10,8 +10,8 @@ Started: 2026-11-13
 Base: 58acb2e
 Owner: 3235400+tammai@users.noreply.github.com
 Tool: claude-code
-Verified: 7d8551e tree 3e5d7da8bd05790a2adda51ae0c38d5c2f2a25d1
-Slice: B5   Slice base: 7d8551e   Slice gates: none
+Verified: ff4645c tree 04bdc2dd41f9fadb7a4828f48d611fa422fd38f2
+Slice: B6   Slice base: ff4645c   Slice gates: none
 Current: Stage 2 – Build
 
 ## Stages
@@ -60,6 +60,7 @@ parts in fresh sessions, because seven parts across the core won't fit one conte
 - 2026-11-13 handoff B3: sdlc_layout.target_repo routes from a workbench root; role_guard.read_only_problem (via pretooluse) guards write:false repos; sdlc_scopes.workbench_of marks an app repo and state.py new refuses there. B4 next: per-repo branch/base in state.py, verify per touched repo, freshness per app scope (scaffold.scopes still doesn't return workbench scopes)
 - 2026-11-13 handoff B4: state.py repo <f> <name> branches a writable repo (workbench branch name, from its default branch) or records a read-only commit under ## Repos (sdlc_scopes.feature_repos parses it); verify.repo_failures runs each branched repo's plan; freshness scopes per repo (scope_dir). Gap for B5: verify.py's recorded tree and HEAD are the workbench's only (app repos are gitignored), so ship must check and commit each branched repo itself
 - 2026-11-13 handoff B5: ship.py stages each branched repo (repos in merge order, commit-msg-<repo>.txt, pr-<repo>.md); state.py pr records PRs under ## PRs; ship.py --status warns on out-of-order merges (SDLC_GH for tests). verify records each branched repo's tree and drift counts app-repo files. B6 next: builtin:ci for a consuming app checks out the workbench (scaffold.py generate_ci)
+- 2026-11-13 handoff B6: scaffold.workbench_checkout adds the workbench branch/checkout/contract-copy steps to an app's builtin:ci when the parent workbench lists it as a consumer. B7 next: references/workbench.md, setup routing, ADR 0025, wiki, CHANGELOG, stale-docs audit (describe state.py repo/pr, ship.py --status, WORKBENCH_TOKEN, the app back-reference)
 
 ## Deviations
 - 2026-11-13 setup What: went on with setup none (no .sdlc/config.json). Why: the plugin's own repo has always run sdlc without setup (e.g. 2026-11-08-l-spec-backed-mode). Effect: verify.py runs the AC tests; the full suite is run by hand with python3.10 -m unittest discover -s tests -t tests.
@@ -82,6 +83,8 @@ parts in fresh sessions, because seven parts across the core won't fit one conte
 - 2026-11-13 B5 command state.py pr What: records a repo's PR URL under ## PRs, which ship.py --status reads. Why: AC-014's 'PRs recorded in the state file' needs a writer; gh pr create runs in the caller's command. Effect: a new state.py subcommand.
 - 2026-11-13 B5 hooks/sdlc_scopes.py PRS_HEADING, pr_name, feature_prs, merge_order, must_follow; scripts/verify.py branched_repos, repo_changes, repo_trees; ship.ship_repos, pr_state, status What: internal helpers behind AC-013–014; verify.py and sdlc_scopes.py weren't in B5's file list. Why: closes B4's gap (the verified run covers each branched repo's tree; drift counts app-repo files) and gives ship one merge order. Effect: internal; env SDLC_GH (tests only) points --status at a gh stand-in.
 - 2026-11-13 B5 docs/specs/02-orchestration.md What: ORC-FR-044. Why: the spec lists each enforced behaviour with its test. Effect: docs only.
+- 2026-11-13 B6 scaffold.workbench_checkout, WORKBENCH_REPO What: the app CI's workbench steps, rendered when the app's back-reference is a plain repo name and the workbench above lists it as a consumer; read from the parent workbench.json, so the contract role is recorded once. Why: AC-015. Effect: internal; an app CI rendered outside its workbench gets no checkout step.
+- 2026-11-13 B6 docs/specs/01-setup-upgrade-eject.md What: SET-FR-051. Why: the spec lists each enforced behaviour with its test. Effect: docs only.
 
 ## Open questions
 -
