@@ -2,11 +2,12 @@
 
 # Greenfield workbench
 
-A new project with two or more apps (web, api, mobile, …) gets one repo per app, cloned inside a `<project>-workbench`
-repo. This replaces the `stack`, `skeleton`, `commands` and `ci` steps of `greenfield.md`; the step names stay, so
-resume still works. One app: this file doesn't apply, follow `greenfield.md`. An existing monorepo, or a user who asks
-for one repo: `monorepo.md`. Decision: `${CLAUDE_PLUGIN_ROOT}/docs/adr/0025-workbench-for-multi-app-projects.md`
-(it supersedes ADR 0005 for new projects).
+A new project with two or more apps (web, api, mobile, …) whose user chose one repo per app (greenfield.md asks:
+this layout or `monorepo.md`) gets each app as its own repo, cloned inside a `<project>-workbench` repo. This replaces
+the `stack`, `skeleton`, `commands` and `ci` steps of `greenfield.md`; the step names stay, so resume still works. One
+app: this file doesn't apply, follow `greenfield.md`. One repo holding every app, or an existing monorepo:
+`monorepo.md`. Decision: `${CLAUDE_PLUGIN_ROOT}/docs/adr/0025-workbench-for-multi-app-projects.md` (it extends ADR
+0005: both layouts stay on offer).
 
 The session's folder becomes the workbench: every session starts there. It describes the product and holds the sdlc
 feature records, never product code.

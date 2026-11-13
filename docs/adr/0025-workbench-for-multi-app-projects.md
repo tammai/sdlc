@@ -1,18 +1,21 @@
-# ADR 0025: New multi-app projects are one repo per app inside a workbench repo
+# ADR 0025: New multi-app projects can be one repo per app inside a workbench repo
 
-- **Status:** Accepted, 2026-11-13. Supersedes [ADR 0005](0005-greenfield-monorepo-layout.md) for new projects;
-  existing monorepos keep ADR 0005's layout and its support. Record: `.sdlc/2026-11-13-l-workbench/change.md`.
+- **Status:** Accepted, 2026-11-13. Extends [ADR 0005](0005-greenfield-monorepo-layout.md): its monorepo stays a
+  full option for new projects, and existing monorepos keep its layout and support. Record: `.sdlc/2026-11-13-l-workbench/change.md`.
 - **Deciders:** Tâm Mai.
 
 ## Context
 
-ADR 0005 put every app of a new product in one monorepo. Apps and the teams owning them stay coupled there: one
-history, one access list, one CI, every team's release pace tied to one `main`. Teams that want each app in its own
-repo still need what the monorepo gave them: one place every session starts, one record per feature, and a contract
+ADR 0005 put every app of a new product in one monorepo. That suits one team shipping every app together, but apps
+and the teams owning them stay coupled there: one history, one access list, one CI, every team's release pace tied to
+one `main`. Teams that want each app in its own repo still need what the monorepo gave them: one place every session starts, one record per feature, and a contract
 that breaks CI when a change would break a consumer.
 
 ## Decision
 
+- **Greenfield setup asks which layout** for two or more apps, both on offer: ADR 0005's monorepo, recommended when
+  one team owns every app and ships them together, or a workbench, recommended when apps have separate owners or
+  release cycles, or the project reads other teams' repos.
 - **A workbench repo is the parent folder.** `<project>-workbench` is a git repo holding `workbench.json` (the map of
   repos), the API contract (`contract/v<N>/openapi.yaml`), shared docs, the rules and knowledge, and every sdlc feature
   record; never product code. Each app is its own repo cloned inside it and gitignored there. Sessions start in the
@@ -36,7 +39,8 @@ that breaks CI when a change would break a consumer.
 
 | Option | Why not |
 |---|---|
-| Keep ADR 0005's monorepo for every new project | couples apps and teams; kept for existing monorepos and on request |
+| Keep ADR 0005's monorepo for every new project | couples apps and teams that want their own repos |
+| The workbench for every new project, the monorepo only on request | one team shipping every app together pays the cross-repo costs for nothing |
 | Workbench as a sibling folder (product-rebuild's layout) | sessions would start outside every repo, without the committed rules and knowledge |
 | App repos as git submodules of the workbench | every app commit becomes a workbench commit too |
 | A linked feature record per app repo | two records of one feature that can disagree |

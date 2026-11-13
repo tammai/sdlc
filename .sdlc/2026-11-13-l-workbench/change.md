@@ -9,8 +9,8 @@
 > - add a repo called <project-name>-workbench
 > - workbench is the parent folder of project, gitignore apps repo, main session start on workbench, workbench has the structure, know which repos inside it folder is for what parts, include specs, tests, designs repos from other team
 
-New multi-app projects (web, api, mobile, …) get one repo per app instead of ADR 0005's single monorepo, so that apps
-and the teams owning them are decoupled: each repo has its own history, access, CI and release pace. A
+New multi-app projects (web, api, mobile, …) can get one repo per app, an option beside ADR 0005's single monorepo
+(setup asks which), so that apps and the teams owning them can be decoupled: each repo has its own history, access, CI and release pace. A
 `<project>-workbench` repo is the parent folder and the place every session starts: it describes the product (specs,
 contract, designs, test cases, the map of repos) and holds the sdlc feature records, but no product code. Prompted by
 a review of the monorepo support (this session) and the wish to decouple apps.
@@ -21,6 +21,8 @@ a review of the monorepo support (this session) and the wish to decouple apps.
 - A feature that touches several apps: "one feature in the workbench driving PRs in each repo".
 - Repos owned by other teams (specs, tests, designs): "read only, other teams change their own repos".
 - Existing monorepos: "keep monorepo support, only new projects get workbench".
+- Later, in Review: "i dont want to remove the monorepo, polyrepo + workbench is a additional"; setup asks which
+  layout and recommends by team (the user's pick).
 - How sdlc handles it: "A, sdlc understands the workbench directly".
 - App repos get a small sdlc setup of their own (commands, CI, guardrails, no feature records): "yes".
 - product-rebuild's `repos.yaml`: "keep apart" (separate file name and detection; no product-rebuild change here).
@@ -63,7 +65,7 @@ a review of the monorepo support (this session) and the wish to decouple apps.
 | One feature lives in the workbench and drives a branch and PR per touched repo | A linked feature per app repo (B); one subagent lane per repo (C) | The user's choice (A). One record; reuses the per-package scope machinery; lanes can come later. |
 | Each app repo has a small sdlc setup: `.sdlc/config.json` with its commands, its lock, CI, guardrail hooks; never feature records | sdlc only in the workbench | The user's choice. A session or teammate in `api/` alone keeps guardrails; upgrade patches each repo's own files against its own lock; the nested-repo routing in `hooks/sdlc_layout.py` already keys on a repo's `.sdlc/config.json`. Commands live once, in the app. |
 | Repos other teams own are read-only to sdlc | Opening PRs in them | The user's choice. |
-| Existing monorepos keep support; only new greenfield multi-app setups get a workbench | An upgrade that converts a monorepo | The user's choice. ADR 0005 is superseded for new projects only. |
+| Existing monorepos keep support; greenfield multi-app setup asks monorepo or workbench, recommending the monorepo for one team shipping every app together and the workbench for separate owners, release cycles or other teams' repos | An upgrade that converts a monorepo; the workbench as the only new-project layout | The user's choice (changed in Review). ADR 0025 extends ADR 0005; nothing supersedes it. |
 | sdlc's manifest is `workbench.json`; a workbench is detected by `"workbench": true` in its `.sdlc/config.json`, never by a file name | Sharing product-rebuild's `repos.yaml` | The user's choice (keep apart). product-rebuild's guards switch on for any repo listed in a `repos.yaml`; a shared name would make each plugin misread the other's workbench. |
 | Adding or removing a repo after setup is a setup step (`$S workbench add <url>` / `remove <name>`) | Manifest written once at setup | The user's choice (in scope). |
 | The API contract lives in the workbench, versioned by folder (`contract/v1/openapi.yaml`); the workbench's CI runs the oasdiff check | A contract repo; the contract in the api repo; a registry | [recommended] The contract describes the product; folder versioning is ADR 0005's proven rule. |
@@ -132,7 +134,8 @@ one lands out of order.
 **Read-only repos.** A feature records each read-only repo's commit on first read (state file). If one has moved by
 Review, the review brief says what changed.
 
-**Setup (greenfield, two or more apps).** Make the session's folder the workbench repo; interview as `monorepo.md`
+**Setup (greenfield, two or more apps).** Ask which layout (monorepo or workbench). For a workbench: make the
+session's folder the workbench repo; interview as `monorepo.md`
 does (stacks, owners, contract, `infras/`); create each app repo with its ecosystem's generator in its folder, give
 it a remote, run the small sdlc setup in it; write `workbench.json`; gitignore the folders; add other teams' repos by
 URL; tell the user what token app CI needs to read the workbench. `profile` shrinks to which `docs/` folders and
@@ -144,8 +147,8 @@ workbench, gitignores, writes the manifest entry, and for an app runs the small 
 generation step. `$S workbench remove <name>` drops the entry and the gitignore line and leaves the folder for the
 user to delete. Both run on a branch of the workbench, like any setup change.
 
-**Docs.** New ADR superseding 0005 for new projects (0005 stays for existing monorepos); `references/workbench.md`
-in the greenfield path (`monorepo.md` kept for existing monorepos); wiki pages Project-setup, Configuration,
+**Docs.** New ADR extending 0005 (its monorepo stays a full option); `references/workbench.md` beside `monorepo.md`
+in the greenfield path, which asks between them; wiki pages Project-setup, Configuration,
 Where-things-live; the stale-docs audit in CONTRIBUTING.md.
 
 ### Calls I made (the user hasn't confirmed)
@@ -226,8 +229,8 @@ B6 · contract and CI
   `builtin:contract-check` uses `api_contract.path` (`contract`) unchanged.
 
 B7 · setup and docs
-- **AC-016** Given greenfield setup with two or more apps, when the setup skill routes it, then it follows
-  `references/workbench.md` (not `monorepo.md`); ADR 0025 supersedes ADR 0005 for new projects, and the wiki's
+- **AC-016** Given greenfield setup with two or more apps, when the setup skill routes it, then it asks which layout,
+  offering `references/monorepo.md` and `references/workbench.md` as equals; ADR 0025 extends ADR 0005, and the wiki's
   Project-setup, Configuration and Where-things-live pages describe the workbench.
 
 B8 · preferred stacks

@@ -538,21 +538,32 @@ class WorkbenchDocs(unittest.TestCase):
     def test_setup_and_docs_describe_the_workbench(self):
         refs = ("skills", "setting-up-projects", "references")
         greenfield = read_doc(*refs, "greenfield.md")
+        # Two or more apps: setup asks, offering both layouts as equals (the monorepo is never only "on request")
         route = next(line for line in greenfield.splitlines() if "Two or more apps" in line)
-        self.assertIn("workbench.md", route)
-        self.assertNotIn("follow `monorepo.md`", route)
+        for needed in ("workbench.md", "monorepo.md", "ask", "one team"):
+            self.assertIn(needed, route, needed)
+        self.assertNotIn("on request", route)
+        self.assertNotIn("only when the user asks", route)
         workbench = read_doc(*refs, "workbench.md")
         for needed in ("workbench.json", '"workbench": true', "scaffold.py\" workbench add", "state.py",
                        " repo ", "ship.py", "--status", "WORKBENCH_TOKEN", "contract/v1/openapi.yaml",
                        "write", "0025"):
             self.assertIn(needed, workbench, needed)
         self.assertIn("workbench.md", read_doc("skills", "setting-up-projects", "SKILL.md"))
-        self.assertIn("0025", read_doc(*refs, "monorepo.md"))
+        monorepo = read_doc(*refs, "monorepo.md")
+        self.assertIn("0025", monorepo)
+        self.assertNotIn("Only when the user asks", monorepo)
+        self.assertNotIn("supersed", read_doc("skills", "setting-up-projects", "SKILL.md").lower())
         adr = read_doc("docs", "adr", "0025-workbench-for-multi-app-projects.md")
-        self.assertIn("Supersedes [ADR 0005]", adr)
-        self.assertIn("0025", read_doc("docs", "adr", "README.md"))
-        self.assertIn("Superseded for new projects by [ADR 0025]",
-                      read_doc("docs", "adr", "0005-greenfield-monorepo-layout.md"))
+        self.assertIn("Extends [ADR 0005]", adr)
+        self.assertNotIn("Supersedes", adr)
+        index = read_doc("docs", "adr", "README.md")
+        self.assertIn("0025", index)
+        row = next(line for line in index.splitlines() if line.startswith("| [0005]"))
+        self.assertNotIn("superseded", row.lower())
+        adr5 = read_doc("docs", "adr", "0005-greenfield-monorepo-layout.md")
+        self.assertIn("[ADR 0025]", adr5)
+        self.assertNotIn("Superseded", adr5)
         for page in ("Project-setup.md", "Configuration.md", "Where-things-live.md"):
             self.assertIn("workbench", read_doc("docs", "wiki", page).lower(), page)
         self.assertIn("workbench.json", read_doc("docs", "wiki", "Where-things-live.md"))

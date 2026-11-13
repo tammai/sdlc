@@ -68,6 +68,8 @@ parts in fresh sessions, because seven parts across the core won't fit one conte
 - 2026-11-13 decision: PR bodies link the other repos and their feature branches, not their PR URLs (the PRs don't exist when ship.py writes the bodies); AC-013's 'linking the others' read that way, documented in workbench.md (review round 1 M8)
 - 2026-11-13 review round 1 fixes: 11 tests (ReviewRound1* plus the AC-002 and AC-015 tests) seen failing on 9fb2d64 in a worktree, then passing
 - 2026-11-13 review round 2: FAIL (code R2-H1 R2-H2, security S9 S10); user chose one more fix round (Review cap)
+- 2026-11-13 scope changed by the user in Review: keep the monorepo as a full option; greenfield with two or more apps asks monorepo or workbench, recommending by team (user's pick)
+- 2026-11-13 review round 3: both reviewers PASS; S16, S17, R3-M2 raised to high (writes into a read-only repo get through, a must-never-break line); user chose fix all, then one more security check (Review cap)
 
 ## Deviations
 - 2026-11-13 setup What: went on with setup none (no .sdlc/config.json). Why: the plugin's own repo has always run sdlc without setup (e.g. 2026-11-08-l-spec-backed-mode). Effect: verify.py runs the AC tests; the full suite is run by hand with python3.10 -m unittest discover -s tests -t tests.
@@ -107,6 +109,7 @@ parts in fresh sessions, because seven parts across the core won't fit one conte
 - 2026-11-13 hooks/sdlc_scopes.py check_branch, repo_dir What: ## Repos branch names are limited to letters, digits, . _ - / (state.py repo refuses another workbench branch name); repo_dir refuses any link, a sibling repo too. Why: review round 2 S11, S12. Effect: stricter state parsing; internal.
 - 2026-11-13 scripts/diff_stats.py scan, feature_state, branched_repos What: collect also scans each app repo the feature branched against its recorded base, paths prefixed with the repo folder and references counted inside it. Why: review round 2 R2-M1, the review choice and Public Surface check never saw app code. Effect: diff_stats output includes app-repo files.
 - 2026-11-13 scripts/scaffold.py workbench add/clone, scripts/state.py record_repo, scripts/verify.py repo_failures, skills/orchestrator/references/flow.md What: add gitignores before it clones; clone keeps going past a failed repo and reports it (exit 1); a default branch with a / is matched whole; a not-run prefix is no longer doubled; flow.md records a read-only repo before its first read. Why: review round 2 R2-M2, R2-L5, R2-L1, fix in passing, R2-H2. Effect: as listed.
+- 2026-11-13 change.md Why/Decisions/Design/AC-016, skills/setting-up-projects/references/greenfield.md monorepo.md workbench.md SKILL.md, docs/adr/0005 0025 README, docs/specs/01 (SET-FR-017/052, new SET-FR-054), docs/wiki/Project-setup.md, CHANGELOG.md, README.md, CONTRIBUTING.md What: the workbench is an option beside the monorepo, not its replacement; setup asks which layout and recommends by team; ADR 0025 extends ADR 0005. Why: the user's request in Review. Effect: docs and setup routing only; no code changed.
 
 ## Open questions
 -

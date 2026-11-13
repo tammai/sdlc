@@ -20,7 +20,7 @@ sdlc/
 ├── skills/                  skills; orchestrator/ is the conductor (a short router plus one reference per track: s-track for S,
 │                            flow for M and L; review-brief, backlog-slices, ui-work when named), setting-up-projects/ runs setup/upgrade/eject
 │                            (references/trimming-context.md: /sdlc:context-diet; design-mode.md: the design step and
-│                            /sdlc:setup design; workbench.md: greenfield with two or more apps;
+│                            /sdlc:setup design; workbench.md: greenfield with two or more apps, one repo per app;
 │                            stacks.md: the preferred stacks greenfield proposes from); managing-knowledge/references/ holds
 │                            claude-md-improver.md and its folder
 ├── hooks/
