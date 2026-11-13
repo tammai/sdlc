@@ -337,7 +337,7 @@ def git_out(cwd, *args):
 CHECK = "import os, sys; sys.exit(1 if os.path.exists('broken') else 0)\n"
 
 
-class WorkbenchFeature(WorkbenchTestCase):
+class WorkbenchFeatureCase(WorkbenchTestCase):
     """A workbench on branch feat-x with a feature `feat`; api/ and web/ are writable app repos on main, specs/ a
     read-only repo."""
 
@@ -376,6 +376,9 @@ class WorkbenchFeature(WorkbenchTestCase):
         with open(self.path(".sdlc/feat/state.md"), encoding="utf-8") as f:
             return f.read()
 
+
+
+class WorkbenchFeature(WorkbenchFeatureCase):
     def test_build_branches_and_verifies_each_touched_repo(self):
         import sdlc_scopes
         import verify
@@ -484,6 +487,114 @@ class WorkbenchFeature(WorkbenchTestCase):
         [moved] = stats()["read_only"]
         self.assertTrue(moved["gone"], moved)
         self.assertTrue(any("no longer exists" in f for f in stats()["flags"]))
+
+
+class WorkbenchShip(WorkbenchFeatureCase):
+    CHANGE = "# Shop checkout\n\n## Acceptance criteria\n\n## Acceptance tests\n\n| AC | Test | Run |\n|---|---|---|\n"
+
+    def setUp(self):
+        super().setUp()
+        self.write_json("workbench.json", {"repos": [
+            {"name": "web", "url": "https://example.com/web.git", "role": "app", "write": True,
+             "contract": {"consumes": "v1"}},
+            {"name": "api", "url": "https://example.com/api.git", "role": "app", "write": True,
+             "contract": {"provides": "v1"}},
+            {"name": "specs", "url": "u3", "role": "specs"},
+        ]})
+        self.write(".sdlc/feat/change.md", self.CHANGE)
+
+    def ship(self, *extra, env=None):
+        import subprocess
+        p = subprocess.run([sys.executable, os.path.join(PLUGIN_ROOT, "scripts", "ship.py"), "--root", self.root,
+                            "feat", *extra], capture_output=True, encoding="utf-8", errors="replace",
+                           env={**os.environ, **(env or {})})
+        return p.returncode, p.stdout + p.stderr
+
+    def test_ship_commits_each_repo_in_merge_order(self):
+        import verify
+        for name in ("web", "api"):
+            self.assertEqual(self.state("repo", "feat", name)[0], 0)
+        self.write("api/a.py", "x = 1\n")
+        self.write("web/b.py", "y = 1\n")
+        self.state("deviation", "feat", "workbench.json web/b.py What: contract roles. Why: test. Effect: none.")
+        # A passing verify covers the app repos too: a later change in one is unverified
+        last, notes = verify.full(self.root, "feat", 60, whole=True)
+        self.assertEqual(last["result"], "pass", last["failures"] + notes)
+        self.assertTrue(verify.status(self.root, "feat")["reuse"])
+        self.write("api/c.py", "z = 1\n")
+        st = verify.status(self.root, "feat")
+        self.assertFalse(st["reuse"])
+        self.assertIn("api", st["reason"])
+        os.remove(self.path("api/c.py"))
+        # A file in an app repo that no task names is drift
+        self.write("web/stray.py", "s = 1\n")
+        last, _ = verify.full(self.root, "feat", 60, whole=True)
+        self.assertTrue(any("web/stray.py" in f for f in last["failures"]), last["failures"])
+        os.remove(self.path("web/stray.py"))
+
+        code, out = self.ship("--review", "No review ran: test.")
+        self.assertEqual(code, 0, out)
+        result = json.loads(out)
+        repos = result["repos"]
+        self.assertEqual([r["name"] for r in repos], ["(workbench)", "api", "web"])
+        for r in repos[1:]:
+            self.assertIn(r["path"], (self.path("api"), self.path("web")))
+            self.assertEqual(git_out(r["path"], "branch", "--show-current"), "feat-x")
+            self.assertTrue(r["staged"], r)
+            git(r["path"], "commit", "-q", "-F", r["message"])
+            msg = git_out(r["path"], "log", "-1", "--format=%B")
+            self.assertIn("Shop checkout", msg)
+            self.assertIn(".sdlc/feat/change.md", msg)
+        self.assertIn("workbench.json", repos[0]["staged"])
+        with open(repos[1]["pr_body"], encoding="utf-8") as f:
+            body = f.read()
+        self.assertIn("https://example.com/web.git", body)
+        self.assertIn("(workbench)", body)
+        self.assertIn("1. (workbench)", body)
+        self.assertIn("2. api", body)
+        self.assertIn("3. web", body)
+
+    def fake_gh(self, states):
+        """SDLC_GH: a gh stand-in answering `pr view <url> --json state,mergedAt` from `states`."""
+        data = self.write("gh-states.json", json.dumps(states))
+        script = self.write("fake_gh.py", "import json, sys\n"
+                            f"states = json.load(open({data!r}))\n"
+                            "url = sys.argv[3]\n"
+                            "s = states[url]\n"
+                            "print(json.dumps({'state': s[0], 'mergedAt': s[1]}))\n")
+        return {"SDLC_GH": f'"{sys.executable}" "{script}"'}
+
+    def test_out_of_order_merge_warns(self):
+        urls = {"(workbench)": "https://example.com/wb/pull/1", "api": "https://example.com/api/pull/2",
+                "web": "https://example.com/web/pull/3"}
+        code, out = self.ship("--status")
+        self.assertEqual(code, 0, out)
+        self.assertFalse(json.loads(out)["done"])
+        for name, url in urls.items():
+            code, out = self.state("pr", "feat", name, url)
+            self.assertEqual(code, 0, out)
+        self.assertEqual(self.state("pr", "feat", "../x", "u")[0], 1)
+        # The consumer merged while its provider is still open: a warning naming both, never a block
+        code, out = self.ship("--status", env=self.fake_gh({
+            urls["(workbench)"]: ["MERGED", "2026-11-13T10:00:00Z"], urls["api"]: ["OPEN", None],
+            urls["web"]: ["MERGED", "2026-11-13T11:00:00Z"]}))
+        self.assertEqual(code, 0, out)
+        r = json.loads(out)
+        self.assertFalse(r["done"])
+        self.assertEqual(len(r["warnings"]), 1, r["warnings"])
+        self.assertIn("web", r["warnings"][0])
+        self.assertIn("api", r["warnings"][0])
+        # Both merged, the consumer first: still warned; the feature is done
+        r = json.loads(self.ship("--status", env=self.fake_gh({
+            urls["(workbench)"]: ["MERGED", "2026-11-13T10:00:00Z"], urls["api"]: ["MERGED", "2026-11-13T12:00:00Z"],
+            urls["web"]: ["MERGED", "2026-11-13T11:00:00Z"]}))[1])
+        self.assertTrue(r["done"])
+        self.assertTrue(any("web" in w and "api" in w for w in r["warnings"]), r["warnings"])
+        # In order: no warning
+        r = json.loads(self.ship("--status", env=self.fake_gh({
+            urls["(workbench)"]: ["MERGED", "2026-11-13T10:00:00Z"], urls["api"]: ["MERGED", "2026-11-13T11:00:00Z"],
+            urls["web"]: ["MERGED", "2026-11-13T12:00:00Z"]}))[1])
+        self.assertEqual((r["done"], r["warnings"]), (True, []))
 
 
 if __name__ == "__main__":

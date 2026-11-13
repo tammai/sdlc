@@ -10,8 +10,8 @@ Started: 2026-11-13
 Base: 58acb2e
 Owner: 3235400+tammai@users.noreply.github.com
 Tool: claude-code
-Verified: ed21d7b tree 3cee26dc58ff6bf5f6e712cc42715edb01b867a6
-Slice: B4   Slice base: ed21d7b   Slice gates: none
+Verified: 7d8551e tree 3e5d7da8bd05790a2adda51ae0c38d5c2f2a25d1
+Slice: B5   Slice base: 7d8551e   Slice gates: none
 Current: Stage 2 – Build
 
 ## Stages
@@ -59,6 +59,7 @@ parts in fresh sessions, because seven parts across the core won't fit one conte
 - 2026-11-13 handoff B2: hooks/sdlc_scopes.py has is_workbench/manifest/workbench_scopes (WORKBENCH_SCOPE '(workbench)'); B3 routes guards via them; scaffold.scopes() doesn't yet return workbench scopes (B4 wires verify/freshness)
 - 2026-11-13 handoff B3: sdlc_layout.target_repo routes from a workbench root; role_guard.read_only_problem (via pretooluse) guards write:false repos; sdlc_scopes.workbench_of marks an app repo and state.py new refuses there. B4 next: per-repo branch/base in state.py, verify per touched repo, freshness per app scope (scaffold.scopes still doesn't return workbench scopes)
 - 2026-11-13 handoff B4: state.py repo <f> <name> branches a writable repo (workbench branch name, from its default branch) or records a read-only commit under ## Repos (sdlc_scopes.feature_repos parses it); verify.repo_failures runs each branched repo's plan; freshness scopes per repo (scope_dir). Gap for B5: verify.py's recorded tree and HEAD are the workbench's only (app repos are gitignored), so ship must check and commit each branched repo itself
+- 2026-11-13 handoff B5: ship.py stages each branched repo (repos in merge order, commit-msg-<repo>.txt, pr-<repo>.md); state.py pr records PRs under ## PRs; ship.py --status warns on out-of-order merges (SDLC_GH for tests). verify records each branched repo's tree and drift counts app-repo files. B6 next: builtin:ci for a consuming app checks out the workbench (scaffold.py generate_ci)
 
 ## Deviations
 - 2026-11-13 setup What: went on with setup none (no .sdlc/config.json). Why: the plugin's own repo has always run sdlc without setup (e.g. 2026-11-08-l-spec-backed-mode). Effect: verify.py runs the AC tests; the full suite is run by hand with python3.10 -m unittest discover -s tests -t tests.
@@ -77,6 +78,10 @@ parts in fresh sessions, because seven parts across the core won't fit one conte
 - 2026-11-13 B4 docs/specs/04-verification.md, docs/specs/03-scope-and-review.md, docs/specs/12-control-contract.md What: VER-FR-055, SCO-FR-031, CTL-FR-009. Why: the specs list each enforced behaviour with its test. Effect: docs only.
 - 2026-11-13 B4 verify.repo_failures, verify_freshness.feature_state, initial_workbench_state, scope_dir, diff_stats.moved_read_only, state.git_run, default_branch, record_repo What: internal helpers behind AC-010–012. Why: per-repo verify, freshness and moved-repo facts. Effect: internal only.
 - 2026-11-13 B4 hooks/verify_freshness.py feature_base What: reads the state through the new feature_state(); same result. Why: initial_workbench_state reads ## Repos from the same text. Effect: internal only.
+- 2026-11-13 B5 ship.py commits in each repo What: ship.py stages each branched repo and writes its message and PR body; the caller runs each git -C <repo> commit, as for the workbench. Why: AC-013 says ship commits in each repo, but the commit stays in the caller's command so the commit review and the user's permission rules see every one (ship.py's own rule). Effect: AC-013's test runs the commit from ship.py's output.
+- 2026-11-13 B5 command state.py pr What: records a repo's PR URL under ## PRs, which ship.py --status reads. Why: AC-014's 'PRs recorded in the state file' needs a writer; gh pr create runs in the caller's command. Effect: a new state.py subcommand.
+- 2026-11-13 B5 hooks/sdlc_scopes.py PRS_HEADING, pr_name, feature_prs, merge_order, must_follow; scripts/verify.py branched_repos, repo_changes, repo_trees; ship.ship_repos, pr_state, status What: internal helpers behind AC-013–014; verify.py and sdlc_scopes.py weren't in B5's file list. Why: closes B4's gap (the verified run covers each branched repo's tree; drift counts app-repo files) and gives ship one merge order. Effect: internal; env SDLC_GH (tests only) points --status at a gh stand-in.
+- 2026-11-13 B5 docs/specs/02-orchestration.md What: ORC-FR-044. Why: the spec lists each enforced behaviour with its test. Effect: docs only.
 
 ## Open questions
 -

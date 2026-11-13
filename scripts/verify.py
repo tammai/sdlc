@@ -305,8 +305,11 @@ def drift(root, feature, later=()):
         return None
     facts = diff_stats.collect(root, m.group(1), [plan_path] if os.path.exists(plan_path) else [])
     docs_dir = sdlc_layout.docs_dir(root)
+    in_repos = repo_changes(root, feature)  # a workbench: what the feature changed in each app repo
+    every = facts["changed_files"] + in_repos
     changed = [f for f in facts["changed_files"] if not f.startswith(".sdlc/") and not f.lower().endswith(".md")
                and not (docs_dir and f.startswith(docs_dir + "/")) and not GENERATED.search(f)]
+    changed += [f for f in in_repos if "/.sdlc/" not in f and not f.lower().endswith(".md") and not GENERATED.search(f)]
     tasks, task_acs, current = {}, {}, None
     for line in (section(plan_text, "Tasks") or "").splitlines():
         t = TASK_START.match(line)
@@ -321,12 +324,39 @@ def drift(root, feature, later=()):
     items = [(f, "file") for f in changed if f not in named]
     # A task's files count against everything changed: a README-only task did its work
     items += [(f"task {n}", "task") for n, files in tasks.items()
-              if any("/" in f or "." in f for f in files) and not files & set(facts["changed_files"])
+              if any("/" in f or "." in f for f in files) and not files & set(every)
               and not (task_acs.get(n) and task_acs[n] <= set(later))]
     surface = facts.get("surface") or {}
     items += [(n, "surface") for n in surface.get("undeclared_exports", []) + surface.get("undeclared_dependencies", [])]
     deviations = section(plan_text, "Deviations") or ""
     return [{"item": i, "kind": k, "covered": covered(i, deviations)} for i, k in items]
+
+
+def branched_repos(root, feature):
+    """[(name, base)] of the repos a workbench feature branched (its `## Repos`); elsewhere []."""
+    import sdlc_scopes  # noqa: PLC0415
+    if not sdlc_scopes.is_workbench(root):
+        return []
+    located = sdlc_layout.features(root).get(feature)
+    text = read(os.path.join(root, located["state"])) if located else None
+    return [(n, r["base"]) for n, r in sdlc_scopes.feature_repos(text).items() if r.get("branch")]
+
+
+def repo_changes(root, feature):
+    """Files changed in each branched repo since its base (committed, uncommitted, untracked), named from the
+    workbench (`api/src/a.go`); a repo git can't read: none."""
+    out = []
+    for name, base in branched_repos(root, feature):
+        repo = os.path.join(root, name)
+        diff = diff_stats.git(repo, "diff", "-z", "--name-only", "--no-renames", base, check=False)
+        new = diff_stats.git(repo, "ls-files", "-z", "--others", "--exclude-standard", check=False)
+        out += sorted(f"{name}/{f}" for f in set((diff or "").split("\0")) | set((new or "").split("\0")) if f)
+    return out
+
+
+def repo_trees(root, feature):
+    """{name: worktree tree} of each branched repo: what a verify run covered beyond the workbench's own tree."""
+    return {name: vf.worktree_tree(os.path.join(root, name)) for name, _ in branched_repos(root, feature)}
 
 
 def repo_failures(root, feature, timeout):
@@ -433,7 +463,7 @@ def full(root, feature, timeout=1800, whole=False):
     rec["last"] = {"at": vf.now(), "tree": vf.worktree_tree(root), "head": vf.git_head(root),
                    "result": "fail" if failures else "pass", "seconds": round(time.time() - started, 1),
                    "failures": failures, "manual": manual, "drift": drifted or [], "skipped": skipped,
-                   "trace": traced}
+                   "trace": traced, "repos": repo_trees(root, feature)}
     save_record(root, rec, ("full", None))
     return rec["last"], notes
 
@@ -823,6 +853,10 @@ def status(root, feature):
         reason = "code changed since verify"  # docs and the record (change.md, a lesson) don't count; unknown does
     else:
         reason = ""
+    if not reason:  # a workbench: each branched repo's tree as the run saw it (a missing tree is a change)
+        ran = last.get("repos") or {}
+        moved = [n for n, t in repo_trees(root, feature).items() if not t or ran.get(n) != t]
+        reason = f"code changed in {', '.join(moved)} since verify" if moved else ""
     # The current tree and HEAD: what `state.py verified` records and Ship checks against (the core's "Verified tree")
     return {"reuse": not reason, "reason": reason, "manual": last.get("manual", []), "drift": last.get("drift", []),
             "trace": last.get("trace", []), "red": sorted(rec.get("red") or {}), "tree": current, "head": vf.git_head(root)}

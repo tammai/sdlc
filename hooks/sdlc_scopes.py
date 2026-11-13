@@ -207,6 +207,67 @@ def feature_repos(state_text):
     return out
 
 
+PRS_HEADING = "PRs"
+
+
+def _section_lines(state_text, heading):
+    inside = False
+    for line in str(state_text or "").replace("\r\n", "\n").split("\n"):
+        if line.startswith("## "):
+            inside = line[3:].strip() == heading
+        elif inside:
+            yield line
+
+
+def pr_name(name):
+    """A `## PRs` name: a plain folder name, or the workbench itself (WORKBENCH_SCOPE); else ValueError."""
+    return name if name == WORKBENCH_SCOPE else check_name(name)
+
+
+def feature_prs(state_text):
+    """{name: url} from a workbench feature's `## PRs` section (`- <name>: <url>`); bad lines skipped."""
+    import re
+    out = {}
+    for line in _section_lines(state_text, PRS_HEADING):
+        m = re.match(r"^-\s+(\S+):\s+(\S+)\s*$", line)
+        if m:
+            try:
+                out[pr_name(m.group(1))] = m.group(2)
+            except ValueError:
+                continue
+    return out
+
+
+def merge_order(root, names):
+    """`names` (WORKBENCH_SCOPE and repo names) in merge order: the workbench (its contract), then each provider,
+    then each consumer, then the rest; manifest order within each group. Also {name: rank} for warnings."""
+    try:
+        repos = {r["name"]: r for r in manifest(root)}
+    except ValueError:
+        repos = {}
+    def group(name):
+        if name == WORKBENCH_SCOPE:
+            return 0
+        contract = (repos.get(name) or {}).get("contract") or {}
+        return 1 if "provides" in contract else 2 if "consumes" in contract else 3
+    listed = list(repos)
+    return sorted(names, key=lambda n: (group(n), listed.index(n) if n in listed else len(listed), n))
+
+
+def must_follow(root, before, after):
+    """True when `after` must merge after `before`: the workbench before any app with a contract, a provider before
+    a consumer of the same version."""
+    try:
+        repos = {r["name"]: r for r in manifest(root)}
+    except ValueError:
+        return False
+    late = (repos.get(after) or {}).get("contract") or {}
+    if before == WORKBENCH_SCOPE:
+        return bool(late)
+    early = (repos.get(before) or {}).get("contract") or {}
+    return bool(early.get("provides")) and early.get("provides") == late.get("consumes")
+
+
 def root_commands(config):
     """The root `commands` beside `packages` (workspace-wide), else {}: without packages they are the root scope's."""
     cfg = _dict(config)

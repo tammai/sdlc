@@ -2,6 +2,7 @@
 """Ship's one command: everything before the commit, so Ship is a single shell call (ADR 0020).
 
 Usage: ship.py [--root DIR] FEATURE [--message SUBJECT] [--review TEXT] [--note TEXT] [--waive-baseline] [--timeout S]
+       ship.py [--root DIR] FEATURE --status
   1. `Owner:` must be `git config user.email`; someone else's is refused (the user decides a handover).
   2. `--review TEXT`: when the change file has no `## Review` yet, appends one holding TEXT (an S change, or an M no
      review ran on); one written already is left as it is.
@@ -19,6 +20,14 @@ Usage: ship.py [--root DIR] FEATURE [--message SUBJECT] [--review TEXT] [--note 
   6. Stages every changed and untracked file except .sdlc/.work/, state.py's control contract and what the tests
      leave behind (`__pycache__`, caches), and writes the commit message (SUBJECT, by default the change file's
      title, then `Record: <change>`) to .sdlc/.work/commit-msg.txt.
+  7. In a workbench, each repo the feature branched (`## Repos`) is checked to be on its feature branch, staged the
+     same way, given its own message (.sdlc/.work/commit-msg-<repo>.txt) naming the change file, and a PR body
+     (.sdlc/.work/pr-<repo>.md) linking the others; `repos` lists them with the workbench in merge order: workbench,
+     then providers, then consumers (workbench.json `contract`). The caller commits each (`git -C <repo> commit -F
+     <message>`), pushes, opens each PR with its body, and records it: `state.py pr FEATURE <repo> <url>`.
+`--status`: a workbench feature's recorded PRs (`## PRs`), each one's state from gh, a warning for each consumer
+  merged before its provider (or an app before the workbench's contract PR), never a block; `done` only when every PR
+  is merged. Always exit 0 once the state file is read.
 The commit stays in the caller's command, where the commit's security review and the user's permission rules see
 it: `ship.py … && git commit -F .sdlc/.work/commit-msg.txt && git push -u origin HEAD && gh pr create --fill`.
 Exit 0 ready to commit, 1 refused or verify failed, 2 usage. Stdlib only, Python 3.9+.
@@ -34,6 +43,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(HERE), "hooks"))
 sys.path.insert(0, HERE)
 import sdlc_layout  # noqa: E402
+import sdlc_scopes  # noqa: E402  (a workbench: its repos, the feature's ## Repos and ## PRs, merge order)
 import verify  # noqa: E402  (status, the full run, and what the tests leave behind)
 
 MESSAGE = os.path.join(".sdlc", ".work", "commit-msg.txt")
@@ -153,7 +163,102 @@ def ship(root, feature, message, review=None, note=None, timeout=1800, waive_bas
     os.makedirs(os.path.join(root, ".sdlc", ".work"), exist_ok=True)
     with open(os.path.join(root, MESSAGE), "w", encoding="utf-8", newline="\n") as f:
         f.write(f"{message}\n\nRecord: {paths['change']}\n")
-    return {"ok": True, "head": head, "tree": tree, "branch": branch, "staged": files, "message": MESSAGE}
+    out = {"ok": True, "head": head, "tree": tree, "branch": branch, "staged": files, "message": MESSAGE}
+    if sdlc_scopes.is_workbench(root):
+        out["repos"] = ship_repos(root, feature, paths["change"], message, files, branch)
+    return out
+
+
+def ship_repos(root, feature, change, message, workbench_files, workbench_branch):
+    """A workbench feature: each repo it branched, staged on its feature branch with its own commit message naming
+    the change file, and a PR body linking the others; listed with the workbench in merge order."""
+    recorded = sdlc_scopes.feature_repos(verify.read(os.path.join(root, sdlc_layout.paths(root, feature)["state"])))
+    try:
+        urls = {r["name"]: r["url"] for r in sdlc_scopes.manifest(root)}
+    except ValueError as e:
+        raise Refused(str(e))
+    work = os.path.join(root, ".sdlc", ".work")
+    branch_now = workbench_branch or git(root, "branch", "--show-current").strip()
+    entries = {sdlc_scopes.WORKBENCH_SCOPE: {
+        "name": sdlc_scopes.WORKBENCH_SCOPE, "path": root, "branch": branch_now, "staged": workbench_files,
+        "message": os.path.join(root, MESSAGE),
+        "url": git(root, "remote", "get-url", "origin", check=False).strip() or None}}
+    for name, rec in recorded.items():
+        if not rec.get("branch"):
+            continue
+        repo = os.path.join(root, name)
+        current = git(repo, "branch", "--show-current").strip()
+        if current != rec["branch"]:
+            raise Refused(f"{name} is on {current or 'a detached HEAD'}, not the feature's branch {rec['branch']}: "
+                          f"switch it back (git -C {name} switch {rec['branch']}) and run ship.py again")
+        files = to_stage(repo)
+        ahead = git(repo, "rev-list", "--count", f"{rec['base']}..HEAD", check=False).strip()
+        if not files and ahead in ("", "0"):
+            continue  # branched but never changed: no commit, no PR
+        if files:
+            git(repo, "add", "-A", "--", *files)
+        msg = os.path.join(work, f"commit-msg-{name}.txt")
+        with open(msg, "w", encoding="utf-8", newline="\n") as f:
+            f.write(f"{message}\n\nRecord: {change} in the workbench ({os.path.basename(root)})\n")
+        entries[name] = {"name": name, "path": repo, "branch": rec["branch"], "staged": files, "message": msg,
+                         "url": urls.get(name)}
+    order = sdlc_scopes.merge_order(root, list(entries))
+    plan = [f"{i}. {n}" for i, n in enumerate(order, 1)]
+    out = []
+    for name in order:
+        e = entries[name]
+        others = [f"- {n}: {entries[n]['url'] or '(no remote)'} (branch `{entries[n]['branch']}`)"
+                  for n in order if n != name]
+        body = os.path.join(work, f"pr-{'workbench' if name == sdlc_scopes.WORKBENCH_SCOPE else name}.md")
+        with open(body, "w", encoding="utf-8", newline="\n") as f:
+            f.write(f"{message}\n\nOne sdlc feature across repos: `{feature}`, recorded in the workbench "
+                    f"(`{change}`).\n\nMerge order:\n" + "\n".join(plan) + "\n\nThe other PRs of this feature:\n"
+                    + ("\n".join(others) or "- none") + "\n")
+        out.append({**e, "pr_body": body,
+                    "record": f"state.py pr {feature} \"{name}\" <url> (after gh pr create in {e['path']})"})
+    return out
+
+
+def pr_state(url):
+    """(state, mergedAt) of a PR from gh (SDLC_GH: the gh command line to use instead, for tests)."""
+    import shlex
+    gh = shlex.split(os.environ.get("SDLC_GH") or "gh", posix=os.name != "nt")
+    gh = [w.strip('"') for w in gh]
+    try:
+        p = subprocess.run(gh + ["pr", "view", url, "--json", "state,mergedAt"], capture_output=True,
+                           encoding="utf-8", errors="replace", timeout=60)
+        data = json.loads(p.stdout) if p.returncode == 0 else None
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        data = None
+    if not isinstance(data, dict):
+        return "UNKNOWN", None
+    return str(data.get("state") or "UNKNOWN").upper(), data.get("mergedAt")
+
+
+def status(root, feature):
+    """`--status`: each recorded PR's state in merge order, a warning per pair merged out of order (never a block),
+    and `done` only when every PR is merged."""
+    state = verify.read(os.path.join(root, sdlc_layout.paths(root, feature)["state"]))
+    if state is None:
+        raise Refused(f"no state file for {feature}")
+    prs = sdlc_scopes.feature_prs(state)
+    if not prs:
+        return {"done": False, "prs": [], "warnings": [],
+                "note": f"no PRs recorded: after each gh pr create, run state.py pr {feature} <repo> <url>"}
+    rows = []
+    for name in sdlc_scopes.merge_order(root, list(prs)):
+        st, merged = pr_state(prs[name])
+        rows.append({"repo": name, "url": prs[name], "state": st, "merged_at": merged if st == "MERGED" else None})
+    warnings = []
+    for i, early in enumerate(rows):
+        for late in rows[i + 1:]:
+            if not late["merged_at"] or not sdlc_scopes.must_follow(root, early["repo"], late["repo"]):
+                continue
+            if not early["merged_at"] or early["merged_at"] > late["merged_at"]:
+                when = "is still open" if not early["merged_at"] else "merged after it"
+                warnings.append(f"{late['repo']} merged before {early['repo']}, which {when}: the merge order is "
+                                "workbench, then the provider, then its consumers")
+    return {"done": all(r["merged_at"] for r in rows), "prs": rows, "warnings": warnings}
 
 
 def main(argv=None):
@@ -166,8 +271,17 @@ def main(argv=None):
     ap.add_argument("--waive-baseline", action="store_true",
                     help="ship past a failed test step when .sdlc/baseline.md lists failing tests")
     ap.add_argument("--timeout", type=int, default=1800)
+    ap.add_argument("--status", action="store_true",
+                    help="a workbench feature: its PRs' states, warnings for out-of-order merges; never blocks")
     a = ap.parse_args(argv)
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if a.status:
+        try:
+            print(json.dumps(status(os.path.abspath(a.root), a.feature), ensure_ascii=False))
+        except Refused as e:
+            print(f"ship: {e}")
+            return 1
+        return 0
     try:
         out = ship(os.path.abspath(a.root), a.feature, a.message, a.review, a.note, a.timeout, a.waive_baseline)
     except Refused as e:

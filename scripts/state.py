@@ -18,6 +18,7 @@ Usage: python3 state.py [--root DIR] advance FEATURE STAGE [--gate pass|fail] [-
                                      set FEATURE FIELD VALUE
                                      repo FEATURE NAME  (workbench: branch a writable repo from its default branch,
                                          or record a read-only repo's commit, under ## Repos; refused when dirty)
+                                     pr FEATURE NAME URL  (workbench: a repo's PR under ## PRs; ship.py --status reads it)
                                      sync FEATURE
                                      new FEATURE --track S|M|L --risk low|high --task "<title> | <ACs> | <files>" ...
                                          [--criteria ID ...]   (the slice's criteria from a spec lock: Slice criteria:)
@@ -489,6 +490,18 @@ def apply(a, text, backlog_raw):
         return text, None, {"type": "blocker_resolved", "text": a.text}
     if a.cmd == "repo":
         return record_repo(a.root, a.name, text)
+    if a.cmd == "pr":
+        import sdlc_scopes  # noqa: PLC0415
+        try:
+            sdlc_scopes.pr_name(a.name)
+        except ValueError as e:
+            raise Refused(str(e))
+        if not re.fullmatch(r"\S+", a.url or ""):
+            raise Refused("a PR is recorded by its URL, without spaces")
+        prs = sdlc_scopes.feature_prs(text)
+        prs[a.name] = a.url
+        text = set_section(text, sdlc_scopes.PRS_HEADING, [f"- {n}: {u}" for n, u in prs.items()])
+        return text, None, {"type": "pr_recorded", "repo": a.name, "url": a.url}
     if a.cmd == "set":
         if a.field not in FIELDS:
             raise Refused(f"set takes one of: {', '.join(FIELDS)}")
@@ -852,6 +865,8 @@ def main(argv=None):
     s.add_argument("text")
     s = sub.add_parser("repo", help="workbench: branch a writable repo, or record a read-only one's commit")
     s.add_argument("feature"); s.add_argument("name")
+    s = sub.add_parser("pr", help="workbench: record a repo's PR (the workbench itself: \"(workbench)\")")
+    s.add_argument("feature"); s.add_argument("name"); s.add_argument("url")
     s = sub.add_parser("set"); s.add_argument("feature"); s.add_argument("field"); s.add_argument("value")
     s = sub.add_parser("sync"); s.add_argument("feature")
     sub.add_parser("migrate")
