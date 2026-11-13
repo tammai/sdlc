@@ -108,12 +108,15 @@ def check_url(url):
 
 
 def repo_dir(root, name):
-    """root/<name> for a manifest or state name: a plain folder name whose folder, when it exists, sits directly in
-    the workbench (a link to elsewhere is refused); else ValueError."""
+    """root/<name> for a manifest or state name: a plain folder name whose folder, when it exists, is a real folder
+    directly in the workbench (any link is refused, even to a sibling: a read-only repo under a writable name); else
+    ValueError."""
     import os
     path = os.path.join(root, check_name(name))
-    if os.path.lexists(path) and os.path.dirname(os.path.realpath(path)) != os.path.realpath(root):
-        raise ValueError(f"{name}/ links outside the workbench: sdlc only works in repos cloned inside it")
+    if os.path.lexists(path) and (os.path.islink(path) or os.path.normcase(os.path.realpath(path))
+                                  != os.path.normcase(os.path.join(os.path.realpath(root), name))):
+        raise ValueError(f"{name}/ is a link, not a repo cloned in the workbench: sdlc never follows one (outside the "
+                         "workbench, or to another listed repo)")
     return path
 
 
@@ -121,6 +124,17 @@ def ignored_name(line):
     """The folder a .gitignore line ignores at the root (`api`, `api/`, `/api`, `/api/` → api), else None."""
     x = line.strip()
     return x.strip("/") if x and not x.startswith(("#", "!")) and "/" not in x.strip("/") else None
+
+
+def check_branch(branch):
+    """The branch name when it is one sdlc records and puts in the commands it suggests: letters, digits, '.', '_',
+    '-' and '/' (no leading '-', no '..' or '//', no trailing '/', '.' or '.lock'); else ValueError."""
+    import re
+    ok = (isinstance(branch, str) and len(branch) <= 200 and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._/-]*", branch)
+          and ".." not in branch and "//" not in branch and not branch.endswith(("/", ".", ".lock")))
+    if not ok:
+        raise ValueError(f"{branch!r} isn't a branch name sdlc records (letters, digits, '.', '_', '-' and '/')")
+    return branch
 
 
 def check_name(name):
@@ -229,7 +243,8 @@ def repo_line(name, branch=None, base=None, read=None):
 
 def feature_repos(state_text):
     """{name: {"branch", "base"} | {"read"}} from a state file's `## Repos` section; a line that doesn't parse, or
-    names something that isn't a plain folder name, is skipped (the file is committed: never a path from it)."""
+    names something that isn't a plain folder name or branch name, is skipped (the file is committed: never a path or
+    a shell word from it)."""
     import re
     line_re = re.compile(r"^-\s+([^:\s]+):\s+(?:branch\s+(\S+)\s+base\s+([0-9a-f]{7,40})|read\s+([0-9a-f]{7,40}))\s*$")
     out = {}
@@ -239,6 +254,8 @@ def feature_repos(state_text):
             continue
         try:
             name = check_name(m.group(1))
+            if m.group(2):
+                check_branch(m.group(2))
         except ValueError:
             continue
         out[name] = {"branch": m.group(2), "base": m.group(3)} if m.group(2) else {"read": m.group(4)}
@@ -299,6 +316,8 @@ def read_only_names(root):
         try:
             name = check_name(entry.get("name"))
         except ValueError:
+            continue
+        if name.lower() in RESERVED:  # the workbench's own folder: never another team's repo
             continue
         owner = entry.get("owner")
         out[name] = owner if isinstance(owner, str) and owner.strip() else None

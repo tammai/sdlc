@@ -570,11 +570,16 @@ def record_repo(root, name, text):
     code, branch, _ = git_run(root, "rev-parse", "--abbrev-ref", "HEAD")
     if code or not branch or branch == "HEAD":
         raise Refused("the workbench isn't on a branch: check out the feature's branch there first")
+    try:
+        sdlc_scopes.check_branch(branch)
+    except ValueError as e:
+        raise Refused(f"the workbench's branch: {e}; rename it (git branch -m) and run repo again")
     start = default_branch(repo)
     if not start:
         raise Refused(f"{name}: no default branch found (origin/HEAD, main or master)")
     own = default_branch(root)
-    defaults = {start.rsplit("/", 1)[-1]} | ({own.rsplit("/", 1)[-1]} if own else set())
+    short = lambda ref: re.sub(r"^refs/(remotes/origin|heads)/", "", ref)  # noqa: E731  team/main stays whole
+    defaults = {short(start)} | ({short(own)} if own else set())
     if branch in defaults:
         raise Refused(f"the workbench is on {branch}, a default branch: the feature's branch is named after the "
                       "workbench's, so check out the feature's branch in the workbench first")

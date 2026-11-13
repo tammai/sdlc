@@ -374,7 +374,7 @@ def repo_failures(root, feature, timeout):
     .sdlc/config.json, in its folder; each failure starts with the repo's name. Elsewhere: []."""
     kept, dropped = _branched(root, feature)
     # A branch line sdlc may not act on (another team's repo, one not cloned) fails verify, and its commands never run
-    failures = [f"not run: {why}" for why in dropped]
+    failures = [why if why.startswith("not run:") else f"not run: {why}" for why in dropped]
     for name, _ in kept:
         repo = os.path.join(root, name)
         try:

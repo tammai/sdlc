@@ -1240,9 +1240,9 @@ def cmd_workbench(p, a):
         entry["contract"] = {kind: version}
     checked = sdlc_scopes._check_entry(len(data["repos"]), entry, {str(r.get("name")).lower() for r in data["repos"]})
     name = checked["name"]
+    _ignore(p, name)  # before the clone: a crash after it leaves an ignored folder, never a repo git would commit
     cloned = _clone_into(p, name, url)
     data["repos"].append(entry)
-    _ignore(p, name)  # first: a crash after it leaves an ignored folder, never a listed repo git would commit
     _write_atomic(p.path(sdlc_scopes.WORKBENCH_FILE), json.dumps(data, indent=2) + "\n")
     return {"added": checked, "cloned": cloned}
 
@@ -1277,11 +1277,17 @@ def _workbench_clone(p, target):
         repos = [r for r in repos if r["name"] == name]
         if not repos:
             raise ValueError(f"no repo named {name!r} in {sdlc_scopes.WORKBENCH_FILE}")
-    cloned, present = [], []
-    for r in repos:
+    cloned, present, failed = [], [], []
+    for r in repos:  # one repo failing never hides what the others did
         _ignore(p, r["name"])
-        (cloned if _clone_into(p, r["name"], r["url"]) else present).append(r["name"])
-    return {"cloned": cloned, "already_cloned": present}
+        try:
+            (cloned if _clone_into(p, r["name"], r["url"]) else present).append(r["name"])
+        except ValueError as e:
+            failed.append({"name": r["name"], "error": str(e)})
+    out = {"cloned": cloned, "already_cloned": present}
+    if failed:
+        raise CommandsFailed(dict(out, failed=failed))
+    return out
 
 
 # --- hosts: which coding agents run this repo's sdlc ---------------------------------------

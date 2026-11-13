@@ -287,54 +287,73 @@ def check_surface(surface, exports, deps):
 
 # --- main -----------------------------------------------------------------------------------
 
-def collect(root, base, plans=()):
-    diff = git(root, "diff", "--no-color", "--no-ext-diff", "-U0", "--diff-filter=AMR", base)
+def scan(repo, base):
+    """One repo's added lines against base: ({path: [None, lines…]}, new files, changed files, new dependencies)."""
+    diff = git(repo, "diff", "--no-color", "--no-ext-diff", "-U0", "--diff-filter=AMR", base)
     added = parse_diff(diff)
-    status_new = set(nul_names(git(root, "diff", "-z", "--name-only", "--diff-filter=A", base)))
-    untracked = nul_names(git(root, "ls-files", "-z", "--others", "--exclude-standard"))
+    status_new = set(nul_names(git(repo, "diff", "-z", "--name-only", "--diff-filter=A", base)))
+    untracked = nul_names(git(repo, "ls-files", "-z", "--others", "--exclude-standard"))
     for path in untracked:
-        added[path] = [None] + read_lines(root, path)[1:]
-    new_files = sorted(status_new | set(untracked))
-    changed_files = sorted(set(nul_names(git(root, "diff", "-z", "--name-only", base))) | set(untracked))
+        added[path] = [None] + read_lines(repo, path)[1:]
+    changed = set(nul_names(git(repo, "diff", "-z", "--name-only", base))) | set(untracked)
+    return added, status_new | set(untracked), changed, new_dependencies(repo, base, sorted(added))
 
-    files, exports, interfaces = [], [], []
-    for path, lines in sorted(added.items()):
-        ext = os.path.splitext(path)[1]
-        if ext not in SOURCE:
+
+def collect(root, base, plans=()):
+    # The workbench (or the one repo), then each app repo a workbench feature branched, against its own base; an app
+    # repo's paths are prefixed with its folder, its references counted inside it
+    sources, flags = [(root, base, "")], []
+    branched, why = branched_repos(root, plans)
+    flags += why
+    sources += [(os.path.join(root, name), rec["base"], name + "/") for name, rec in branched]
+    files, exports, interfaces, deps, new_set, changed_set = [], [], [], [], set(), set()
+    for repo, repo_base, prefix in sources:
+        try:
+            added, new, changed, repo_deps = scan(repo, repo_base)
+        except RuntimeError as e:
+            if not prefix:
+                raise
+            flags.append(f"app repo {prefix.rstrip('/')} not scanned: {e}")
             continue
-        code = comments = 0
-        scanner = CommentScanner(ext)
-        for line in lines:
-            if line is None:
-                scanner = CommentScanner(ext)
+        new_set |= {prefix + n for n in new}
+        changed_set |= {prefix + n for n in changed}
+        deps += [dict(d, file=prefix + d["file"]) for d in repo_deps]
+        for path, lines in sorted(added.items()):
+            ext = os.path.splitext(path)[1]
+            if ext not in SOURCE:
                 continue
-            kind = scanner.is_comment(line)
-            if kind is True:
-                comments += 1
-            elif kind is False:
-                code += 1
-        total = code + comments
-        is_test = bool(TEST_PATH.search(path))
-        files.append({"path": path, "new": path in new_files, "test": is_test, "added_code": code,
-                      "added_comments": comments, "comment_ratio": round(comments / total, 2) if total else 0.0})
-        if is_test:
-            continue
-        pattern = EXPORT_PATTERNS.get(lang(path) or "")
-        for line in (l for l in lines if l is not None):
-            m = pattern.match(line) if pattern else None
-            if m and not (lang(path) == "py" and line[:1].isspace()):
-                callers, tests, internal = count_refs(root, m.group(1), path)
-                exports.append({"name": m.group(1), "file": path, "caller_files": callers,
-                                "test_files": tests, "internal_uses": internal})
-            im = INTERFACE.match(line) if lang(path) == "js" else None
-            if im:
-                interfaces.append({"name": im.group(1), "file": path, "implementations": implementations(root, im.group(1))})
-
-    deps = new_dependencies(root, base, sorted(added))
+            code = comments = 0
+            scanner = CommentScanner(ext)
+            for line in lines:
+                if line is None:
+                    scanner = CommentScanner(ext)
+                    continue
+                kind = scanner.is_comment(line)
+                if kind is True:
+                    comments += 1
+                elif kind is False:
+                    code += 1
+            total = code + comments
+            is_test = bool(TEST_PATH.search(path))
+            files.append({"path": prefix + path, "new": path in new, "test": is_test, "added_code": code,
+                          "added_comments": comments, "comment_ratio": round(comments / total, 2) if total else 0.0})
+            if is_test:
+                continue
+            pattern = EXPORT_PATTERNS.get(lang(path) or "")
+            for line in (l for l in lines if l is not None):
+                m = pattern.match(line) if pattern else None
+                if m and not (lang(path) == "py" and line[:1].isspace()):
+                    callers, tests, internal = count_refs(repo, m.group(1), path)
+                    exports.append({"name": m.group(1), "file": prefix + path, "caller_files": callers,
+                                    "test_files": tests, "internal_uses": internal})
+                im = INTERFACE.match(line) if lang(path) == "js" else None
+                if im:
+                    interfaces.append({"name": im.group(1), "file": prefix + path,
+                                       "implementations": implementations(repo, im.group(1))})
+    new_files, changed_files = sorted(new_set), sorted(changed_set)
     src = [f for f in files if not f["test"]]
     code_total = sum(f["added_code"] for f in src)
     comment_total = sum(f["added_comments"] for f in src)
-    flags = []
     for f in src:
         if f["added_code"] + f["added_comments"] >= COMMENT_RATIO_MIN_LINES and f["comment_ratio"] > COMMENT_RATIO_FLAG:
             flags.append(f"comment-heavy: {f['path']} ({int(f['comment_ratio'] * 100)}% of added lines are comments)")
@@ -394,12 +413,11 @@ def collect(root, base, plans=()):
     }
 
 
-def moved_read_only(root, plans):
-    """In a workbench: each read-only repo the feature recorded (`## Repos`, `<name>: read <commit>`) that has moved
-    since: [{repo, recorded, current, files, gone}], `gone` when the recorded commit no longer exists. The state file
-    is the first --plan holding `## Repos`, else the only active feature's."""
+def feature_state(root, plans):
+    """In a workbench, the feature's state text: the first --plan holding `## Repos`, else the only active feature's;
+    else None (never a guess between several features)."""
     if not sdlc_scopes.is_workbench(root):
-        return []
+        return None
     texts = []
     for plan in plans:
         try:
@@ -407,11 +425,32 @@ def moved_read_only(root, plans):
                 texts.append(f.read())
         except OSError:
             pass
-    if not any(sdlc_scopes.feature_repos(t) for t in texts):
+    found = next((t for t in texts if sdlc_scopes.feature_repos(t)), None)
+    if found is None:
         active = [t for _, t in sdlc_layout.active(root)]
-        texts = active if len(active) == 1 else []  # only the one active feature: never a guess between several
+        found = active[0] if len(active) == 1 else None
+    return found
+
+
+def branched_repos(root, plans):
+    """([(name, record)], [flag]): the app repos the workbench feature branched that sdlc may read
+    (sdlc_scopes.branched_repos), and a flag for each branch line it leaves out."""
+    text = feature_state(root, plans)
+    if text is None:
+        return [], []
+    try:
+        kept, dropped = sdlc_scopes.branched_repos(root, text)
+    except ValueError as e:
+        return [], [f"app repos not scanned: {e}"]
+    return kept, [f"app repo {name} not scanned: {why}" for name, why in dropped]
+
+
+def moved_read_only(root, plans):
+    """In a workbench: each read-only repo the feature recorded (`## Repos`, `<name>: read <commit>`) that has moved
+    since: [{repo, recorded, current, files, gone}], `gone` when the recorded commit no longer exists (the state:
+    feature_state)."""
     out = []
-    recorded = next((sdlc_scopes.feature_repos(t) for t in texts if sdlc_scopes.feature_repos(t)), {})
+    recorded = sdlc_scopes.feature_repos(feature_state(root, plans))
     for name, rec in recorded.items():
         if not rec.get("read"):
             continue

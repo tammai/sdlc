@@ -179,10 +179,16 @@ def hits(root, cwd, operand, protected, tree=False, folders=False):
     return False
 
 
+# Words that open or continue a compound command: the command they lead runs as if they weren't there
+KEYWORDS = {"!", "{", "}", "if", "then", "else", "elif", "do", "while", "until", "fi", "done", "coproc"}
+
+
 def segments(command):
-    """[(simple command, its redirect targets)] of a shell command line, splitting on ; & | && || and newlines and
-    finding `>`/`>>` only outside quotes, so a `>` in a commit message is text. Each target stays with its own
-    command, so it resolves against the folder a `cd` before it moved to."""
+    """[(simple command, its redirect targets)] of a shell command line, splitting on ; & | && || ( ) and newlines
+    and finding `>`/`>>` only outside quotes, so a `>` in a commit message is text. Each target stays with its own
+    command, so it resolves against the folder a `cd` before it moved to. A subshell's `(` and `)` come as
+    ("(", None) and (")", None), so a `cd` inside one ends with it. A backtick substitution stays whole (see
+    substitutions)."""
     parts, targets, buf, quote, i = [], [], [], None, 0
     while i < len(command):
         ch = command[i]
@@ -190,19 +196,25 @@ def segments(command):
             buf.append(ch)
             if ch == quote:
                 quote = None
-        elif ch in "\"'":
+        elif ch in "\"'`":
             quote = ch
             buf.append(ch)
         elif ch in ";|&\n":
             parts.append(("".join(buf), targets))
             buf, targets = [], []
+        elif ch in "()":
+            parts.append(("".join(buf), targets))
+            parts.append((ch, None))
+            buf, targets = [], []
         elif ch == ">":
             j = i + 1
             if j < len(command) and command[j] in ">|":  # `>>` appends, `>|` overwrites despite noclobber
                 j += 1
-            if j < len(command) and command[j] == "&":  # 2>&1: a stream, not a file
-                i = j + 1
-                continue
+            if j < len(command) and command[j] == "&":
+                j += 1
+                if j < len(command) and (command[j].isdigit() or command[j] == "-"):  # 2>&1, >&-: a stream
+                    i = j + 1
+                    continue
             while j < len(command) and command[j] in " \t":
                 j += 1
             k = j
@@ -210,7 +222,7 @@ def segments(command):
                 end = command.find(command[k], k + 1)
                 k = len(command) if end < 0 else end + 1
             else:
-                while k < len(command) and command[k] not in " \t;|&<>\n":
+                while k < len(command) and command[k] not in " \t;|&<>()\n":
                     k += 1
             targets.append(command[j:k])
             i = k
@@ -219,22 +231,68 @@ def segments(command):
             buf.append(ch)
         i += 1
     parts.append(("".join(buf), targets))
-    return [(p, t) for p, t in parts if p.strip() or t]
+    return [(p, t) for p, t in parts if t is None or p.strip() or t]
+
+
+def substitutions(part):
+    """The commands a simple command's text runs inside it: `$( … )` in double quotes (an unquoted one is split by
+    segments) and backticks, never inside single quotes."""
+    out, quote, i = [], None, 0
+    while i < len(part):
+        ch = part[i]
+        if quote == "'":
+            quote = None if ch == "'" else quote
+        elif ch == "\\":
+            i += 1
+        elif ch == "'" and quote is None:
+            quote = "'"
+        elif ch == '"':
+            quote = None if quote == '"' else '"'
+        elif ch == "`":
+            end = part.find("`", i + 1)
+            end = len(part) if end < 0 else end
+            out.append(part[i + 1:end])
+            i = end
+        elif part.startswith("$(", i):
+            depth, j = 0, i + 1
+            while j < len(part):
+                depth += {"(": 1, ")": -1}.get(part[j], 0)
+                if depth == 0:
+                    break
+                j += 1
+            out.append(part[i + 2:j])
+            i = j
+        i += 1
+    return out
 
 
 def shell_write(command, root, cwd, protected, depth=0, folders=False):
     """The protected path a shell command line writes, moves or removes, or None (`folders`: see hits)."""
+    outer = []  # the folder each open subshell started in
     for part, targets in segments(command):
+        if targets is None:
+            if part == "(":
+                outer.append(cwd)
+            elif outer:
+                cwd = outer.pop()
+            continue
         for t in targets:
             if hits(root, cwd, t, protected, folders=folders):
                 return t.strip("\"'")
+        if depth < 3:
+            for inner in substitutions(part):
+                found = shell_write(inner, root, cwd, protected, depth + 1, folders)
+                if found:
+                    return found
         try:
             words = shlex.split(re.sub(r"\\(?=[\w.$~-])", "/", part), posix=True)
         except ValueError:
             words = re.sub(r"\\(?=[\w.$~-])", "/", part).split()
         env_words = []
-        while words and (re.match(r"^[A-Za-z_]\w*=", words[0]) or words[0].lower() in PREFIXES):
-            env_words.append(words[0])
+        while words and (re.match(r"^[A-Za-z_]\w*=", words[0]) or words[0].lower() in PREFIXES
+                         or words[0] in KEYWORDS):
+            if words[0] not in KEYWORDS:
+                env_words.append(words[0])
             words = words[1:]
         if not words:
             continue
@@ -243,7 +301,7 @@ def shell_write(command, root, cwd, protected, depth=0, folders=False):
             verb = verb[:-4]
         args = words[1:]
         if verb in CHDIR:
-            operand = next((w for w in args if not w.startswith("-")), None)
+            operand = next((w for w in args if not w.startswith("-") and w.lower() != "/d"), None)
             cwd = os.path.join(cwd or root, operand.strip("\"'")) if operand else root
             continue
         if verb in SHELLS:
@@ -325,11 +383,25 @@ def written(data, root, protected, folders=False):
 def read_only_problem(data, root):
     """The deny reason when this call writes into a `write: false` repo of the workbench at root, naming the repo and
     its owner; None outside a workbench. Entries are read one by one, so one malformed entry never unguards the
-    others; only a file that isn't JSON with a `repos` list leaves nothing to guard (doctor reports it)."""
+    others; a file that isn't JSON with a `repos` list fails closed: every folder of the workbench that isn't its own
+    (sdlc_scopes.RESERVED, dot folders) is guarded until the file is fixed."""
     import sdlc_scopes
     if not sdlc_scopes.is_workbench(root):
         return None
-    for name, owner in (sdlc_scopes.read_only_names(root) or {}).items():
+    names = sdlc_scopes.read_only_names(root)
+    if names is None:
+        try:
+            folders = {canon(d) for d in os.listdir(root) if os.path.isdir(os.path.join(root, d))
+                       and not d.startswith(".") and d.lower() not in sdlc_scopes.RESERVED}
+        except OSError:
+            folders = set()
+        found = folders and written(data, root, folders, folders=True)
+        if found:
+            return (f"sdlc: {sdlc_scopes.WORKBENCH_FILE} can't be read as JSON with a \"repos\" list, so sdlc can't "
+                    f"tell whether {found} is in a read-only repo: fix {sdlc_scopes.WORKBENCH_FILE} first "
+                    "(scaffold.py workbench list names the problem).")
+        return None
+    for name, owner in names.items():
         found = written(data, root, {canon(name)}, folders=True)
         if found:
             owner = owner or "its owners"
@@ -362,11 +434,11 @@ def unbranched_problem(data, root):
             continue
         found = written(data, root, {canon(name)}, folders=True)
         if found:
-            feature = features[0][0] if len(features) == 1 else "<feature>"
+            feature = shlex.quote(features[0][0]) if len(features) == 1 else "<feature>"
             script = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts", "state.py")
             return (f"sdlc: {found} is in {name}/, which the active feature hasn't branched yet. First run "
-                    f"python3 \"{script}\" repo {feature} {name} (it creates the feature's branch there from the "
-                    "default branch), then make the change.")
+                    f"python3 {shlex.quote(script)} repo {feature} {name} (it creates the feature's branch there "
+                    "from the default branch), then make the change.")
     return None
 
 

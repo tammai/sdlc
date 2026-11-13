@@ -907,5 +907,152 @@ class ReviewRound1Ship(WorkbenchShipCase):
         self.assertIn("api", r["errors"][0])
 
 
+class ReviewRound2Guards(WorkbenchGuardsCase):
+    """Review round 2: the guard reads every command a line runs (subshells, groups, keywords, substitutions) with
+    the folder each runs in, and fails closed on a manifest it can't read."""
+
+    def test_guard_reads_grouped_nested_and_substituted_commands(self):
+        denied = ["(cd specs && echo x > b.md)", "(cd specs && git commit -am x)", "{ cd specs; rm a.md; }",
+                  "if cd specs; then touch b; fi", "for f in x; do rm specs/a.md; done",
+                  "while true; do rm specs/a.md; done", "! rm specs/a.md", "echo \"$(rm specs/a.md)\"",
+                  "echo `rm specs/a.md`", "x=$(cd specs && touch b)", "cmd /c \"cd /d specs && del a.md\"",
+                  "( cd specs ; echo x >b.md )", "{ rm specs/a.md;}", "time rm specs/a.md",
+                  "(cd specs; (echo x > b.md))", "until false; do touch specs/b; done"]
+        for command in denied:
+            self.assertIsNotNone(self.pre("Bash", command=command), command)
+        allowed = ["(cd specs && cat a.md) > out.txt", "(cd specs) && echo x > b.md", "echo '(cd specs && rm a.md)'",
+                   "echo '$(rm specs/a.md)'", "cd api && (echo x > a.md)", "git -C specs log --oneline | head",
+                   "if test -f specs/a.md; then echo yes > found.txt; fi"]
+        for command in allowed:
+            self.assertIsNone(self.pre("Bash", command=command), command)
+
+    def test_unreadable_manifest_fails_closed_and_reserved_names_stay_the_workbenchs(self):
+        self.write("workbench.json", "{ not json")
+        for path in ("specs/b.md", "api/x.py"):
+            reason = self.pre("Write", file_path=self.path(path), content="x")
+            self.assertIsNotNone(reason, path)
+            self.assertIn("workbench.json", reason)
+        self.assertIsNotNone(self.pre("Bash", command="(cd specs && echo x > b.md)"))
+        self.assertIsNone(self.pre("Write", file_path=self.path("workbench.json"), content="{}"))
+        self.assertIsNone(self.pre("Write", file_path=self.path("docs/a.md"), content="x"))
+        # A reserved name in the manifest never makes the workbench's own folder read-only
+        self.write_json("workbench.json", {"repos": [{"name": "docs", "url": "u", "role": "specs"},
+                                                     {"name": "specs", "url": "u2", "role": "specs"}]})
+        self.assertIsNone(self.pre("Write", file_path=self.path("docs/a.md"), content="x"))
+        self.assertIsNotNone(self.pre("Write", file_path=self.path("specs/b.md"), content="x"))
+
+
+class ReviewRound2Manifest(WorkbenchTestCase):
+    def test_add_ignores_before_it_clones(self):
+        import argparse
+        from unittest import mock
+        args = argparse.Namespace(action="add", target="https://example.com/api.git", name=None, role="app",
+                                  write=True, owner=None, contract=None)
+        with mock.patch.object(scaffold, "_clone_into", side_effect=ValueError("killed mid-clone")):
+            with self.assertRaises(ValueError):
+                scaffold.cmd_workbench(scaffold.Project(self.root), args)
+        self.assertIn("/api/", self.gitignore())
+
+    def test_clone_reports_what_it_cloned_when_one_fails(self):
+        missing = os.path.join(self.root, "no-such-origin")
+        self.write_json("workbench.json", {"repos": [
+            {"name": "bad", "url": missing, "role": "specs"},
+            {"name": "api", "url": self.origin("api"), "role": "app", "write": True}]})
+        code, out, err = self.run_scaffold("workbench", "clone")
+        self.assertEqual(code, 1, (out, err))
+        self.assertEqual(out["cloned"], ["api"])
+        self.assertEqual([f["name"] for f in out["failed"]], ["bad"])
+        self.assertTrue(os.path.isfile(self.path("api/README.md")))
+
+
+class ReviewRound2Feature(WorkbenchFeatureCase):
+    def test_unbranched_backstop_reads_subshells_and_quotes_its_command(self):
+        self.assertIsNotNone(pre_hook(self, "Bash", command="(cd api && echo x > a.py)"))
+        self.assertIsNotNone(pre_hook(self, "Bash", command="echo \"$(touch web/b.py)\""))
+
+    def test_branch_lines_hold_only_branch_names(self):
+        import sdlc_scopes
+        for line in ("- api: branch x;rm base abcdef1", "- api: branch -x base abcdef1",
+                     "- api: branch a..b base abcdef1", "- api: branch $(id) base abcdef1"):
+            self.assertEqual(sdlc_scopes.feature_repos("## Repos\n" + line + "\n"), {}, line)
+        self.assertEqual(sdlc_scopes.feature_repos("## Repos\n- api: branch team/feat-x base abcdef1\n"),
+                         {"api": {"branch": "team/feat-x", "base": "abcdef1"}})
+        # A workbench branch name git allows but a shell would read is refused before it is recorded
+        git(self.root, "checkout", "-q", "-b", "feat$x")
+        code, out = self.state("repo", "feat", "api")
+        self.assertEqual(code, 1, out)
+        self.assertIn("branch name", json.loads(out)["error"])
+
+    def test_a_default_branch_with_a_slash_is_refused(self):
+        git(self.root, "update-ref", "refs/remotes/origin/team/main", "HEAD")
+        git(self.root, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/team/main")
+        git(self.root, "checkout", "-q", "-b", "team/main")
+        code, out = self.state("repo", "feat", "api")
+        self.assertEqual(code, 1, out)
+        self.assertIn("default branch", json.loads(out)["error"])
+
+    def test_a_link_to_a_sibling_repo_is_refused(self):
+        import shutil
+        import sdlc_scopes
+        shutil.rmtree(self.path("web"))
+        os.symlink("specs", self.path("web"))
+        with self.assertRaises(ValueError):
+            sdlc_scopes.repo_dir(self.root, "web")
+        code, out = self.state("repo", "feat", "web")
+        self.assertEqual(code, 1, out)
+        self.assertIn("link", json.loads(out)["error"])
+        self.assertEqual(sdlc_scopes.repo_dir(self.root, "api"), self.path("api"))
+
+    def test_diff_stats_reads_each_branched_repo(self):
+        import subprocess
+        self.assertEqual(self.state("repo", "feat", "api")[0], 0)
+        self.write("api/a.py", "def helper():\n    return 1\n")
+        self.write("web/b.py", "def unseen():\n    return 1\n")  # web isn't branched: not this feature's code
+        p = subprocess.run([sys.executable, os.path.join(PLUGIN_ROOT, "scripts", "diff_stats.py"), "--root",
+                            self.root, "--plan", self.path(".sdlc/feat/state.md")], capture_output=True,
+                           encoding="utf-8", errors="replace")
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        r = json.loads(p.stdout)
+        self.assertIn("api/a.py", r["changed_files"])
+        self.assertIn("api/a.py", r["new_files"])
+        self.assertNotIn("web/b.py", r["changed_files"])
+        self.assertIn(("helper", "api/a.py"), [(e["name"], e["file"]) for e in r["exports"]])
+        self.assertEqual(r["totals"]["source_files"], 1)
+
+
+class ReviewRound2Ship(WorkbenchShipCase):
+    def test_pr_numbers_are_read_in_their_own_repo(self):
+        # The fake answers MERGED only when gh runs in api/: a bare number names the PR of the folder gh runs in
+        script = self.write("gh_where.py", "import json, os\n"
+                            "print(json.dumps({'state': 'MERGED' if os.path.basename(os.getcwd()) == 'api'"
+                            " else 'OPEN', 'mergedAt': '2026-11-13T10:00:00Z'}))\n")
+        self.assertEqual(self.state("pr", "feat", "api", "api")[0], 1)  # not a number or URL
+        self.assertEqual(self.state("pr", "feat", "api", "12")[0], 0)
+        code, out = self.ship("--status", env={"SDLC_GH": f'"{sys.executable}" "{script}"'})
+        self.assertEqual(code, 0, out)
+        [row] = json.loads(out)["prs"]
+        self.assertEqual((row["repo"], row["state"]), ("api", "MERGED"))
+
+    def test_an_unlisted_nested_repo_is_refused_before_moving(self):
+        for name in ("web", "api"):
+            self.assertEqual(self.state("repo", "feat", name)[0], 0)
+        self.write("api/a.py", "x = 1\n")
+        git(self.root, "init", "-q", "extra")
+        self.write("extra/f.txt", "f")
+        before = self.state_text()
+        code, out = self.ship("--review", "No review ran: test.")
+        self.assertNotEqual(code, 0, out)
+        self.assertIn("extra/", out)
+        self.assertEqual(self.state_text(), before)
+
+    def test_refusals_quote_what_they_suggest(self):
+        import ship
+        self.assertEqual(self.state("repo", "feat", "api")[0], 0)
+        git(self.path("api"), "checkout", "-q", "main")
+        with self.assertRaises(ship.Refused) as cm:
+            ship.check_repos(self.root, self.state_text())
+        self.assertIn("git -C api switch feat-x", str(cm.exception))
+
+
 if __name__ == "__main__":
     unittest.main()

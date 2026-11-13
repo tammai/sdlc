@@ -36,6 +36,7 @@ import argparse
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 
@@ -187,11 +188,18 @@ def check_repos(root, state):
         if os.path.isdir(os.path.join(root, name)) and ignored != 0:
             raise Refused(f"{name}/ isn't gitignored in the workbench, so its commit would take the repo in: add "
                           f"/{name}/ to .gitignore (scaffold.py workbench add does) and run ship.py again")
+    # Any other git repo inside the workbench that git would stage (listed or not) goes in as a gitlink too
+    for entry in git(root, "ls-files", "-z", "--others", "--exclude-standard").split("\0"):
+        if entry.endswith("/") and os.path.exists(os.path.join(root, entry, ".git")):
+            raise Refused(f"{entry} is a git repo inside the workbench that isn't gitignored, so the workbench commit "
+                          f"would take it in: list it (scaffold.py workbench add) or add /{entry} to .gitignore, then "
+                          "run ship.py again")
     for name, rec in kept:
         current = git(os.path.join(root, name), "branch", "--show-current").strip()
         if current != rec["branch"]:
             raise Refused(f"{name} is on {current or 'a detached HEAD'}, not the feature's branch {rec['branch']}: "
-                          f"switch it back (git -C {name} switch {rec['branch']}) and run ship.py again")
+                          f"switch it back (git -C {shlex.quote(name)} switch {shlex.quote(rec['branch'])}) and run "
+                          "ship.py again")
     return kept
 
 
@@ -235,15 +243,14 @@ def ship_repos(root, feature, change, message, workbench_files, workbench_branch
     return out
 
 
-def pr_state(url):
-    """(state, mergedAt, error) of a PR from gh (SDLC_GH: the gh command line to use instead, for tests); the URL
-    goes after `--`, so it is never read as an option."""
-    import shlex
+def pr_state(url, cwd):
+    """(state, mergedAt, error) of a PR from gh (SDLC_GH: the gh command line to use instead, for tests), run in the
+    repo's own folder so a bare number names that repo's PR; the URL goes after `--`, never read as an option."""
     gh = shlex.split(os.environ.get("SDLC_GH") or "gh", posix=os.name != "nt")
     gh = [w.strip('"') for w in gh]
     try:
         p = subprocess.run(gh + ["pr", "view", "--json", "state,mergedAt", "--", url], capture_output=True,
-                           encoding="utf-8", errors="replace", timeout=60)
+                           encoding="utf-8", errors="replace", timeout=60, cwd=cwd)
         data = json.loads(p.stdout) if p.returncode == 0 else None
         error = None if p.returncode == 0 else (p.stderr or p.stdout).strip()[-300:] or f"gh exit {p.returncode}"
     except (OSError, ValueError, subprocess.TimeoutExpired) as e:
@@ -265,7 +272,12 @@ def status(root, feature):
                 "note": f"no PRs recorded: after each gh pr create, run state.py pr {feature} <repo> <url>"}
     rows, errors = [], []
     for name in sdlc_scopes.merge_order(root, list(prs)):
-        st, merged, error = pr_state(prs[name])
+        try:
+            where = root if name == sdlc_scopes.WORKBENCH_SCOPE else sdlc_scopes.repo_dir(root, name)
+            st, merged, error = pr_state(prs[name], where) if os.path.isdir(where) else (
+                "UNKNOWN", None, f"{name}/ isn't cloned")
+        except ValueError as e:
+            st, merged, error = "UNKNOWN", None, str(e)
         rows.append({"repo": name, "url": prs[name], "state": st, "merged_at": merged if st == "MERGED" else None})
         if error:  # gh missing, signed out or rate-limited: said, never shown as "not merged yet"
             errors.append(f"{name}: couldn't read {prs[name]} with gh ({error})")
