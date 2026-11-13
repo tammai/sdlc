@@ -26,6 +26,7 @@ sdlc/
 ├── hooks/
 │   ├── hooks.json           which script runs on which event; every hook starts the Python sg-python.sh remembered, else sg-python.sh
 │   ├── verify_freshness.py  Review (Stage 3) stale/fresh test tracking, and its own copy of verify.py runs (original)
+│   ├── read_only_watch.py   a workbench's read-only repos: any change since the session's first look is said (original)
 │   ├── model_router.py      checks each subagent dispatch's model (every review on opus), logs dispatches (original)
 │   ├── role_guard.py        keeps the plugin's agents to their role's file access; reviewers write only .sdlc/.work/findings/ (original)
 │   ├── prove_budget.py      kills non-project shell commands at 120 s in Review (Stage 3), no background runs (original)

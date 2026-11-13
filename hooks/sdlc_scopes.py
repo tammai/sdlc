@@ -95,6 +95,24 @@ def guarded_workbench(root):
         return True
 
 
+NO_PUSH = "sdlc-read-only-repo-no-push"  # the push URL of a read-only repo: not a repo, so every push fails
+
+
+def disable_push(folder):
+    """Point every remote's push URL of a read-only repo at NO_PUSH, so nothing reaches the other team's remote;
+    fetch and pull keep their URLs. Errors: ValueError."""
+    import subprocess
+    run = lambda *a: subprocess.run(["git", "-C", folder, *a], capture_output=True, encoding="utf-8",
+                                    errors="replace")
+    remotes = run("remote")
+    if remotes.returncode:
+        raise ValueError(f"git remote failed in {folder}: {remotes.stderr.strip()}")
+    for remote in remotes.stdout.split():
+        p = run("remote", "set-url", "--push", remote, NO_PUSH)
+        if p.returncode:
+            raise ValueError(f"couldn't disable push for {remote} in {folder}: {p.stderr.strip()}")
+
+
 def workbench_of(root):
     """The workbench an app repo belongs to (its config's `"workbench": "<name>"`), else None; any read error: None."""
     import os

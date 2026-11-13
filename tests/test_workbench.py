@@ -1128,5 +1128,106 @@ class ReviewRound3Ship(WorkbenchShipCase):
         self.assertNotIn("errors", r)
 
 
+class ReviewRound4Guards(WorkbenchGuardsCase):
+    """Review round 4: here-strings, arithmetic, here-docs a shell reads, PowerShell here-strings, expressions and
+    script blocks; a command nested too deep is denied for that reason."""
+
+    def test_bash_here_strings_arithmetic_and_shell_heredocs(self):
+        denied = ["jq . <<< \"$x\"\ncp out.md specs/a.md", "(( n = 1 << 4 ))\nrm specs/a.md",
+                  "cat <<EOF\nrm specs/a.md", "bash <<'EOF'\ncd specs\necho x > b.md\nEOF",
+                  "cat <<EOF | sh\nrm specs/a.md\nEOF", "sh -s <<EOF\nrm specs/a.md\nEOF",
+                  "bash -c \"$(cat <<'EOF'\nrm specs/a.md\nEOF\n)\""]
+        for command in denied:
+            self.assertIsNotNone(self.pre("Bash", command=command), command)
+        for command in ("cat <<'EOF' > notes.md\nrm specs/a.md\nEOF", "grep x <<< 'rm specs/a.md'",
+                        "echo $(( 1 << 4 )) > out.txt"):
+            self.assertIsNone(self.pre("Bash", command=command), command)
+
+    def test_powershell_here_strings_expressions_and_blocks(self):
+        denied = ["$m = @'\nIt's done\n'@\ngit -C specs commit -m $m", "$m = @\"\nsay \"hi\"\n\"@\nRemove-Item specs/a.md",
+                  "if (Test-Path specs/a.md) { Remove-Item specs/a.md }", "[void](New-Item -Path specs/x)",
+                  "(Remove-Item specs/a.md)", "$null = New-Item specs/x", "Remove-Item (Join-Path specs a.md)",
+                  "Get-ChildItem | ForEach-Object { Remove-Item specs/a.md }"]
+        for command in denied:
+            self.assertIsNotNone(self.pre("PowerShell", command=command), command)
+        for command in ("if (Test-Path specs/a.md) { Get-Content specs/a.md }",
+                        "$m = @'\nRemove-Item specs/a.md\n'@\nWrite-Output $m"):
+            self.assertIsNone(self.pre("PowerShell", command=command), command)
+
+    def test_too_deep_is_denied_for_that_reason(self):
+        reason = self.pre("Bash", command="echo " + "$(" * 30 + "x" + ")" * 30)
+        self.assertIsNotNone(reason)
+        self.assertIn("too deep", reason)
+        self.assertNotIn("read-only repo", reason)
+
+
+class ReadOnlyBackstop(WorkbenchFeatureCase):
+    """Review round 4: whatever a command's syntax, a change in a read-only repo is reported after the call that
+    made it and blocks Stop until it is undone; read-only repos can't push."""
+
+    def watch(self, event, session="s1", **extra):
+        from helpers import run_hook
+        payload = {"hook_event_name": event, "session_id": session, "cwd": self.root, **extra}
+        if event == "PostToolUse":
+            payload.update(tool_name="Bash", tool_input={"command": "x"}, tool_response={})
+        code, out, raw, err = run_hook(["python3", os.path.join(HOOKS, "read_only_watch.py")], payload, self.root)
+        self.assertEqual(code, 0, err)
+        return out or {}
+
+    def test_any_change_in_a_read_only_repo_is_reported_and_blocks_stop(self):
+        specs = self.path("specs")
+        self.write("specs/mine.md", "the user's own edit, before the session")
+        self.assertEqual(self.watch("PostToolUse"), {})  # the baseline: what the repo held when the session looked
+        self.assertEqual(self.watch("PostToolUse"), {})
+        self.write("specs/b.md", "x")
+        out = self.watch("PostToolUse")
+        self.assertEqual(out.get("decision"), "block", out)
+        self.assertIn("specs", out["reason"])
+        self.assertIn("b.md", out["reason"])
+        self.assertIn("specs", out["hookSpecificOutput"]["additionalContext"])
+        self.assertEqual(self.watch("Stop").get("decision"), "block")
+        self.assertNotEqual(self.watch("Stop", stop_hook_active=True).get("decision"), "block")  # never a loop
+        os.remove(self.path("specs/b.md"))
+        self.assertEqual(self.watch("PostToolUse"), {})
+        # A local commit, even with a clean tree, is a change; so is discarding the user's own edit
+        git(specs, "add", "-A")
+        git(specs, "commit", "-q", "-m", "sneaky")
+        out = self.watch("Stop")
+        self.assertEqual(out.get("decision"), "block", out)
+        self.assertIn("commit", out["reason"])
+        git(specs, "reset", "-q", "HEAD~1")
+        self.assertEqual(self.watch("Stop"), {})
+        # Writable repos and the workbench itself are not watched; another session starts its own baseline
+        self.write("api/new.py", "x")
+        self.assertEqual(self.watch("PostToolUse"), {})
+        self.write("specs/c.md", "x")
+        self.assertEqual(self.watch("PostToolUse", session="s2"), {})
+
+    def test_silent_outside_a_workbench(self):
+        self.write_json(".sdlc/config.json", {})
+        self.write("specs/b.md", "x")
+        self.assertEqual(self.watch("PostToolUse"), {})
+        self.assertEqual(self.watch("Stop"), {})
+
+    def test_read_only_repos_cannot_push(self):
+        url = self.origin("tests")
+        self.write_json("workbench.json", {"repos": [
+            {"name": "api", "url": "u1", "role": "app", "write": True},
+            {"name": "specs", "url": "u3", "role": "specs"},
+            {"name": "tests", "url": url, "role": "tests"}]})
+        code, out, err = self.run_scaffold("workbench", "clone", "tests")
+        self.assertEqual(code, 0, (out, err))
+        push = git_out(self.path("tests"), "remote", "get-url", "--push", "origin")
+        self.assertNotEqual(push, url)
+        self.assertEqual(git_out(self.path("tests"), "remote", "get-url", "origin"), url)  # pull still works
+        import subprocess
+        p = subprocess.run(["git", "-C", self.path("tests"), "push", "origin", "HEAD"], capture_output=True)
+        self.assertNotEqual(p.returncode, 0)
+        # A read-only repo the feature records gets the same
+        git(self.path("specs"), "remote", "add", "origin", url)
+        self.assertEqual(self.state("repo", "feat", "specs")[0], 0)
+        self.assertNotEqual(git_out(self.path("specs"), "remote", "get-url", "--push", "origin"), url)
+
+
 if __name__ == "__main__":
     unittest.main()

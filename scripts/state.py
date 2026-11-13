@@ -558,6 +558,10 @@ def record_repo(root, name, text):
         code, head, err = git_run(repo, "rev-parse", "HEAD")
         if code:
             raise Refused(f"{name}: no commit to record ({err})")
+        try:
+            sdlc_scopes.disable_push(repo)  # nothing this feature does can reach the other team's remote
+        except ValueError as e:
+            raise Refused(str(e))
         line = sdlc_scopes.repo_line(name, read=head)
         return append_to_section(text, sdlc_scopes.REPOS_HEADING, line), None, {
             "type": "repo_recorded", "repo": name, "read": head}

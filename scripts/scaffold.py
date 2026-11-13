@@ -1245,7 +1245,7 @@ def cmd_workbench(p, a):
         raise ValueError(f"{name}/ exists and isn't a git repo: move it away or pick another --name")
     added = _ignore(p, name)  # before the clone: a crash after it leaves an ignored folder, never a repo git commits
     try:
-        cloned = _clone_into(p, name, url)
+        cloned = _clone_into(p, name, url, read_only=not checked["write"])
     except ValueError:
         if added:  # a refused clone leaves the .gitignore as it was
             lines = [x for x in _gitignore_lines(p) if sdlc_scopes.ignored_name(x) != name]
@@ -1256,7 +1256,7 @@ def cmd_workbench(p, a):
     return {"added": checked, "cloned": cloned}
 
 
-def _clone_into(p, name, url):
+def _clone_into(p, name, url, read_only=False):
     """Clone url into the workbench's <name>/ (url after `--`, never through a shell); True when it cloned, False when
     <name>/ already is a git repo; ValueError when it exists and isn't one, links outside, or the clone fails."""
     dest = sdlc_scopes.repo_dir(p.root, name)
@@ -1268,6 +1268,8 @@ def _clone_into(p, name, url):
                           encoding="utf-8", errors="replace")
     if proc.returncode:
         raise ValueError(f"git clone failed: {(proc.stdout + proc.stderr).strip()[-300:]}")
+    if read_only:
+        sdlc_scopes.disable_push(dest)
     return True
 
 
@@ -1293,7 +1295,7 @@ def _workbench_clone(p, target):
     for r in repos:  # one repo failing never hides what the others did
         _ignore(p, r["name"])
         try:
-            (cloned if _clone_into(p, r["name"], r["url"]) else present).append(r["name"])
+            (cloned if _clone_into(p, r["name"], r["url"], read_only=not r["write"]) else present).append(r["name"])
         except ValueError as e:
             failed.append({"name": r["name"], "error": str(e)})
     out = {"cloned": cloned, "already_cloned": present}

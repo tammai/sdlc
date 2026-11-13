@@ -188,6 +188,14 @@ class TooDeep(Exception):
 
 
 MAX_NEST = 24
+TOO_DEEP = "(substitutions nested too deep to check)"
+SUB = "__sdlc_sub__"  # what a substitution leaves in its command's words
+
+
+def deep_reason(found):
+    """The deny reason when a command was too deeply nested to check, else None."""
+    return ("sdlc: this command nests substitutions too deep to check what it writes: split it into simpler "
+            "commands.") if found == TOO_DEEP else None
 
 
 def lex(command, dialect="sh"):
@@ -195,7 +203,7 @@ def lex(command, dialect="sh"):
     `cmd`), split on ; & | && || and newlines outside quotes, so a `>` in a commit message is text. Each target stays
     with its own command, so it resolves against the folder a `cd` before it moved to. A subshell, and every command
     substitution (`$( )`, backticks, `<( )`; PowerShell's `$( )`), comes inline between ("(", None) and (")", None),
-    so a `cd` inside it ends with it; the substitution leaves `_` in its command's text. Comments, `\\`-newline
+    so a `cd` inside it ends with it; the substitution leaves SUB in its command's text. Comments, `\\`-newline
     continuations and here-doc bodies are never commands; `case` patterns' `)` close nothing."""
     events, _ = _lex(command, 0, None, dialect, 0)
     return events
@@ -222,14 +230,29 @@ def _lex(s, i, stop, dialect, nest):
         words = "".join(buf).split()
         return not words or words[-1] in KEYWORDS
 
-    def substitute(j, close):
-        inner, j = _lex(s, j, close, dialect, nest + 1)
-        flush_keep = "".join(buf)
+    def substitute(j, close, raw_from=None):
+        """The commands from j to `close`, inline as a subshell; the command's text gets SUB, or with raw_from (a
+        PowerShell expression, part of its command's words) the text itself."""
+        inner, end = _lex(s, j, close, dialect, nest + 1)
         events.append(("(", None))
         events.extend(inner)
         events.append((")", None))
-        buf[:] = [flush_keep, "_"]
-        return j
+        buf.append(SUB if raw_from is None else s[raw_from:end])
+        return end
+
+    def matching(j, opener, closer):
+        """The index just past the `closer` that balances the `opener` at j (the end of s when none does)."""
+        depth = 0
+        while j < len(s):
+            if s.startswith(opener, j):
+                depth, j = depth + 1, j + len(opener)
+            elif s.startswith(closer, j):
+                depth, j = depth - 1, j + len(closer)
+                if depth == 0:
+                    return j
+            else:
+                j += 1
+        return len(s)
 
     while i < len(s):
         ch = s[i]
@@ -265,6 +288,12 @@ def _lex(s, i, stop, dialect, nest):
         if stop == "`" and ch == "`":
             flush()
             return events, i + 1
+        if dialect == "ps" and (s.startswith("@'", i) or s.startswith('@"', i)):  # a here-string: data
+            closer = "\n" + s[i + 1] + "@"
+            end = s.find(closer, i + 2)
+            i = len(s) if end < 0 else end + len(closer)
+            buf.append(SUB)
+            continue
         if ch in quotes:
             quote = ch
             buf.append(ch)
@@ -275,6 +304,11 @@ def _lex(s, i, stop, dialect, nest):
         elif dialect == "ps" and s.startswith("<#", i):
             end = s.find("#>", i + 2)
             i = len(s) if end < 0 else end + 2
+            continue
+        elif dialect == "sh" and (s.startswith("$((", i) or s.startswith("((", i) and command_start()):
+            end = matching(i + (s[i] == "$"), "((", "))")  # arithmetic: its `<<` is a shift, not a here-doc
+            buf.append(s[i:end])
+            i = end
             continue
         elif s.startswith("$(", i) and dialect in ("sh", "ps"):
             i = substitute(i + 2, ")")
@@ -288,27 +322,36 @@ def _lex(s, i, stop, dialect, nest):
         elif ch == "\n":
             flush()
             i += 1
-            for delim, dash in heredocs:  # the bodies that start on the next line: data, never commands
-                while i <= len(s):
-                    nl = s.find("\n", i)
-                    line = s[i:] if nl < 0 else s[i:nl]
-                    i = len(s) if nl < 0 else nl + 1
-                    if (line.lstrip("\t") if dash else line) == delim or nl < 0:
+            for delim, dash in heredocs:  # the bodies that start on the next line: data, unless a shell reads them
+                start, j, closed = i, i, False
+                while j < len(s):
+                    nl = s.find("\n", j)
+                    line = s[j:] if nl < 0 else s[j:nl]
+                    end = j
+                    j = len(s) if nl < 0 else nl + 1
+                    if (line.lstrip("\t") if dash else line).rstrip("\r") == delim:
+                        closed = True
                         break
+                if not closed:  # a body that never ends: everything after it is still checked as commands
+                    break
+                events.append((s[start:end], "heredoc"))
+                i = j
             heredocs.clear()
             continue
         elif ch in ";|&":
+            flush()
+        elif dialect == "ps" and ch == "(":
+            i = substitute(i + 1, ")", raw_from=i)  # an expression: its own command, and part of this one's words
+            continue
+        elif dialect == "ps" and ch in "{}":  # a script block's commands are commands of their own
             flush()
         elif ch == "(":
             if dialect == "sh":
                 flush()
                 events.append(("(", None))
                 stack.append("(")
-            elif dialect == "cmd":
+            else:
                 flush()
-            else:  # a PowerShell expression: part of its command's words
-                stack.append("(")
-                buf.append(ch)
         elif ch == ")":
             if stack and stack[-1] == "(":
                 stack.pop()
@@ -326,7 +369,11 @@ def _lex(s, i, stop, dialect, nest):
                 flush()
             else:
                 buf.append(ch)  # stray: closes nothing
-        elif dialect == "sh" and s.startswith("<<", i) and not s.startswith("<<<", i):
+        elif dialect == "sh" and s.startswith("<<<", i):  # a here-string: one word of data on this line
+            buf.append(" ")
+            i += 3
+            continue
+        elif dialect == "sh" and s.startswith("<<", i):
             j = i + 2
             dash = j < len(s) and s[j] == "-"
             j += dash
@@ -386,9 +433,21 @@ def shell_write(command, root, cwd, protected, depth=0, folders=False, dialect="
     try:
         events = lex(command, dialect)
     except TooDeep:
-        return "(substitutions nested too deep to check)"
+        return TOO_DEEP
     outer = []  # the folder each open subshell started in
+    reader = None  # the shell the last command started, which reads a here-doc after it as commands
+    bodies = []  # (subshell level, here-doc body) inside substitutions: `bash -c "$(cat <<EOF …)"` runs them
     for part, targets in events:
+        if targets == "heredoc":
+            found = reader and depth < 3 and shell_write(part, root, cwd, protected, depth + 1, folders, reader)
+            if found:
+                return found
+            bodies.append((len(outer), part))
+            continue
+        reader = None
+        inside = [b for level, b in bodies if level > len(outer)] if targets is not None else []
+        if targets is not None:
+            bodies = [(level, b) for level, b in bodies if level <= len(outer)]
         if targets is None:
             if part == "(":
                 outer.append(cwd)
@@ -410,6 +469,8 @@ def shell_write(command, root, cwd, protected, depth=0, folders=False, dialect="
             if words[0] not in KEYWORDS:
                 env_words.append(words[0])
             words = words[1:]
+        while dialect == "ps" and len(words) > 1 and words[0].startswith("$") and words[1] == "=":
+            words = words[2:]  # $null = New-Item …: the command is after the assignment
         if not words:
             continue
         verb = os.path.basename(words[0]).lower()
@@ -422,11 +483,14 @@ def shell_write(command, root, cwd, protected, depth=0, folders=False, dialect="
             continue
         if verb in SHELLS:
             inner = "ps" if verb in ("pwsh", "powershell") else "cmd" if verb == "cmd" else "sh"
+            reader = inner
             for n, w in enumerate(args[:-1]):
                 if w.lower() in ("-c", "-command", "/c") and depth < 3:
-                    found = shell_write(args[n + 1], root, cwd, protected, depth + 1, folders, inner)
-                    if found:
-                        return found
+                    scripts = [args[n + 1]] + (inside if SUB in args[n + 1] else [])
+                    for script in scripts:
+                        found = shell_write(script, root, cwd, protected, depth + 1, folders, inner)
+                        if found:
+                            return found
             continue
         if verb == "git":
             here = cwd
@@ -514,6 +578,8 @@ def read_only_problem(data, root):
         except OSError:
             folders = set()
         found = folders and written(data, root, folders, folders=True)
+        if deep_reason(found):
+            return deep_reason(found)
         if found:
             return (f"sdlc: {sdlc_scopes.WORKBENCH_FILE} can't be read as JSON with a \"repos\" list, so sdlc can't "
                     f"tell whether {found} is in a read-only repo: fix {sdlc_scopes.WORKBENCH_FILE} first "
@@ -521,6 +587,8 @@ def read_only_problem(data, root):
         return None
     for name, owner in names.items():
         found = written(data, root, {canon(name)}, folders=True)
+        if deep_reason(found):
+            return deep_reason(found)
         if found:
             owner = owner or "its owners"
             return (f"sdlc: {found} is in {name}/, a read-only repo owned by {owner} (workbench.json): "
@@ -551,6 +619,8 @@ def unbranched_problem(data, root):
         if name in branched:
             continue
         found = written(data, root, {canon(name)}, folders=True)
+        if deep_reason(found):
+            return deep_reason(found)
         if found:
             feature = shlex.quote(features[0][0]) if len(features) == 1 else "<feature>"
             script = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts", "state.py")
@@ -567,6 +637,8 @@ def bundle_problem(data, root):
     found = written(data, root, protected)
     if not found:
         return None
+    if deep_reason(found):
+        return deep_reason(found)
     return (f"sdlc: {found} is a recorded acceptance test or its manifest ({MANIFEST}): the spec owns it, so it is "
             "read-only here. Run it; if it is wrong, raise a spec question (/rspec:amend), never edit it.")
 
