@@ -20,7 +20,7 @@ You describe the work. sdlc decides how big it is, then takes it from intent to 
 - **Reviews picked from the diff.** Security, code, UI or none, depending on what the change touched.
 - **A record of every change.** Each change commits one file that says why it was made and how it was checked.
 - **Guardrails.** Hooks warn or block in real time on secrets, focused tests and force-pushes to main.
-- **Any stack, any repo shape.** Setup uses the commands your repo already runs, per package in a monorepo, and generates CI from them.
+- **Any stack, any repo shape.** Setup uses the commands your repo already runs, per package in a monorepo or per app repo in a workbench (one repo per app, an option beside the monorepo for new multi-app projects), and generates CI from them.
 
 ## Install
 

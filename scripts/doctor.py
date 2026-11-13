@@ -200,6 +200,48 @@ def accept_keys(r, root, scopes):
           "reach it) in .sdlc/config.json · /sdlc:setup records them" if empty else None)
 
 
+def check_workbench(r, root):
+    """In a workbench only: listed repos not cloned, nested repos not listed, listed folders not gitignored, and
+    writable repos without their own sdlc config. Elsewhere no rows."""
+    import sdlc_scopes
+    if not sdlc_scopes.is_workbench(root):
+        return
+    g = "workbench"
+    try:
+        repos = sdlc_scopes.manifest(root)
+    except ValueError as e:
+        r.add(g, "workbench manifest", "fail", str(e), f"fix {sdlc_scopes.WORKBENCH_FILE}")
+        return
+    listed = {x["name"] for x in repos}
+    missing = [x for x in repos if not os.path.isdir(os.path.join(root, x["name"], ".git"))]
+    r.add(g, "workbench repos", "warn" if missing else "ok",
+          ("not cloned: " + ", ".join(x["name"] for x in missing)) if missing else f"{len(repos)} cloned",
+          ("scaffold.py workbench clone" if len(missing) > 1 else f"scaffold.py workbench clone {missing[0]['name']}")
+          if missing else None)
+    try:
+        nested = sorted(d for d in os.listdir(root)
+                        if d not in listed and os.path.isdir(os.path.join(root, d, ".git")))
+    except OSError:
+        nested = []
+    r.add(g, "workbench unlisted", "warn" if nested else "ok",
+          ("git repos not in the manifest: " + ", ".join(nested)) if nested else "none",
+          "scaffold.py workbench add <url> --name <folder>, or move them out" if nested else None)
+    try:
+        with open(os.path.join(root, ".gitignore"), encoding="utf-8", errors="replace") as f:
+            ignored = {sdlc_scopes.ignored_name(x) for x in f.read().splitlines()}
+    except OSError:
+        ignored = set()
+    open_ = [x["name"] for x in repos if x["name"] not in ignored]
+    r.add(g, "workbench gitignore", "warn" if open_ else "ok",
+          ("not gitignored: " + ", ".join(open_)) if open_ else "every repo folder",
+          "add /<name>/ to .gitignore for each" if open_ else None)
+    bare = [x["name"] for x in repos if x["write"] and x not in missing
+            and not os.path.isfile(os.path.join(root, x["name"], ".sdlc", "config.json"))]
+    r.add(g, "workbench app setup", "warn" if bare else "ok",
+          ("no .sdlc/config.json: " + ", ".join(bare)) if bare else "every app set up",
+          "run /sdlc:setup in each" if bare else None)
+
+
 def check_repo(r, root):
     g = "repo"
     try:
@@ -237,29 +279,33 @@ def check_repo(r, root):
                   f"/sdlc:upgrade restores or regenerates them · {RUNBOOK} R14")
         else:
             r.add(g, "plugin files", "ok", f"{len(files)} tracked" + (f"; you edited: {', '.join(edited)}" if edited else ""))
-        contract = scaffold.cmd_contract(p, None)
-        problems, tools = [], []
-        for name, sc in contract["scopes"].items():
-            where = "" if name == scaffold.ROOT_SCOPE else f"{name}: "
-            problems += [where + x for x in sc["problems"]]
-            if sc["missing"]:
-                problems.append(f"{where}no {', '.join(sc['missing'])} command")
-            tools += [f"{where}{key} needs `{exe}`" for key, exe in sc["not_found"].items()]
-        r.add(g, "commands", "fail" if problems else "ok",
-              "; ".join(problems) if problems else
-              f"defined for {len(contract['scopes'])} {'package' if contract['monorepo'] else 'project'}"
-              f"{'s' if len(contract['scopes']) > 1 else ''}",
-              f"set them in .sdlc/config.json · {RUNBOOK} R13" if problems else None)
-        if tools:
-            r.add(g, "command tools", "warn", "not found on PATH: " + "; ".join(tools),
-                  f"install the tool, or fix the command in .sdlc/config.json · {RUNBOOK} R13")
-        runs = contract.get("runs") or {}
-        unrun = [f"{'' if name == scaffold.ROOT_SCOPE else name + ': '}{key}"
-                 for name, sc in contract["scopes"].items() for key in scaffold.verify_steps(p.config, name)
-                 if not (runs.get(name, {}).get(key) or {}).get("ran")]
-        if status["setup"] == "complete" and unrun:
-            r.add(g, "commands run", "warn", "never run successfully since recorded: " + ", ".join(unrun),
-                  f"python3 scripts/scaffold.py run-commands · {RUNBOOK} R13")
+        if scaffold.sdlc_scopes.is_workbench(root):
+            # A workbench holds no product code: each app repo records and runs its own commands (doctor there)
+            r.add(g, "commands", "ok", "a workbench: each app repo holds its own commands (run /sdlc:doctor in it)")
+        else:
+            contract = scaffold.cmd_contract(p, None)
+            problems, tools = [], []
+            for name, sc in contract["scopes"].items():
+                where = "" if name == scaffold.ROOT_SCOPE else f"{name}: "
+                problems += [where + x for x in sc["problems"]]
+                if sc["missing"]:
+                    problems.append(f"{where}no {', '.join(sc['missing'])} command")
+                tools += [f"{where}{key} needs `{exe}`" for key, exe in sc["not_found"].items()]
+            r.add(g, "commands", "fail" if problems else "ok",
+                  "; ".join(problems) if problems else
+                  f"defined for {len(contract['scopes'])} {'package' if contract['monorepo'] else 'project'}"
+                  f"{'s' if len(contract['scopes']) > 1 else ''}",
+                  f"set them in .sdlc/config.json · {RUNBOOK} R13" if problems else None)
+            if tools:
+                r.add(g, "command tools", "warn", "not found on PATH: " + "; ".join(tools),
+                      f"install the tool, or fix the command in .sdlc/config.json · {RUNBOOK} R13")
+            runs = contract.get("runs") or {}
+            unrun = [f"{'' if name == scaffold.ROOT_SCOPE else name + ': '}{key}"
+                     for name, sc in contract["scopes"].items() for key in scaffold.verify_steps(p.config, name)
+                     if not (runs.get(name, {}).get(key) or {}).get("ran")]
+            if status["setup"] == "complete" and unrun:
+                r.add(g, "commands run", "warn", "never run successfully since recorded: " + ", ".join(unrun),
+                      f"python3 scripts/scaffold.py run-commands · {RUNBOOK} R13")
         accept_keys(r, root, scaffold.scopes(p.config))
         try:
             agents, cut = scaffold.agents_state(p), scaffold.codex_cut(p)
@@ -466,6 +512,7 @@ def main(argv=None):
     check_environment(r, root)
     check_plugin(r)
     check_repo(r, root)
+    check_workbench(r, root)
     summary = {k: sum(1 for c in r.checks if c["status"] == k) for k in ("ok", "warn", "fail", "skip")}
     report = {"root": root, "checks": r.checks, "summary": summary}
     sys.stdout.reconfigure(encoding="utf-8")  # a cp1252 pipe (Windows) can't encode the status emoji

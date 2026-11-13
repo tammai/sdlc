@@ -27,6 +27,7 @@ from datetime import datetime, timezone
 # The resolver sits beside the hooks; found from this file, not CLAUDE_PLUGIN_ROOT (tests point that at a fake plugin)
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "hooks"))
 import sdlc_layout  # noqa: E402
+import sdlc_scopes  # noqa: E402
 
 PLUGIN_ROOT = os.environ.get("CLAUDE_PLUGIN_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG = ".sdlc/config.json"
@@ -548,19 +549,13 @@ def cmd_render(p, a):
 # path, stack and commands) for a monorepo. A command set to null means "not applicable" (e.g. typecheck for
 # shell scripts). Stages, verify.py, CI, the allowlist and the freshness hook all read them from here.
 
-ROOT_SCOPE = "(root)"
+ROOT_SCOPE = sdlc_scopes.ROOT_SCOPE
 
 
 def scopes(config):
-    """[{name, path, stack, commands, accept}]: one per package, or the root project when there are no packages."""
-    cfg = effective_config(config)
-    pkgs = cfg.get("packages") or []
-    if pkgs:
-        return [{"name": pk.get("name"), "path": (pk.get("path") or ".").rstrip("/") or ".",
-                 "stack": pk.get("stack"), "commands": pk.get("commands") or {}, "accept": pk.get("accept", {})}
-                for pk in pkgs]
-    return [{"name": ROOT_SCOPE, "path": ".", "stack": None, "commands": cfg.get("commands") or {},
-             "accept": cfg.get("accept", {})}]  # accept null: not applicable, kept as None
+    """[{name, path, stack, commands, accept, named}]: one per package, or the root project when there are no
+    packages. The same parser the hooks use (hooks/sdlc_scopes.py)."""
+    return sdlc_scopes.scopes(effective_config(config))
 
 
 def executable(cmd):
@@ -637,7 +632,7 @@ def cmd_contract(p, a):
     names = set()
     for sc in scopes(p.config):
         problems = []
-        if not sc["name"]:
+        if not sc["named"]:
             problems.append("package without a name")
         elif sc["name"] in names:
             problems.append(f"duplicate package name {sc['name']!r}")
@@ -661,6 +656,8 @@ def cmd_contract(p, a):
     out["tools_ok"] = all(not s["not_found"] for s in out["scopes"].values())
     # Last recorded runs, with any whose command has changed since dropped: they no longer prove anything
     current = {(sc["name"], k): v for sc in scopes(p.config) for k, v in sc["commands"].items()}
+    current.update({(ROOT_SCOPE, s["step"]): s["run"] for s in verify_plan(p.config)["verify"]
+                    if s["scope"] == ROOT_SCOPE})
     out["runs"] = {name: {k: r for k, r in steps.items() if current.get((name, k)) == r.get("command")}
                    for name, steps in ((p.lock or {}).get("command_runs") or {}).items()}
     return out
@@ -670,9 +667,13 @@ def verify_plan(config):
     cfg = effective_config(config)
     order = cfg.get("verify", {}).get("order", ["lint", "typecheck", "build", "test"])
     plan = {"install": [], "verify": []}
-    for sc in scopes(config):
+    # A root `commands.test` beside packages (`turbo run test`) runs from the root after every package's steps; the
+    # other root commands keep not running there, as before workbenches (an existing monorepo behaves as it did)
+    root_test = sdlc_scopes.root_commands(cfg).get("test")
+    root = {"name": ROOT_SCOPE, "path": ".", "commands": {"test": root_test} if root_test else {}}
+    for sc in scopes(config) + [root]:
         cmds = sc["commands"]
-        if cmds.get("install"):
+        if cmds.get("install") and sc is not root:
             plan["install"].append({"scope": sc["name"], "cwd": sc["path"], "step": "install", "run": cmds["install"]})
         for step in order:
             if cmds.get(step):
@@ -759,6 +760,8 @@ def generate_ci(p, package=None):
             lines += [pad + x.format(**values) for x in CI_SETUP[st]]
         else:
             lines.append(pad + f"# TODO: add the toolchain setup for '{st}'")
+    if not package:
+        lines += [pad + x for x in workbench_checkout(p)]
     for step in plan["install"] + plan["verify"]:
         label = step["step"] if step["scope"] == ROOT_SCOPE else f"{step['scope']} · {step['step']}"
         lines.append(pad + f"- name: {json.dumps(label, ensure_ascii=False)}")
@@ -766,6 +769,44 @@ def generate_ci(p, package=None):
             lines.append(pad + f"  working-directory: {step['cwd']}")
         lines += [pad + "  run: |", pad + "    " + step["run"]]
     return "\n".join(lines) + "\n"
+
+
+WORKBENCH_REPO = re.compile(r"^(?:[A-Za-z0-9][A-Za-z0-9-]{0,38}/)?[A-Za-z0-9._-]{1,100}$")
+
+
+def workbench_checkout(p):
+    """The CI steps that check out the workbench for an app repo that consumes its contract, else []: the app's
+    config names its workbench (`"workbench": "<name>"` or `"<owner>/<name>"`) and the workbench above it lists the
+    app with `contract.consumes`. The branch with the PR's own name when the workbench has one (the same feature's
+    unmerged contract change), else main; the contract lands at ../contract, where the app's generate step reads it.
+    The branch reaches the script only through env."""
+    name = sdlc_scopes.workbench_of(p.root)
+    if not name or not WORKBENCH_REPO.match(name) or name.startswith(".") or "/." in name:
+        return []
+    parent = os.path.dirname(p.root)
+    if not sdlc_scopes.is_workbench(parent):
+        return []
+    try:
+        entry = next((r for r in sdlc_scopes.manifest(parent) if r["name"] == os.path.basename(p.root)), None)
+    except ValueError:
+        return []
+    if not entry or not entry["contract"].get("consumes"):
+        return []
+    repo = name if "/" in name else "${{ github.repository_owner }}/" + name
+    token = "${{ secrets.WORKBENCH_TOKEN || github.token }}"
+    return [
+        "# The workbench holds the API contract: its branch named like this PR's, else main (a private workbench",
+        "# needs a WORKBENCH_TOKEN secret that can read it)",
+        "- name: \"workbench branch\"", "  id: workbench", "  env:", f"    GH_TOKEN: {token}",
+        "    BRANCH: ${{ github.head_ref || github.ref_name }}", "  run: |",
+        f'    if gh api "repos/{repo}/branches/$BRANCH" --silent 2>/dev/null; then',
+        '      echo "ref=$BRANCH" >> "$GITHUB_OUTPUT"', "    else", '      echo "ref=main" >> "$GITHUB_OUTPUT"', "    fi",
+        "- uses: actions/checkout@v7", "  with:", f"    repository: {repo}",
+        "    ref: ${{ steps.workbench.outputs.ref }}", "    path: .workbench", f"    token: {token}",
+        "    persist-credentials: false",
+        "# Only the contract stays: the checkout leaves the app's tree before its own steps run",
+        "- name: \"workbench contract\"", "  run: |",
+        "    rm -rf ../contract && cp -R .workbench/contract ../contract && rm -rf .workbench"]
 
 
 def generate_contract_check(p):
@@ -1132,6 +1173,166 @@ def cmd_gitignore(p, a):
                                     capture_output=True).returncode == 0:
             untracked += files
     return {"added": added, "removed": removed, "owned": ours, "untracked": untracked}
+
+
+# --- workbench: repos cloned inside a parent workbench repo ----------------------------------
+
+def _write_atomic(path, text, errors="strict"):
+    """Temp file in the same folder, fsync, rename, the temp file removed on failure: a crash never leaves half a
+    committed file, or a stray temp file for the next commit to pick up."""
+    import tempfile
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path) or ".", prefix=".tmp-")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", errors=errors, newline="\n") as f:
+            f.write(text)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+
+
+def _workbench_data(p):
+    """The manifest file's whole object (validated through sdlc_scopes.manifest), or a new one."""
+    sdlc_scopes.manifest(p.root)
+    path = p.path(sdlc_scopes.WORKBENCH_FILE)
+    return read_json(path) if os.path.exists(path) else {"repos": []}
+
+
+def _gitignore_lines(p):
+    """The workbench's .gitignore lines; bytes that aren't UTF-8 (a cp1252 comment) survive a rewrite unchanged."""
+    try:
+        with open(p.path(GITIGNORE), encoding="utf-8", errors="surrogateescape") as f:
+            return f.read().splitlines()
+    except FileNotFoundError:
+        return []
+
+
+def cmd_workbench(p, a):
+    """List, add (clone, gitignore, record) or remove (record and gitignore line only) a repo of a workbench, or clone
+    the repos it lists that aren't cloned yet."""
+    if not sdlc_scopes.is_workbench(p.root, need_manifest=False):
+        raise ValueError("not a workbench: .sdlc/config.json has no \"workbench\": true")
+    if a.action == "list":
+        return {"repos": sdlc_scopes.manifest(p.root)}
+    if a.action == "clone":
+        return _workbench_clone(p, a.target)
+    data = _workbench_data(p)
+    if a.action == "remove":
+        name = sdlc_scopes.check_name(a.target)
+        if not any(r.get("name") == name for r in data["repos"]):
+            lines = _gitignore_lines(p)
+            if not os.path.lexists(p.path(name)) and f"/{name}/" in (x.strip() for x in lines):
+                # removed earlier while its folder was there: the folder is gone now, so the line sdlc wrote goes
+                rest = [x for x in lines if x.strip() != f"/{name}/"]
+                _write_atomic(p.path(GITIGNORE), "\n".join(rest) + ("\n" if rest else ""), "surrogateescape")
+                return {"removed": name, "folder_kept": None}
+            raise ValueError(f"no repo named {name!r} in {sdlc_scopes.WORKBENCH_FILE}")
+        data["repos"] = [r for r in data["repos"] if r.get("name") != name]
+        _write_atomic(p.path(sdlc_scopes.WORKBENCH_FILE), json.dumps(data, indent=2) + "\n")
+        kept = name if os.path.lexists(p.path(name)) else None
+        if not kept:  # while the folder is there its ignore line stays, so the workbench never commits the repo
+            lines = [x for x in _gitignore_lines(p) if sdlc_scopes.ignored_name(x) != name]
+            _write_atomic(p.path(GITIGNORE), "\n".join(lines) + ("\n" if lines else ""), "surrogateescape")
+        return {"removed": name, "folder_kept": kept,
+                **({"note": f"/{name}/ stays in .gitignore until you delete {name}/; run remove again after"}
+                   if kept else {})}
+    url = a.target
+    raw_name = a.name if a.name is not None else re.sub(r"\.git$", "", url.rstrip("/\\").replace("\\", "/")
+                                                         .rsplit("/", 1)[-1].rsplit(":", 1)[-1])
+    entry = {"name": raw_name, "url": url, "role": a.role, "write": bool(a.write)}
+    if a.owner:
+        entry["owner"] = a.owner
+    if a.contract:
+        kind, _, version = a.contract.partition(":")
+        entry["contract"] = {kind: version}
+    checked = sdlc_scopes._check_entry(len(data["repos"]), entry, {str(r.get("name")).lower() for r in data["repos"]})
+    name = checked["name"]
+    dest = sdlc_scopes.repo_dir(p.root, name)
+    if os.path.lexists(dest) and not os.path.isdir(os.path.join(dest, ".git")):
+        raise ValueError(f"{name}/ exists and isn't a git repo: move it away or pick another --name")
+    added = _ignore(p, name)  # before the clone: a crash after it leaves an ignored folder, never a repo git commits
+    try:
+        cloned = _clone_into(p, name, url, read_only=not checked["write"])
+    except (ValueError, OSError):
+        if added:  # a refused clone leaves the .gitignore as it was
+            lines = [x for x in _gitignore_lines(p) if sdlc_scopes.ignored_name(x) != name]
+            _write_atomic(p.path(GITIGNORE), "\n".join(lines) + ("\n" if lines else ""), "surrogateescape")
+        raise
+    data["repos"].append(entry)
+    _write_atomic(p.path(sdlc_scopes.WORKBENCH_FILE), json.dumps(data, indent=2) + "\n")
+    return {"added": checked, "cloned": cloned}
+
+
+def _clone_into(p, name, url, read_only=False):
+    """Clone url into the workbench's <name>/ (url after `--`, never through a shell); True when it cloned, False when
+    <name>/ already is a git repo; ValueError when it exists and isn't one, links outside, or the clone fails."""
+    dest = sdlc_scopes.repo_dir(p.root, name)
+    if os.path.lexists(dest):
+        if not os.path.isdir(os.path.join(dest, ".git")):
+            raise ValueError(f"{name}/ exists and isn't a git repo: move it away or pick another --name")
+        if read_only:  # adopted as it is: it still never pushes to the other team's remote
+            sdlc_scopes.disable_push(dest)
+        return False
+    proc = subprocess.run(["git", "clone", "-q", "--", sdlc_scopes.check_url(url), dest], capture_output=True,
+                          encoding="utf-8", errors="replace")
+    if proc.returncode:
+        raise ValueError(f"git clone failed: {(proc.stdout + proc.stderr).strip()[-300:]}")
+    if read_only:
+        try:
+            sdlc_scopes.disable_push(dest)
+        except ValueError:
+            try:
+                _remove_tree(dest)  # never left behind able to push to another team's remote
+            except OSError:
+                pass  # the push error is the one to report
+            raise
+    return True
+
+
+def _remove_tree(path):
+    """Remove a folder git wrote, its read-only object files too (Windows refuses to delete them)."""
+    import stat
+
+    def writable(func, p, _):
+        os.chmod(p, stat.S_IWRITE)
+        func(p)
+    if sys.version_info >= (3, 12):
+        shutil.rmtree(path, onexc=writable)
+    else:
+        shutil.rmtree(path, onerror=writable)
+
+
+def _ignore(p, name):
+    """Add /<name>/ to the workbench's .gitignore unless a line already ignores it; True when it added one."""
+    lines = _gitignore_lines(p)
+    if any(sdlc_scopes.ignored_name(x) == name for x in lines):
+        return False
+    _write_atomic(p.path(GITIGNORE), "\n".join(lines + [f"/{name}/"]) + "\n", "surrogateescape")
+    return True
+
+
+def _workbench_clone(p, target):
+    """Bring back repos the manifest lists but that aren't cloned (a fresh clone of the workbench): the named one, or
+    every missing one; the URL comes from the validated manifest, never from the command line."""
+    repos = sdlc_scopes.manifest(p.root)
+    if target:
+        name = sdlc_scopes.check_name(target)
+        repos = [r for r in repos if r["name"] == name]
+        if not repos:
+            raise ValueError(f"no repo named {name!r} in {sdlc_scopes.WORKBENCH_FILE}")
+    cloned, present, failed = [], [], []
+    for r in repos:  # one repo failing never hides what the others did
+        _ignore(p, r["name"])
+        try:
+            (cloned if _clone_into(p, r["name"], r["url"], read_only=not r["write"]) else present).append(r["name"])
+        except (ValueError, OSError) as e:
+            failed.append({"name": r["name"], "error": str(e)})
+    out = {"cloned": cloned, "already_cloned": present}
+    if failed:
+        raise CommandsFailed(dict(out, failed=failed))
+    return out
 
 
 # --- hosts: which coding agents run this repo's sdlc ---------------------------------------
@@ -1871,6 +2072,16 @@ def build_parser():
     s.add_argument("--if-unchanged", action="store_true", help="refuse (exit 2) if the user edited the file")
     s.set_defaults(fn=cmd_render)
 
+    s = sub.add_parser("workbench", help="list, add (clone + gitignore + record), remove, or clone listed repos")
+    s.add_argument("action", choices=["list", "add", "remove", "clone"])
+    s.add_argument("target", nargs="?", default="",
+                   help="add: the clone URL; remove: the repo's name; clone: a listed repo's name (default: all missing)")
+    s.add_argument("--name", help="add: folder and manifest name (default: from the URL)")
+    s.add_argument("--role", choices=list(sdlc_scopes.ROLES), default="app")
+    s.add_argument("--write", action="store_true", help="add: sdlc may change this repo (apps this project owns)")
+    s.add_argument("--owner", help="add: the owning team's handle")
+    s.add_argument("--contract", help="add: provides:v<N> or consumes:v<N>")
+    s.set_defaults(fn=cmd_workbench)
     sub.add_parser("contract", help="check the project's commands in config (per package in a monorepo)") \
         .set_defaults(fn=cmd_contract)
     s = sub.add_parser("run-commands", help="run install and the verify plan once; record each exit in the lock")

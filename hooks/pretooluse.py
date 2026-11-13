@@ -37,9 +37,28 @@ def _recorded_test_write(input_data):
     It runs here because this hook already runs on exactly these tools, for every host (hosts/hook.py)."""
     try:
         import role_guard
-        root = os.path.abspath(os.environ.get('CLAUDE_PROJECT_DIR') or input_data.get('cwd') or os.getcwd())
-        root = _target_repo(input_data) or root
-        return role_guard.bundle_problem(input_data, root)
+        project = os.path.abspath(os.environ.get('CLAUDE_PROJECT_DIR') or input_data.get('cwd') or os.getcwd())
+        target = _target_repo(input_data)
+        # The repo the call is routed to, and the session's own root: at a workbench's root that covers every app
+        # repo's recorded tests, whatever path or folder change the command uses to reach them
+        return ((target and role_guard.bundle_problem(input_data, target))
+                or role_guard.bundle_problem(input_data, project))
+    except Exception:
+        return None
+
+
+def _read_only_write(input_data):
+    """sdlc patch: the deny reason when this call writes into a read-only repo of the workbench the session started in,
+    or into a writable one the active feature hasn't branched (hooks/role_guard.py read_only_problem,
+    unbranched_problem); else None, and None on its own error."""
+    try:
+        import role_guard
+        import sdlc_scopes
+        cwd = input_data.get('cwd') or os.getcwd()
+        # Hosts without CLAUDE_PROJECT_DIR (Codex): the nearest workbench at or above the call's folder
+        root = os.path.abspath(os.environ.get('CLAUDE_PROJECT_DIR')
+                               or sdlc_scopes.workbench_root(cwd, guarded=True) or cwd)
+        return role_guard.read_only_problem(input_data, root) or role_guard.unbranched_problem(input_data, root)
     except Exception:
         return None
 
@@ -49,7 +68,7 @@ def main():
     try:
         # Read input from stdin
         input_data = json.load(sys.stdin)
-        reason = _recorded_test_write(input_data)
+        reason = _read_only_write(input_data) or _recorded_test_write(input_data)
         if reason:
             print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
                                                      "permissionDecisionReason": reason}}))

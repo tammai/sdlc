@@ -3,7 +3,7 @@ type: gotcha
 title: Hooks that judge a Bash command by its text
 description: Commit review needs `git commit` in the visible command; parsing agent-written chains for the budget breaks on ordinary spellings.
 tags: [hooks, claude-code]
-updated: 2026-10-28
+updated: 2026-11-13
 ---
 
 # Hooks that judge a Bash command by its text
@@ -18,4 +18,9 @@ updated: 2026-10-28
 
 ## Fix
 - Keep `git commit` in the command the agent runs; a script may prepare everything before it (`ship.py`, then `&& git commit -F .sdlc/.work/commit-msg.txt`). The gate counts the commit that takes a feature from active to done as that feature's (`_finished_by`), so Ship can commit `Status: done` with the change.
+- A guard that must hold (the workbench's read-only repos: "sdlc never writes to a repo marked read-only") can't
+  rest on reading command text: five review rounds each found new shell forms past `role_guard.py`'s lexer. Keep the
+  text guard as the first, best-effort line and back it with state: `hooks/read_only_watch.py` compares each
+  read-only repo with its first look after every writing call and at Stop, and a push URL that points nowhere stops
+  pushes structurally.
 - Don't widen a command parser to fit what agents type: move the work out of the guarded state instead (a reviewed change advances to Stage 4 when it writes `## Review`, so Ship runs outside Review's budget), and take free text out of the command (`ship.py` reads the commit subject from the change file).

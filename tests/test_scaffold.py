@@ -828,8 +828,8 @@ class ScaffoldTest(ProjectTestCase):
         self.assertFalse(out["ok"])
         self.assertTrue(out["scopes"]["api"]["ok"] is False)  # the duplicate name overwrote the first entry
         self.assertIn("duplicate package name 'api'", out["scopes"]["api"]["problems"])
-        self.assertIn("package without a name", out["scopes"]["?"]["problems"])
-        self.assertIn("path 'nowhere' does not exist", out["scopes"]["?"]["problems"])
+        self.assertIn("package without a name", out["scopes"]["nowhere"]["problems"])  # named after its path
+        self.assertIn("path 'nowhere' does not exist", out["scopes"]["nowhere"]["problems"])
 
     def test_run_commands_records_each_exit_and_flags_ones_that_cannot_run(self):
         self.commands_config(commands={"install": "git --version", "test": "git no-such-subcommand",

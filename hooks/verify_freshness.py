@@ -2,7 +2,8 @@
 """sdlc verify-freshness hook.
 
 Active only while an sdlc feature is in Stage 3 (Review), at every track. Freshness is tracked per scope: each package of a monorepo (`packages` in
-.sdlc/config.json), or the whole project.
+.sdlc/config.json), or the whole project; in a workbench, each writable repo (its tree taken in its own git repo, a
+repo the feature never branched starting fresh) and the workbench itself (a file in no app repo).
   - PostToolUse Edit/Write/MultiEdit/NotebookEdit on a code file -> the owning package goes stale (a file outside
                                                                      every package: all of them)
   - PostToolUse / PostToolUseFailure Bash running a scope's full   -> that scope goes fresh (records time, HEAD,
@@ -34,6 +35,7 @@ import sys
 # they cost about 25 ms on every tool call this hook (and prove_budget and trust_anchor, which import it) sees
 
 import sdlc_layout  # sibling module: where feature state and sdlc documents live
+import sdlc_scopes  # sibling module: the packages, read as scripts read them
 
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 SHELL_TOOLS = {"Bash", "PowerShell"}  # Windows sessions run commands through either
@@ -87,11 +89,19 @@ def project_root(cwd):
         d = parent
 
 
+def feature_state(root, feature):
+    """The feature's state file text, or None."""
+    try:
+        with open(os.path.join(root, sdlc_layout.features(root)[feature]["state"]), encoding="utf-8") as f:
+            return f.read()
+    except (OSError, KeyError):
+        return None
+
+
 def feature_base(root, feature):
     """The commit the feature started from (`Base:` in its state.md), or None."""
-    try:
-        text = open(os.path.join(root, sdlc_layout.features(root)[feature]["state"]), encoding="utf-8").read()
-    except (OSError, KeyError):
+    text = feature_state(root, feature)
+    if text is None:
         return None
     m = re.search(r"^Base:\s*`?([0-9a-f]{7,40})\b", text, re.M)
     return m.group(1) if m else None
@@ -114,6 +124,8 @@ def initial_scope_state(root, feature, scopes):
     feature hasn't touched. Those start fresh from a worktree snapshot, so later changes to them still count."""
     stale = {"stale": True, "reason": "no full test run recorded in Stage 3 yet"}
     states = {sc["name"]: dict(stale) for sc in scopes}
+    if any(sc.get("repo") for sc in scopes):
+        return initial_workbench_state(root, feature, scopes, states)
     base = feature_base(root, feature) if len(scopes) > 1 else None
     changed = changed_since(root, base) if base else None
     if not changed:  # no base, git can't tell, or nothing detected: stay conservative
@@ -124,6 +136,26 @@ def initial_scope_state(root, feature, scopes):
         if sc["name"] not in touched and tree:
             states[sc["name"]] = {"stale": False, "reason": "", "tree": tree, "head": git_head(root),
                                   "note": f"unchanged since the feature base {base}"}
+    return states
+
+
+def initial_workbench_state(root, feature, scopes, states):
+    """A workbench: a repo the feature never branched (no `## Repos` line) starts fresh, and so does one whose code
+    is unchanged since its recorded base, like the workbench itself since `Base:`; anything git can't tell stays stale."""
+    recorded = sdlc_scopes.feature_repos(feature_state(root, feature))
+    base = feature_base(root, feature)
+    for sc in scopes:
+        where = scope_dir(root, sc)
+        if sc.get("repo"):
+            rec = recorded.get(sc["name"]) or {}
+            changed = changed_since(where, rec["base"]) if rec.get("branch") else []
+            note = f"unchanged since its base {rec['base']}" if rec.get("branch") else "not touched by the feature"
+        else:
+            changed = changed_since(where, base) if base else None
+            note = f"unchanged since the feature base {base}"
+        tree = worktree_tree(where)
+        if changed == [] and tree:
+            states[sc["name"]] = {"stale": False, "reason": "", "tree": tree, "head": git_head(where), "note": note}
     return states
 
 
@@ -146,12 +178,20 @@ def load_scopes(root, state_test_cmd):
             config = json.load(f)
     except (OSError, ValueError):
         config = {}
-    root_test = (config.get("commands") or {}).get("test")
-    pkgs = config.get("packages") or []
-    if pkgs:
-        scopes = [{"name": pk.get("name") or pk.get("path"), "path": norm((pk.get("path") or ".")),
-                   "tests": [t for t in [(pk.get("commands") or {}).get("test")] if t]} for pk in pkgs]
+    config = config if isinstance(config, dict) else {}
+    if config.get("workbench") is True and sdlc_scopes.is_workbench(root):
+        try:
+            return [{"name": sc["name"], "path": sc["path"], "repo": sc["repo"] is not None,
+                     "tests": [t for t in [sc["commands"].get("test")] if t]}
+                    for sc in sdlc_scopes.workbench_scopes(root)], []
+        except ValueError:
+            pass  # a manifest it can't read: the workbench alone, as before (doctor reports the manifest)
+    if sdlc_scopes.packages(config):
+        scopes = [{"name": sc["name"], "path": sc["path"], "tests": [t for t in [sc["commands"].get("test")] if t]}
+                  for sc in sdlc_scopes.scopes(config)]
+        root_test = sdlc_scopes.root_commands(config).get("test")
         return scopes, [root_test] if root_test else []
+    root_test = sdlc_scopes.scopes(config)[0]["commands"].get("test")
     tests = [t for t in (state_test_cmd, root_test) if t]
     return [{"name": ROOT, "path": ".", "tests": list(dict.fromkeys(tests))}], []
 
@@ -168,7 +208,13 @@ def scope_for(scopes, rel_path):
     owners = [sc for sc in scopes if sc["path"] != "." and (rel_path == sc["path"] or rel_path.startswith(sc["path"] + "/"))]
     if owners:
         return [max(owners, key=lambda sc: len(sc["path"]))]
-    return scopes
+    # A workbench: a file in no app repo is the workbench's own
+    return [sc for sc in scopes if sc["name"] == sdlc_scopes.WORKBENCH_SCOPE] or scopes
+
+
+def scope_dir(root, sc):
+    """The git worktree a scope's tree is taken in: its own repo in a workbench, else the project."""
+    return os.path.join(root, sc["path"]) if sc.get("repo") else root
 
 
 def run_dir(command, end, root, cwd):
@@ -420,9 +466,10 @@ def record_verify(root, feature, runs, exit_result=None):
         recorded = True
         scopes, _ = load_scopes(root, None)
         for sc in scopes:
+            where = scope_dir(root, sc)  # a workbench's app repo: its own tree, so the Stop check can diff it
             st.setdefault("scopes", {}).setdefault(sc["name"], {}).update(
                 stale=False, reason="", last_test_at=now(), last_test_cmd="verify.py", last_result=last["result"],
-                head=git_head(root), tree=tree)
+                head=git_head(where), tree=tree if where == root else worktree_tree(where))
     if recorded:
         save(root, st)
 
@@ -473,34 +520,48 @@ def main():
                 return
             names = fresh_scopes(cmd, scopes, root_tests, root, data.get("cwd"), configured)
             if names:
-                tree, head = worktree_tree(root), git_head(root)
+                trees = {}
                 # A non-zero exit arrives as PostToolUseFailure. It's the tests' only when nothing runs after them
                 # (`| tail`, `; echo $?` report their own exit)
                 tests = [sc["tests"] for sc in scopes if sc["name"] in names] + [root_tests]
                 last = any(exit_is_the_tests(cmd, t) for t in tests)
                 result = ("fail" if event == "PostToolUseFailure" else "pass") if last else "unknown"
-                for name in names:
-                    st["scopes"][name].update(stale=False, reason="", last_test_at=now(), last_test_cmd=cmd,
-                                              last_result=result, head=head, tree=tree)
+                for sc in scopes:
+                    if sc["name"] not in names:
+                        continue
+                    where = scope_dir(root, sc)
+                    if where not in trees:
+                        trees[where] = (worktree_tree(where), git_head(where))
+                    tree, head = trees[where]
+                    st["scopes"][sc["name"]].update(stale=False, reason="", last_test_at=now(), last_test_cmd=cmd,
+                                                    last_result=result, head=head, tree=tree)
                 save(root, st)
         return
 
     if event != "Stop":
         return
     tracked = [sc for sc in scopes if st["scopes"][sc["name"]].get("tree")]
-    if tracked:
-        new_tree = worktree_tree(root)
-        for sc in tracked if new_tree else []:
-            s_st = st["scopes"][sc["name"]]
-            changed = changed_code_files(root, s_st["tree"], new_tree)
-            if changed is None:
-                continue
+    trees = {}
+    for sc in tracked:
+        where = scope_dir(root, sc)
+        if where not in trees:
+            trees[where] = worktree_tree(where)
+        new_tree = trees[where]
+        if not new_tree:
+            continue
+        s_st = st["scopes"][sc["name"]]
+        changed = changed_code_files(where, s_st["tree"], new_tree)
+        if changed is None:
+            continue
+        if sc.get("repo"):  # every change in its own repo is its, named from the workbench
+            mine = [f"{sc['path']}/{f}" for f in changed]
+        else:
             mine = [f for f in changed if sc in scope_for(scopes, f)]
-            if mine:
-                more = f" and {len(mine) - 5} more" if len(mine) > 5 else ""
-                s_st.update(stale=True, reason=f"{', '.join(mine[:5])}{more} changed since the last full test run")
-            else:  # edits since the run were reverted, or only touched other scopes or non-code
-                s_st.update(stale=False, reason="")
+        if mine:
+            more = f" and {len(mine) - 5} more" if len(mine) > 5 else ""
+            s_st.update(stale=True, reason=f"{', '.join(mine[:5])}{more} changed since the last full test run")
+        else:  # edits since the run were reverted, or only touched other scopes or non-code
+            s_st.update(stale=False, reason="")
     save(root, st)
     stale = [sc for sc in scopes if st["scopes"][sc["name"]].get("stale")]
     if not stale:

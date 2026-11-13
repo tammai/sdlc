@@ -6,8 +6,8 @@ The repo has no source code yet. Goal: a minimal skeleton whose commands all pas
 
 Ask only what you can't infer, a few questions at a time, with a suggested answer each:
 
-- What is being built: library, CLI, API service, web app, mobile app, several of these? Two or more apps → follow `monorepo.md` for the `stack`, `skeleton`, `commands` and `ci` steps instead of the sections below.
-- Runtime and language per part; package manager; test runner. Default to the ecosystem's current mainstream choice and say why in one line.
+- What is being built: library, CLI, API service, web app, mobile app, several of these? Two or more apps → ask which layout, both on offer: one repo holding every app (`monorepo.md`, ADR 0005) or one repo per app inside a workbench repo (`workbench.md`, ADR 0025). Recommend the monorepo when one team owns every app and ships them together; the workbench when apps have separate owners or release cycles, or the project reads other teams' repos (specs, tests, designs). Then follow the chosen file for the `stack`, `skeleton`, `commands` and `ci` steps instead of the sections below.
+- Runtime and language per part; package manager; test runner. Propose from `stacks.md` (Nuxt, React, Node, Go: pieces, generator, five commands); a stack it doesn't list takes the ecosystem's current mainstream choice, with why in one line.
 - Where it deploys (only if it changes the skeleton, e.g. a Dockerfile).
 
 Propose: the stack per package, the directory layout, the generator command for each package, and the five commands per package (below). Keep it to what the first feature needs; no auth, DB, Docker, or infra "for later" unless the user named it. **The user approves before anything is generated.**
@@ -32,7 +32,7 @@ Use the commands the generated project already defines (`package.json` scripts, 
 
 **Acceptance keys**, only in a spec-backed repo (it holds an rspec `criteria.lock.json`, or `.sdlc/config.json` names one as `spec_lock`, or it has `acceptance/manifest.json`), proposed with the commands and approved with them (per package, or top level without packages): `accept.start`, the command that starts the build locally, and `accept.base_url`, the URL the recorded acceptance tests reach it at (`ACCEPT_BASE_URL`). `$S add-config-keys` adds them, empty, where missing. Any other repo gets no such keys.
 
-Monorepo or several stacks: `packages` instead of `commands`, one entry per package with `name`, `path`, `stack` and its own five commands, each run from its `path`. A workspace tool's root-level test command (`pnpm -r test`, `turbo run test`) can go in root `commands.test`; it then counts as a full run for every package.
+Monorepo or several stacks: `packages` instead of `commands`, one entry per package with `name`, `path`, `stack` and its own five commands, each run from its `path`. A workspace tool's root-level test command (`pnpm -r test`, `turbo run test`) can go in root `commands.test`: it runs from the root in the verify plan and CI, after every package's own steps, and counts as a full run for every package.
 
 Check: `$S contract` → `ok: true` and `tools_ok: true`. Then `$S run-commands` (install first, then the verify plan, each in its `cwd`, every exit recorded in the lock); every command must have run and exited 0. Fix the skeleton, not the command, if they don't.
 

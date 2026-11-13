@@ -3,7 +3,8 @@
 change.md names for it (plan.md on a 1.x feature) (ADR 0013, 0020).
 
 Usage: verify.py [--root DIR] [--feature NAME] [--timeout S] [red AC-nnn [AC-nnn ...] | status | trace]
-  Runs the verify plan (lint, typecheck, build, test from .sdlc/config.json, per package), then, for every `AC-nnn`
+  Runs the verify plan (lint, typecheck, build, test from .sdlc/config.json, per package; in a workbench also each
+  repo the feature branched, from its own config in its folder, a failure naming the repo), then, for every `AC-nnn`
   in change.md: a row in its `## Acceptance tests` table (plan.md's on a 1.x feature), a `manual` row's reason, the
   test file, a recorded red run, and the row's Run command passing. Writes the result to .sdlc/.work/verify.json and
   exits 0 on pass, 1 on a failure, 2 when there's no feature to verify. On an old S fix with no record, the state
@@ -304,8 +305,13 @@ def drift(root, feature, later=()):
         return None
     facts = diff_stats.collect(root, m.group(1), [plan_path] if os.path.exists(plan_path) else [])
     docs_dir = sdlc_layout.docs_dir(root)
-    changed = [f for f in facts["changed_files"] if not f.startswith(".sdlc/") and not f.lower().endswith(".md")
-               and not (docs_dir and f.startswith(docs_dir + "/")) and not GENERATED.search(f)]
+    in_repos = repo_changes(root, feature)  # a workbench: what the feature changed in each app repo
+    every = sorted(set(facts["changed_files"]) | set(in_repos))
+    # One source for app-repo files (diff_stats lists branched repos' files too): in_repos, filtered the same way
+    own = [f for f in facts["changed_files"] if f not in set(in_repos) and not f.startswith(".sdlc/")
+           and not (docs_dir and f.startswith(docs_dir + "/"))]
+    changed = [f for f in own + [f for f in in_repos if "/.sdlc/" not in f]
+               if not f.lower().endswith(".md") and not GENERATED.search(f)]
     tasks, task_acs, current = {}, {}, None
     for line in (section(plan_text, "Tasks") or "").splitlines():
         t = TASK_START.match(line)
@@ -320,12 +326,77 @@ def drift(root, feature, later=()):
     items = [(f, "file") for f in changed if f not in named]
     # A task's files count against everything changed: a README-only task did its work
     items += [(f"task {n}", "task") for n, files in tasks.items()
-              if any("/" in f or "." in f for f in files) and not files & set(facts["changed_files"])
+              if any("/" in f or "." in f for f in files) and not files & set(every)
               and not (task_acs.get(n) and task_acs[n] <= set(later))]
     surface = facts.get("surface") or {}
     items += [(n, "surface") for n in surface.get("undeclared_exports", []) + surface.get("undeclared_dependencies", [])]
     deviations = section(plan_text, "Deviations") or ""
     return [{"item": i, "kind": k, "covered": covered(i, deviations)} for i, k in items]
+
+
+def _branched(root, feature):
+    """([(name, record)], [why]) of the repos a workbench feature branched (its `## Repos`) that sdlc may act on, and
+    why each other branch line is left alone (sdlc_scopes.branched_repos); elsewhere ([], [])."""
+    import sdlc_scopes  # noqa: PLC0415
+    if not sdlc_scopes.is_workbench(root):
+        return [], []
+    located = sdlc_layout.features(root).get(feature)
+    text = read(os.path.join(root, located["state"])) if located else None
+    try:
+        kept, dropped = sdlc_scopes.branched_repos(root, text)
+    except ValueError as e:
+        return [], [str(e)]
+    return kept, [why for _, why in dropped]
+
+
+def branched_repos(root, feature):
+    """[(name, base)] of the repos a workbench feature branched that sdlc may act on; elsewhere []."""
+    return [(n, r["base"]) for n, r in _branched(root, feature)[0]]
+
+
+def repo_changes(root, feature):
+    """Files changed in each branched repo since its base (committed, uncommitted, untracked), named from the
+    workbench (`api/src/a.go`); a repo git can't read: none."""
+    out = []
+    for name, base in branched_repos(root, feature):
+        repo = os.path.join(root, name)
+        diff = diff_stats.git(repo, "diff", "-z", "--name-only", "--no-renames", base, check=False)
+        new = diff_stats.git(repo, "ls-files", "-z", "--others", "--exclude-standard", check=False)
+        out += sorted(f"{name}/{f}" for f in set((diff or "").split("\0")) | set((new or "").split("\0")) if f)
+    return out
+
+
+def repo_trees(root, feature):
+    """{name: worktree tree} of each branched repo: what a verify run covered beyond the workbench's own tree."""
+    return {name: vf.worktree_tree(os.path.join(root, name)) for name, _ in branched_repos(root, feature)}
+
+
+def repo_failures(root, feature, timeout):
+    """In a workbench: each repo the feature branched (its state's `## Repos`) runs its own verify plan, from its own
+    .sdlc/config.json, in its folder; each failure starts with the repo's name. Elsewhere: []."""
+    kept, dropped = _branched(root, feature)
+    # A branch line sdlc may not act on (another team's repo, one not cloned) fails verify, and its commands never run
+    failures = [why if why.startswith("not run:") else f"not run: {why}" for why in dropped]
+    for name, _ in kept:
+        repo = os.path.join(root, name)
+        try:
+            config = json.loads(read(os.path.join(repo, ".sdlc", "config.json")) or "null")
+        except ValueError:
+            config = None
+        if not isinstance(config, dict):
+            failures.append(f"{name}: no readable .sdlc/config.json (its small sdlc setup holds its commands)")
+            continue
+        try:
+            steps = scaffold.verify_plan(config)["verify"]
+        except ValueError as e:
+            failures.append(f"{name}: {e}")
+            continue
+        for step in steps:
+            code, out = run(step["run"], os.path.join(repo, step["cwd"]), timeout)
+            if code:
+                failures.append(f"{name}: {step['scope'] or scaffold.ROOT_SCOPE} {step['step']}: exit {code}\n"
+                                f"{out[-500:]}")
+    return failures
 
 
 def full(root, feature, timeout=1800, whole=False):
@@ -341,6 +412,7 @@ def full(root, feature, timeout=1800, whole=False):
         code, out = run(step["run"], os.path.join(root, step["cwd"]), timeout)
         if code:
             failures.append(f"{step['scope'] or scaffold.ROOT_SCOPE} {step['step']}: exit {code}\n{out[-500:]}")
+    failures += repo_failures(root, feature, timeout)
     acs, rows = acceptance(root, feature)
     later = {} if whole else later_parts(root, feature)
     skipped = [ac for ac in acs if ac in later]
@@ -398,7 +470,7 @@ def full(root, feature, timeout=1800, whole=False):
     rec["last"] = {"at": vf.now(), "tree": vf.worktree_tree(root), "head": vf.git_head(root),
                    "result": "fail" if failures else "pass", "seconds": round(time.time() - started, 1),
                    "failures": failures, "manual": manual, "drift": drifted or [], "skipped": skipped,
-                   "trace": traced}
+                   "trace": traced, "repos": repo_trees(root, feature)}
     save_record(root, rec, ("full", None))
     return rec["last"], notes
 
@@ -788,6 +860,10 @@ def status(root, feature):
         reason = "code changed since verify"  # docs and the record (change.md, a lesson) don't count; unknown does
     else:
         reason = ""
+    if not reason:  # a workbench: each branched repo's tree as the run saw it (a missing tree is a change)
+        ran = last.get("repos") or {}
+        moved = [n for n, t in repo_trees(root, feature).items() if not t or ran.get(n) != t]
+        reason = f"code changed in {', '.join(moved)} since verify" if moved else ""
     # The current tree and HEAD: what `state.py verified` records and Ship checks against (the core's "Verified tree")
     return {"reuse": not reason, "reason": reason, "manual": last.get("manual", []), "drift": last.get("drift", []),
             "trace": last.get("trace", []), "red": sorted(rec.get("red") or {}), "tree": current, "head": vf.git_head(root)}

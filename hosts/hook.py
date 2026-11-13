@@ -8,8 +8,11 @@ Turns the host's payload into Claude Code's, runs the hook scripts Claude Code r
 processes, and turns their output back into the host's:
   - PreToolUse         hooks/pretooluse.py (hookify), hooks/review_rounds.py   a deny from any of them denies the call
   - PostToolUse(Failure) hooks/verify_freshness.py                      edits make Stage 3 results stale, full runs fresh
+  - PreToolUse, PostToolUse(Failure), Stop: hooks/read_only_watch.py      a change in a workbench's read-only repo is
+                       said (its first look before the first call)
   - UserPromptSubmit   hooks/userpromptsubmit.py, hooks/trust_anchor.py, hooks/review_rounds.py
-  - Stop               hooks/stop.py, hooks/verify_freshness.py, hooks/trust_anchor.py   a block from any keeps the agent going
+  - Stop               hooks/stop.py, hooks/verify_freshness.py, hooks/trust_anchor.py, hooks/read_only_watch.py
+                       a block from any keeps the agent going
 Left out: the security review and the Ralph loop (bash launchers and model calls), the role guard (no host names the
 plugin's agents on tool calls), the model router (subagent dispatches carry no model) and the prove budget (no host's
 command payload has been checked for a timeout or background flag to change).
@@ -34,11 +37,11 @@ import time
 
 PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPTS = {
-    "PreToolUse": ["pretooluse.py", "review_rounds.py"],
-    "PostToolUse": ["verify_freshness.py"],
-    "PostToolUseFailure": ["verify_freshness.py"],
-    "UserPromptSubmit": ["userpromptsubmit.py", "trust_anchor.py", "review_rounds.py"],
-    "Stop": ["stop.py", "verify_freshness.py", "trust_anchor.py"],
+    "PreToolUse": ["pretooluse.py", "review_rounds.py", "read_only_watch.py"],
+    "PostToolUse": ["verify_freshness.py", "read_only_watch.py"],
+    "PostToolUseFailure": ["verify_freshness.py", "read_only_watch.py"],
+    "UserPromptSubmit": ["userpromptsubmit.py", "trust_anchor.py", "review_rounds.py", "read_only_watch.py"],
+    "Stop": ["stop.py", "verify_freshness.py", "trust_anchor.py", "read_only_watch.py"],
 }
 CHILD_TIMEOUT = 10  # each script's own timeout in hooks/hooks.json
 DEADLINE = 45  # all of them, under the 60 s hosts.py gives the host

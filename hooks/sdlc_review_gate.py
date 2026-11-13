@@ -79,6 +79,45 @@ def _active_feature(root, shas=()):
     return found[0] if len(found) == 1 else None
 
 
+def _workbench_feature(repo_root):
+    """(member, text) for a repo cloned in a workbench. member: the folder above it is a workbench (a broken workbench
+    config counts) whose workbench.json lists it, whatever the repo's own config says; text: the state of the one
+    workbench feature that owns its commits (active, or done with this repo branched and its PR not recorded yet:
+    Ship sets `Status: done` before the app repos commit), "" when unsure (several, or a manifest it can't read),
+    None when none does. Not a member: (False, None)."""
+    import sdlc_scopes  # noqa: PLC0415
+    repo = os.path.abspath(repo_root)
+    wb, name = os.path.dirname(repo), os.path.basename(repo)
+    if not sdlc_scopes.guarded_workbench(wb):
+        return False, None
+    try:
+        listed = {r["name"] for r in sdlc_scopes.manifest(wb)}
+    except ValueError:
+        listed = None
+    if listed is not None and name not in listed:
+        return False, None
+    owners = []
+    for f in sdlc_layout.features(wb).values():
+        try:
+            with open(os.path.join(wb, f["state"]), encoding="utf-8") as fh:
+                text = fh.read()
+        except OSError:
+            continue
+        if not sdlc_layout.PROCESS_RE.search(text):
+            continue
+        active = re.search(r"^Status:[ \t]*active[ \t]*(\(|$)", text, re.M | re.I)
+        shipping = (re.search(r"^Status:[ \t]*done", text, re.M | re.I) and name in sdlc_scopes.feature_repos(text)
+                    and name not in sdlc_scopes.feature_prs(text))
+        if active or shipping:
+            owners.append(text)
+    if listed is None:
+        return True, ""
+    mine = [t for t in owners if name in sdlc_scopes.feature_repos(t)]
+    if len(mine) == 1:
+        return True, mine[0]
+    return True, ("" if mine or len(owners) > 1 else (owners[0] if owners else None))
+
+
 def _always():
     return os.environ.get("SDLC_SECURITY_REVIEW", "").strip().lower() == "always"
 
@@ -208,6 +247,17 @@ def decide(repo_root, shas, reviewed):
     gate applied, so an amend is reviewed whole, never as a delta. Never raises."""
     given = {"defer": False, "shas": list(shas), "own": list(shas), "range": None, "active": False}
     try:
+        member, owner = _workbench_feature(repo_root)
+        if member:  # a workbench's repo: its own state and config never decide (the agent can write them)
+            if owner is None and not _always():
+                return {"defer": True, "off": True, "shas": [], "own": [], "range": None, "active": False}
+            # An app repo's commit, for the workbench's feature: never deferred (the app repo has no stage of its
+            # own); judged by the feature's Risk and the app's own security areas, and reviewed when unsure
+            full = [_git(repo_root, "rev-parse", "--verify", "-q", s) or s for s in shas]
+            if owner and not _touches_guarded_paths(repo_root, full, NEVER_SKIP) \
+                    and not _security_touched(repo_root, owner, None, None, full):
+                return {"defer": False, "skip": True, "shas": full, "own": full, "range": None, "active": True}
+            return {"defer": False, "shas": full, "own": full, "range": None, "active": True}
         if not _always() and not _active_features(repo_root, shas):
             return {"defer": True, "off": True, "shas": [], "own": [], "range": None, "active": False}
         text = _active_feature(repo_root, shas)

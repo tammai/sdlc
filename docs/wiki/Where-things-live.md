@@ -30,6 +30,8 @@ knowledge/                 tier 3, on-demand docs (index.md links everything)
 CLAUDE.md                  tier 1, at most 60 lines (never touched by the plugin)
 ```
 
+**A workbench** (two or more apps, [ADR 0025](../adr/0025-workbench-for-multi-app-projects.md)) has the same files plus `workbench.json` at its root (the repos cloned inside it: folder, URL, role, owner, `write`, contract role), `contract/v<N>/openapi.yaml`, and one folder per cloned repo, each gitignored. An app repo has its own `.sdlc/config.json` (commands, `"workbench": "<name>"`), lock, CI and guardrails, and no feature records: those stay in the workbench.
+
 Each feature is named `<yyyy-mm-dd>-<s|m|l>-<slug>`, or `<yyyy-mm-dd>-<s|m|l>-<ticket>-<slug>` with a ticket (e.g. `2026-10-22-m-PROJ-123-month-filter`). The letter is the track it started on; a later size-up doesn't rename it. The branch uses the same name. Commit the state file, the change file `docs/sdlc/changes/<feature>.md` and the working files in `.sdlc/state/<feature>/` (`release.md` only if you want it).
 
 ## `state.md`
@@ -65,6 +67,8 @@ Current: Stage 1 – Define   (then Stage 2 – Build, Stage 3 – Review, Stage
 ## Criteria            (spec-backed: each cited criterion's lock hash, state.py cite)
 ## Test lock           (spec-backed: each test file's sha256 at its red run, verify.py red)
 ## Spec questions      (spec-backed: open questions on cited criteria, state.py question)
+## Repos               (workbench: `<repo>: branch <b> base <commit>` or `<repo>: read <commit>`, state.py repo)
+## PRs                 (workbench: `<repo>: <url>`, state.py pr; ship.py --status reads it)
 ## Open questions
 ```
 

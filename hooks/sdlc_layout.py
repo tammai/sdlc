@@ -41,15 +41,21 @@ SHELL_TOOLS = {"Bash", "PowerShell"}
 
 
 def target_repo(project_dir, tool_name, tool_input, cwd):
-    """The sdlc repo a tool call acts in when the session started in a folder above it (a workbench holding several
-    repos or worktrees), else None. None whenever project_dir has its own .sdlc/, so a session started in a repo
-    behaves exactly as before; only a repo strictly inside project_dir counts. Any error: None."""
+    """The sdlc repo a tool call acts in when the session started in a folder above it (a folder holding several
+    repos or worktrees, or an sdlc workbench: `"workbench": true` and workbench.json), else None. None whenever
+    project_dir has its own .sdlc/ and isn't a workbench, so a session started in a repo behaves exactly as before;
+    only a repo strictly inside project_dir counts. Any error: None."""
     try:
+        if not project_dir and isinstance(cwd, str) and os.path.isabs(cwd):
+            import sdlc_scopes  # hosts without CLAUDE_PROJECT_DIR (Codex): the workbench above the call's folder
+            project_dir = sdlc_scopes.workbench_root(cwd)
         if not project_dir:
             return None
         project = os.path.abspath(project_dir)
         if os.path.lexists(os.path.join(project, SDLC)):
-            return None
+            import sdlc_scopes  # lazy: only a root with .sdlc/ needs the workbench check
+            if not sdlc_scopes.is_workbench(project):
+                return None
         tool_input = tool_input if isinstance(tool_input, dict) else {}
         base = os.path.join(project, cwd) if isinstance(cwd, str) and cwd else project
         if tool_name in FILE_TOOLS:

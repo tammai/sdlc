@@ -57,13 +57,9 @@ def latest_round(root, name):
 
 def runs_tests(root, command):
     """verify.py or the project's test command alone (Ship's call isn't one: it commits)."""
-    try:
-        with open(os.path.join(root, ".sdlc", "config.json"), encoding="utf-8") as f:
-            config = json.load(f)
-    except (OSError, ValueError):
-        config = {}
-    sets = [config.get("commands")] + [p.get("commands") for p in config.get("packages") or [] if isinstance(p, dict)]
-    tests = [s["test"].strip() for s in sets if isinstance(s, dict) and isinstance(s.get("test"), str) and s["test"].strip()]
+    import sdlc_scopes
+    tests = [s["test"].strip() for s in sdlc_scopes.command_sets(root)
+             if isinstance(s.get("test"), str) and s["test"].strip()]
     parts = [(step.strip(), sep) for step, sep in pb.split_top_level(command) or []]
     return pb.is_plugin_verify(command) or bool(tests) and not pb.is_ship_call(parts) and pb.is_project_command(command, tests)
 
