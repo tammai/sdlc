@@ -16,6 +16,8 @@ Usage: python3 state.py [--root DIR] advance FEATURE STAGE [--gate pass|fail] [-
                                      slice FEATURE start|done|block B<n> [REASON]   (done: before the part's commit)
                                      blocker FEATURE raise|resolve TEXT
                                      set FEATURE FIELD VALUE
+                                     repo FEATURE NAME  (workbench: branch a writable repo from its default branch,
+                                         or record a read-only repo's commit, under ## Repos; refused when dirty)
                                      sync FEATURE
                                      new FEATURE --track S|M|L --risk low|high --task "<title> | <ACs> | <files>" ...
                                          [--criteria ID ...]   (the slice's criteria from a spec lock: Slice criteria:)
@@ -485,6 +487,8 @@ def apply(a, text, backlog_raw):
         if not found:
             raise Refused(f"no open question reads: {a.text}")
         return text, None, {"type": "blocker_resolved", "text": a.text}
+    if a.cmd == "repo":
+        return record_repo(a.root, a.name, text)
     if a.cmd == "set":
         if a.field not in FIELDS:
             raise Refused(f"set takes one of: {', '.join(FIELDS)}")
@@ -493,6 +497,76 @@ def apply(a, text, backlog_raw):
             return text, None, {"type": "feature_done"}
         return text, None, {"type": "field_set", "field": a.field, "value": a.value}
     return text, None, None  # sync
+
+
+def git_run(cwd, *args):
+    """(exit code, stdout, stderr) of one git command in cwd."""
+    try:
+        p = subprocess.run(["git", "-C", cwd, *args], capture_output=True, encoding="utf-8", errors="replace")
+    except OSError as e:
+        return 1, "", str(e)
+    return p.returncode, p.stdout.strip(), p.stderr.strip()
+
+
+def default_branch(repo):
+    """The ref a feature branch starts from in a repo: its default branch (origin/HEAD's name, else main or master),
+    local when it exists, else origin's; else None."""
+    code, out, _ = git_run(repo, "symbolic-ref", "--short", "refs/remotes/origin/HEAD")
+    names = [out.split("/", 1)[1]] if code == 0 and "/" in out else []
+    for name in names + ["main", "master"]:
+        for ref in (f"refs/heads/{name}", f"refs/remotes/origin/{name}"):
+            if git_run(repo, "rev-parse", "--verify", "-q", ref + "^{commit}")[0] == 0:
+                return ref
+    return None
+
+
+def record_repo(root, name, text):
+    """`repo`: in a workbench, the first time Build touches a repo. A writable one gets the feature branch (the
+    workbench's current branch name) from its default branch, and `## Repos` records branch and base; a read-only one
+    records the commit read. Already recorded: unchanged. A dirty writable repo is refused, naming it."""
+    import sdlc_scopes  # noqa: PLC0415
+    if not sdlc_scopes.is_workbench(root):
+        raise Refused("repo works in a workbench only (.sdlc/config.json `\"workbench\": true` and workbench.json)")
+    try:
+        sdlc_scopes.check_name(name)
+        entry = next((r for r in sdlc_scopes.manifest(root) if r["name"] == name), None)
+    except ValueError as e:
+        raise Refused(str(e))
+    if not entry:
+        raise Refused(f"{name} isn't listed in workbench.json (scaffold.py workbench add)")
+    if name in sdlc_scopes.feature_repos(text):
+        return text, None, {"type": "repo_recorded", "repo": name, "already": True}
+    repo = os.path.join(root, name)
+    if not os.path.exists(os.path.join(repo, ".git")):
+        raise Refused(f"{name}/ isn't cloned: run scaffold.py workbench add again, or doctor")
+    if not entry["write"]:
+        code, head, err = git_run(repo, "rev-parse", "HEAD")
+        if code:
+            raise Refused(f"{name}: no commit to record ({err})")
+        line = sdlc_scopes.repo_line(name, read=head)
+        return append_to_section(text, sdlc_scopes.REPOS_HEADING, line), None, {
+            "type": "repo_recorded", "repo": name, "read": head}
+    code, dirty, err = git_run(repo, "status", "--porcelain")
+    if code:
+        raise Refused(f"{name}: git status failed ({err})")
+    if dirty:
+        raise Refused(f"{name} has uncommitted changes: commit or stash them in {name}/ before the feature branches "
+                      "there")
+    code, branch, _ = git_run(root, "rev-parse", "--abbrev-ref", "HEAD")
+    if code or not branch or branch == "HEAD":
+        raise Refused("the workbench isn't on a branch: check out the feature's branch there first")
+    start = default_branch(repo)
+    if not start:
+        raise Refused(f"{name}: no default branch found (origin/HEAD, main or master)")
+    base = git_run(repo, "rev-parse", start + "^{commit}")[1]
+    if git_run(repo, "rev-parse", "--verify", "-q", f"refs/heads/{branch}")[0] == 0:
+        raise Refused(f"{name} already has a branch {branch}: delete or rename it, or record it by hand")
+    code, _, err = git_run(repo, "checkout", "-q", "-b", branch, start)
+    if code:
+        raise Refused(f"{name}: couldn't create branch {branch} ({err})")
+    line = sdlc_scopes.repo_line(name, branch=branch, base=base)
+    return append_to_section(text, sdlc_scopes.REPOS_HEADING, line), None, {
+        "type": "repo_recorded", "repo": name, "branch": branch, "base": base}
 
 
 def contract_paths(root, feature):
@@ -776,6 +850,8 @@ def main(argv=None):
     s.add_argument("commit", nargs="?", help="done: the slice's commit; block: the reason")
     s = sub.add_parser("blocker"); s.add_argument("feature"); s.add_argument("action", choices=["raise", "resolve"])
     s.add_argument("text")
+    s = sub.add_parser("repo", help="workbench: branch a writable repo, or record a read-only one's commit")
+    s.add_argument("feature"); s.add_argument("name")
     s = sub.add_parser("set"); s.add_argument("feature"); s.add_argument("field"); s.add_argument("value")
     s = sub.add_parser("sync"); s.add_argument("feature")
     sub.add_parser("migrate")

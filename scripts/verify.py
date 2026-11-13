@@ -3,7 +3,8 @@
 change.md names for it (plan.md on a 1.x feature) (ADR 0013, 0020).
 
 Usage: verify.py [--root DIR] [--feature NAME] [--timeout S] [red AC-nnn [AC-nnn ...] | status | trace]
-  Runs the verify plan (lint, typecheck, build, test from .sdlc/config.json, per package), then, for every `AC-nnn`
+  Runs the verify plan (lint, typecheck, build, test from .sdlc/config.json, per package; in a workbench also each
+  repo the feature branched, from its own config in its folder, a failure naming the repo), then, for every `AC-nnn`
   in change.md: a row in its `## Acceptance tests` table (plan.md's on a 1.x feature), a `manual` row's reason, the
   test file, a recorded red run, and the row's Run command passing. Writes the result to .sdlc/.work/verify.json and
   exits 0 on pass, 1 on a failure, 2 when there's no feature to verify. On an old S fix with no record, the state
@@ -328,6 +329,39 @@ def drift(root, feature, later=()):
     return [{"item": i, "kind": k, "covered": covered(i, deviations)} for i, k in items]
 
 
+def repo_failures(root, feature, timeout):
+    """In a workbench: each repo the feature branched (its state's `## Repos`) runs its own verify plan, from its own
+    .sdlc/config.json, in its folder; each failure starts with the repo's name. Elsewhere: []."""
+    import sdlc_scopes  # noqa: PLC0415
+    if not sdlc_scopes.is_workbench(root):
+        return []
+    located = sdlc_layout.features(root).get(feature)
+    text = read(os.path.join(root, located["state"])) if located else None
+    failures = []
+    for name, rec in sdlc_scopes.feature_repos(text).items():
+        if not rec.get("branch"):
+            continue  # a read-only repo: read, never built here
+        repo = os.path.join(root, name)
+        try:
+            config = json.loads(read(os.path.join(repo, ".sdlc", "config.json")) or "null")
+        except ValueError:
+            config = None
+        if not isinstance(config, dict):
+            failures.append(f"{name}: no readable .sdlc/config.json (its small sdlc setup holds its commands)")
+            continue
+        try:
+            steps = scaffold.verify_plan(config)["verify"]
+        except ValueError as e:
+            failures.append(f"{name}: {e}")
+            continue
+        for step in steps:
+            code, out = run(step["run"], os.path.join(repo, step["cwd"]), timeout)
+            if code:
+                failures.append(f"{name}: {step['scope'] or scaffold.ROOT_SCOPE} {step['step']}: exit {code}\n"
+                                f"{out[-500:]}")
+    return failures
+
+
 def full(root, feature, timeout=1800, whole=False):
     """The verify plan, every AC and drift. While a backlog part is in progress, the ACs and tasks of parts not
     started yet wait (recorded as `skipped`), unless `whole` (Ship)."""
@@ -341,6 +375,7 @@ def full(root, feature, timeout=1800, whole=False):
         code, out = run(step["run"], os.path.join(root, step["cwd"]), timeout)
         if code:
             failures.append(f"{step['scope'] or scaffold.ROOT_SCOPE} {step['step']}: exit {code}\n{out[-500:]}")
+    failures += repo_failures(root, feature, timeout)
     acs, rows = acceptance(root, feature)
     later = {} if whole else later_parts(root, feature)
     skipped = [ac for ac in acs if ac in later]

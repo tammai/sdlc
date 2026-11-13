@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Diff facts for the reviewers in Review: comment share, new files, single-use exports, single-implementation
 interfaces, new dependencies and the list of changed files, for the changes since a base ref (committed +
-uncommitted + untracked). The base defaults to the active feature's `Base:` commit.
+uncommitted + untracked). The base defaults to the active feature's `Base:` commit. In a workbench, each read-only repo
+the feature recorded (`## Repos`) that has moved since is listed with its files, or as gone after a force-push.
 With --plan, new exports and dependencies are checked against the plan's "## Public Surface" list; --plan can repeat
 (feature close: every slice's plan-B<n>.md), and then the union of their lists is what's declared.
 
@@ -18,6 +19,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "hooks"))
 import sdlc_layout  # noqa: E402  (where feature state and documents live, in either layout)
+import sdlc_scopes  # noqa: E402  (a workbench feature's `## Repos`)
 
 C_LIKE = {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts", ".vue", ".svelte",
           ".go", ".rs", ".java", ".kt", ".cs", ".swift", ".php"}
@@ -373,8 +375,16 @@ def collect(root, base, plans=()):
             flags.append(f"undeclared dependency: {name} (not in the plan's Public Surface: unrequested surface)")
         for name in surface["declared_not_built"]:
             flags.append(f"declared but not built: {name} (in the plan's Public Surface, not in the diff)")
+    read_only = moved_read_only(root, plans)
+    for m in read_only:
+        if m["gone"]:
+            flags.append(f"read-only repo {m['repo']}: the recorded commit {m['recorded'][:12]} no longer exists "
+                         f"(force-pushed?); it is now at {m['current'][:12]}")
+        else:
+            flags.append(f"read-only repo moved: {m['repo']} {m['recorded'][:12]} -> {m['current'][:12]} "
+                         f"({len(m['files'])} file(s): {', '.join(m['files'][:10])})")
     return {
-        "base": base,
+        "base": base, "read_only": read_only,
         "totals": {"source_files": len(src), "test_files": len(files) - len(src), "new_files": len(new_files),
                    "added_code": code_total, "added_comments": comment_total,
                    "comment_ratio": round(comment_total / (code_total + comment_total), 2)
@@ -384,6 +394,35 @@ def collect(root, base, plans=()):
     }
 
 
+def moved_read_only(root, plans):
+    """In a workbench: each read-only repo the feature recorded (`## Repos`, `<name>: read <commit>`) that has moved
+    since: [{repo, recorded, current, files, gone}], `gone` when the recorded commit no longer exists. The state file
+    is the first --plan holding `## Repos`, else the only active feature's."""
+    if not sdlc_scopes.is_workbench(root):
+        return []
+    texts = []
+    for plan in plans:
+        try:
+            with open(plan, encoding="utf-8") as f:
+                texts.append(f.read())
+        except OSError:
+            pass
+    texts = [t for t in texts if sdlc_scopes.feature_repos(t)] or [t for _, t in sdlc_layout.active(root)][:1]
+    out = []
+    for name, rec in (sdlc_scopes.feature_repos(texts[0]) if texts else {}).items():
+        if not rec.get("read"):
+            continue
+        repo = os.path.join(root, name)
+        current = (git(repo, "rev-parse", "HEAD", check=False) or "").strip()
+        if not current or current.startswith(rec["read"]):
+            continue
+        gone = git(repo, "cat-file", "-e", rec["read"] + "^{commit}", check=False) is None
+        names = None if gone else git(repo, "diff", "-z", "--name-only", rec["read"], current, check=False)
+        out.append({"repo": name, "recorded": rec["read"], "current": current,
+                    "files": sorted(n for n in (names or "").split("\0") if n), "gone": gone})
+    return out
+
+
 def to_markdown(r):
     t = r["totals"]
     lines = [f"### Diff stats (vs `{r['base'][:12]}`)", "",
@@ -391,6 +430,12 @@ def to_markdown(r):
              f"- Added: {t['added_code']} code lines, {t['added_comments']} comment lines "
              f"({int(t['comment_ratio'] * 100)}% comments)",
              f"- Changed files ({len(r['changed_files'])}): " + (", ".join(r["changed_files"]) or "none"), ""]
+    for m in r.get("read_only") or []:
+        lines.append(f"- Read-only repo {m['repo']}: recorded `{m['recorded'][:12]}`, now `{m['current'][:12]}`: "
+                     + ("the recorded commit no longer exists" if m["gone"]
+                        else ", ".join(m["files"]) or "no file changes"))
+    if r.get("read_only"):
+        lines.append("")
     if r["flags"]:
         lines += ["**Flags** (facts to check, not verdicts):", ""] + [f"- {f}" for f in r["flags"]]
     else:

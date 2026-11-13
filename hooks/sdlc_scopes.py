@@ -177,6 +177,36 @@ def workbench_scopes(root):
     return out
 
 
+REPOS_HEADING = "Repos"
+
+
+def repo_line(name, branch=None, base=None, read=None):
+    """One `## Repos` line of a workbench feature's state file: a writable repo's branch and base, or the commit of
+    a read-only repo it read."""
+    return f"{name}: branch {branch} base {base}" if branch else f"{name}: read {read}"
+
+
+def feature_repos(state_text):
+    """{name: {"branch", "base"} | {"read"}} from a state file's `## Repos` section; a line that doesn't parse, or
+    names something that isn't a plain folder name, is skipped (the file is committed: never a path from it)."""
+    import re
+    out, inside = {}, False
+    for line in str(state_text or "").replace("\r\n", "\n").split("\n"):
+        if line.startswith("## "):
+            inside = line[3:].strip() == REPOS_HEADING
+            continue
+        m = inside and re.match(r"^-\s+([^:\s]+):\s+(?:branch\s+(\S+)\s+base\s+([0-9a-f]{7,40})|read\s+([0-9a-f]{7,40}))"
+                                r"\s*$", line)
+        if not m:
+            continue
+        try:
+            name = check_name(m.group(1))
+        except ValueError:
+            continue
+        out[name] = {"branch": m.group(2), "base": m.group(3)} if m.group(2) else {"read": m.group(4)}
+    return out
+
+
 def root_commands(config):
     """The root `commands` beside `packages` (workspace-wide), else {}: without packages they are the root scope's."""
     cfg = _dict(config)

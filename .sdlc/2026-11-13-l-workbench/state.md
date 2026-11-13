@@ -10,8 +10,8 @@ Started: 2026-11-13
 Base: 58acb2e
 Owner: 3235400+tammai@users.noreply.github.com
 Tool: claude-code
-Verified: 96a939c tree 6739fccd96deefa5f1596d72f17c2acdfa2cbd9a
-Slice: B3   Slice base: 96a939c   Slice gates: none
+Verified: ed21d7b tree 3cee26dc58ff6bf5f6e712cc42715edb01b867a6
+Slice: B4   Slice base: ed21d7b   Slice gates: none
 Current: Stage 2 – Build
 
 ## Stages
@@ -58,6 +58,7 @@ parts in fresh sessions, because seven parts across the core won't fit one conte
 - 2026-11-13 tests: per part, only the affected test modules on Python 3.10; the full suite once before Review (user's choice)
 - 2026-11-13 handoff B2: hooks/sdlc_scopes.py has is_workbench/manifest/workbench_scopes (WORKBENCH_SCOPE '(workbench)'); B3 routes guards via them; scaffold.scopes() doesn't yet return workbench scopes (B4 wires verify/freshness)
 - 2026-11-13 handoff B3: sdlc_layout.target_repo routes from a workbench root; role_guard.read_only_problem (via pretooluse) guards write:false repos; sdlc_scopes.workbench_of marks an app repo and state.py new refuses there. B4 next: per-repo branch/base in state.py, verify per touched repo, freshness per app scope (scaffold.scopes still doesn't return workbench scopes)
+- 2026-11-13 handoff B4: state.py repo <f> <name> branches a writable repo (workbench branch name, from its default branch) or records a read-only commit under ## Repos (sdlc_scopes.feature_repos parses it); verify.repo_failures runs each branched repo's plan; freshness scopes per repo (scope_dir). Gap for B5: verify.py's recorded tree and HEAD are the workbench's only (app repos are gitignored), so ship must check and commit each branched repo itself
 
 ## Deviations
 - 2026-11-13 setup What: went on with setup none (no .sdlc/config.json). Why: the plugin's own repo has always run sdlc without setup (e.g. 2026-11-08-l-spec-backed-mode). Effect: verify.py runs the AC tests; the full suite is run by hand with python3.10 -m unittest discover -s tests -t tests.
@@ -71,6 +72,11 @@ parts in fresh sessions, because seven parts across the core won't fit one conte
 - 2026-11-13 B3 docs/specs/06-guardrails-and-conventions.md, docs/specs/03-scope-and-review.md, docs/wiki/Hooks.md What: GRD-FR-016 and SCO-FR-026 route from a workbench too; new GRD-FR-033 for the read-only guard; the wiki's hookify and role-guard rows say both. Why: they restated the routing rule B3 changed (AC-007, AC-008). Effect: docs only.
 - 2026-11-13 B3 hooks/sdlc_scopes.py workbench_of; role_guard.written, read_only_problem, hits/shell_write folders mode What: internal helpers behind AC-008 and AC-009; sdlc_scopes.py is the one file B3 adds to its plan. Why: state.py and the guard read an app repo's back-reference and the manifest through the shared parser. Effect: internal API only.
 - 2026-11-13 B3 hooks/role_guard.py bundle_problem What: its tool dispatch moved into written(), which read_only_problem shares; behaviour unchanged. Why: one write check for recorded tests and read-only repos (AC-008). Effect: internal only; test_recorded_tests passes unchanged.
+- 2026-11-13 B4 hooks/sdlc_scopes.py repo_line, feature_repos, REPOS_HEADING What: the state file's new ## Repos section (<name>: branch <b> base <sha> | <name>: read <sha>), parsed once for state.py, verify.py, the freshness hook and diff_stats.py. Why: AC-010–012 all read which repos a feature touched. Effect: an optional state section; no Process bump (no existing field changes meaning).
+- 2026-11-13 B4 command state.py repo What: the per-repo branch step is a state.py subcommand, repo FEATURE NAME, which also records a read-only repo's commit. Why: AC-010 and AC-012 each need a call that records the repo; one command covers both. Effect: a new state.py subcommand (CTL-FR-009).
+- 2026-11-13 B4 docs/specs/04-verification.md, docs/specs/03-scope-and-review.md, docs/specs/12-control-contract.md What: VER-FR-055, SCO-FR-031, CTL-FR-009. Why: the specs list each enforced behaviour with its test. Effect: docs only.
+- 2026-11-13 B4 verify.repo_failures, verify_freshness.feature_state, initial_workbench_state, scope_dir, diff_stats.moved_read_only, state.git_run, default_branch, record_repo What: internal helpers behind AC-010–012. Why: per-repo verify, freshness and moved-repo facts. Effect: internal only.
+- 2026-11-13 B4 hooks/verify_freshness.py feature_base What: reads the state through the new feature_state(); same result. Why: initial_workbench_state reads ## Repos from the same text. Effect: internal only.
 
 ## Open questions
 -

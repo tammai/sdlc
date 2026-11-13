@@ -328,5 +328,163 @@ class WorkbenchGuards(WorkbenchTestCase):
         self.assertEqual(code, 0, out)
 
 
+def git_out(cwd, *args):
+    import subprocess
+    return subprocess.run(["git", *args], cwd=cwd, capture_output=True, encoding="utf-8",
+                          errors="replace").stdout.strip()
+
+
+CHECK = "import os, sys; sys.exit(1 if os.path.exists('broken') else 0)\n"
+
+
+class WorkbenchFeature(WorkbenchTestCase):
+    """A workbench on branch feat-x with a feature `feat`; api/ and web/ are writable app repos on main, specs/ a
+    read-only repo."""
+
+    def setUp(self):
+        super().setUp()
+        self.write_json("workbench.json", {"repos": [
+            {"name": "api", "url": "u1", "role": "app", "write": True},
+            {"name": "web", "url": "u2", "role": "app", "write": True},
+            {"name": "specs", "url": "u3", "role": "specs"},
+        ]})
+        self.write(".gitignore", "/api/\n/web/\n/specs/\n")
+        git(self.root, "add", "-A")
+        git(self.root, "commit", "-q", "-m", "workbench")
+        git(self.root, "checkout", "-q", "-b", "feat-x")
+        for name in ("api", "web", "specs"):
+            d = self.path(name)
+            git(self.root, "init", "-q", "-b", "main", name)
+            if name != "specs":
+                self.write_json(f"{name}/.sdlc/config.json",
+                                {"workbench": "shop-workbench", "commands": {"test": "python3 check.py"}})
+                self.write(f"{name}/check.py", CHECK)
+                self.write(f"{name}/.gitignore", ".sdlc/.work/\n")
+            self.write(f"{name}/README.md", name)
+            git(d, "add", "-A")
+            git(d, "commit", "-q", "-m", "init")
+        code, out = self.state("new", "feat", "--track", "M", "--risk", "low", "--task", "x | AC-001 | api/a.py")
+        self.assertEqual(code, 0, out)
+
+    def state(self, *args):
+        import subprocess
+        p = subprocess.run([sys.executable, os.path.join(PLUGIN_ROOT, "scripts", "state.py"), "--root", self.root,
+                            *args], capture_output=True, encoding="utf-8", errors="replace")
+        return p.returncode, p.stdout
+
+    def state_text(self):
+        with open(self.path(".sdlc/feat/state.md"), encoding="utf-8") as f:
+            return f.read()
+
+    def test_build_branches_and_verifies_each_touched_repo(self):
+        import sdlc_scopes
+        import verify
+        api_main = git_out(self.path("api"), "rev-parse", "HEAD")
+        code, out = self.state("repo", "feat", "api")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(git_out(self.path("api"), "rev-parse", "--abbrev-ref", "HEAD"), "feat-x")
+        self.assertEqual(sdlc_scopes.feature_repos(self.state_text())["api"],
+                         {"branch": "feat-x", "base": api_main})
+        # Again: already recorded, nothing changes
+        before = self.state_text()
+        self.assertEqual(self.state("repo", "feat", "api")[0], 0)
+        self.assertEqual(self.state_text(), before)
+        # A dirty repo is refused, naming it; no branch, nothing recorded
+        self.write("web/wip.txt", "x")
+        code, out = self.state("repo", "feat", "web")
+        self.assertEqual(code, 1, out)
+        self.assertIn("web", json.loads(out)["error"])
+        self.assertIn("uncommitted", json.loads(out)["error"])
+        self.assertEqual(git_out(self.path("web"), "rev-parse", "--abbrev-ref", "HEAD"), "main")
+        self.assertNotIn("web", sdlc_scopes.feature_repos(self.state_text()))
+        # A read-only repo records the commit read; an unlisted name or a bad one is refused
+        code, out = self.state("repo", "feat", "specs")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(sdlc_scopes.feature_repos(self.state_text())["specs"],
+                         {"read": git_out(self.path("specs"), "rev-parse", "HEAD")})
+        for bad in ("nope", "../x", ".sdlc"):
+            self.assertEqual(self.state("repo", "feat", bad)[0], 1, bad)
+        # verify runs each touched repo's plan in its folder; a failure names the repo
+        self.assertEqual(verify.repo_failures(self.root, "feat", 60), [])
+        self.write("api/broken", "")
+        failures = verify.repo_failures(self.root, "feat", 60)
+        self.assertEqual(len(failures), 1, failures)
+        self.assertTrue(failures[0].startswith("api: "), failures)
+
+    def hook(self, event, tool=None, cwd=None, **tool_input):
+        from helpers import run_hook
+        payload = {"hook_event_name": event, "cwd": cwd or self.root}
+        if tool:
+            payload.update(tool_name=tool, tool_input=tool_input, tool_response={})
+        code, out, raw, err = run_hook(["python3", os.path.join(HOOKS, "verify_freshness.py")], payload, self.root)
+        self.assertEqual(code, 0, err)
+        self.assertFalse(os.path.exists(self.path(".sdlc/.work/verify-freshness.error")),
+                         open(self.path(".sdlc/.work/verify-freshness.error")).read()
+                         if os.path.exists(self.path(".sdlc/.work/verify-freshness.error")) else "")
+        return out
+
+    def scopes(self):
+        with open(self.path(".sdlc/.work/verify-freshness.json"), encoding="utf-8") as f:
+            return json.load(f)["scopes"]
+
+    def test_freshness_is_per_app_repo(self):
+        for name in ("api", "web"):
+            self.assertEqual(self.state("repo", "feat", name)[0], 0)
+            self.write(f"{name}/a.py", "x = 1\n")
+        self.assertEqual(self.state("advance", "feat", "3")[0], 0)
+        self.hook("PostToolUse", "Edit", file_path=self.path("api/a.py"))
+        st = self.scopes()
+        self.assertTrue(st["api"]["stale"])
+        self.assertIn("api/a.py", st["api"]["reason"])
+        self.assertNotIn("api/a.py", st["web"].get("reason", ""))
+        # A full test run in api/ makes only api fresh
+        self.hook("PostToolUse", "Bash", command="cd api && python3 check.py")
+        st = self.scopes()
+        self.assertFalse(st["api"]["stale"])
+        self.assertTrue(st["web"]["stale"])
+        out = self.hook("Stop")
+        self.assertIn("web:", out["reason"])
+        self.assertNotIn("api:", out["reason"])
+        # A change in api/ that no edit tool made is seen at the next stop, in api only
+        self.write("api/a.py", "x = 2\n")
+        out = self.hook("Stop")
+        self.assertIn("api: api/a.py", out["reason"])
+        # web's own run clears web, from its folder only
+        self.hook("PostToolUse", "Bash", command="python3 check.py", cwd=self.path("web"))
+        self.assertFalse(self.scopes()["web"]["stale"])
+
+    def test_moved_read_only_repo_is_reported(self):
+        import subprocess
+        specs = self.path("specs")
+        self.write("specs/b.md", "b")
+        git(specs, "add", "-A")
+        git(specs, "commit", "-q", "-m", "b")
+        recorded = git_out(specs, "rev-parse", "HEAD")
+        self.assertEqual(self.state("repo", "feat", "specs")[0], 0)
+
+        def stats():
+            p = subprocess.run([sys.executable, os.path.join(PLUGIN_ROOT, "scripts", "diff_stats.py"), "--root",
+                                self.root, "--plan", self.path(".sdlc/feat/state.md")], capture_output=True,
+                               encoding="utf-8", errors="replace")
+            self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+            return json.loads(p.stdout)
+        self.assertEqual(stats()["read_only"], [])
+        self.write("specs/c.md", "c")
+        git(specs, "add", "-A")
+        git(specs, "commit", "-q", "-m", "c")
+        current = git_out(specs, "rev-parse", "HEAD")
+        r = stats()
+        self.assertEqual(r["read_only"], [{"repo": "specs", "recorded": recorded, "current": current,
+                                           "files": ["c.md"], "gone": False}])
+        self.assertTrue(any("specs" in f and "moved" in f for f in r["flags"]), r["flags"])
+        # Force-pushed: the recorded commit is gone
+        git(specs, "reset", "-q", "--hard", "HEAD~2")
+        git(specs, "reflog", "expire", "--expire=now", "--all")
+        git(specs, "gc", "-q", "--prune=now")
+        [moved] = stats()["read_only"]
+        self.assertTrue(moved["gone"], moved)
+        self.assertTrue(any("no longer exists" in f for f in stats()["flags"]))
+
+
 if __name__ == "__main__":
     unittest.main()
