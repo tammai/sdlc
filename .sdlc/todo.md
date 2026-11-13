@@ -13,6 +13,10 @@
 - [ ] H3: the committed lock file's `template` field is trusted (absolute or `../` paths copy any local file into the repo on upgrade); allow only `builtin:*` or a path under templates/ with realpath inside the plugin, generated destinations limited to shipped files — whole-plugin review (2026-11-13)
 - [ ] The Stop security review can't see uncommitted changes in a workbench's gitignored app repos (app-repo commits are reviewed at commit time since the workbench fix); make the Stop review take branched repos' diffs — whole-plugin review H4 remainder (2026-11-13)
 - [ ] Whole-plugin review mediums and lows outside the workbench, M1–M21 and L1–L11 (lazy-fetch in reporesolve's nested-repo scan, red records not pinning the Run command, bold backlog IDs in state.py, PowerShell commits unreviewed, ReDoS in security patterns and area globs, sg-python cache, doctor on object `packages`, Cursor's bare python3, hookify-list globs, find-polluter.sh, doc contradictions): the list and repro folders are in session sdlc-f2's report — whole-plugin review (2026-11-13)
+- [ ] Workbench control files the agent can edit: setting `"write": true` or removing an entry in `workbench.json`, or `"workbench": false` in the workbench config, turns the read-only guard, the watch and the app commit review off; guard or watch those files (security-r7 SR7-M3) (2026-11-13)
+- [ ] A fake `state.py pr <feature> <repo> <url>` during Ship turns an app repo's commit review off (only the URL's shape is checked); a done feature whose PR is never recorded owns that repo's commits forever (security-r7 SR7-M4, SR7-L2) (2026-11-13)
+- [ ] The read-only watch's accept and baseline are protected by a text check only: a deliberate agent can still feed the hook a fake event, import it, or remove both files under another spelling; forged `refs/remotes` make a local commit look pushed; the trust anchor doesn't watch app repos' commands (security-r7 SR7-M1/M2, code-reviewer-r4 M-5/M-7) (2026-11-13)
+- [ ] The guard denies reads that merely name the watch's files (`grep read-only-seeded`, a commit message): narrow it to writes and runs (security-r7 SR7-L4) (2026-11-13)
 
 ## Done
 

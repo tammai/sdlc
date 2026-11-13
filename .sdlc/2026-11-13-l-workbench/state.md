@@ -1,5 +1,5 @@
 # 2026-11-13-l-workbench
-Status: active
+Status: done
 Process: 3
 Change: .sdlc/2026-11-13-l-workbench/change.md   (this feature's record for people)
 Track: L   (sized up because: several distinct parts across setup, hooks, verify, ship and CI; footprint: 30 files)
@@ -10,9 +10,9 @@ Started: 2026-11-13
 Base: 58acb2e
 Owner: 3235400+tammai@users.noreply.github.com
 Tool: claude-code
-Verified: 423e930 tree d66908af960ce6c2c100ca0722107ec2dc803638
+Verified: e5cd7d0 tree 0d5c53c3a8dc8f99acab2623bab8586fa5e51979
 Slice: B8   Slice base: 9388559   Slice gates: none
-Current: Stage 2 – Build
+Current: Stage 4 – Ship
 
 ## Stages
 - [x] 1 Define   — the change file, the plan sections below
@@ -76,6 +76,9 @@ parts in fresh sessions, because seven parts across the core won't fit one conte
 - 2026-11-13 Stage 3: pass
 - 2026-11-13 Stage 4: fail — reopened: whole-plugin review (session sdlc-f2) found H4-H6, W1-W10 in the workbench; user chose to fix on this branch
 - 2026-11-13 scope: whole-plugin review findings H4-H6 and W1-W10 fixed on this branch (user's choice); H1-H3 and older mediums go to .sdlc/todo.md
+- 2026-11-13 closing check after the whole-plugin fixes: code-reviewer-r5 PASS, security-r7 FAIL (SR7-H1); user chose to fix and close with the suite and verify (Review cap)
+- 2026-11-13 Stage 2: pass — closing checks after the whole-plugin fixes: code r4-r5, security r6-r7
+- 2026-11-13 Stage 3: pass
 
 ## Deviations
 - 2026-11-13 setup What: went on with setup none (no .sdlc/config.json). Why: the plugin's own repo has always run sdlc without setup (e.g. 2026-11-08-l-spec-backed-mode). Effect: verify.py runs the AC tests; the full suite is run by hand with python3.10 -m unittest discover -s tests -t tests.
@@ -126,6 +129,8 @@ parts in fresh sessions, because seven parts across the core won't fit one conte
 - 2026-11-13 hooks/role_guard.py shell_write backslash, tests/test_workbench.py rmtree What: a backslash before a path character counts as a separator in Bash too (Windows paths reach Git Bash); tests remove git repos with a helper that clears read-only object files. Why: CI on windows-latest: git -C C:\...\specs commit got past the read-only guard after round 3's lexer read it as escapes, and shutil.rmtree can't delete .git objects there. Effect: the guard fails closed on Windows paths; test-only helper.
 - 2026-11-13 hooks/sdlc_review_gate.py _workbench_feature, hooks/pretooluse.py, hooks/role_guard.py bundle_problem accepts, hooks/sdlc_scopes.py command_sets, hooks/prove_budget.py project_commands, hooks/review_rounds.py runs_tests, hooks/read_only_watch.py fast_forward changes, scripts/doctor.py check_repo, scripts/ship.py verified, scripts/verify.py drift, scripts/scaffold.py _remove_tree _clone_into cmd_workbench remove, skills/orchestrator/references/s-track.md flow.md, .sdlc/todo.md What: whole-plugin review fixes: an app repo's commit is judged by the workbench's active feature (never off or deferred); Bash from the workbench root can't write any app repo's recorded tests; the S track carries the workbench steps and the gate call creates the workbench branch, read-only repos recorded at Build start; app repos' commands count in Review's budget and round cap; doctor passes a workbench; the watch records HEAD and branch refs (a pull is not a change), treats a missing baseline after a call as a difference, names its event; --accept is matched on dequoted words; the workbench baseline never waives an app failure; drift counts app files once, never their .sdlc/; a clone that can't drop its push URL is removed, and remove keeps the ignore line while the folder exists. Why: whole-plugin review (session sdlc-f2) H4-H6, W1-W10; the user chose to fix them on this branch. Effect: H1-H3, the Stop review of uncommitted app changes and the older mediums are todos.
 - 2026-11-13 hooks/read_only_watch.py data_dir baseline_path seed entry_ok, hooks/sdlc_review_gate.py _workbench_feature decide, hooks/role_guard.py shell_write _shell_write WATCH_FILES protected_paths, hooks/hooks.json, hosts/hook.py, scripts/scaffold.py _clone_into _remove_tree cmd_workbench, scripts/ship.py verified, scripts/verify.py drift, skills/orchestrator/references/flow.md s-track.md, docs/specs/06-guardrails-and-conventions.md, docs/wiki/Hooks.md, skills/setting-up-projects/references/workbench.md What: an app repo's commits are owned by the workbench feature that is active or shipping (done, repo branched, its PR not recorded), membership from the workbench's manifest, never the app's own config or state; the watch's baseline moved to the plugin's data folder with a seeded marker in the workbench, so either gone or a damaged entry is a standing difference, never re-seeded after the first look; accepting a change is the user's message 'accept read-only [repo]' (UserPromptSubmit), no command does it, and the guard denies calls naming the baseline or marker; backslash paths are checked both as separators and as escapes; an adopted read-only clone loses its push URL; add rolls back its ignore line on any clone error; remove drops only the line it wrote; drift's nested .sdlc filter applies to app repos only; the waiver hint and flow.md never offer to waive an app failure; protected paths above the repo are dropped. Why: closing check after the whole-plugin fixes (code-reviewer-r4 H-1, security-r6 SR6-H1..H3 and mediums); the user chose structural fixes. Effect: M-5/M3 forged remote refs and M-7 trust-anchor coverage of app commands stay tickets.
+- 2026-11-13 hooks/role_guard.py _dequote _lex redirect targets WATCH_FILES, hooks/read_only_watch.py baseline_path seed, scripts/scaffold.py _clone_into _workbench_clone, docs/specs/06-guardrails-and-conventions.md, .sdlc/todo.md What: redirect targets are read as whole shell words and checked both ways (escape reading dequoted); the guard denies calls naming the watch script or its data folder too; the marker names the baseline file so every host on the machine shares it; a failed clone removal keeps the push error, and clone goes on past an OSError. Why: security-r7 SR7-H1 and code-reviewer-r5 M-1..M-3, L-1; the user chose to fix them and close with the suite and verify, no further review round. Effect: the deliberate-evasion items (workbench.json edits, fake PR lines, text-check spellings, forged refs) are todos.
+- 2026-11-13 tests/test_recorded_tests.py What: escape, split-quote and quoted-segment redirect and operand cases for the recorded-test guard in a single repo. Why: security-r7 SR7-H1 applies outside a workbench too. Effect: test only.
 
 ## Open questions
 -

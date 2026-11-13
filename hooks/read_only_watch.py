@@ -9,11 +9,13 @@ role_guard denies the writes it can read in a command's text; this sees a change
                              absorbed)
   PostToolUse(Failure)       after a call that can write: a new difference is said once, naming what changed
   Stop                       any difference blocks Stop once (never a loop); never seeded yet: the first look
-  UserPromptSubmit           the user's prompt `accept read-only [REPO…]` takes the repos as they are now; no command
-                             the agent can run does that
+  UserPromptSubmit           the user's prompt `accept read-only [REPO…]` takes the repos as they are now (the guard
+                             denies a call that runs this script itself)
 
 The baseline lives outside the repo, in the plugin's data folder (CLAUDE_PLUGIN_DATA, else ~/.cache/sdlc), one file
-per workbench; a marker in the workbench (.sdlc/.work/read-only-seeded) remembers that it was seeded. Either one
+per workbench; a marker in the workbench (.sdlc/.work/read-only-seeded) remembers that it was seeded and names the
+file, so every host on the machine shares it. role_guard denies calls naming this script, those files or the data
+folder; an agent set on evading it can still spell around that text check, which the docs say. Either one
 gone while the other remains is a difference that only the user's accept clears. A repo cloned later starts from an
 empty baseline (a fresh clone has no changes). A listed repo that goes missing or can't be read, or a damaged
 baseline entry, is a difference too. Files the repo ignores are not seen. Silent outside a workbench; never blocks on
@@ -42,6 +44,15 @@ def data_dir():
 
 
 def baseline_path(root):
+    """The baseline file: the one the workbench's marker names (so every host on this machine shares it, whatever its
+    data folder), else a new one in this host's data folder."""
+    try:
+        with open(os.path.join(root, MARKER), encoding="utf-8") as f:
+            named = f.read().strip().splitlines()[-1].strip()
+        if os.path.isabs(named) and re.fullmatch(rf"{BASELINE_NAME}-[0-9a-f]{{16}}\.json", os.path.basename(named)):
+            return named
+    except (OSError, IndexError):
+        pass
     key = hashlib.sha256(os.path.normcase(os.path.realpath(root)).encode("utf-8")).hexdigest()[:16]
     return os.path.join(data_dir(), f"{BASELINE_NAME}-{key}.json")
 
@@ -158,7 +169,7 @@ def seed(root, listed, names=None):
     marker = os.path.join(root, MARKER)
     os.makedirs(os.path.dirname(marker), exist_ok=True)
     with open(marker, "w", encoding="utf-8") as f:
-        f.write("the read-only watch's baseline for this workbench lives in the plugin's data folder\n")
+        f.write(f"the read-only watch's baseline for this workbench:\n{path}\n")
     return done
 
 

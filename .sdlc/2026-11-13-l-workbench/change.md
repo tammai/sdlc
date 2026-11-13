@@ -298,6 +298,24 @@ B8 · preferred stacks
 - **Verdicts:**
   - code-reviewer: `.sdlc/.work/findings/2026-11-13-l-workbench/code-reviewer-r1.md` FAIL (H1–H6, M1–M4, L1, L2) → `-r2.md` FAIL (R2-H1, R2-H2) → `-r3.md` PASS.
   - security: `security-r1.md` FAIL (S1–S4) → `-r2.md` FAIL (S9, S10) → `-r3.md` PASS, with S16, S17 and R3-M2 raised to high by the builder (each let a write into a read-only repo through, a must-never-break line) → `-r4.md` FAIL (S20–S23) → `-r5.md` PASS.
+- **After PR #51 opened:**
+  - A whole-plugin review by another session (sdlc-f2, at the user's request) found workbench issues H4–H6 and W1–W10. The user chose to fix them on this branch, so the feature went back to Build.
+  - The closing checks that followed:
+    - `code-reviewer-r4` FAIL (H-1) → `-r5` PASS.
+    - `security-r6` FAIL (SR6-H1..H3) → structural fixes, the user's choice → `security-r7` FAIL (SR7-H1).
+    - SR7-H1 and the medium bugs were fixed test first and closed by the full suite and `verify.py`, the user's choice at `Review cap`.
+  - The fixes:
+    - An app repo's commits are reviewed for the workbench feature that is active or shipping, judged by the workbench's manifest, never the app's own config.
+    - Bash from the workbench root can't write an app repo's recorded tests.
+    - The S track has the workbench steps, and Define's gate call creates the workbench branch.
+    - App repos' commands count in Review's budget hooks, and doctor passes a workbench.
+    - The read-only watch also records refs and HEAD, with its baseline in the plugin's data folder and a marker naming it. A missing marker or baseline is a standing difference. Only the user's message `accept read-only <repo>` takes a new baseline.
+    - Backslash paths, redirect targets included, are checked both as separators and as escapes.
+    - The workbench baseline never waives an app failure. Drift counts app files once.
+    - Clone and remove never leave a repo unignored or able to push.
+  - Each fix has a test seen failing first: `PluginReviewWorkbench`, `PluginReviewGuards` and `ReadOnlyBackstop` in `tests/test_workbench.py`, and the escape cases in `tests/test_recorded_tests.py`.
+  - CI on windows-latest also caught a Windows path (`git -C C:\…\specs`) getting past the read-only guard. It is fixed with a test.
+  - Left as todos in `.sdlc/todo.md`: H1–H3 and the older mediums from that review; the Stop review not seeing uncommitted app changes; and the deliberate-evasion items (`workbench.json` edits, fake PR lines, spelling around the text check, forged remote refs).
 - **Fixed:**
   - The orchestrator never reached the per-repo machinery (H1): flow.md and review-brief.md gained the workbench steps, and a hook denies writes into an app repo no feature has branched. A read-only repo is recorded before its first read (R2-H2).
   - Untrusted manifest and state values (S1–S4, S11, S12, H6): one check per value on every path. Clone URLs are refused when they could act as an option, shell text or a `<transport>::` helper. Folders are plain names, and links (even to a sibling repo) are refused. Branch names are restricted to git-safe characters. Suggested commands are shell-quoted. PR URLs come after `--`, and a bare number is resolved in its own repo (S10).

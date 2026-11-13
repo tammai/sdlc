@@ -194,7 +194,10 @@ class TooDeep(Exception):
 MAX_NEST = 24
 TOO_DEEP = "(substitutions nested too deep to check)"
 SUB = "__sdlc_sub__"  # what a substitution leaves in its command's words
-WATCH_FILES = ("read-only-baseline", "read-only-seeded")  # hooks/read_only_watch.py's baseline and marker
+# hooks/read_only_watch.py, its baseline and marker, and its data folder: a call naming any of them is denied in a
+# workbench, so the agent can't feed the watch a fake accept or remove what it compares against (best effort: a
+# deliberate agent can still spell around a text check)
+WATCH_FILES = ("read-only-baseline", "read-only-seeded", "read_only_watch", "claude_plugin_data", ".cache/sdlc")
 
 
 def deep_reason(found):
@@ -422,13 +425,13 @@ def _lex(s, i, stop, dialect, nest):
                     continue
             while j < len(s) and s[j] in " \t":
                 j += 1
-            k = j
-            if k < len(s) and s[k] in "\"'":
-                end = s.find(s[k], k + 1)
-                k = len(s) if end < 0 else end + 1
-            else:
-                while k < len(s) and s[k] not in " \t;|&<>()\n":
-                    k += 1
+            k = j  # one shell word: quoted and bare runs joined (`"acceptance"/manifest.json`)
+            while k < len(s) and s[k] not in " \t;|&<>()\n":
+                if s[k] in "\"'":
+                    end = s.find(s[k], k + 1)
+                    k = len(s) if end < 0 else end + 1
+                else:
+                    k += 2 if s[k] == "\\" else 1
             targets.append(s[j:k])
             i = k
             continue
@@ -444,6 +447,15 @@ def _lex(s, i, stop, dialect, nest):
         i += 1
     flush()
     return events, i
+
+
+def _dequote(word):
+    """A redirect target as the shell reads it: quotes and backslash escapes removed."""
+    try:
+        parts = shlex.split(word, posix=True)
+    except ValueError:
+        return word
+    return parts[0] if len(parts) == 1 else word
 
 
 def shell_write(command, root, cwd, protected, depth=0, folders=False, dialect="sh"):
@@ -480,8 +492,9 @@ def _shell_write(command, root, cwd, protected, depth, folders, dialect, slash):
                 cwd = outer.pop()
             continue
         for t in targets:
-            if hits(root, cwd, t, protected, folders=folders):
-                return t.strip("\"'")
+            name = t if slash else _dequote(t)  # the escape reading: `manifest\\.json`, `acc''eptance`
+            if hits(root, cwd, name, protected, folders=folders):
+                return name.strip("\"'")
         # A backslash before a path character is a separator in every shell: Windows paths reach Git Bash too, and
         # reading one as an escape would hide the folder (the lexer has already taken continuations and `\'`)
         text = re.sub(r"\\(?=[\w.$~-])", "/", part) if slash else part

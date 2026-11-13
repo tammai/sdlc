@@ -1283,7 +1283,10 @@ def _clone_into(p, name, url, read_only=False):
         try:
             sdlc_scopes.disable_push(dest)
         except ValueError:
-            _remove_tree(dest)  # never left behind able to push to another team's remote
+            try:
+                _remove_tree(dest)  # never left behind able to push to another team's remote
+            except OSError:
+                pass  # the push error is the one to report
             raise
     return True
 
@@ -1324,7 +1327,7 @@ def _workbench_clone(p, target):
         _ignore(p, r["name"])
         try:
             (cloned if _clone_into(p, r["name"], r["url"], read_only=not r["write"]) else present).append(r["name"])
-        except ValueError as e:
+        except (ValueError, OSError) as e:
             failed.append({"name": r["name"], "error": str(e)})
     out = {"cloned": cloned, "already_cloned": present}
     if failed:

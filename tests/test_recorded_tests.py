@@ -309,6 +309,10 @@ class RecordedTestGuardTest(ProjectTestCase):
         self.assertEqual(self.call("Write", test), "deny")
         self.assertEqual(self.bash(f"echo x > {test}"), "deny")
         self.assertEqual(self.bash(f"echo x >| {test}"), "deny")  # the redirect that overwrites despite noclobber
+        # Shell escapes and split quotes name the same file, in a redirect as in an operand
+        for command in ("echo x > acceptance/manifest\\.json", "echo x > acc''eptance/manifest.json",
+                        "rm acceptance/manifest\\.json", "echo x > \"acceptance\"/manifest.json"):
+            self.assertEqual(self.bash(command), "deny", command)
 
     def test_another_agent_is_held_to_it_too(self):
         def codex(**fields):

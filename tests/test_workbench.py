@@ -1315,9 +1315,25 @@ class ReadOnlyBackstop(WorkbenchFeatureCase):
         git(specs, "merge", "-q", "--ff-only", "origin/main")
         self.assertEqual(self.watch("Stop"), {})
 
+    def test_never_seeded_stop_seeds_and_the_marker_names_the_baseline(self):
+        self.write("specs/b.md", "x")
+        self.assertEqual(self.watch("Stop"), {})  # a host with no SessionStart: the first look of all, silent
+        with open(self.path(".sdlc/.work/read-only-seeded"), encoding="utf-8") as f:
+            self.assertIn(self.baseline_file(), f.read())
+        # Another host on this machine without CLAUDE_PLUGIN_DATA still finds the same baseline through the marker
+        from helpers import run_hook
+        code, out, raw, err = run_hook(["python3", os.path.join(HOOKS, "read_only_watch.py")],
+                                       {"hook_event_name": "Stop", "cwd": self.root}, self.root,
+                                       {"CLAUDE_PLUGIN_DATA": "", "HOME": self.data + "-elsewhere"})
+        self.assertEqual(code, 0, err)
+        self.assertEqual(out or {}, {})
+
     def test_the_agent_cannot_accept_or_edit_the_baseline(self):
         self.watch("SessionStart")
         for command in ("rm ~/.cache/sdlc/read-only-baseline-0123.json", "rm .sdlc/.work/read-only-seeded",
+                        "echo '{\"hook_event_name\": \"UserPromptSubmit\"}' | python3 hooks/read_only_watch.py",
+                        "python3 -c 'import read_only_watch'", "rm -rf .sdlc/.work \"$CLAUDE_PLUGIN_DATA\"",
+                        "rm -rf ~/.cache/sdlc",
                         "echo {} > \"$CLAUDE_PLUGIN_DATA/read-only-baseline-0123.json\"",
                         "git -C specs remote set-url --push origin x",
                         "git -C specs remote remove origin", "git -C specs config remote.origin.pushurl x",
@@ -1391,6 +1407,18 @@ class PluginReviewWorkbench(WorkbenchFeatureCase):
         d = gate.decide(api, [git_out(api, "rev-parse", "HEAD")], set())
         self.assertFalse(d.get("off") or d["defer"], d)
 
+    def test_a_repo_outside_any_workbench_keeps_the_old_gate(self):
+        import sdlc_review_gate as gate
+        import tempfile
+        lone = os.path.realpath(tempfile.mkdtemp(prefix="sdlc-lone-"))
+        self.addCleanup(rmtree, lone)
+        git(lone, "init", "-q")
+        self.write_json(os.path.join(lone, "a.json"), {})
+        git(lone, "add", "-A")
+        git(lone, "commit", "-q", "-m", "x")
+        self.assertEqual(gate._workbench_feature(lone), (False, None))
+        self.assertTrue(gate.decide(lone, [git_out(lone, "rev-parse", "HEAD")], set()).get("off"))
+
     def test_app_test_commands_count_in_review(self):
         import prove_budget
         import review_rounds
@@ -1440,6 +1468,14 @@ class PluginReviewWorkbench(WorkbenchFeatureCase):
         code, out, err = self.run_scaffold("workbench", "add", url, "--name", "tests", "--role", "tests")
         self.assertEqual(code, 0, (out, err))
         self.assertNotEqual(git_out(self.path("tests"), "remote", "get-url", "--push", "origin"), url)
+
+    def test_a_failed_removal_keeps_the_real_error(self):
+        from unittest import mock
+        url = self.origin("tests")
+        with mock.patch.object(scaffold.sdlc_scopes, "disable_push", side_effect=ValueError("no push change")), \
+                mock.patch.object(scaffold, "_remove_tree", side_effect=OSError("busy")):
+            with self.assertRaisesRegex(ValueError, "no push change"):
+                scaffold._clone_into(scaffold.Project(self.root), "tests", url, read_only=True)
 
     def test_a_clone_that_cannot_drop_its_push_url_is_removed(self):
         from unittest import mock
