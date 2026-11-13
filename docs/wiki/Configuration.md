@@ -5,7 +5,7 @@ Setup writes `.sdlc/config.json`; it's yours to edit and holds only what differs
 | Key | Meaning |
 |---|---|
 | `commands` | `install`, `test`, `lint`, `typecheck`, `build` as the team runs them. `null` means the step doesn't apply |
-| `packages` | Monorepo instead of `commands`: `[{"name", "path", "stack", "commands"}]`, each run from its path. A root `commands.test` (e.g. `turbo run test`) counts for every package |
+| `packages` | Monorepo instead of `commands`: `[{"name", "path", "stack", "commands"}]`, each run from its path. Root `commands` beside it are workspace-wide: a root `install` runs first, the rest (e.g. `turbo run test`) from the root after every package's steps, in verify and CI; a full run of the root test counts for every package |
 | `project.kind` | `greenfield` or `brownfield`, set by setup |
 | `project.profile`, `project.owners` | Multi-app repos: `lean` or `large` (the answer to "who works here"), and for `large` the CODEOWNERS entries (`{pattern: [handles]}`, in order) |
 | `api_contract` | Multi-app repos with the contract check: `{"path", "spec"}` of the versioned API contract |

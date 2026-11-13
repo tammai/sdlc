@@ -27,6 +27,7 @@ from datetime import datetime, timezone
 # The resolver sits beside the hooks; found from this file, not CLAUDE_PLUGIN_ROOT (tests point that at a fake plugin)
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "hooks"))
 import sdlc_layout  # noqa: E402
+import sdlc_scopes  # noqa: E402
 
 PLUGIN_ROOT = os.environ.get("CLAUDE_PLUGIN_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG = ".sdlc/config.json"
@@ -548,19 +549,13 @@ def cmd_render(p, a):
 # path, stack and commands) for a monorepo. A command set to null means "not applicable" (e.g. typecheck for
 # shell scripts). Stages, verify.py, CI, the allowlist and the freshness hook all read them from here.
 
-ROOT_SCOPE = "(root)"
+ROOT_SCOPE = sdlc_scopes.ROOT_SCOPE
 
 
 def scopes(config):
-    """[{name, path, stack, commands, accept}]: one per package, or the root project when there are no packages."""
-    cfg = effective_config(config)
-    pkgs = cfg.get("packages") or []
-    if pkgs:
-        return [{"name": pk.get("name"), "path": (pk.get("path") or ".").rstrip("/") or ".",
-                 "stack": pk.get("stack"), "commands": pk.get("commands") or {}, "accept": pk.get("accept", {})}
-                for pk in pkgs]
-    return [{"name": ROOT_SCOPE, "path": ".", "stack": None, "commands": cfg.get("commands") or {},
-             "accept": cfg.get("accept", {})}]  # accept null: not applicable, kept as None
+    """[{name, path, stack, commands, accept, named}]: one per package, or the root project when there are no
+    packages. The same parser the hooks use (hooks/sdlc_scopes.py)."""
+    return sdlc_scopes.scopes(effective_config(config))
 
 
 def executable(cmd):
@@ -637,7 +632,7 @@ def cmd_contract(p, a):
     names = set()
     for sc in scopes(p.config):
         problems = []
-        if not sc["name"]:
+        if not sc["named"]:
             problems.append("package without a name")
         elif sc["name"] in names:
             problems.append(f"duplicate package name {sc['name']!r}")
@@ -670,9 +665,14 @@ def verify_plan(config):
     cfg = effective_config(config)
     order = cfg.get("verify", {}).get("order", ["lint", "typecheck", "build", "test"])
     plan = {"install": [], "verify": []}
-    for sc in scopes(config):
+    # Root commands beside packages (a workspace install, `turbo run test`) run from the root: install first, the
+    # rest after every package's steps
+    root = {"name": ROOT_SCOPE, "path": ".", "commands": sdlc_scopes.root_commands(cfg)}
+    if root["commands"].get("install"):
+        plan["install"].append({"scope": ROOT_SCOPE, "cwd": ".", "step": "install", "run": root["commands"]["install"]})
+    for sc in scopes(config) + [root]:
         cmds = sc["commands"]
-        if cmds.get("install"):
+        if cmds.get("install") and sc is not root:
             plan["install"].append({"scope": sc["name"], "cwd": sc["path"], "step": "install", "run": cmds["install"]})
         for step in order:
             if cmds.get(step):

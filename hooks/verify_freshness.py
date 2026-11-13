@@ -34,6 +34,7 @@ import sys
 # they cost about 25 ms on every tool call this hook (and prove_budget and trust_anchor, which import it) sees
 
 import sdlc_layout  # sibling module: where feature state and sdlc documents live
+import sdlc_scopes  # sibling module: the packages, read as scripts read them
 
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 SHELL_TOOLS = {"Bash", "PowerShell"}  # Windows sessions run commands through either
@@ -146,12 +147,13 @@ def load_scopes(root, state_test_cmd):
             config = json.load(f)
     except (OSError, ValueError):
         config = {}
-    root_test = (config.get("commands") or {}).get("test")
-    pkgs = config.get("packages") or []
-    if pkgs:
-        scopes = [{"name": pk.get("name") or pk.get("path"), "path": norm((pk.get("path") or ".")),
-                   "tests": [t for t in [(pk.get("commands") or {}).get("test")] if t]} for pk in pkgs]
+    config = config if isinstance(config, dict) else {}
+    if sdlc_scopes.packages(config):
+        scopes = [{"name": sc["name"], "path": sc["path"], "tests": [t for t in [sc["commands"].get("test")] if t]}
+                  for sc in sdlc_scopes.scopes(config)]
+        root_test = sdlc_scopes.root_commands(config).get("test")
         return scopes, [root_test] if root_test else []
+    root_test = sdlc_scopes.scopes(config)[0]["commands"].get("test")
     tests = [t for t in (state_test_cmd, root_test) if t]
     return [{"name": ROOT, "path": ".", "tests": list(dict.fromkeys(tests))}], []
 
