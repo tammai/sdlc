@@ -93,7 +93,11 @@ FOLDER_WRITES = {"touch", "mkdir", "md", "chmod", "chown"}
 # ... and git commands that change a repo run inside it (pull and fetch stay open: they only follow upstream)
 GIT_REPO_WRITES = {"commit", "push", "add", "am", "cherry-pick", "revert", "merge", "rebase", "stash", "tag",
                    "clean", "rm", "mv", "apply", "reset", "commit-tree", "update-ref", "switch", "worktree", "notes",
-                   "submodule", "gc", "prune", "init"}
+                   "submodule", "gc", "prune", "init", "update-index"}
+# `git remote` with these changes where the repo pushes; `git config` with these, or a key and a value, writes
+GIT_REMOTE_WRITES = {"add", "remove", "rm", "rename", "set-url", "set-head", "set-branches"}
+GIT_CONFIG_WRITES = {"--unset", "--unset-all", "--add", "--replace-all", "--rename-section", "--remove-section",
+                     "-e", "--edit"}
 # `git branch` with only these lists branches; anything else (a name, -d, -m, -f) changes them
 GIT_BRANCH_READS = {"-a", "--all", "-r", "--remotes", "-v", "-vv", "--verbose", "--list", "-l", "--show-current",
                     "--no-color", "--color"}
@@ -190,6 +194,7 @@ class TooDeep(Exception):
 MAX_NEST = 24
 TOO_DEEP = "(substitutions nested too deep to check)"
 SUB = "__sdlc_sub__"  # what a substitution leaves in its command's words
+WATCH_BASELINE = ".sdlc/.work/read-only-baseline.json"  # hooks/read_only_watch.py's first look
 
 
 def deep_reason(found):
@@ -212,7 +217,7 @@ def lex(command, dialect="sh"):
 def _lex(s, i, stop, dialect, nest):
     if nest > MAX_NEST:
         raise TooDeep()
-    events, buf, targets, quote, stack, heredocs = [], [], [], None, [], []
+    events, buf, targets, quote, stack, heredocs, strings = [], [], [], None, [], [], []
     esc = {"sh": "\\", "ps": "`", "cmd": "^"}[dialect]
     quotes = "\"" if dialect == "cmd" else "\"'"
 
@@ -220,8 +225,10 @@ def _lex(s, i, stop, dialect, nest):
         text = "".join(buf)
         if text.strip() or targets:
             events.append((text, list(targets)))
+        events.extend((word, "heredoc") for word in strings)  # read as commands when the command is a shell
         buf.clear()
         targets.clear()
+        strings.clear()
 
     def at_word_start():
         return i == 0 or s[i - 1] in " \t\n;|&()"
@@ -234,9 +241,8 @@ def _lex(s, i, stop, dialect, nest):
         """The commands from j to `close`, inline as a subshell; the command's text gets SUB, or with raw_from (a
         PowerShell expression, part of its command's words) the text itself."""
         inner, end = _lex(s, j, close, dialect, nest + 1)
-        events.append(("(", None))
-        events.extend(inner)
-        events.append((")", None))
+        scoped = dialect == "sh"  # a PowerShell expression's Set-Location lasts
+        events.extend(([("(", None)] if scoped else []) + inner + ([(")", None)] if scoped else []))
         buf.append(SUB if raw_from is None else s[raw_from:end])
         return end
 
@@ -305,7 +311,8 @@ def _lex(s, i, stop, dialect, nest):
             end = s.find("#>", i + 2)
             i = len(s) if end < 0 else end + 2
             continue
-        elif dialect == "sh" and (s.startswith("$((", i) or s.startswith("((", i) and command_start()):
+        elif dialect == "sh" and (s.startswith("$((", i) or s.startswith("((", i) and command_start()) \
+                and s.find("))", i) >= 0:  # unbalanced: read as the subshells it opens
             end = matching(i + (s[i] == "$"), "((", "))")  # arithmetic: its `<<` is a shift, not a here-doc
             buf.append(s[i:end])
             i = end
@@ -369,9 +376,21 @@ def _lex(s, i, stop, dialect, nest):
                 flush()
             else:
                 buf.append(ch)  # stray: closes nothing
-        elif dialect == "sh" and s.startswith("<<<", i):  # a here-string: one word of data on this line
+        elif dialect == "sh" and s.startswith("<<<", i):  # a here-string: one word of data, unless a shell reads it
+            j = i + 3
+            while j < len(s) and s[j] in " \t":
+                j += 1
+            k = j
+            while k < len(s) and s[k] not in " \t\n;|&<>()":
+                if s[k] in "\"'":
+                    end = s.find(s[k], k + 1)
+                    k = len(s) if end < 0 else end + 1
+                else:
+                    k += 1
+            word = s[j:k]
+            strings.append(word[1:-1] if len(word) > 1 and word[0] == word[-1] and word[0] in "\"'" else word)
             buf.append(" ")
-            i += 3
+            i = k
             continue
         elif dialect == "sh" and s.startswith("<<", i):
             j = i + 2
@@ -508,7 +527,10 @@ def shell_write(command, root, cwd, protected, depth=0, folders=False, dialect="
                 else:
                     args = args[1:]
             writes = args and (args[0] in GIT_REPO_WRITES or args[0] == "branch" and any(
-                w not in GIT_BRANCH_READS for w in args[1:]))
+                w not in GIT_BRANCH_READS for w in args[1:])
+                or args[0] == "remote" and len(args) > 1 and args[1] in GIT_REMOTE_WRITES
+                or args[0] == "config" and (any(w in GIT_CONFIG_WRITES for w in args[1:])
+                                            or len([w for w in args[1:] if not w.startswith("-")]) > 1))
             if folders and writes and hits(root, here, ".", protected, folders=True):
                 return here or root
             if args and args[0] in ("checkout", "restore", "rm", "mv", "apply", "reset"):
@@ -570,6 +592,13 @@ def read_only_problem(data, root):
     import sdlc_scopes
     if not sdlc_scopes.guarded_workbench(root):
         return None
+    found = written(data, root, {canon(WATCH_BASELINE)})
+    if deep_reason(found):
+        return deep_reason(found)
+    command = str((data.get("tool_input") or {}).get("command") or "")
+    if found or ("read_only_watch" in command and "--accept" in command):
+        return ("sdlc: the read-only watch's baseline is the user's to change: only they accept a change in a "
+                "read-only repo (they run read_only_watch.py --accept with `!`). Tell them what changed instead.")
     names = sdlc_scopes.read_only_names(root)
     if names is None:
         try:

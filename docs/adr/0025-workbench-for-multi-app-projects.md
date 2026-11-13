@@ -26,8 +26,8 @@ that breaks CI when a change would break a consumer.
   back-reference) and never holds features: `state.py new` refuses there. Commands live once, in the app.
 - **Repos other teams own are read-only:** listed with `write: false`, any write into them is denied, naming the owner.
   The guard reads command text, which no parser covers in full, so two structural backstops hold the line: a change
-  in a read-only repo is reported after the call that made it and blocks Stop until undone, and their push URL points
-  nowhere.
+  in a read-only repo is reported after the call that made it and blocks Stop until the user undoes or accepts it,
+  and their push URL points nowhere.
 - **One feature drives a branch and a PR per touched repo.** `state.py repo` branches a repo from its default branch
   the first time Build touches it (recorded under `## Repos`); verify, freshness and drift run per repo; `ship.py`
   stages each repo and lists them in merge order: workbench (contract), provider, consumers. `ship.py --status` warns

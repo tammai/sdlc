@@ -1154,6 +1154,13 @@ class ReviewRound4Guards(WorkbenchGuardsCase):
                         "$m = @'\nRemove-Item specs/a.md\n'@\nWrite-Output $m"):
             self.assertIsNone(self.pre("PowerShell", command=command), command)
 
+    def test_round5_lexer_leftovers(self):
+        self.assertIsNotNone(self.pre("PowerShell", command="(Set-Location specs); Remove-Item a.md"))
+        self.assertIsNotNone(self.pre("Bash", command="bash <<< \"rm specs/a.md\""))
+        self.assertIsNotNone(self.pre("Bash", command="sh <<< 'cd specs && touch b'"))
+        self.assertIsNotNone(self.pre("Bash", command="(( x\nrm specs/a.md"))
+        self.assertIsNone(self.pre("Bash", command="cat <<< \"rm specs/a.md\""))
+
     def test_too_deep_is_denied_for_that_reason(self):
         reason = self.pre("Bash", command="echo " + "$(" * 30 + "x" + ")" * 30)
         self.assertIsNotNone(reason)
@@ -1165,43 +1172,94 @@ class ReadOnlyBackstop(WorkbenchFeatureCase):
     """Review round 4: whatever a command's syntax, a change in a read-only repo is reported after the call that
     made it and blocks Stop until it is undone; read-only repos can't push."""
 
-    def watch(self, event, session="s1", **extra):
+    def watch(self, event, session="s1", tool="Bash", **extra):
         from helpers import run_hook
         payload = {"hook_event_name": event, "session_id": session, "cwd": self.root, **extra}
-        if event == "PostToolUse":
-            payload.update(tool_name="Bash", tool_input={"command": "x"}, tool_response={})
+        if event in ("PreToolUse", "PostToolUse", "PostToolUseFailure"):
+            payload.update(tool_name=tool, tool_input={"command": "x"}, tool_response={})
         code, out, raw, err = run_hook(["python3", os.path.join(HOOKS, "read_only_watch.py")], payload, self.root)
         self.assertEqual(code, 0, err)
         return out or {}
 
+    def accept(self, *names):
+        import subprocess
+        p = subprocess.run([sys.executable, os.path.join(HOOKS, "read_only_watch.py"), "--accept", *names],
+                           cwd=self.root, capture_output=True, encoding="utf-8", errors="replace",
+                           env={**os.environ, "CLAUDE_PROJECT_DIR": self.root})
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        return json.loads(p.stdout)
+
     def test_any_change_in_a_read_only_repo_is_reported_and_blocks_stop(self):
         specs = self.path("specs")
         self.write("specs/mine.md", "the user's own edit, before the session")
-        self.assertEqual(self.watch("PostToolUse"), {})  # the baseline: what the repo held when the session looked
-        self.assertEqual(self.watch("PostToolUse"), {})
-        self.write("specs/b.md", "x")
+        self.assertEqual(self.watch("SessionStart"), {})  # the first look: the baseline, before any call runs
+        self.write("specs/b.md", "x")  # the first call's own change is never absorbed
         out = self.watch("PostToolUse")
         self.assertEqual(out.get("decision"), "block", out)
         self.assertIn("specs", out["reason"])
         self.assertIn("b.md", out["reason"])
+        self.assertIn("--accept", out["reason"])
         self.assertIn("specs", out["hookSpecificOutput"]["additionalContext"])
+        self.assertEqual(self.watch("PostToolUse"), {})  # said once, not after every call
         self.assertEqual(self.watch("Stop").get("decision"), "block")
         self.assertNotEqual(self.watch("Stop", stop_hook_active=True).get("decision"), "block")  # never a loop
+        # A new session still sees what no one resolved
+        self.assertEqual(self.watch("Stop", session="s2").get("decision"), "block")
         os.remove(self.path("specs/b.md"))
-        self.assertEqual(self.watch("PostToolUse"), {})
-        # A local commit, even with a clean tree, is a change; so is discarding the user's own edit
+        self.assertEqual(self.watch("Stop"), {})
+        # A failed call that committed is seen too
         git(specs, "add", "-A")
         git(specs, "commit", "-q", "-m", "sneaky")
-        out = self.watch("Stop")
+        out = self.watch("PostToolUseFailure")
         self.assertEqual(out.get("decision"), "block", out)
         self.assertIn("commit", out["reason"])
         git(specs, "reset", "-q", "HEAD~1")
         self.assertEqual(self.watch("Stop"), {})
-        # Writable repos and the workbench itself are not watched; another session starts its own baseline
+        # The push URL is part of what it holds
+        git(specs, "remote", "add", "origin", "https://example.com/specs.git")
+        self.assertIn("push URL", self.watch("Stop").get("reason", ""))
+        git(specs, "remote", "remove", "origin")
+        # Writable repos and the workbench itself are not watched
         self.write("api/new.py", "x")
         self.assertEqual(self.watch("PostToolUse"), {})
+        # The user accepts a change of their own; a repo that goes missing is a change
         self.write("specs/c.md", "x")
-        self.assertEqual(self.watch("PostToolUse", session="s2"), {})
+        self.assertEqual(self.accept("specs")["accepted"], ["specs"])
+        self.assertEqual(self.watch("Stop"), {})
+        import shutil
+        shutil.move(specs, self.path("specs-moved"))
+        self.assertIn("missing", self.watch("Stop").get("reason", ""))
+
+    def test_seen_repos_lose_their_push_url_and_new_clones_start_clean(self):
+        url = self.origin("tests")
+        git(self.path("specs"), "remote", "add", "origin", url)
+        self.watch("PreToolUse")
+        self.assertNotEqual(git_out(self.path("specs"), "remote", "get-url", "--push", "origin"), url)
+        self.assertEqual(self.watch("Stop"), {})
+        # A repo cloned after the first look, and changed in the same call
+        self.write_json("workbench.json", {"repos": [
+            {"name": "api", "url": "u1", "role": "app", "write": True},
+            {"name": "specs", "url": "u3", "role": "specs"},
+            {"name": "tests", "url": url, "role": "tests"}]})
+        git(self.root, "clone", "-q", url, "tests")
+        self.write("tests/x.md", "x")
+        out = self.watch("PostToolUse")
+        self.assertEqual(out.get("decision"), "block", out)
+        self.assertIn("tests/", out["reason"])
+        self.assertNotEqual(git_out(self.path("tests"), "remote", "get-url", "--push", "origin"), url)
+
+    def test_the_agent_cannot_accept_or_edit_the_baseline(self):
+        self.watch("SessionStart")
+        for command in ("python3 hooks/read_only_watch.py --accept specs", "rm .sdlc/.work/read-only-baseline.json",
+                        "echo {} > .sdlc/.work/read-only-baseline.json", "git -C specs remote set-url --push origin x",
+                        "git -C specs remote remove origin", "git -C specs config remote.origin.pushurl x",
+                        "git -C specs update-index --assume-unchanged a.md"):
+            self.assertIsNotNone(pre_hook(self, "Bash", command=command), command)
+        self.assertIsNotNone(pre_hook(self, "Write", file_path=self.path(".sdlc/.work/read-only-baseline.json"),
+                                      content="{}"))
+        for command in ("git -C specs remote -v", "git -C specs config --get remote.origin.url",
+                        "git -C specs config user.name"):
+            self.assertIsNone(pre_hook(self, "Bash", command=command), command)
 
     def test_silent_outside_a_workbench(self):
         self.write_json(".sdlc/config.json", {})

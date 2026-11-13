@@ -8,7 +8,8 @@ Turns the host's payload into Claude Code's, runs the hook scripts Claude Code r
 processes, and turns their output back into the host's:
   - PreToolUse         hooks/pretooluse.py (hookify), hooks/review_rounds.py   a deny from any of them denies the call
   - PostToolUse(Failure) hooks/verify_freshness.py                      edits make Stage 3 results stale, full runs fresh
-  - PostToolUse        hooks/read_only_watch.py                         a change in a workbench's read-only repo is said
+  - PreToolUse, PostToolUse(Failure), Stop: hooks/read_only_watch.py      a change in a workbench's read-only repo is
+                       said (its first look before the first call)
   - UserPromptSubmit   hooks/userpromptsubmit.py, hooks/trust_anchor.py, hooks/review_rounds.py
   - Stop               hooks/stop.py, hooks/verify_freshness.py, hooks/trust_anchor.py, hooks/read_only_watch.py
                        a block from any keeps the agent going
@@ -36,9 +37,9 @@ import time
 
 PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPTS = {
-    "PreToolUse": ["pretooluse.py", "review_rounds.py"],
+    "PreToolUse": ["pretooluse.py", "review_rounds.py", "read_only_watch.py"],
     "PostToolUse": ["verify_freshness.py", "read_only_watch.py"],
-    "PostToolUseFailure": ["verify_freshness.py"],
+    "PostToolUseFailure": ["verify_freshness.py", "read_only_watch.py"],
     "UserPromptSubmit": ["userpromptsubmit.py", "trust_anchor.py", "review_rounds.py"],
     "Stop": ["stop.py", "verify_freshness.py", "trust_anchor.py", "read_only_watch.py"],
 }
