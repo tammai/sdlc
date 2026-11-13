@@ -552,6 +552,31 @@ class WorkbenchDocs(unittest.TestCase):
         self.assertIn("Workbench", read_doc("CHANGELOG.md").split("## 3.7.0")[0])
 
 
+class PreferredStacks(unittest.TestCase):
+    def test_greenfield_proposes_the_preferred_stacks(self):
+        refs = ("skills", "setting-up-projects", "references")
+        self.assertIn("stacks.md", read_doc(*refs, "greenfield.md").split("## `skeleton`")[0])
+        self.assertIn("stacks.md", read_doc(*refs, "workbench.md").split("## `skeleton`")[0])
+        stacks = read_doc(*refs, "stacks.md")
+        sections = {s.split("\n", 1)[0].strip(): s for s in stacks.split("\n## ")[1:]}
+        expected = {
+            "Nuxt": ["SPA", "ssr: false", "Nuxt UI", "Pinia", "Pinia Colada", "Zod", "pnpm create nuxt"],
+            "React": ["Vite", "shadcn/ui", "Zustand", "TanStack Query", "React Router", "Zod",
+                      "pnpm create vite"],
+            "Node": ["Hono", "PostgreSQL", "Drizzle", "Zod", "Cloud Run", "Cloud SQL", "Cloudflare Workers", "Neon",
+                     "pnpm create hono"],
+            "Go": ["Gin", "oapi-codegen", "pgx/v5", "sqlc", "golang-migrate", "Cloud Run", "Cloud SQL",
+                   "go mod init"],
+        }
+        for stack, pieces in expected.items():
+            section = next((v for k, v in sections.items() if k.startswith(stack)), None)
+            self.assertIsNotNone(section, stack)
+            for piece in pieces:
+                self.assertIn(piece, section, (stack, piece))
+            for command in ("install", "test", "lint", "typecheck", "build"):
+                self.assertRegex(section, rf"\|\s*`?{command}`?\s*\|", (stack, command))
+
+
 class WorkbenchShip(WorkbenchFeatureCase):
     CHANGE = "# Shop checkout\n\n## Acceptance criteria\n\n## Acceptance tests\n\n| AC | Test | Run |\n|---|---|---|\n"
 

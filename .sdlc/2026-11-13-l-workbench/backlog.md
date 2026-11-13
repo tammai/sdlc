@@ -11,7 +11,7 @@ Record: the feature's change file (`scaffold.py paths 2026-11-13-l-workbench` �
 | B5 | Ship across repos: commits per repo, merge order, linked PRs, out-of-order warning | — | 13, 14 | B4 | M | done |
 | B6 | App CI checks out the workbench; contract check in the workbench | — | 15 | B2 | S | done |
 | B7 | Setup reference, ADR 0025, wiki, CHANGELOG, stale-docs audit | — | 16 | B5, B6 | M | done |
-| B8 | Preferred stacks reference that greenfield setup proposes from | — | 17 | B7 | S | todo |
+| B8 | Preferred stacks reference that greenfield setup proposes from | — | 17 | B7 | S | done |
 
 <!--
   Status: todo | in progress | done | blocked: <reason> (state.py writes it; `done` goes into the part's own commit). Deps: slice IDs, or —.

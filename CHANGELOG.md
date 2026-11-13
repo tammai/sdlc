@@ -10,6 +10,7 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 - **One feature across repos.** `state.py repo <feature> <name>` branches a writable repo from its default branch (refused while dirty) or records the commit of a read-only one; `verify.py` runs each touched repo's commands in its folder and records its tree; freshness and drift are per repo; `diff_stats.py` lists read-only repos that moved since.
 - **Ship across repos.** `ship.py` stages each touched repo with its own commit message and a PR body linking the others, in merge order (workbench, provider, consumers); `state.py pr` records each PR and `ship.py <feature> --status` warns on an out-of-order merge without blocking.
 - **App CI follows the workbench.** A consuming app's `builtin:ci` checks out the workbench branch named like its PR's (else `main`) for the contract; a private workbench needs a `WORKBENCH_TOKEN` secret.
+- **Preferred stacks.** Greenfield setup proposes from `references/stacks.md`: Nuxt (SPA, Nuxt UI, Pinia, Pinia Colada, Zod), React (Vite, shadcn/ui, Zustand, TanStack Query, React Router, Zod), Node (Hono, PostgreSQL, Drizzle, Zod; Cloud Run + Cloud SQL or Cloudflare Workers + Neon) and Go (Gin, oapi-codegen, pgx/v5, sqlc, golang-migrate; Cloud Run + Cloud SQL), each with its generator and five commands. You still approve every proposal.
 - **`scaffold.py workbench list|add|remove`** maps repos after setup; `/sdlc:doctor` reports repos not cloned, unlisted nested repos, folders not gitignored and apps without their own config.
 
 ### Changed

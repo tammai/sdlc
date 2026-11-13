@@ -7,7 +7,7 @@ The repo has no source code yet. Goal: a minimal skeleton whose commands all pas
 Ask only what you can't infer, a few questions at a time, with a suggested answer each:
 
 - What is being built: library, CLI, API service, web app, mobile app, several of these? Two or more apps → follow `workbench.md` (one repo per app inside a workbench repo, ADR 0025) for the `stack`, `skeleton`, `commands` and `ci` steps instead of the sections below; `monorepo.md` only when the user asks for one repo.
-- Runtime and language per part; package manager; test runner. Default to the ecosystem's current mainstream choice and say why in one line.
+- Runtime and language per part; package manager; test runner. Propose from `stacks.md` (Nuxt, React, Node, Go: pieces, generator, five commands); a stack it doesn't list takes the ecosystem's current mainstream choice, with why in one line.
 - Where it deploys (only if it changes the skeleton, e.g. a Dockerfile).
 
 Propose: the stack per package, the directory layout, the generator command for each package, and the five commands per package (below). Keep it to what the first feature needs; no auth, DB, Docker, or infra "for later" unless the user named it. **The user approves before anything is generated.**

@@ -20,7 +20,8 @@ sdlc/
 ├── skills/                  skills; orchestrator/ is the conductor (a short router plus one reference per track: s-track for S,
 │                            flow for M and L; review-brief, backlog-slices, ui-work when named), setting-up-projects/ runs setup/upgrade/eject
 │                            (references/trimming-context.md: /sdlc:context-diet; design-mode.md: the design step and
-│                            /sdlc:setup design; workbench.md: greenfield with two or more apps); managing-knowledge/references/ holds
+│                            /sdlc:setup design; workbench.md: greenfield with two or more apps;
+│                            stacks.md: the preferred stacks greenfield proposes from); managing-knowledge/references/ holds
 │                            claude-md-improver.md and its folder
 ├── hooks/
 │   ├── hooks.json           which script runs on which event; every hook starts the Python sg-python.sh remembered, else sg-python.sh

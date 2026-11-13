@@ -10,8 +10,8 @@ Started: 2026-11-13
 Base: 58acb2e
 Owner: 3235400+tammai@users.noreply.github.com
 Tool: claude-code
-Verified: 50cbaee tree 1a526032b0b92c988795afcef670f29424bd0c17
-Slice: B7   Slice base: 50cbaee   Slice gates: none
+Verified: 9388559 tree 8274f2e1743d3024308eb38e7fceb16aa77ad003
+Slice: B8   Slice base: 9388559   Slice gates: none
 Current: Stage 2 – Build
 
 ## Stages
@@ -62,6 +62,7 @@ parts in fresh sessions, because seven parts across the core won't fit one conte
 - 2026-11-13 handoff B5: ship.py stages each branched repo (repos in merge order, commit-msg-<repo>.txt, pr-<repo>.md); state.py pr records PRs under ## PRs; ship.py --status warns on out-of-order merges (SDLC_GH for tests). verify records each branched repo's tree and drift counts app-repo files. B6 next: builtin:ci for a consuming app checks out the workbench (scaffold.py generate_ci)
 - 2026-11-13 handoff B6: scaffold.workbench_checkout adds the workbench branch/checkout/contract-copy steps to an app's builtin:ci when the parent workbench lists it as a consumer. B7 next: references/workbench.md, setup routing, ADR 0025, wiki, CHANGELOG, stale-docs audit (describe state.py repo/pr, ship.py --status, WORKBENCH_TOKEN, the app back-reference)
 - 2026-11-13 handoff B7: references/workbench.md, ADR 0025, wiki, CHANGELOG and the stale-docs audit are done. B8 next: references/stacks.md (workbench.md's stack step already points to it), greenfield.md proposes from it
+- 2026-11-13 handoff B8: every part done; next is Feature close: the full suite once on Python 3.10, then advance 3 and Review over the whole branch (diff_stats --base 58acb2e with the state file and every plan-B*.md)
 
 ## Deviations
 - 2026-11-13 setup What: went on with setup none (no .sdlc/config.json). Why: the plugin's own repo has always run sdlc without setup (e.g. 2026-11-08-l-spec-backed-mode). Effect: verify.py runs the AC tests; the full suite is run by hand with python3.10 -m unittest discover -s tests -t tests.
@@ -87,6 +88,7 @@ parts in fresh sessions, because seven parts across the core won't fit one conte
 - 2026-11-13 B6 scaffold.workbench_checkout, WORKBENCH_REPO What: the app CI's workbench steps, rendered when the app's back-reference is a plain repo name and the workbench above lists it as a consumer; read from the parent workbench.json, so the contract role is recorded once. Why: AC-015. Effect: internal; an app CI rendered outside its workbench gets no checkout step.
 - 2026-11-13 B6 docs/specs/01-setup-upgrade-eject.md What: SET-FR-051. Why: the spec lists each enforced behaviour with its test. Effect: docs only.
 - 2026-11-13 B7 CONTRIBUTING.md, README.md, docs/prd.md, docs/specs/01-setup-upgrade-eject.md What: the stale-docs audit: layout tree (sdlc_scopes.py, workbench.md, ship.py), README and PRD shape lines, spec 01 source and decisions lines, SET-FR-017 narrowed, SET-FR-052. Why: CLAUDE.md's stale-docs audit after a feature. Effect: docs only.
+- 2026-11-13 B8 CONTRIBUTING.md, CHANGELOG.md, docs/wiki/Project-setup.md, docs/specs/01-setup-upgrade-eject.md What: stacks.md in the layout tree, a changelog line, the wiki's greenfield line, SET-FR-053. Why: the stale-docs audit. Effect: docs only.
 
 ## Open questions
 -
