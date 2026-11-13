@@ -37,3 +37,4 @@
 - 2026-11-05 add knowledge/gotchas/question-tool-answer-is-not-a-prompt.md — the round cap and trust anchor can't move to AskUserQuestion (from 3.2.0 release distill)
 - 2026-11-07 add knowledge/gotchas/rebased-changelog-lands-in-a-released-section.md — a rebase put the 3.3.0 note under 3.2.0 without a conflict (from 3.3.0 release distill)
 - 2026-11-12 update knowledge/gotchas/question-tool-answer-is-not-a-prompt.md — the gates now take a dialog answer via user_answer.py's PreToolUse record (from 3.7.0 release distill)
+- 2026-11-13 update knowledge/gotchas/hooks-read-command-text.md — a text guard needs a state backstop; guarded state out of the agent's reach; backslash paths read both ways (from 3.8.0 release distill)

@@ -51,7 +51,7 @@ When the maintainer says "release", the agent runs every step below through to t
 
 ### Smoke test before a release
 
-The test suite runs hooks and scripts as subprocesses; this checks the installed plugin in real sessions, which the suite can't. Run only the parts the release touches, at the same time, so it takes about 15–25 minutes; one agent running all of A–H in sequence took 78 minutes for 3.7.0.
+The test suite runs hooks and scripts as subprocesses; this checks the installed plugin in real sessions, which the suite can't. Run only the parts the release touches, at the same time, so it takes about 15–25 minutes (the groups run side by side, so the longest group sets the time); one agent running all of A–H in sequence took 78 minutes for 3.7.0.
 
 **Scope.** A and B run on every release. Each other part runs when `git diff --name-only sdlc--v<last>..HEAD` touches what it covers; a major version runs them all. Say in the changelog which parts ran and why the others didn't.
 
@@ -63,10 +63,11 @@ The test suite runs hooks and scripts as subprocesses; this checks the installed
 | F security hooks | `hooks/security_reminder_hook.py`, `hooks/review_api.py`, `hooks/llm.py`, `hooks/ensure_agent_sdk.py`, `hooks/sdlc_review_gate.py` |
 | G brownfield setup | what C covers, and the baseline in `scripts/verify.py` |
 | H upgrade and eject | `scripts/scaffold.py`, `migrations/`, `commands/upgrade.md`, `commands/eject.md`, `templates/` |
+| K workbench | `hooks/read_only_watch.py`, `hooks/role_guard.py`, `hooks/sdlc_scopes.py`, `hooks/sdlc_layout.py`, `hooks/sdlc_review_gate.py`, the workbench parts of `scripts/scaffold.py`, `state.py`, `verify.py`, `ship.py`, `skills/setting-up-projects/references/workbench.md` |
 
 A part that checks something the release changed also gets that check written in (as 3.7.0 added its dialogs to E7).
 
-**In parallel.** One background agent per group, each in its own throwaway repo under the scratchpad and its own tmux session, each loading the checkout with `--plugin-dir` (and `--settings` turning an installed `sdlc@sdlc` off for that session). Groups: A+B; C then D, E and H in C's repo (D, E and H need a set-up repo; when C is out of scope, the group still sets one up with `/sdlc:setup` and skips C's checks); F; G. Give each session `--model sonnet` unless the part checks model routing. Use throwaway repos outside any real project, a **fresh session** for each part, and write down anything that doesn't match (what you did, what you saw, the session's transcript path). **Must** items block the release; **should** items become known issues in the changelog.
+**In parallel.** One background agent per group, each in its own throwaway repo under the scratchpad and its own tmux session, each loading the checkout with `--plugin-dir` (and `--settings` turning an installed `sdlc@sdlc` off for that session). Groups: A+B; C then D, E and H in C's repo (D, E and H need a set-up repo; when C is out of scope, the group still sets one up with `/sdlc:setup` and skips C's checks); F; G; K. Give each session `--model sonnet` unless the part checks model routing. Use throwaway repos outside any real project, a **fresh session** for each part, and write down anything that doesn't match (what you did, what you saw, the session's transcript path). **Must** items block the release; **should** items become known issues in the changelog.
 
 **A. Install from the checkout (must)**
 1. In a new terminal: `claude`, then `/plugin marketplace add <path to this checkout>` and `/plugin install sdlc@sdlc`. Restart the session.
@@ -83,6 +84,7 @@ A part that checks something the release changed also gets that check written in
 4. `enable-plugin` and context diet (should): run from the installed plugin, setup asks where the plugin keys go; pick this machine and it writes the sdlc marketplace and `enabledPlugins` to `.claude/settings.local.json` only (`.claude/settings.json` gets no plugin keys); the team file (`--team`) puts them in `.claude/settings.json` and commits it, with superpowers' turn-off still local, and turns on the companions (`sdlc-extras`, `sdlc-stepper`) beside sdlc; run with `--plugin-dir`, sdlc itself isn't written and the setup report says it was skipped. After that it asks whether to trim plugins. Accept. It shows a table of plugins with estimated tokens per call, verdicts and reasons, and writes `.claude/settings.local.json` only after you approve; no commit includes that file, and it adds no `true`.
 5. It merges `sdlc/setup` locally on its own. `/sdlc:doctor` now shows the repo checks ✅.
 6. Interrupt test (should): in a second throwaway repo, stop setup midway (Esc), run `/sdlc:setup` again; it resumes after the last finished step.
+7. Layout question (should): in a third throwaway repo, `/sdlc:setup a web app and an API for a todo list`: before any stack is generated it asks which layout, one repo (monorepo) or a workbench of one repo per app, with a recommendation; answer and stop there (Esc).
 
 **D. Guardrails reach Claude (must)**
 1. Ask: "add a comment `// Step 1: add the numbers` above the add function". A hookify warning shows, **and Claude's reply acknowledges it** (proof the warning reaches Claude, not only you).
@@ -100,7 +102,7 @@ A part that checks something the release changed also gets that check written in
 
 **F. Security hooks (should)**
 1. Ask Claude to add `eval(input)` to a file: a security warning appears in Claude's context.
-2. At the end of that turn, a security review of the turn's changes runs (or, without credentials, you're told once that it's skipped).
+2. At the end of that turn, with an active feature that is security-touched (`Risk: high` or a sensitive path) or `SDLC_SECURITY_REVIEW=always`, a security review of the turn's changes runs (ADR 0019: no review without such a feature); without credentials you're told once a week that it's skipped.
 
 **G. Brownfield setup (must)**
 1. Copy a small real repo (or a sample with two packages in different languages) into `/tmp/sdlc-smoke-brown`, add one deliberately failing test, commit.
@@ -114,6 +116,12 @@ A part that checks something the release changed also gets that check written in
 3. `/sdlc:upgrade --dry-run` shows the plan and changes nothing (`git status` clean).
 4. `/sdlc:upgrade` works on its own branch, asks about the guardrail you edited (apply / skip / keep mine), and ends by merging locally on its own.
 5. `/sdlc:eject` shows a dry run first; applied on a branch, it removes the plugin's files, keeps `.sdlc/config.json`, the PRD, the constitution, knowledge and specs.
+
+**K. Workbench (must when in scope)**
+1. Make a workbench by hand in a throwaway folder: `git init`, `.sdlc/config.json` `{"workbench": true}`, then `python3 "<checkout>/scripts/scaffold.py" workbench add <a local repo> --name api --role app --write` and `workbench add <another local repo> --name specs --role specs --owner @org/ba`. `workbench.json` lists both, `.gitignore` has `/api/` and `/specs/`, and `git -C specs remote get-url --push origin` doesn't point at the real URL.
+2. Start `claude` in the workbench. Ask it to append a line to `specs/README.md`: denied, naming `@org/ba`. Ask it to run `(cd specs && echo x >> README.md)`: denied too.
+3. Make the change yourself in another terminal (`echo x >> specs/README.md`), then ask Claude for any small edit in the workbench: after that call it's told a read-only repo changed, naming `specs/`, and ending the turn is blocked once. Send `accept read-only specs` as your message: it's accepted, and the next turn ends normally.
+4. `/sdlc:start` a tiny S change in `api/`: before its first edit there, it runs `state.py repo <feature> api` (a write into `api/` before that is denied, naming the command), and Ship lists the workbench and `api` with a commit message and PR body each.
 
 **I. Windows (should, if the team uses it).** A teammate runs B–E on Windows in Git Bash.
 
