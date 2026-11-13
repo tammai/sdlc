@@ -1,6 +1,6 @@
 # Reviewer brief (every review)
 
-The reviewer reads this file itself, with `<change>`, the state file (its plan sections and `## Deviations`; a part: also `plan-B<n>.md`) and the diff (`git diff <Base> -- . ':!.sdlc'`, one call). Round 1 is the one full review, so it aims to leave nothing for a later round: read whatever the diff calls, whatever calls what it changed, and the state and files they share; report every finding, with no length limit; don't call an advisor.
+The reviewer reads this file itself, with `<change>`, the state file (its plan sections and `## Deviations`; a part: also `plan-B<n>.md`) and the diff (`git diff <Base> -- . ':!.sdlc'`, one call; in a workbench, also `git -C <repo> diff <base>` for each `## Repos` branch line of the state file). Round 1 is the one full review, so it aims to leave nothing for a later round: read whatever the diff calls, whatever calls what it changed, and the state and files they share; report every finding, with no length limit; don't call an advisor.
 
 ## Coverage (round 1)
 

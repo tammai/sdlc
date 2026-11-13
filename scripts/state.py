@@ -494,10 +494,9 @@ def apply(a, text, backlog_raw):
         import sdlc_scopes  # noqa: PLC0415
         try:
             sdlc_scopes.pr_name(a.name)
+            sdlc_scopes.check_pr_url(a.url)  # it reaches gh as an argument: never something read as an option
         except ValueError as e:
             raise Refused(str(e))
-        if not re.fullmatch(r"\S+", a.url or ""):
-            raise Refused("a PR is recorded by its URL, without spaces")
         prs = sdlc_scopes.feature_prs(text)
         prs[a.name] = a.url
         text = set_section(text, sdlc_scopes.PRS_HEADING, [f"- {n}: {u}" for n, u in prs.items()])
@@ -523,11 +522,11 @@ def git_run(cwd, *args):
 
 def default_branch(repo):
     """The ref a feature branch starts from in a repo: its default branch (origin/HEAD's name, else main or master),
-    local when it exists, else origin's; else None."""
+    origin's when it exists, else the local one; else None."""
     code, out, _ = git_run(repo, "symbolic-ref", "--short", "refs/remotes/origin/HEAD")
     names = [out.split("/", 1)[1]] if code == 0 and "/" in out else []
     for name in names + ["main", "master"]:
-        for ref in (f"refs/heads/{name}", f"refs/remotes/origin/{name}"):
+        for ref in (f"refs/remotes/origin/{name}", f"refs/heads/{name}"):  # origin's first: a local one can be stale
             if git_run(repo, "rev-parse", "--verify", "-q", ref + "^{commit}")[0] == 0:
                 return ref
     return None
@@ -549,9 +548,12 @@ def record_repo(root, name, text):
         raise Refused(f"{name} isn't listed in workbench.json (scaffold.py workbench add)")
     if name in sdlc_scopes.feature_repos(text):
         return text, None, {"type": "repo_recorded", "repo": name, "already": True}
-    repo = os.path.join(root, name)
+    try:
+        repo = sdlc_scopes.repo_dir(root, name)
+    except ValueError as e:
+        raise Refused(str(e))
     if not os.path.exists(os.path.join(repo, ".git")):
-        raise Refused(f"{name}/ isn't cloned: run scaffold.py workbench add again, or doctor")
+        raise Refused(f"{name}/ isn't cloned: run scaffold.py workbench clone {name}")
     if not entry["write"]:
         code, head, err = git_run(repo, "rev-parse", "HEAD")
         if code:
@@ -571,12 +573,22 @@ def record_repo(root, name, text):
     start = default_branch(repo)
     if not start:
         raise Refused(f"{name}: no default branch found (origin/HEAD, main or master)")
+    own = default_branch(root)
+    defaults = {start.rsplit("/", 1)[-1]} | ({own.rsplit("/", 1)[-1]} if own else set())
+    if branch in defaults:
+        raise Refused(f"the workbench is on {branch}, a default branch: the feature's branch is named after the "
+                      "workbench's, so check out the feature's branch in the workbench first")
     base = git_run(repo, "rev-parse", start + "^{commit}")[1]
     if git_run(repo, "rev-parse", "--verify", "-q", f"refs/heads/{branch}")[0] == 0:
-        raise Refused(f"{name} already has a branch {branch}: delete or rename it, or record it by hand")
-    code, _, err = git_run(repo, "checkout", "-q", "-b", branch, start)
-    if code:
-        raise Refused(f"{name}: couldn't create branch {branch} ({err})")
+        # Left by a run that branched but didn't get to record it: adopted when checked out and grown from the base
+        current = git_run(repo, "branch", "--show-current")[1]
+        if current != branch or git_run(repo, "merge-base", "--is-ancestor", base, branch)[0] != 0:
+            raise Refused(f"{name} already has a branch {branch} that isn't checked out or doesn't start from {start}: "
+                          f"check it out in {name}/ to use it, or rename it, then run this again")
+    else:
+        code, _, err = git_run(repo, "checkout", "-q", "--no-track", "-b", branch, start)
+        if code:
+            raise Refused(f"{name}: couldn't create branch {branch} ({err})")
     line = sdlc_scopes.repo_line(name, branch=branch, base=base)
     return append_to_section(text, sdlc_scopes.REPOS_HEADING, line), None, {
         "type": "repo_recorded", "repo": name, "branch": branch, "base": base}

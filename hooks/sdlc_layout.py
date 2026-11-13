@@ -46,6 +46,9 @@ def target_repo(project_dir, tool_name, tool_input, cwd):
     project_dir has its own .sdlc/ and isn't a workbench, so a session started in a repo behaves exactly as before;
     only a repo strictly inside project_dir counts. Any error: None."""
     try:
+        if not project_dir and isinstance(cwd, str) and os.path.isabs(cwd):
+            import sdlc_scopes  # hosts without CLAUDE_PROJECT_DIR (Codex): the workbench above the call's folder
+            project_dir = sdlc_scopes.workbench_root(cwd)
         if not project_dir:
             return None
         project = os.path.abspath(project_dir)

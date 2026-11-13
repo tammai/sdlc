@@ -656,6 +656,8 @@ def cmd_contract(p, a):
     out["tools_ok"] = all(not s["not_found"] for s in out["scopes"].values())
     # Last recorded runs, with any whose command has changed since dropped: they no longer prove anything
     current = {(sc["name"], k): v for sc in scopes(p.config) for k, v in sc["commands"].items()}
+    current.update({(ROOT_SCOPE, s["step"]): s["run"] for s in verify_plan(p.config)["verify"]
+                    if s["scope"] == ROOT_SCOPE})
     out["runs"] = {name: {k: r for k, r in steps.items() if current.get((name, k)) == r.get("command")}
                    for name, steps in ((p.lock or {}).get("command_runs") or {}).items()}
     return out
@@ -665,11 +667,10 @@ def verify_plan(config):
     cfg = effective_config(config)
     order = cfg.get("verify", {}).get("order", ["lint", "typecheck", "build", "test"])
     plan = {"install": [], "verify": []}
-    # Root commands beside packages (a workspace install, `turbo run test`) run from the root: install first, the
-    # rest after every package's steps
-    root = {"name": ROOT_SCOPE, "path": ".", "commands": sdlc_scopes.root_commands(cfg)}
-    if root["commands"].get("install"):
-        plan["install"].append({"scope": ROOT_SCOPE, "cwd": ".", "step": "install", "run": root["commands"]["install"]})
+    # A root `commands.test` beside packages (`turbo run test`) runs from the root after every package's steps; the
+    # other root commands keep not running there, as before workbenches (an existing monorepo behaves as it did)
+    root_test = sdlc_scopes.root_commands(cfg).get("test")
+    root = {"name": ROOT_SCOPE, "path": ".", "commands": {"test": root_test} if root_test else {}}
     for sc in scopes(config) + [root]:
         cmds = sc["commands"]
         if cmds.get("install") and sc is not root:
@@ -802,7 +803,10 @@ def workbench_checkout(p):
         '      echo "ref=$BRANCH" >> "$GITHUB_OUTPUT"', "    else", '      echo "ref=main" >> "$GITHUB_OUTPUT"', "    fi",
         "- uses: actions/checkout@v7", "  with:", f"    repository: {repo}",
         "    ref: ${{ steps.workbench.outputs.ref }}", "    path: .workbench", f"    token: {token}",
-        "- name: \"workbench contract\"", "  run: |", "    rm -rf ../contract && cp -R .workbench/contract ../contract"]
+        "    persist-credentials: false",
+        "# Only the contract stays: the checkout leaves the app's tree before its own steps run",
+        "- name: \"workbench contract\"", "  run: |",
+        "    rm -rf ../contract && cp -R .workbench/contract ../contract && rm -rf .workbench"]
 
 
 def generate_contract_check(p):
@@ -1173,11 +1177,20 @@ def cmd_gitignore(p, a):
 
 # --- workbench: repos cloned inside a parent workbench repo ----------------------------------
 
-def _write_atomic(path, text):
-    tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        f.write(text)
-    os.replace(tmp, path)
+def _write_atomic(path, text, errors="strict"):
+    """Temp file in the same folder, fsync, rename, the temp file removed on failure: a crash never leaves half a
+    committed file, or a stray temp file for the next commit to pick up."""
+    import tempfile
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path) or ".", prefix=".tmp-")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", errors=errors, newline="\n") as f:
+            f.write(text)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
 
 
 def _workbench_data(p):
@@ -1188,28 +1201,33 @@ def _workbench_data(p):
 
 
 def _gitignore_lines(p):
+    """The workbench's .gitignore lines; bytes that aren't UTF-8 (a cp1252 comment) survive a rewrite unchanged."""
     try:
-        with open(p.path(GITIGNORE), encoding="utf-8") as f:
+        with open(p.path(GITIGNORE), encoding="utf-8", errors="surrogateescape") as f:
             return f.read().splitlines()
     except FileNotFoundError:
         return []
 
 
 def cmd_workbench(p, a):
-    """List, add (clone, gitignore, record) or remove (record and gitignore line only) a repo of a workbench."""
+    """List, add (clone, gitignore, record) or remove (record and gitignore line only) a repo of a workbench, or clone
+    the repos it lists that aren't cloned yet."""
     if not sdlc_scopes.is_workbench(p.root, need_manifest=False):
         raise ValueError("not a workbench: .sdlc/config.json has no \"workbench\": true")
     if a.action == "list":
         return {"repos": sdlc_scopes.manifest(p.root)}
+    if a.action == "clone":
+        return _workbench_clone(p, a.target)
     data = _workbench_data(p)
     if a.action == "remove":
         name = sdlc_scopes.check_name(a.target)
         if not any(r.get("name") == name for r in data["repos"]):
             raise ValueError(f"no repo named {name!r} in {sdlc_scopes.WORKBENCH_FILE}")
         data["repos"] = [r for r in data["repos"] if r.get("name") != name]
-        lines = [x for x in _gitignore_lines(p) if x != f"/{name}/"]
+        lines = [x for x in _gitignore_lines(p) if sdlc_scopes.ignored_name(x) != name]
+        # The record goes first: a crash between the two leaves an extra ignore line, never a listed repo unignored
         _write_atomic(p.path(sdlc_scopes.WORKBENCH_FILE), json.dumps(data, indent=2) + "\n")
-        _write_atomic(p.path(GITIGNORE), "\n".join(lines) + ("\n" if lines else ""))
+        _write_atomic(p.path(GITIGNORE), "\n".join(lines) + ("\n" if lines else ""), "surrogateescape")
         return {"removed": name, "folder_kept": name if os.path.isdir(p.path(name)) else None}
     url = a.target
     raw_name = a.name if a.name is not None else re.sub(r"\.git$", "", url.rstrip("/\\").replace("\\", "/")
@@ -1220,26 +1238,50 @@ def cmd_workbench(p, a):
     if a.contract:
         kind, _, version = a.contract.partition(":")
         entry["contract"] = {kind: version}
-    checked = sdlc_scopes._check_entry(len(data["repos"]), entry, {r.get("name") for r in data["repos"]})
+    checked = sdlc_scopes._check_entry(len(data["repos"]), entry, {str(r.get("name")).lower() for r in data["repos"]})
     name = checked["name"]
-    dest = p.path(name)
+    cloned = _clone_into(p, name, url)
+    data["repos"].append(entry)
+    _ignore(p, name)  # first: a crash after it leaves an ignored folder, never a listed repo git would commit
+    _write_atomic(p.path(sdlc_scopes.WORKBENCH_FILE), json.dumps(data, indent=2) + "\n")
+    return {"added": checked, "cloned": cloned}
+
+
+def _clone_into(p, name, url):
+    """Clone url into the workbench's <name>/ (url after `--`, never through a shell); True when it cloned, False when
+    <name>/ already is a git repo; ValueError when it exists and isn't one, links outside, or the clone fails."""
+    dest = sdlc_scopes.repo_dir(p.root, name)
     if os.path.lexists(dest):
         if not os.path.isdir(os.path.join(dest, ".git")):
             raise ValueError(f"{name}/ exists and isn't a git repo: move it away or pick another --name")
-        cloned = False
-    else:
-        proc = subprocess.run(["git", "clone", "-q", "--", url, dest], capture_output=True, encoding="utf-8",
-                              errors="replace")
-        if proc.returncode:
-            raise ValueError(f"git clone failed: {(proc.stdout + proc.stderr).strip()[-300:]}")
-        cloned = True
-    data["repos"].append(entry)
+        return False
+    proc = subprocess.run(["git", "clone", "-q", "--", sdlc_scopes.check_url(url), dest], capture_output=True,
+                          encoding="utf-8", errors="replace")
+    if proc.returncode:
+        raise ValueError(f"git clone failed: {(proc.stdout + proc.stderr).strip()[-300:]}")
+    return True
+
+
+def _ignore(p, name):
     lines = _gitignore_lines(p)
-    if f"/{name}/" not in lines:
-        lines.append(f"/{name}/")
-    _write_atomic(p.path(sdlc_scopes.WORKBENCH_FILE), json.dumps(data, indent=2) + "\n")
-    _write_atomic(p.path(GITIGNORE), "\n".join(lines) + "\n")
-    return {"added": checked, "cloned": cloned}
+    if not any(sdlc_scopes.ignored_name(x) == name for x in lines):
+        _write_atomic(p.path(GITIGNORE), "\n".join(lines + [f"/{name}/"]) + "\n", "surrogateescape")
+
+
+def _workbench_clone(p, target):
+    """Bring back repos the manifest lists but that aren't cloned (a fresh clone of the workbench): the named one, or
+    every missing one; the URL comes from the validated manifest, never from the command line."""
+    repos = sdlc_scopes.manifest(p.root)
+    if target:
+        name = sdlc_scopes.check_name(target)
+        repos = [r for r in repos if r["name"] == name]
+        if not repos:
+            raise ValueError(f"no repo named {name!r} in {sdlc_scopes.WORKBENCH_FILE}")
+    cloned, present = [], []
+    for r in repos:
+        _ignore(p, r["name"])
+        (cloned if _clone_into(p, r["name"], r["url"]) else present).append(r["name"])
+    return {"cloned": cloned, "already_cloned": present}
 
 
 # --- hosts: which coding agents run this repo's sdlc ---------------------------------------
@@ -1979,9 +2021,10 @@ def build_parser():
     s.add_argument("--if-unchanged", action="store_true", help="refuse (exit 2) if the user edited the file")
     s.set_defaults(fn=cmd_render)
 
-    s = sub.add_parser("workbench", help="list, add (clone + gitignore + record) or remove a repo of a workbench")
-    s.add_argument("action", choices=["list", "add", "remove"])
-    s.add_argument("target", nargs="?", default="", help="add: the clone URL; remove: the repo's name")
+    s = sub.add_parser("workbench", help="list, add (clone + gitignore + record), remove, or clone listed repos")
+    s.add_argument("action", choices=["list", "add", "remove", "clone"])
+    s.add_argument("target", nargs="?", default="",
+                   help="add: the clone URL; remove: the repo's name; clone: a listed repo's name (default: all missing)")
     s.add_argument("--name", help="add: folder and manifest name (default: from the URL)")
     s.add_argument("--role", choices=list(sdlc_scopes.ROLES), default="app")
     s.add_argument("--write", action="store_true", help="add: sdlc may change this repo (apps this project owns)")

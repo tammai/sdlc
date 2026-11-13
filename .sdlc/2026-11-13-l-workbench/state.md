@@ -10,13 +10,13 @@ Started: 2026-11-13
 Base: 58acb2e
 Owner: 3235400+tammai@users.noreply.github.com
 Tool: claude-code
-Verified: 9388559 tree 8274f2e1743d3024308eb38e7fceb16aa77ad003
+Verified: 9fb2d64 tree a0defd24108b1a648a4c85f2e253706026a382f0
 Slice: B8   Slice base: 9388559   Slice gates: none
 Current: Stage 2 – Build
 
 ## Stages
 - [x] 1 Define   — the change file, the plan sections below
-- [ ] 2 Build
+- [x] 2 Build
 - [ ] 3 Review   — the change file's ## Review
 - [ ] 4 Ship     — PR: (Learn: knowledge, recurring-defects.md)
 
@@ -63,6 +63,10 @@ parts in fresh sessions, because seven parts across the core won't fit one conte
 - 2026-11-13 handoff B6: scaffold.workbench_checkout adds the workbench branch/checkout/contract-copy steps to an app's builtin:ci when the parent workbench lists it as a consumer. B7 next: references/workbench.md, setup routing, ADR 0025, wiki, CHANGELOG, stale-docs audit (describe state.py repo/pr, ship.py --status, WORKBENCH_TOKEN, the app back-reference)
 - 2026-11-13 handoff B7: references/workbench.md, ADR 0025, wiki, CHANGELOG and the stale-docs audit are done. B8 next: references/stacks.md (workbench.md's stack step already points to it), greenfield.md proposes from it
 - 2026-11-13 handoff B8: every part done; next is Feature close: the full suite once on Python 3.10, then advance 3 and Review over the whole branch (diff_stats --base 58acb2e with the state file and every plan-B*.md)
+- 2026-11-13 review: ran code, security (L, Public Surface, Risk high), self-chosen: L
+- 2026-11-13 Stage 2: pass
+- 2026-11-13 decision: PR bodies link the other repos and their feature branches, not their PR URLs (the PRs don't exist when ship.py writes the bodies); AC-013's 'linking the others' read that way, documented in workbench.md (review round 1 M8)
+- 2026-11-13 review round 1 fixes: 11 tests (ReviewRound1* plus the AC-002 and AC-015 tests) seen failing on 9fb2d64 in a worktree, then passing
 
 ## Deviations
 - 2026-11-13 setup What: went on with setup none (no .sdlc/config.json). Why: the plugin's own repo has always run sdlc without setup (e.g. 2026-11-08-l-spec-backed-mode). Effect: verify.py runs the AC tests; the full suite is run by hand with python3.10 -m unittest discover -s tests -t tests.
@@ -89,6 +93,13 @@ parts in fresh sessions, because seven parts across the core won't fit one conte
 - 2026-11-13 B6 docs/specs/01-setup-upgrade-eject.md What: SET-FR-051. Why: the spec lists each enforced behaviour with its test. Effect: docs only.
 - 2026-11-13 B7 CONTRIBUTING.md, README.md, docs/prd.md, docs/specs/01-setup-upgrade-eject.md What: the stale-docs audit: layout tree (sdlc_scopes.py, workbench.md, ship.py), README and PRD shape lines, spec 01 source and decisions lines, SET-FR-017 narrowed, SET-FR-052. Why: CLAUDE.md's stale-docs audit after a feature. Effect: docs only.
 - 2026-11-13 B8 CONTRIBUTING.md, CHANGELOG.md, docs/wiki/Project-setup.md, docs/specs/01-setup-upgrade-eject.md What: stacks.md in the layout tree, a changelog line, the wiki's greenfield line, SET-FR-053. Why: the stale-docs audit. Effect: docs only.
+- 2026-11-13 skills/orchestrator/references/flow.md skills/orchestrator/references/review-brief.md What: Build, Review and Ship steps for a workbench (state.py repo before the first change in a repo, per-repo diffs, per-repo commit/push/PR and state.py pr). Why: review round 1 H1, the orchestrator never reached the per-repo machinery. Effect: workbench features follow the per-repo flow; single-repo flow unchanged.
+- 2026-11-13 hooks/role_guard.py unbranched_problem, hooks/pretooluse.py What: a write into a writable workbench repo that no active feature has branched is denied, naming state.py repo. Why: review round 1 H1 backstop, so a first edit can't land on the repo's checked-out default branch. Effect: setup and no-active-feature sessions stay open.
+- 2026-11-13 scripts/scaffold.py workbench clone, _clone_into, _ignore, _workbench_clone What: scaffold.py workbench clone [<name>] clones listed repos that are missing, from the manifest URLs; doctor's hint names it with no URL. Why: review round 1 H2/S4, a fresh clone of the workbench couldn't bring its repos back and doctor put an untrusted URL in a shell line. Effect: new subcommand action.
+- 2026-11-13 hooks/sdlc_scopes.py check_url, repo_dir, ignored_name, branched_repos, read_only_names, workbench_root, check_pr_url, RESERVED What: shared checks for clone URLs, repo folders (links out refused, reserved and case-folded names), gitignore spellings, writable branch lines, the lenient read-only list, the workbench root above a cwd and PR URLs. Why: review round 1 S2-S4, S6, S8, H6, M4, M6, M9; one check on every path. Effect: stricter manifest validation.
+- 2026-11-13 scripts/scaffold.py verify_plan What: only a root commands.test beside packages runs; root install/lint/typecheck/build keep not running. Why: review round 1 H3, the must-never-break line allows only the root test; AC-002's test assertion changed to match. Effect: existing monorepos behave as before apart from the root test.
+- 2026-11-13 scripts/ship.py check_repos What: every workbench refusal (manifest, non-writable branch line, wrong branch, listed folder not gitignored) happens before the state moves. Why: review round 1 M1, M5, S2. Effect: ship_repos takes the checked list.
+- 2026-11-13 Public Surface What: the surface as built is workbench.json (not workbench.yaml), scaffold.py workbench list|add|remove|clone, state.py repo and pr, ship.py --status, the WORKBENCH_TOKEN secret and the SDLC_GH test seam. Why: review round 1 fix-in-passing; state.py has no command to rewrite ## Public Surface and the state file is never hand-edited. Effect: this line is the current list.
 
 ## Open questions
 -

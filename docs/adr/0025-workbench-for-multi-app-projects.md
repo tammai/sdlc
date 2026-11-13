@@ -29,7 +29,8 @@ that breaks CI when a change would break a consumer.
 - **Contract safety survives the split:** the workbench's CI runs the oasdiff check on `contract/`; a consuming
   app's CI checks out the workbench at the branch named like its PR's branch, else `main`, so it builds against the
   same feature's unmerged contract change.
-- **Repos come and go after setup:** `scaffold.py workbench add|remove`; doctor reports drift.
+- **Repos come and go after setup:** `scaffold.py workbench add|remove`, and `workbench clone` brings back listed repos a fresh clone lacks; doctor
+  reports drift.
 
 ### Alternatives considered
 

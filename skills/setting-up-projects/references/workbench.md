@@ -94,15 +94,18 @@ a required check in the workbench.
   repo is denied, naming its owner.
 - One feature, recorded once in the workbench, drives a branch and PR per repo it touches. The first time Build
   touches a repo: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/state.py" repo <feature> <name>` (a writable repo gets the
-  feature's branch from its default branch, refused while dirty; a read-only one records the commit read).
-  `verify.py` runs each touched repo's own commands in its folder.
+  feature's branch from its default branch, refused while dirty; a read-only one records the commit read). A hook
+  denies a write into a writable repo the active feature hasn't branched. `verify.py` runs each touched repo's own
+  commands in its folder.
 - Ship: `ship.py <feature>` stages each repo and lists them in merge order (workbench, provider, consumers) with a PR
-  body each; commit, push and open each PR, then `state.py pr <feature> <repo> <url>`.
+  body each; commit, push and open each PR, then `state.py pr <feature> <repo> <url>`, and commit the state file once
+  more. Each PR body links the other repos and their feature branches (the PRs don't exist yet when it is written).
   `ship.py <feature> --status` reports each PR and warns when one merged out of order; the feature is done when every
   PR is merged.
 - Later: `$S workbench add <url> …` adds a repo (on a workbench branch, like any setup change); `$S workbench remove
-  <name>` drops its entry and gitignore line and leaves the folder. `/sdlc:doctor` reports listed repos not cloned,
-  unlisted nested repos, folders not gitignored and apps without their own config.
+  <name>` drops its entry and gitignore line and leaves the folder; `$S workbench clone [<name>]` clones listed repos
+  that are missing (a fresh clone of the workbench), from the URLs in `workbench.json`. `/sdlc:doctor` reports listed
+  repos not cloned, unlisted nested repos, folders not gitignored and apps without their own config.
 
 Then continue with the common steps in `SKILL.md` in the workbench. In the report, name each repo, its remote and
 role, and anything left out: no contract check (and why), no `infras/`, the `WORKBENCH_TOKEN` to create.

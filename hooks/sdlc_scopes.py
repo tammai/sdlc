@@ -90,6 +90,39 @@ def workbench_of(root):
     return value.strip() if isinstance(value, str) and value.strip() else None
 
 
+# Folders and files the workbench owns itself: a repo listed under one of these names would take them over
+RESERVED = frozenset({"contract", "docs", "infras", "knowledge", "workbench.json", "claude.md", "agents.md",
+                      "readme.md"})
+
+
+def check_url(url):
+    """The URL when it can only be a clone URL handed to git after `--`, else ValueError: no leading `-`, no
+    whitespace, control or shell characters, and no `<helper>::` transport (`ext::` runs a command)."""
+    import re
+    bad = re.compile(r"[\s\x00-\x1f\x7f;|&$`<>()'\"]")
+    if (not isinstance(url, str) or not url or url.startswith("-") or bad.search(url)
+            or re.match(r"^[A-Za-z][\w+.-]*::", url)):
+        raise ValueError(f"url {url!r} must be a clone URL (https://, ssh://, git@host:path or a local path; no "
+                         "spaces, shell characters or <transport>:: helpers)")
+    return url
+
+
+def repo_dir(root, name):
+    """root/<name> for a manifest or state name: a plain folder name whose folder, when it exists, sits directly in
+    the workbench (a link to elsewhere is refused); else ValueError."""
+    import os
+    path = os.path.join(root, check_name(name))
+    if os.path.lexists(path) and os.path.dirname(os.path.realpath(path)) != os.path.realpath(root):
+        raise ValueError(f"{name}/ links outside the workbench: sdlc only works in repos cloned inside it")
+    return path
+
+
+def ignored_name(line):
+    """The folder a .gitignore line ignores at the root (`api`, `api/`, `/api`, `/api/` → api), else None."""
+    x = line.strip()
+    return x.strip("/") if x and not x.startswith(("#", "!")) and "/" not in x.strip("/") else None
+
+
 def check_name(name):
     """The name when it is a plain folder name, else ValueError."""
     ok = (isinstance(name, str) and 0 < len(name) <= 100 and set(name) <= _NAME_CHARS
@@ -108,12 +141,16 @@ def _check_entry(i, entry, seen):
         name = check_name(entry.get("name"))
     except ValueError as e:
         raise ValueError(f"{where}: {e}")
-    if name in seen:
+    if name.lower() in seen:  # Specs and specs are one folder on macOS and Windows
         raise ValueError(f"{where}: duplicate name {name!r}")
-    seen.add(name)
+    if name.lower() in RESERVED:
+        raise ValueError(f"{where}: {name!r} is the workbench's own (reserved: {', '.join(sorted(RESERVED))})")
+    seen.add(name.lower())
     url = entry.get("url")
-    if not isinstance(url, str) or not url.strip() or url.startswith("-") or any(c in url for c in "\r\n\0"):
-        raise ValueError(f"{where} ({name}): url must be a clone URL")
+    try:
+        check_url(url)
+    except ValueError as e:
+        raise ValueError(f"{where} ({name}): {e}")
     role = entry.get("role")
     if role not in ROLES:
         raise ValueError(f"{where} ({name}): role must be one of {', '.join(ROLES)}")
@@ -160,7 +197,11 @@ def workbench_scopes(root):
         if not repo["write"]:
             continue
         try:
-            cfg = _read_json(os.path.join(root, repo["name"], ".sdlc", "config.json"))
+            folder = repo_dir(root, repo["name"])
+        except ValueError:
+            continue  # links outside the workbench: never a scope sdlc reads or runs in
+        try:
+            cfg = _read_json(os.path.join(folder, ".sdlc", "config.json"))
             cfg = cfg if isinstance(cfg, dict) else {}
             configured = True
         except (OSError, ValueError):
@@ -190,13 +231,10 @@ def feature_repos(state_text):
     """{name: {"branch", "base"} | {"read"}} from a state file's `## Repos` section; a line that doesn't parse, or
     names something that isn't a plain folder name, is skipped (the file is committed: never a path from it)."""
     import re
-    out, inside = {}, False
-    for line in str(state_text or "").replace("\r\n", "\n").split("\n"):
-        if line.startswith("## "):
-            inside = line[3:].strip() == REPOS_HEADING
-            continue
-        m = inside and re.match(r"^-\s+([^:\s]+):\s+(?:branch\s+(\S+)\s+base\s+([0-9a-f]{7,40})|read\s+([0-9a-f]{7,40}))"
-                                r"\s*$", line)
+    line_re = re.compile(r"^-\s+([^:\s]+):\s+(?:branch\s+(\S+)\s+base\s+([0-9a-f]{7,40})|read\s+([0-9a-f]{7,40}))\s*$")
+    out = {}
+    for line in _section_lines(state_text, REPOS_HEADING):
+        m = line_re.match(line)
         if not m:
             continue
         try:
@@ -207,9 +245,6 @@ def feature_repos(state_text):
     return out
 
 
-PRS_HEADING = "PRs"
-
-
 def _section_lines(state_text, heading):
     inside = False
     for line in str(state_text or "").replace("\r\n", "\n").split("\n"):
@@ -217,6 +252,82 @@ def _section_lines(state_text, heading):
             inside = line[3:].strip() == heading
         elif inside:
             yield line
+
+
+def branched_repos(root, state_text):
+    """([(name, record)], [(name, why)]): the `## Repos` branch lines sdlc may act on (stage, commit, run commands),
+    and those it must not: a repo the manifest doesn't list as `write: true` (another team's, or flipped since it was
+    branched), one that isn't a cloned git repo (git would fall back to the workbench) or one that links outside.
+    A manifest it can't read: ValueError (callers refuse, never guess)."""
+    import os
+    writable = {r["name"] for r in manifest(root) if r["write"]}
+    kept, dropped = [], []
+    for name, rec in feature_repos(state_text).items():
+        if not rec.get("branch"):
+            continue
+        if name not in writable:
+            dropped.append((name, f"{name} isn't a writable repo in {WORKBENCH_FILE} (write: true)"))
+            continue
+        try:
+            path = repo_dir(root, name)
+        except ValueError as e:
+            dropped.append((name, str(e)))
+            continue
+        if not os.path.exists(os.path.join(path, ".git")):
+            dropped.append((name, f"{name}/ isn't a cloned git repo"))
+            continue
+        kept.append((name, rec))
+    return kept, dropped
+
+
+def read_only_names(root):
+    """{name: owner} of every repo the manifest lists that isn't exactly `write: true`, read entry by entry so one
+    malformed entry never unguards the others (the guard fails closed); None only when the file can't be read as
+    JSON with a `repos` list."""
+    import os
+    try:
+        data = _read_json(os.path.join(root, WORKBENCH_FILE))
+    except (OSError, ValueError):
+        return None
+    repos = data.get("repos") if isinstance(data, dict) else None
+    if not isinstance(repos, list):
+        return None
+    out = {}
+    for entry in repos:
+        if not isinstance(entry, dict) or entry.get("write") is True:
+            continue
+        try:
+            name = check_name(entry.get("name"))
+        except ValueError:
+            continue
+        owner = entry.get("owner")
+        out[name] = owner if isinstance(owner, str) and owner.strip() else None
+    return out
+
+
+def workbench_root(start):
+    """The nearest folder at or above `start` that is a workbench, else None (hosts without CLAUDE_PROJECT_DIR)."""
+    import os
+    here = os.path.abspath(start or ".")
+    while True:
+        if is_workbench(here):
+            return here
+        up = os.path.dirname(here)
+        if up == here:
+            return None
+        here = up
+
+
+PRS_HEADING = "PRs"
+
+
+def check_pr_url(url):
+    """A PR's URL (`https://<host>/<owner>/<repo>/pull/<n>`) or bare number, else ValueError: it reaches gh as an
+    argument, so never anything that reads as an option."""
+    import re
+    if not isinstance(url, str) or not re.fullmatch(r"https://[^\s/]+/\S*/pull/\d+/?|\d+", url):
+        raise ValueError(f"{url!r} is not a PR URL (https://<host>/<owner>/<repo>/pull/<n>) or number")
+    return url
 
 
 def pr_name(name):
@@ -232,7 +343,7 @@ def feature_prs(state_text):
         m = re.match(r"^-\s+(\S+):\s+(\S+)\s*$", line)
         if m:
             try:
-                out[pr_name(m.group(1))] = m.group(2)
+                out[pr_name(m.group(1))] = check_pr_url(m.group(2))
             except ValueError:
                 continue
     return out

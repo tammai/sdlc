@@ -407,12 +407,18 @@ def moved_read_only(root, plans):
                 texts.append(f.read())
         except OSError:
             pass
-    texts = [t for t in texts if sdlc_scopes.feature_repos(t)] or [t for _, t in sdlc_layout.active(root)][:1]
+    if not any(sdlc_scopes.feature_repos(t) for t in texts):
+        active = [t for _, t in sdlc_layout.active(root)]
+        texts = active if len(active) == 1 else []  # only the one active feature: never a guess between several
     out = []
-    for name, rec in (sdlc_scopes.feature_repos(texts[0]) if texts else {}).items():
+    recorded = next((sdlc_scopes.feature_repos(t) for t in texts if sdlc_scopes.feature_repos(t)), {})
+    for name, rec in recorded.items():
         if not rec.get("read"):
             continue
-        repo = os.path.join(root, name)
+        try:
+            repo = sdlc_scopes.repo_dir(root, name)
+        except ValueError:
+            continue
         current = (git(repo, "rev-parse", "HEAD", check=False) or "").strip()
         if not current or current.startswith(rec["read"]):
             continue

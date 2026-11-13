@@ -45,12 +45,16 @@ def _recorded_test_write(input_data):
 
 
 def _read_only_write(input_data):
-    """sdlc patch: the deny reason when this call writes into a read-only repo of the workbench the session started in
-    (hooks/role_guard.py read_only_problem); else None, and None on its own error."""
+    """sdlc patch: the deny reason when this call writes into a read-only repo of the workbench the session started in,
+    or into a writable one the active feature hasn't branched (hooks/role_guard.py read_only_problem,
+    unbranched_problem); else None, and None on its own error."""
     try:
         import role_guard
-        root = os.path.abspath(os.environ.get('CLAUDE_PROJECT_DIR') or input_data.get('cwd') or os.getcwd())
-        return role_guard.read_only_problem(input_data, root)
+        import sdlc_scopes
+        cwd = input_data.get('cwd') or os.getcwd()
+        # Hosts without CLAUDE_PROJECT_DIR (Codex): the nearest workbench at or above the call's folder
+        root = os.path.abspath(os.environ.get('CLAUDE_PROJECT_DIR') or sdlc_scopes.workbench_root(cwd) or cwd)
+        return role_guard.read_only_problem(input_data, root) or role_guard.unbranched_problem(input_data, root)
     except Exception:
         return None
 

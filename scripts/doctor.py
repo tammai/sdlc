@@ -216,7 +216,8 @@ def check_workbench(r, root):
     missing = [x for x in repos if not os.path.isdir(os.path.join(root, x["name"], ".git"))]
     r.add(g, "workbench repos", "warn" if missing else "ok",
           ("not cloned: " + ", ".join(x["name"] for x in missing)) if missing else f"{len(repos)} cloned",
-          "; ".join(f"scaffold.py workbench add {x['url']} --name {x['name']}" for x in missing) or None)
+          ("scaffold.py workbench clone" if len(missing) > 1 else f"scaffold.py workbench clone {missing[0]['name']}")
+          if missing else None)
     try:
         nested = sorted(d for d in os.listdir(root)
                         if d not in listed and os.path.isdir(os.path.join(root, d, ".git")))
@@ -226,8 +227,8 @@ def check_workbench(r, root):
           ("git repos not in the manifest: " + ", ".join(nested)) if nested else "none",
           "scaffold.py workbench add <url> --name <folder>, or move them out" if nested else None)
     try:
-        with open(os.path.join(root, ".gitignore"), encoding="utf-8") as f:
-            ignored = {x.strip().strip("/") for x in f.read().splitlines()}
+        with open(os.path.join(root, ".gitignore"), encoding="utf-8", errors="replace") as f:
+            ignored = {sdlc_scopes.ignored_name(x) for x in f.read().splitlines()}
     except OSError:
         ignored = set()
     open_ = [x["name"] for x in repos if x["name"] not in ignored]

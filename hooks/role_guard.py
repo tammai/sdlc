@@ -92,7 +92,13 @@ COPY = {"cp", "install", "ln", "rsync", "copy-item", "cpi", "copy"}
 FOLDER_WRITES = {"touch", "mkdir", "md", "chmod", "chown"}
 # ... and git commands that change a repo run inside it (pull and fetch stay open: they only follow upstream)
 GIT_REPO_WRITES = {"commit", "push", "add", "am", "cherry-pick", "revert", "merge", "rebase", "stash", "tag",
-                   "clean", "rm", "mv", "apply", "reset", "commit-tree", "update-ref"}
+                   "clean", "rm", "mv", "apply", "reset", "commit-tree", "update-ref", "switch", "worktree", "notes",
+                   "submodule", "gc", "prune", "init"}
+# `git branch` with only these lists branches; anything else (a name, -d, -m, -f) changes them
+GIT_BRANCH_READS = {"-a", "--all", "-r", "--remotes", "-v", "-vv", "--verbose", "--list", "-l", "--show-current",
+                    "--no-color", "--color"}
+# Commands that move the folder later commands (and their redirects) run in
+CHDIR = {"cd", "pushd", "chdir", "set-location", "sl", "push-location"}
 
 
 def canon(rel):
@@ -174,8 +180,9 @@ def hits(root, cwd, operand, protected, tree=False, folders=False):
 
 
 def segments(command):
-    """(simple commands, redirect targets) of a shell command line, splitting on ; & | && || and newlines and finding
-    `>`/`>>` only outside quotes, so a `>` in a commit message is text."""
+    """[(simple command, its redirect targets)] of a shell command line, splitting on ; & | && || and newlines and
+    finding `>`/`>>` only outside quotes, so a `>` in a commit message is text. Each target stays with its own
+    command, so it resolves against the folder a `cd` before it moved to."""
     parts, targets, buf, quote, i = [], [], [], None, 0
     while i < len(command):
         ch = command[i]
@@ -187,8 +194,8 @@ def segments(command):
             quote = ch
             buf.append(ch)
         elif ch in ";|&\n":
-            parts.append("".join(buf))
-            buf = []
+            parts.append(("".join(buf), targets))
+            buf, targets = [], []
         elif ch == ">":
             j = i + 1
             if j < len(command) and command[j] in ">|":  # `>>` appends, `>|` overwrites despite noclobber
@@ -211,22 +218,23 @@ def segments(command):
         else:
             buf.append(ch)
         i += 1
-    parts.append("".join(buf))
-    return [p for p in parts if p.strip()], targets
+    parts.append(("".join(buf), targets))
+    return [(p, t) for p, t in parts if p.strip() or t]
 
 
 def shell_write(command, root, cwd, protected, depth=0, folders=False):
     """The protected path a shell command line writes, moves or removes, or None (`folders`: see hits)."""
-    parts, targets = segments(command)
-    for t in targets:
-        if hits(root, cwd, t, protected, folders=folders):
-            return t.strip("\"'")
-    for part in parts:
+    for part, targets in segments(command):
+        for t in targets:
+            if hits(root, cwd, t, protected, folders=folders):
+                return t.strip("\"'")
         try:
             words = shlex.split(re.sub(r"\\(?=[\w.$~-])", "/", part), posix=True)
         except ValueError:
             words = re.sub(r"\\(?=[\w.$~-])", "/", part).split()
+        env_words = []
         while words and (re.match(r"^[A-Za-z_]\w*=", words[0]) or words[0].lower() in PREFIXES):
+            env_words.append(words[0])
             words = words[1:]
         if not words:
             continue
@@ -234,8 +242,9 @@ def shell_write(command, root, cwd, protected, depth=0, folders=False):
         if verb.endswith(".exe"):
             verb = verb[:-4]
         args = words[1:]
-        if verb == "cd":
-            cwd = os.path.join(cwd or root, args[0].strip("\"'")) if args else root
+        if verb in CHDIR:
+            operand = next((w for w in args if not w.startswith("-")), None)
+            cwd = os.path.join(cwd or root, operand.strip("\"'")) if operand else root
             continue
         if verb in SHELLS:
             for n, w in enumerate(args[:-1]):
@@ -246,14 +255,22 @@ def shell_write(command, root, cwd, protected, depth=0, folders=False):
             continue
         if verb == "git":
             here = cwd
-            while args and args[0].startswith("-"):  # git -C <dir> / -c <key=value> / --git-dir=…
-                if args[0] in ("-C", "-c") and len(args) > 1:
-                    if args[0] == "-C":
-                        here = os.path.join(here or root, args[1])
-                    args = args[2:]
+            for w in env_words:  # GIT_DIR=specs/.git git commit: the repo it names
+                key, _, value = w.partition("=")
+                if key in ("GIT_DIR", "GIT_WORK_TREE") and value:
+                    here = os.path.join(cwd or root, value.strip("\"'"))
+            while args and args[0].startswith("-"):  # git -C <dir> / -c <key=value> / --git-dir=… / --work-tree …
+                flag, eq, value = args[0].partition("=")
+                if flag in ("-C", "-c", "--git-dir", "--work-tree") and (eq or len(args) > 1):
+                    value = value if eq else args[1]
+                    if flag != "-c":
+                        here = os.path.join(here or root, value)
+                    args = args[1:] if eq else args[2:]
                 else:
                     args = args[1:]
-            if folders and args and args[0] in GIT_REPO_WRITES and hits(root, here, ".", protected, folders=True):
+            writes = args and (args[0] in GIT_REPO_WRITES or args[0] == "branch" and any(
+                w not in GIT_BRANCH_READS for w in args[1:]))
+            if folders and writes and hits(root, here, ".", protected, folders=True):
                 return here or root
             if args and args[0] in ("checkout", "restore", "rm", "mv", "apply", "reset"):
                 for w in args[1:]:
@@ -307,20 +324,49 @@ def written(data, root, protected, folders=False):
 
 def read_only_problem(data, root):
     """The deny reason when this call writes into a `write: false` repo of the workbench at root, naming the repo and
-    its owner; None outside a workbench or with a manifest it can't read (doctor reports that)."""
+    its owner; None outside a workbench. Entries are read one by one, so one malformed entry never unguards the
+    others; only a file that isn't JSON with a `repos` list leaves nothing to guard (doctor reports it)."""
+    import sdlc_scopes
+    if not sdlc_scopes.is_workbench(root):
+        return None
+    for name, owner in (sdlc_scopes.read_only_names(root) or {}).items():
+        found = written(data, root, {canon(name)}, folders=True)
+        if found:
+            owner = owner or "its owners"
+            return (f"sdlc: {found} is in {name}/, a read-only repo owned by {owner} (workbench.json): "
+                    f"sdlc doesn't change other teams' repos. Ask {owner} for the change.")
+    return None
+
+
+def unbranched_problem(data, root):
+    """The deny reason when this call writes into a writable repo of the workbench at root while a feature is active
+    there and no active feature has branched that repo yet (its `## Repos`): the first write would land on whatever
+    branch the repo has checked out. None outside a workbench, with no active feature, or on a manifest it can't
+    read (setup and doctor handle those)."""
+    import sdlc_layout
     import sdlc_scopes
     if not sdlc_scopes.is_workbench(root):
         return None
     try:
-        repos = [r for r in sdlc_scopes.manifest(root) if not r["write"]]
+        writable = [r["name"] for r in sdlc_scopes.manifest(root) if r["write"]]
     except ValueError:
         return None
-    for repo in repos:
-        found = written(data, root, {canon(repo["name"])}, folders=True)
+    features = list(sdlc_layout.active(root))
+    if not features or not writable:
+        return None
+    branched = set()
+    for _, text in features:
+        branched |= {n for n, rec in sdlc_scopes.feature_repos(text).items() if rec.get("branch")}
+    for name in writable:
+        if name in branched:
+            continue
+        found = written(data, root, {canon(name)}, folders=True)
         if found:
-            owner = repo["owner"] or "its owners"
-            return (f"sdlc: {found} is in {repo['name']}/, a read-only repo owned by {owner} (workbench.json): "
-                    f"sdlc doesn't change other teams' repos. Ask {owner} for the change.")
+            feature = features[0][0] if len(features) == 1 else "<feature>"
+            script = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts", "state.py")
+            return (f"sdlc: {found} is in {name}/, which the active feature hasn't branched yet. First run "
+                    f"python3 \"{script}\" repo {feature} {name} (it creates the feature's branch there from the "
+                    "default branch), then make the change.")
     return None
 
 

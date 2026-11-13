@@ -332,14 +332,24 @@ def drift(root, feature, later=()):
     return [{"item": i, "kind": k, "covered": covered(i, deviations)} for i, k in items]
 
 
-def branched_repos(root, feature):
-    """[(name, base)] of the repos a workbench feature branched (its `## Repos`); elsewhere []."""
+def _branched(root, feature):
+    """([(name, record)], [why]) of the repos a workbench feature branched (its `## Repos`) that sdlc may act on, and
+    why each other branch line is left alone (sdlc_scopes.branched_repos); elsewhere ([], [])."""
     import sdlc_scopes  # noqa: PLC0415
     if not sdlc_scopes.is_workbench(root):
-        return []
+        return [], []
     located = sdlc_layout.features(root).get(feature)
     text = read(os.path.join(root, located["state"])) if located else None
-    return [(n, r["base"]) for n, r in sdlc_scopes.feature_repos(text).items() if r.get("branch")]
+    try:
+        kept, dropped = sdlc_scopes.branched_repos(root, text)
+    except ValueError as e:
+        return [], [str(e)]
+    return kept, [why for _, why in dropped]
+
+
+def branched_repos(root, feature):
+    """[(name, base)] of the repos a workbench feature branched that sdlc may act on; elsewhere []."""
+    return [(n, r["base"]) for n, r in _branched(root, feature)[0]]
 
 
 def repo_changes(root, feature):
@@ -362,15 +372,10 @@ def repo_trees(root, feature):
 def repo_failures(root, feature, timeout):
     """In a workbench: each repo the feature branched (its state's `## Repos`) runs its own verify plan, from its own
     .sdlc/config.json, in its folder; each failure starts with the repo's name. Elsewhere: []."""
-    import sdlc_scopes  # noqa: PLC0415
-    if not sdlc_scopes.is_workbench(root):
-        return []
-    located = sdlc_layout.features(root).get(feature)
-    text = read(os.path.join(root, located["state"])) if located else None
-    failures = []
-    for name, rec in sdlc_scopes.feature_repos(text).items():
-        if not rec.get("branch"):
-            continue  # a read-only repo: read, never built here
+    kept, dropped = _branched(root, feature)
+    # A branch line sdlc may not act on (another team's repo, one not cloned) fails verify, and its commands never run
+    failures = [f"not run: {why}" for why in dropped]
+    for name, _ in kept:
         repo = os.path.join(root, name)
         try:
             config = json.loads(read(os.path.join(repo, ".sdlc", "config.json")) or "null")

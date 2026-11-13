@@ -144,8 +144,9 @@ def ship(root, feature, message, review=None, note=None, timeout=1800, waive_bas
         raise Refused(f"Owner is {owner}, not {me}: ask the user before taking it over")
     if review:
         add_review(root, paths["change"], review)
+    # Every refusal comes before the state moves, so a refusal leaves the state file as it was
+    repos = check_repos(root, state) if sdlc_scopes.is_workbench(root) else None
     head, tree, waiver = verified(root, feature, timeout, waive_baseline)
-    # the branch is settled before the state moves, so a refusal leaves the state file as it was
     branch = None
     if git(root, "branch", "--show-current").strip() != feature and on_default_branch(root):
         if git(root, "rev-parse", "--verify", "--quiet", f"refs/heads/{feature}", check=False).strip():
@@ -165,32 +166,47 @@ def ship(root, feature, message, review=None, note=None, timeout=1800, waive_bas
         f.write(f"{message}\n\nRecord: {paths['change']}\n")
     out = {"ok": True, "head": head, "tree": tree, "branch": branch, "staged": files, "message": MESSAGE}
     if sdlc_scopes.is_workbench(root):
-        out["repos"] = ship_repos(root, feature, paths["change"], message, files, branch)
+        out["repos"] = ship_repos(root, feature, paths["change"], message, files, branch, repos)
     return out
 
 
-def ship_repos(root, feature, change, message, workbench_files, workbench_branch):
-    """A workbench feature: each repo it branched, staged on its feature branch with its own commit message naming
-    the change file, and a PR body linking the others; listed with the workbench in merge order."""
-    recorded = sdlc_scopes.feature_repos(verify.read(os.path.join(root, sdlc_layout.paths(root, feature)["state"])))
+def check_repos(root, state):
+    """A workbench feature's repos to ship, [(name, record)], checked before anything moves: the manifest reads,
+    every branch line names a writable cloned repo (never another team's), each is on its feature branch, and every
+    listed repo folder is gitignored in the workbench (else the workbench commit would take it in as a gitlink)."""
     try:
-        urls = {r["name"]: r["url"] for r in sdlc_scopes.manifest(root)}
+        kept, dropped = sdlc_scopes.branched_repos(root, state)
+        listed = [r["name"] for r in sdlc_scopes.manifest(root)]
     except ValueError as e:
         raise Refused(str(e))
+    if dropped:
+        raise Refused("; ".join(why for _, why in dropped) + ": sdlc doesn't stage or commit there. Fix workbench.json "
+                      "or the state file's ## Repos line, then run ship.py again")
+    for name in listed:
+        ignored = subprocess.run(["git", "-C", root, "check-ignore", "-q", f"{name}/"], capture_output=True).returncode
+        if os.path.isdir(os.path.join(root, name)) and ignored != 0:
+            raise Refused(f"{name}/ isn't gitignored in the workbench, so its commit would take the repo in: add "
+                          f"/{name}/ to .gitignore (scaffold.py workbench add does) and run ship.py again")
+    for name, rec in kept:
+        current = git(os.path.join(root, name), "branch", "--show-current").strip()
+        if current != rec["branch"]:
+            raise Refused(f"{name} is on {current or 'a detached HEAD'}, not the feature's branch {rec['branch']}: "
+                          f"switch it back (git -C {name} switch {rec['branch']}) and run ship.py again")
+    return kept
+
+
+def ship_repos(root, feature, change, message, workbench_files, workbench_branch, repos):
+    """A workbench feature: each repo it branched (check_repos), staged on its feature branch with its own commit
+    message naming the change file, and a PR body linking the others; listed with the workbench in merge order."""
+    urls = {r["name"]: r["url"] for r in sdlc_scopes.manifest(root)}
     work = os.path.join(root, ".sdlc", ".work")
     branch_now = workbench_branch or git(root, "branch", "--show-current").strip()
     entries = {sdlc_scopes.WORKBENCH_SCOPE: {
         "name": sdlc_scopes.WORKBENCH_SCOPE, "path": root, "branch": branch_now, "staged": workbench_files,
         "message": os.path.join(root, MESSAGE),
         "url": git(root, "remote", "get-url", "origin", check=False).strip() or None}}
-    for name, rec in recorded.items():
-        if not rec.get("branch"):
-            continue
+    for name, rec in repos:
         repo = os.path.join(root, name)
-        current = git(repo, "branch", "--show-current").strip()
-        if current != rec["branch"]:
-            raise Refused(f"{name} is on {current or 'a detached HEAD'}, not the feature's branch {rec['branch']}: "
-                          f"switch it back (git -C {name} switch {rec['branch']}) and run ship.py again")
         files = to_stage(repo)
         ahead = git(repo, "rev-list", "--count", f"{rec['base']}..HEAD", check=False).strip()
         if not files and ahead in ("", "0"):
@@ -220,19 +236,21 @@ def ship_repos(root, feature, change, message, workbench_files, workbench_branch
 
 
 def pr_state(url):
-    """(state, mergedAt) of a PR from gh (SDLC_GH: the gh command line to use instead, for tests)."""
+    """(state, mergedAt, error) of a PR from gh (SDLC_GH: the gh command line to use instead, for tests); the URL
+    goes after `--`, so it is never read as an option."""
     import shlex
     gh = shlex.split(os.environ.get("SDLC_GH") or "gh", posix=os.name != "nt")
     gh = [w.strip('"') for w in gh]
     try:
-        p = subprocess.run(gh + ["pr", "view", url, "--json", "state,mergedAt"], capture_output=True,
+        p = subprocess.run(gh + ["pr", "view", "--json", "state,mergedAt", "--", url], capture_output=True,
                            encoding="utf-8", errors="replace", timeout=60)
         data = json.loads(p.stdout) if p.returncode == 0 else None
-    except (OSError, ValueError, subprocess.TimeoutExpired):
-        data = None
+        error = None if p.returncode == 0 else (p.stderr or p.stdout).strip()[-300:] or f"gh exit {p.returncode}"
+    except (OSError, ValueError, subprocess.TimeoutExpired) as e:
+        data, error = None, str(e) or type(e).__name__
     if not isinstance(data, dict):
-        return "UNKNOWN", None
-    return str(data.get("state") or "UNKNOWN").upper(), data.get("mergedAt")
+        return "UNKNOWN", None, error or "gh gave no PR state"
+    return str(data.get("state") or "UNKNOWN").upper(), data.get("mergedAt"), None
 
 
 def status(root, feature):
@@ -245,10 +263,12 @@ def status(root, feature):
     if not prs:
         return {"done": False, "prs": [], "warnings": [],
                 "note": f"no PRs recorded: after each gh pr create, run state.py pr {feature} <repo> <url>"}
-    rows = []
+    rows, errors = [], []
     for name in sdlc_scopes.merge_order(root, list(prs)):
-        st, merged = pr_state(prs[name])
+        st, merged, error = pr_state(prs[name])
         rows.append({"repo": name, "url": prs[name], "state": st, "merged_at": merged if st == "MERGED" else None})
+        if error:  # gh missing, signed out or rate-limited: said, never shown as "not merged yet"
+            errors.append(f"{name}: couldn't read {prs[name]} with gh ({error})")
     warnings = []
     for i, early in enumerate(rows):
         for late in rows[i + 1:]:
@@ -258,7 +278,11 @@ def status(root, feature):
                 when = "is still open" if not early["merged_at"] else "merged after it"
                 warnings.append(f"{late['repo']} merged before {early['repo']}, which {when}: the merge order is "
                                 "workbench, then the provider, then its consumers")
-    return {"done": all(r["merged_at"] for r in rows), "prs": rows, "warnings": warnings}
+    out = {"done": all(r["merged_at"] for r in rows), "prs": rows, "warnings": warnings}
+    if errors:
+        out["errors"] = errors
+        out["note"] = "some PR states are unknown, so out-of-order merges among them can't be checked"
+    return out
 
 
 def main(argv=None):
