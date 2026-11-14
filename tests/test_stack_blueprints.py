@@ -176,6 +176,37 @@ class Conventions(ProjectTestCase):
         with open(self.path(".claude/rules/go-auth.md"), encoding="utf-8") as f:
             self.assertEqual(f.read(), "mine\n")
 
+    def test_upgrade_offers_only_a_changed_template(self):
+        import argparse
+        import json
+        import shutil
+        from unittest import mock
+
+        import scaffold  # noqa: E402
+        self.sc("init", "--kind", "greenfield")
+        self.sc("conventions", "go", "auth")
+        plugin = os.path.join(self.root, "plugin-copy")
+        shutil.copytree(os.path.join(PLUGIN_ROOT, "templates", "project", "conventions"),
+                        os.path.join(plugin, "templates", "project", "conventions"))
+        p = scaffold.Project(self.root)
+        with mock.patch.object(scaffold, "PLUGIN_ROOT", plugin), \
+                mock.patch.object(scaffold, "plugin_version", lambda: "99.0.0"):
+            self.assertEqual(scaffold.convention_updates(p), [])  # a new release alone offers nothing
+            with open(os.path.join(plugin, "templates/project/conventions/go/auth.md"), "a", encoding="utf-8") as f:
+                f.write("- A new line.\n")
+            [item] = scaffold.convention_updates(p)
+            self.assertEqual(item["path"], ".claude/rules/go-auth.md")
+            self.assertIn("+- A new line.", item["diff"])
+            scaffold.cmd_conventions(p, argparse.Namespace(seen=".claude/rules/go-auth.md", stack=None, area=None,
+                                                           package=None))
+            self.assertEqual(scaffold.convention_updates(scaffold.Project(self.root)), [])
+            # a lock entry whose path isn't its own stack-area name is never read
+            lock = self.lock()
+            lock["conventions"]["../outside.md"] = dict(lock["conventions"][".claude/rules/go-auth.md"], sha256="x")
+            with open(self.path(".sdlc/scaffold.lock.json"), "w", encoding="utf-8") as f:
+                json.dump(lock, f)
+            self.assertEqual(scaffold.convention_updates(scaffold.Project(self.root)), [])
+
     def test_rendered_on_first_touch_not_at_setup(self):
         for parts in (REFS + ("greenfield.md",), REFS + ("monorepo.md",), REFS + ("workbench.md",),
                       ("skills", "setting-up-projects", "SKILL.md")):

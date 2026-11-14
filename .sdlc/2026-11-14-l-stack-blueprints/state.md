@@ -10,8 +10,8 @@ Started: 2026-11-14
 Base: 5628df6
 Owner: tammai.it@gmail.com
 Tool: claude-code
-Verified: 41afc23 tree 070ff5908b4e397494f7fb4ecb7ce662b8b084a1
-Slice: B3   Slice base: 41afc23   Slice gates: none
+Verified: cc17992 tree e79fd3a7ad809f87b1eb501e134f029a0a23a976
+Slice: B3   Slice base: cc17992   Slice gates: none
 Current: Stage 2 – Build
 
 ## Stages
@@ -61,6 +61,7 @@ parts in fresh sessions, because the user builds one part per session (backlog.m
 - 2026-11-14 B3 naming What: convention files are .claude/rules/<stack>-<area>.md, not <area>.md; AC-007 and its decision row reworded. Why: the user's answer in B3 (a web + API monorepo's second package would be refused on layers, contract, auth). Effect: dest name only; same allowlists and refusals.
 - 2026-11-14 B3 CHANGELOG.md, docs/specs/01-setup-upgrade-eject.md, docs/wiki/Project-setup.md, CONTRIBUTING.md What: Unreleased entry, SET-FR-056, the wiki greenfield line, the templates/project tree line. Why: the stale-docs audit. Effect: docs only.
 - 2026-11-14 B3 scripts/scaffold.py cmd_conventions convention_areas convention_root convention_template convention_text convention_updates What: module-level functions behind the conventions command and upgrade-plan's conventions list. Why: scaffold.py's style, one function per step; the public surface is the command (AC-007). Effect: none outside scaffold.py.
+- 2026-11-14 B3 fix scripts/scaffold.py convention_entry, tests/test_stack_blueprints.py, docs/adr/0026-stack-blueprints-in-setup.md, docs/wiki/Where-things-live.md, flow.md, s-track.md What: the rule header no longer carries the plugin version (every release would have re-offered every convention); lock entries are used only when their path is their own stack-area name; a test for the upgrade path; ADR and wiki name <stack>-<area>.md; Define says --root <repo> in a workbench. Why: self-check after the B3 commit. Effect: second B3 commit.
 
 ## Open questions
 -

@@ -34,7 +34,7 @@ of a minimal greenfield.
 - **Stacks added:** Vue without Nuxt, Next.js, Flutter, native iOS, native Android, FastAPI; Nuxt, React, Node and Go
   reconciled with the blueprint entries.
 - **Per-stack conventions** (layers, tenant-ready schema, contract, auth, data access, UI) are templates
-  `scaffold.py` renders into `.claude/rules/<area>.md` when a feature first touches the area, never at setup. They are
+  `scaffold.py` renders into `.claude/rules/<stack>-<area>.md` (so a web app and an API each get their own) when a feature first touches the area, never at setup. They are
   user-owned (eject keeps them); the lock lists each rendered area with its template and version, so upgrade can
   offer a template change as a diff. Area and stack names come from the plugin's own list; an existing rule file is
   never overwritten.

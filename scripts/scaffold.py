@@ -567,6 +567,14 @@ def convention_template(template):
     return bool(m) and m.group(1) in CONVENTION_STACKS and m.group(2) in convention_areas(m.group(1))
 
 
+def convention_entry(dest, e):
+    """A lock `conventions` entry, only when its path is exactly the one its allowlisted stack and area give."""
+    if not isinstance(e, dict) or not convention_template(e.get("template")):
+        return False
+    return (dest == f".claude/rules/{e.get('stack')}-{e.get('area')}.md"
+            and e["template"] == f"{CONVENTIONS_DIR}/{e.get('stack')}/{e.get('area')}.md")
+
+
 def convention_root(p, package):
     """(package name or None, its path for `paths:`), refusing a package config doesn't list."""
     packages = (p.config or {}).get("packages")
@@ -597,8 +605,9 @@ def convention_text(template, root):
         raise ValueError(f"{template} has no paths: frontmatter")
     globs = globs if root == "." else [f"{root}/{g}" for g in globs]
     return (f"---\npaths:\n{format_value(globs, 'yaml_list')}\n---\n"
-            f"<!-- Written by the sdlc plugin v{plugin_version()} from {template}. Yours to edit: an upgrade offers "
-            f"template changes as a diff and never overwrites this file. -->\n" + source[m.end():].lstrip("\n"))
+            f"<!-- Written by the sdlc plugin from {template}. Yours to edit: an upgrade offers template changes as a "
+            f"diff and never overwrites this file. -->\n" + source[m.end():].lstrip("\n"))  # no version: a release
+    # that leaves the template alone must render the same text, or every upgrade would re-offer every convention
 
 
 def cmd_conventions(p, a):
@@ -607,7 +616,7 @@ def cmd_conventions(p, a):
     if a.seen:  # the user has been shown an upgrade's diff: the current template is the baseline from now on
         dest = rel(p.root, a.seen)
         e = rendered.get(dest)
-        if not isinstance(e, dict) or not convention_template(e.get("template")):
+        if not convention_entry(dest, e):
             raise Refused(f"{dest} is not a convention this plugin rendered")
         text = convention_text(e["template"], e.get("root", "."))
         e.update(version=plugin_version(), sha256=hashlib.sha256(text.encode("utf-8")).hexdigest())
@@ -650,7 +659,7 @@ def convention_updates(p):
     import difflib
     out = []
     for dest, e in sorted(((p.lock or {}).get("conventions") or {}).items()):
-        if not isinstance(e, dict) or not convention_template(e.get("template")) or not os.path.isfile(p.path(dest)):
+        if not convention_entry(dest, e) or not os.path.isfile(p.path(dest)):
             continue
         new = convention_text(e["template"], e.get("root", "."))
         if hashlib.sha256(new.encode("utf-8")).hexdigest() == e.get("sha256"):
