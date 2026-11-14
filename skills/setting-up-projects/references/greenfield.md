@@ -12,7 +12,7 @@ Ask only what you can't infer, a few questions at a time, with a suggested answe
 - Runtime and language per part; package manager; test runner. Apply `stacks.md`'s **Choosing a stack** table to those answers, then propose each stack from its section (pieces, generator, five commands); a stack it doesn't list takes the ecosystem's current mainstream choice, with why in one line.
 - Where it deploys (only if it changes the skeleton, e.g. a Dockerfile).
 
-Propose: each pick from the table with its reason and every warning that applies, the stack per package, the directory layout, the generator command for each package, and the five commands per package (below). Keep it to what the first feature needs; no auth, DB, Docker, or infra "for later" unless the user named it. **The user approves before anything is generated.**
+Propose: each pick from the table with its reason and every warning that applies, the stack per package, the directory layout, the generator command for each package, and the five commands per package (below). Keep it to what the first feature needs; no auth, DB, Docker, or infra "for later" unless the user named it. No convention is rendered here either: the stack's conventions (`.claude/rules/<stack>-<area>.md`) are written by the first feature that touches each area, in its Define. **The user approves before anything is generated.**
 
 ## `skeleton` – generate with the official tools
 

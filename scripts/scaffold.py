@@ -544,6 +544,126 @@ def cmd_render(p, a):
     return {"rendered": dest, "class": a.cls, "changed": before != after}
 
 
+# --- conventions: a stack's rules for one area, written when the first feature touches it --------------
+# The file is the user's from the start (in `declined`, never in `files`), so eject keeps it and upgrade never
+# replaces it; the lock's `conventions` list remembers what each came from, so upgrade can offer a changed template
+# as a diff. Stack and area come from these allowlists only; config supplies nothing but the package's path, and
+# that only for the `paths:` frontmatter.
+
+CONVENTION_STACKS = ("nuxt", "vue", "react", "nextjs", "flutter", "ios", "android", "node", "go", "fastapi")
+CONVENTION_AREAS = ("layers", "schema", "contract", "auth", "data-access", "ui")
+CONVENTIONS_DIR = "templates/project/conventions"
+
+
+def convention_areas(stack):
+    """The areas `stack` has a template for, in allowlist order."""
+    return [a for a in CONVENTION_AREAS
+            if os.path.isfile(os.path.join(PLUGIN_ROOT, CONVENTIONS_DIR, stack, a + ".md"))]
+
+
+def convention_template(template):
+    """A lock entry's template, only when it is one of ours (the lock is repo data, read like input)."""
+    m = re.fullmatch(CONVENTIONS_DIR + r"/([a-z]+)/([a-z-]+)\.md", template if isinstance(template, str) else "")
+    return bool(m) and m.group(1) in CONVENTION_STACKS and m.group(2) in convention_areas(m.group(1))
+
+
+def convention_root(p, package):
+    """(package name or None, its path for `paths:`), refusing a package config doesn't list."""
+    packages = (p.config or {}).get("packages")
+    packages = [x for x in packages if isinstance(x, dict)] if isinstance(packages, list) else []
+    names = [str(x.get("name")) for x in packages if isinstance(x.get("name"), str)]
+    if not packages:
+        if package:
+            raise Refused(f"--package {package}: {CONFIG} lists no packages; leave it out for a single project")
+        return None, "."
+    match = next((x for x in packages if x.get("name") == package), None)
+    if match is None:
+        raise Refused(f"name the package with --package, one of: {', '.join(names) or '(none)'}")
+    path = match.get("path")
+    path = path.replace("\\", "/").strip() if isinstance(path, str) else ""
+    parts = [x for x in path.split("/") if x not in ("", ".")]
+    if path.startswith("/") or re.match(r"^[A-Za-z]:", path) or ".." in parts:
+        raise Refused(f"package {package}: its path {path!r} must be relative and inside the project")
+    return package, "/".join(parts) or "."
+
+
+def convention_text(template, root):
+    """The rule file: the template's globs under `root`, a provenance line, then the template's body."""
+    with open(os.path.join(PLUGIN_ROOT, template), encoding="utf-8") as f:
+        source = f.read().replace("\r\n", "\n")
+    m = re.match(r"^---\n.*?\n---\n", source, re.S)
+    globs = rule_scope(source)
+    if not m or not globs:
+        raise ValueError(f"{template} has no paths: frontmatter")
+    globs = globs if root == "." else [f"{root}/{g}" for g in globs]
+    return (f"---\npaths:\n{format_value(globs, 'yaml_list')}\n---\n"
+            f"<!-- Written by the sdlc plugin v{plugin_version()} from {template}. Yours to edit: an upgrade offers "
+            f"template changes as a diff and never overwrites this file. -->\n" + source[m.end():].lstrip("\n"))
+
+
+def cmd_conventions(p, a):
+    lock = p.require_lock()
+    rendered = lock.setdefault("conventions", {})
+    if a.seen:  # the user has been shown an upgrade's diff: the current template is the baseline from now on
+        dest = rel(p.root, a.seen)
+        e = rendered.get(dest)
+        if not isinstance(e, dict) or not convention_template(e.get("template")):
+            raise Refused(f"{dest} is not a convention this plugin rendered")
+        text = convention_text(e["template"], e.get("root", "."))
+        e.update(version=plugin_version(), sha256=hashlib.sha256(text.encode("utf-8")).hexdigest())
+        p.save()
+        return {"seen": dest, "version": e["version"]}
+    if not a.stack:
+        return {"stacks": {s: convention_areas(s) for s in CONVENTION_STACKS}, "rendered": rendered}
+    if a.stack not in CONVENTION_STACKS:
+        raise Refused(f"unknown stack {a.stack!r}; allowed: {', '.join(CONVENTION_STACKS)}")
+    if a.area not in CONVENTION_AREAS:
+        raise Refused(f"unknown area {a.area!r}; allowed: {', '.join(CONVENTION_AREAS)}")
+    areas = convention_areas(a.stack)
+    if a.area not in areas:
+        raise Refused(f"{a.stack} has no {a.area} convention; its areas: {', '.join(areas) or '(none)'}")
+    package, root = convention_root(p, a.package)
+    dest = f".claude/rules/{a.stack}-{a.area}.md"
+    if os.path.exists(p.path(dest)) or dest in rendered:
+        raise Refused(f"{dest} exists; it is never overwritten: widen its paths: by hand for another package")
+    template = f"{CONVENTIONS_DIR}/{a.stack}/{a.area}.md"
+    text = convention_text(template, root)
+    os.makedirs(os.path.dirname(p.path(dest)), exist_ok=True)
+    _write_atomic(p.path(dest), text)
+    rendered[dest] = {"stack": a.stack, "area": a.area, "package": package, "root": root, "template": template,
+                      "version": plugin_version(), "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest()}
+    declined = lock.setdefault("declined", [])
+    if dest not in declined:
+        declined.append(dest)
+    p.save()
+    out = {"rendered": dest, "paths": rule_scope(text)}
+    try:  # the AGENTS.md block carries every area rule to the other agents: say when it needs a rebuild
+        if agents_state(p) == "stale":
+            out["agents"] = "stale: run `scaffold.py agents`"
+    except ValueError:
+        pass
+    return out
+
+
+def convention_updates(p):
+    """Rendered conventions whose template changed since: the user's file against the new render, as a diff."""
+    import difflib
+    out = []
+    for dest, e in sorted(((p.lock or {}).get("conventions") or {}).items()):
+        if not isinstance(e, dict) or not convention_template(e.get("template")) or not os.path.isfile(p.path(dest)):
+            continue
+        new = convention_text(e["template"], e.get("root", "."))
+        if hashlib.sha256(new.encode("utf-8")).hexdigest() == e.get("sha256"):
+            continue
+        with open(p.path(dest), encoding="utf-8") as f:
+            have = f.read().replace("\r\n", "\n")
+        diff = "".join(difflib.unified_diff(have.splitlines(True), new.splitlines(True), dest, dest + " (template)"))
+        if not diff:  # the file already reads like the new template: nothing to offer
+            continue
+        out.append({"path": dest, "template": e["template"], "from": e.get("version"), "diff": diff})
+    return out
+
+
 # --- commands contract -------------------------------------------------------------------
 # The project's own commands live in config: `commands` for a single project, or `packages` (each with name,
 # path, stack and commands) for a monorepo. A command set to null means "not applicable" (e.g. typecheck for
@@ -1893,6 +2013,7 @@ def cmd_upgrade_plan(p, a):
         plan["agents"] = agents_state(p)
     except ValueError as e:  # a Claude-only line in CLAUDE.md shouldn't block the rest of the upgrade
         plan["agents"] = f"error: {e}"
+    plan["conventions"] = convention_updates(p)  # user-owned: offered as a diff, never replaced
     plan["pending_migrations"] = pending_migrations(p)
     plan["old_features"] = old_features(p)  # 2.0 can't run them: the upgrade stops until they're finished on 1.8.1
     return plan
@@ -2076,6 +2197,15 @@ def build_parser():
     s.add_argument("--class", dest="cls", choices=FILE_CLASSES, default="generated")
     s.add_argument("--if-unchanged", action="store_true", help="refuse (exit 2) if the user edited the file")
     s.set_defaults(fn=cmd_render)
+
+    s = sub.add_parser("conventions", help="a stack's convention for one area as .claude/rules/<stack>-<area>.md "
+                       "(user-owned); no arguments: the stacks and their areas")
+    s.add_argument("stack", nargs="?", help=", ".join(CONVENTION_STACKS))
+    s.add_argument("area", nargs="?", help=", ".join(CONVENTION_AREAS))
+    s.add_argument("--package", help="the package in .sdlc/config.json whose path scopes the rule (monorepo)")
+    s.add_argument("--seen", metavar="PATH", help="after an upgrade showed a convention's diff: take the current "
+                   "template as its baseline")
+    s.set_defaults(fn=cmd_conventions)
 
     s = sub.add_parser("workbench", help="list, add (clone + gitignore + record), remove, or clone listed repos")
     s.add_argument("action", choices=["list", "add", "remove", "clone"])

@@ -3,7 +3,7 @@ import os
 import sys
 import unittest
 
-from helpers import PLUGIN_ROOT
+from helpers import PLUGIN_ROOT, ProjectTestCase, run_hook
 
 sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
 
@@ -120,6 +120,73 @@ class CiToolchains(unittest.TestCase):
         self.assertIn("macos-", scaffold.generate_ci(p, "ios"))
         self.assertNotIn("macos-", scaffold.generate_ci(p, "android"))
         self.assertIn("ubuntu-latest", scaffold.generate_ci(p, "android"))
+
+
+class Conventions(ProjectTestCase):
+    def sc(self, *args, expect=0):
+        code, out, raw, err = run_hook([sys.executable, os.path.join(PLUGIN_ROOT, "scripts", "scaffold.py"),
+                                        "--root", self.root, *args], "", self.root)
+        self.assertEqual(code, expect, f"{args}: {raw}{err}")
+        return out
+
+    def lock(self):
+        import json
+        with open(self.path(".sdlc/scaffold.lock.json"), encoding="utf-8") as f:
+            return json.load(f)
+
+    def test_render_one_area(self):
+        import json
+        import scaffold  # noqa: E402
+        self.sc("init", "--kind", "greenfield")
+        self.write(".sdlc/config.json", json.dumps({"packages": [
+            {"name": "web", "path": "apps/web", "stack": "typescript"},
+            {"name": "api", "path": "apps/api", "stack": "typescript"}]}))
+        out = self.sc("conventions", "node", "layers", "--package", "api")
+        dest = ".claude/rules/node-layers.md"
+        self.assertEqual(out["rendered"], dest)
+        with open(self.path(dest), encoding="utf-8") as f:
+            text = f.read()
+        globs = scaffold.rule_scope(text)
+        self.assertTrue(globs and all(g.startswith("apps/api/") for g in globs), globs)
+        self.assertNotIn("{{", text)
+        lock = self.lock()
+        self.assertNotIn(dest, lock.get("files", {}))  # user-owned: eject keeps it, upgrade never replaces it
+        self.assertIn(dest, lock["declined"])
+        entry = lock["conventions"][dest]
+        self.assertEqual((entry["stack"], entry["area"], entry["package"]), ("node", "layers", "api"))
+        self.assertEqual(entry["template"], "templates/project/conventions/node/layers.md")
+        self.assertTrue(entry["version"] and entry["sha256"])
+        # a second stack's same area gets its own file
+        self.sc("conventions", "nuxt", "layers", "--package", "web")
+        self.assertTrue(os.path.exists(self.path(".claude/rules/nuxt-layers.md")))
+
+        def refused(*args):
+            before = sorted(os.listdir(self.path(".claude/rules")))
+            out = self.sc("conventions", *args, expect=2)
+            self.assertEqual(sorted(os.listdir(self.path(".claude/rules"))), before, args)
+            return out["refused"]
+
+        self.assertIn("data-access", refused("node", "bogus", "--package", "api"))  # names the allowed areas
+        self.assertIn("fastapi", refused("../evil", "layers", "--package", "api"))  # names the allowed stacks
+        self.assertIn("ui", refused("nuxt", "schema", "--package", "web"))  # the areas nuxt has
+        self.assertIn("api", refused("node", "schema", "--package", "nope"))  # the packages config has
+        self.assertIn("exists", refused("node", "layers", "--package", "api"))  # never overwrites
+        self.write(".claude/rules/go-auth.md", "mine\n")
+        refused("go", "auth", "--package", "api")
+        with open(self.path(".claude/rules/go-auth.md"), encoding="utf-8") as f:
+            self.assertEqual(f.read(), "mine\n")
+
+    def test_rendered_on_first_touch_not_at_setup(self):
+        for parts in (REFS + ("greenfield.md",), REFS + ("monorepo.md",), REFS + ("workbench.md",),
+                      ("skills", "setting-up-projects", "SKILL.md")):
+            self.assertNotIn("scaffold.py conventions", read_doc(*parts), parts)
+            self.assertNotIn("$S conventions", read_doc(*parts), parts)
+        self.assertIn("no convention", read_doc(*REFS, "greenfield.md").lower())
+        flow = section(read_doc("skills", "orchestrator", "references", "flow.md"), "## Define (Stage 1)")
+        s_track = read_doc("skills", "orchestrator", "references", "s-track.md")
+        for text in (flow, s_track):
+            self.assertIn("scaffold.py\" conventions", text)
+            self.assertIn("first touch", text.lower())
 
 
 if __name__ == "__main__":

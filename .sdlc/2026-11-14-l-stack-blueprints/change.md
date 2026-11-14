@@ -40,7 +40,9 @@ feature branch, later parts add commits, one Review and Ship at the end).
 | The selection table covers shape, backend language, web and mobile only | the blueprint's data, auth and deploy rules in the table | deploy is setup's existing `deploy` step (ADR 0024); data and auth wait for the feature (6). Their rules and warnings move to part 3 (auth, data templates) and part 4 (platform references) |
 | Interview adds three questions: API clients beyond the product's own apps, heaviest workload, first-year scale | the blueprint's `project_name`, `project_description`, `agents`, `platform`, `multi_tenant`, `auth_methods` | the PRD step and host detection cover the first three; the rest decide auth, data and tenancy, which wait for the feature (6) |
 | Shape maps onto existing layouts: one deployable → `greenfield.md` (one app); standalone API with clients → two or more apps → the existing monorepo-or-workbench question | a new shape config field | no new config; the layout question already exists (ADR 0025) |
-| Convention rule files are named `.claude/rules/<area>.md` from a fixed allowlist of areas (layers, schema, contract, auth, data-access, ui) and never overwrite an existing file | `sdlc-<area>.md`; paths from config | `sdlc-*` names are the plugin's generated rules; brownfield already writes area rules under these names; repo config never names a path (recurring defect) |
+| Convention rule files are named `.claude/rules/<stack>-<area>.md`, stack and area each from a fixed allowlist (areas: layers, schema, contract, auth, data-access, ui), and never overwrite an existing file | `<area>.md` (the approved name until B3: a web + API monorepo's second package would be refused on `layers`, `contract`, `auth`); `sdlc-<area>.md`; paths from config | user's answer in B3 (2026-11-14); `sdlc-*` names are the plugin's generated rules; no allowlisted stack starts with `sdlc`; repo config never names a path (recurring defect) |
+| Define names the stack: it reads the package's manifest (`nuxt`, `next`, `react` or `vue` in `package.json`, `pubspec.yaml`, `Package.swift` or an `.xcodeproj`, `build.gradle.kts`, `go.mod`, `fastapi` in `pyproject.toml`) and passes it to `scaffold.py conventions` | a new config field for the approved stack | config `stack` is the CI toolchain (`typescript` covers four web stacks); decision 7, no resolver code |
+| Templates exist only where a blueprint `target: rules` module covers the pair; prose, no code samples, no blueprint placeholders; tenant rules only as "when the product is multi-tenant" | a template for every stack × area; samples carried over | AC-009 stays checkable; decision 6 |
 | Convention rule files are user-owned: rendered, then forgotten (eject keeps them like area rules); the lock keeps a list of rendered areas with their template and version, so `/sdlc:upgrade` can offer a template change as a diff | `seeded` (upgrade replaces, eject deletes while unedited); untracked with no list | user's answer |
 | One branch and one growing PR: a draft PR after B1, later parts add commits in later sessions, one Review and Ship after B5 | a PR per part | user's answer; the parts flow's one Review and Ship |
 | Templates don't restate `sdlc-ui.md`, `sdlc-sensitive.md`, `sdlc-migrations.md`; the blueprint's security checklist and definition of done fold into those, not new files | parallel checklists | the user's constraint; one source per rule |
@@ -75,7 +77,7 @@ feature branch, later parts add commits, one Review and Ship at the end).
 - **AC-006** (B2) Given a package whose stack is Flutter, Swift or Kotlin, when `builtin:ci` renders, then the
   workflow sets up that toolchain (Swift on a macOS runner) instead of a `# TODO` line.
 - **AC-007** (B3) Given an approved stack, when `scaffold.py conventions` renders one area for a package, then
-  `.claude/rules/<area>.md` holds that stack's convention with `paths:` from the package path and is recorded per
+  `.claude/rules/<stack>-<area>.md` holds that stack's convention with `paths:` from the package path and is recorded per
   the ownership decision; an area or stack outside the allowlist, or an existing rule file, is refused with the
   allowed names and nothing is written.
 - **AC-008** (B3) Given setup, then no convention is rendered; given a change whose files first touch an area of the
@@ -98,8 +100,8 @@ feature branch, later parts add commits, one Review and Ship at the end).
 | AC-004 | tests/test_stack_blueprints.py › StackSections.test_new_sections | `py -3.10 -m unittest discover -s tests -t tests -p test_stack_blueprints.py -k test_new_sections` |
 | AC-005 | tests/test_stack_blueprints.py › StackSections.test_reconciled_sections | `py -3.10 -m unittest discover -s tests -t tests -p test_stack_blueprints.py -k test_reconciled_sections` |
 | AC-006 | tests/test_stack_blueprints.py › CiToolchains.test_ci_sets_up_mobile_toolchains | `py -3.10 -m unittest discover -s tests -t tests -p test_stack_blueprints.py -k test_ci_sets_up_mobile_toolchains` |
-| AC-007 | tests/test_stack_blueprints.py › Conventions.test_render_one_area | (B3) |
-| AC-008 | tests/test_stack_blueprints.py › Conventions.test_rendered_on_first_touch_not_at_setup | (B3) |
+| AC-007 | tests/test_stack_blueprints.py › Conventions.test_render_one_area | `py -3.10 -m unittest discover -s tests -t tests -p test_stack_blueprints.py -k test_render_one_area` |
+| AC-008 | tests/test_stack_blueprints.py › Conventions.test_rendered_on_first_touch_not_at_setup | `py -3.10 -m unittest discover -s tests -t tests -p test_stack_blueprints.py -k test_rendered_on_first_touch_not_at_setup` |
 | AC-009 | manual | each API is checked against its docs while writing; a test can't read upstream docs |
 | AC-010 | tests/test_stack_blueprints.py › Platforms.test_define_checks_per_target | (B4) |
 | AC-011 | tests/test_stack_blueprints.py › Constitution.test_stack_principles_and_roadmap | (B5) |
