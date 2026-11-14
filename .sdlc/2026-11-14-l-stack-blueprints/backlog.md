@@ -8,7 +8,7 @@ Record: the feature's change file (`.sdlc/2026-11-14-l-stack-blueprints/change.m
 | B2 | Stack sections: Vue, Next.js, Flutter, iOS, Android, FastAPI; reconcile Nuxt, React, Node, Go; CI toolchains | — | 4, 5, 6, 9 | B1 | M | done |
 | B3 | Per-stack convention templates and `scaffold.py conventions`, rendered on first touch | — | 7, 8, 9 | B2 | M | done |
 | B4 | Platform references: cloudflare, vercel, docker-compose with Define checks | — | 10 | B1 | M | done |
-| B5 | Constitution proposals per stack; scaling roadmap knowledge template | — | 11 | B2 | S | todo |
+| B5 | Constitution proposals per stack; scaling roadmap knowledge template | — | 11 | B2 | S | done |
 
 <!--
   Status: todo | in progress | done | blocked: <reason> (state.py writes it; `done` goes into the part's own commit). Deps: slice IDs, or —.

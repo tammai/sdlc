@@ -10,8 +10,8 @@ Started: 2026-11-14
 Base: 5628df6
 Owner: tammai.it@gmail.com
 Tool: claude-code
-Verified: 22c553b tree ecade4210b4b0b8cf8e01067a24c521a624a336f
-Slice: B4   Slice base: 22c553b   Slice gates: none
+Verified: 7db5041 tree 8bd854d05bb63e13b049d04944aed13211d8b225
+Slice: B5   Slice base: 7db5041   Slice gates: none
 Current: Stage 2 – Build
 
 ## Stages
@@ -52,6 +52,8 @@ parts in fresh sessions, because the user builds one part per session (backlog.m
 - 2026-11-14 handoff B2: stacks.md now has Vue, Next.js, Flutter, iOS, Android, FastAPI sections and a Config stack line per section; Node picks @hono/zod-openapi (consumer + contract) else @hono/zod-validator; Nuxt bridge server/api/[...].ts (toWebRequest, Nuxt 4; nuxi build), Next.js bridge app/api/[[...route]]/route.ts (@hono/vercel). scaffold.py CI_SETUP has swift (setup-xcode@v1) and a Swift stack defaults the runner to macos-latest when the repo config has no ci.os (scaffold.py generate_ci). Sources in plan-B2.md. B3 templates: Nuxt 5 changes the bridge to event.req; auth libraries go only in the auth template.
 - 2026-11-14 handoff B3: scaffold.py conventions <stack> <area> [--package] writes .claude/rules/<stack>-<area>.md (user-owned: in declined, never files; lock 'conventions' keeps stack, area, package, root, template, version, render sha256); upgrade-plan 'conventions' lists changed templates as a diff, 'conventions --seen <path>' takes the new baseline. 29 templates in templates/project/conventions/<stack>/<area>.md (node, go, fastapi: layers schema data-access contract auth; nuxt vue react nextjs: layers ui; flutter ios android: layers auth); prose, no placeholders. Define's stack is read from the manifest (flow.md, s-track.md). Better Auth on Workers free CPU limit is in node/auth.md marked (verify); B4's platform refs carry the data-layer driver notes (neon, cloud-sql, self-hosted) and Supabase/Workers limits. Sources in plan-B3.md.
 - 2026-11-14 handoff B4: platforms/cloudflare.md, vercel.md, docker-compose.md in gcp-cloud-run.md's shape; brief.py unchanged (platform() resolves any slug with a file). B1's Vercel warning corrected: Vercel runs Python (GA) and Go (beta) as functions, so the reason is function limits. Neon/Supabase driver notes and the self-hosted DB warning live in the platform refs. Not carried: the internal + multi-tenant warning (tenancy waits for the feature). CI now runs Linux only (22c553b, user's request). B5 next: stack-principles.md, scaling-roadmap template, AC-011 Run cell in change.md still (B5). Sources in plan-B4.md.
+- 2026-11-14 B5: the met-trigger-sizes-L rule lives in the roadmap page and its index line, not the orchestrator's sizing table (not in B5's files; Define reads the knowledge index)
+- 2026-11-14 handoff B5: every part done. stack-principles.md (Every stack + the ten CONVENTION_STACKS), templates/knowledge/scaling-roadmap.md (candidate rows in a comment; setup copies the fitting ones to knowledge/decisions/scaling-roadmap.md), setup's knowledge and deploy rows, greenfield.md's knowledge section. Next: Feature close (backlog-slices step 7): state.py advance 3 --gate pass, Review over the branch from Base 5628df6 (diff_stats.py --base 5628df6 --plan state.md and each plan-B*.md), then Ship; the draft PR #53 holds B1-B5.
 
 ## Deviations
 - 2026-11-14 setup What: went on with setup none (no .sdlc/config.json). Why: the plugin's own repo runs sdlc without setup (as 2026-11-13-l-workbench). Effect: verify.py runs the AC tests; the full suite is run by hand with py -3.10 -m unittest discover -s tests -t tests.
@@ -68,6 +70,9 @@ parts in fresh sessions, because the user builds one part per session (backlog.m
 - 2026-11-14 B4 CHANGELOG.md What: Unreleased entry for the three platform references. Why: the stale-docs audit. Effect: docs only.
 - 2026-11-14 B4 scripts/brief.py What: not changed. Why: platform() already prints the Define checks of any target whose reference exists. Effect: none.
 - 2026-11-14 B4 red run What: AC-010's first red record came from a SyntaxError in the new test; fixed, and red re-recorded with the three references moved aside (an assertion failure). Why: the escaped newline in the test was written as a real one. Effect: the red record is genuine; no change to what the test checks.
+- 2026-11-14 B5 skills/setting-up-projects/SKILL.md What: the knowledge step writes the scaling roadmap on greenfield (detail in greenfield.md), the deploy step adds its hosting rows. Why: the knowledge step runs from SKILL.md for every greenfield layout, and deploy runs after it. Effect: two clauses in setup's step table; brownfield gets no roadmap page.
+- 2026-11-14 B5 CHANGELOG.md, docs/specs/01-setup-upgrade-eject.md, docs/wiki/Project-setup.md, CONTRIBUTING.md What: Unreleased entry, SET-FR-057, the wiki common-steps line, the skills tree line. Why: the stale-docs audit. Effect: docs only.
+- 2026-11-14 B5 test-change tests/test_stack_blueprints.py What: the heading regex's word boundary was written as a backspace, then a bare b, when the test was added; fixed to \b after the red record. Why: shell escaping. Effect: red was recorded from the missing reference file (FileNotFoundError), which the fix doesn't change.
 
 ## Open questions
 -

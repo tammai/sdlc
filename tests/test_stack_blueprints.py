@@ -239,5 +239,26 @@ class Platforms(ProjectTestCase):
                 self.assertIn(word, checks, f"{target}: {word}")
 
 
+class Constitution(unittest.TestCase):
+    def test_stack_principles_and_roadmap(self):
+        import re
+        from scaffold import CONVENTION_STACKS
+        principles = read_doc("skills", "project-constitution", "references", "stack-principles.md")
+        for stack in ("Every stack",) + CONVENTION_STACKS:
+            m = re.search(r"^## " + re.escape(stack) + r"\b.*?$(.*?)(?=^## |\Z)", principles, re.M | re.S)
+            self.assertTrue(m, stack)
+            self.assertIn("MUST", m.group(1), stack)
+        self.assertIn("references/stack-principles.md", read_doc("skills", "project-constitution", "SKILL.md"))
+        roadmap = read_doc("templates", "knowledge", "scaling-roadmap.md")
+        for term in ("| Step | Trigger |", "Split the API", "Move hot paths to Go", "Extract a worker", "Add a BFF",
+                     "Change hosting", "managed", "multi-tenancy", "sized L"):
+            self.assertIn(term, roadmap, term)
+        setup = read_doc("skills", "setting-up-projects", "SKILL.md")
+        knowledge_step = next(line for line in setup.splitlines() if line.startswith("| `knowledge` |"))
+        for term in ("templates/knowledge/scaling-roadmap.md", "knowledge/index.md", "greenfield.md"):
+            self.assertIn(term, knowledge_step, term)
+        self.assertIn("scaling-roadmap.md", read_doc(*REFS, "greenfield.md"))
+
+
 if __name__ == "__main__":
     unittest.main()

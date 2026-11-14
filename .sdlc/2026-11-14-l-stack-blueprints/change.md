@@ -104,7 +104,7 @@ feature branch, later parts add commits, one Review and Ship at the end).
 | AC-008 | tests/test_stack_blueprints.py › Conventions.test_rendered_on_first_touch_not_at_setup | `py -3.10 -m unittest discover -s tests -t tests -p test_stack_blueprints.py -k test_rendered_on_first_touch_not_at_setup` |
 | AC-009 | manual | each API is checked against its docs while writing; a test can't read upstream docs |
 | AC-010 | tests/test_stack_blueprints.py › Platforms.test_define_checks_per_target | `py -3.10 -m unittest discover -s tests -t tests -p test_stack_blueprints.py -k test_define_checks_per_target` |
-| AC-011 | tests/test_stack_blueprints.py › Constitution.test_stack_principles_and_roadmap | (B5) |
+| AC-011 | tests/test_stack_blueprints.py › Constitution.test_stack_principles_and_roadmap | `py -3.10 -m unittest discover -s tests -t tests -p test_stack_blueprints.py -k test_stack_principles_and_roadmap` |
 
 The exact Run commands for B2–B5 are written when each part starts (its plan), in the same form as AC-001.
 

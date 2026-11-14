@@ -22,7 +22,7 @@ sdlc/
 │                            (references/trimming-context.md: /sdlc:context-diet; design-mode.md: the design step and
 │                            /sdlc:setup design; workbench.md: greenfield with two or more apps, one repo per app;
 │                            stacks.md: the preferred stacks greenfield proposes from); managing-knowledge/references/ holds
-│                            claude-md-improver.md and its folder
+│                            claude-md-improver.md and its folder; project-constitution/references/stack-principles.md
 ├── hooks/
 │   ├── hooks.json           which script runs on which event; every hook starts the Python sg-python.sh remembered, else sg-python.sh
 │   ├── verify_freshness.py  Review (Stage 3) stale/fresh test tracking, and its own copy of verify.py runs (original)

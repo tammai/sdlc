@@ -16,7 +16,7 @@ The constitution is the short list of rules every feature must follow. Specs, de
 ## Create or amend
 
 1. If `<docs>/constitution.md` exists, load it (amending). Otherwise start from `${CLAUDE_PLUGIN_ROOT}/templates/constitution-template.md`.
-2. Gather values from the user's input first, then from the repo (README, CLAUDE.md, CI config, lint/test setup, existing docs). Ask only for what you can't infer — at most a few questions, with suggested answers.
+2. Gather values from the user's input first, then from the repo (README, CLAUDE.md, CI config, lint/test setup, existing docs). Ask only for what you can't infer — at most a few questions, with suggested answers. When the project has a stack (approved at setup, or a package manifest), propose its architecture principles from `references/stack-principles.md`: its **Every stack** section and the section of each stack in use.
 3. Fill every placeholder. Each principle gets:
    - a short name,
    - concrete rules written with MUST / SHOULD (no vague "should be clean"),
