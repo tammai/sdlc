@@ -75,7 +75,7 @@ sdlc/
 │                            agents/ conversation-analyzer, type-design-analyzer, comment-analyzer, code-simplifier;
 │                            hooks/stop-hook.sh (the Ralph Stop hook) and scripts/setup-ralph-loop.sh
 ├── tests/                   stdlib unittest suite (helpers.py + one file per hook or script)
-├── .github/workflows/ci.yml the suite on Linux and Windows, plus `claude plugin validate`, on push and PR
+├── .github/workflows/ci.yml the suite on Linux, plus `claude plugin validate`, on push and PR
 ├── .github/workflows/wiki.yml, .github/scripts/wiki_sync.py   publish docs/wiki/ to the GitHub wiki on push to main; `wiki_sync.py check` finds broken links
 ├── docs/
 │   ├── wiki/                the user docs, one file per wiki page (wiki.yml publishes them; guidebook.md and playbook.md point there)
