@@ -51,8 +51,9 @@ Say each one that applies, in the proposal, before approval:
 - **Cloudflare Workers with background jobs.** Workers have no long-running process: background work must fit Cron
   Triggers, Queues or Workflows, each with its own CPU and duration limits (verify), or the deploy target should
   change.
-- **Vercel with a Go or Python API.** Vercel hosts the web app; the Go or Python API goes on a container host (Cloud
-  Run, say) behind a rewrite.
+- **Vercel with a Go or Python API.** Vercel runs Python as one function per app and Go in beta (verify), under
+  function limits (300 s a request by default, no long-running process): CPU-heavy or long-lived work goes on a
+  container host (Cloud Run, say) behind a rewrite.
 - **Vercel's free plan.** Hobby is for personal, non-commercial use: a commercial product needs a paid plan (verify).
 - **One VPS.** The team owns operating system patching, backups, restore drills and uptime. Confirm someone has
   time for that.

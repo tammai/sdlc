@@ -220,5 +220,24 @@ class Conventions(ProjectTestCase):
             self.assertIn("first touch", text.lower())
 
 
+class Platforms(ProjectTestCase):
+    def test_define_checks_per_target(self):
+        import json
+        import subprocess
+        needles = {"cloudflare": ("CPU", "Cron Triggers", "Hyperdrive", "interactive transactions"),
+                   "vercel": ("Hobby", "maxDuration", "attachDatabasePool", "preview"),
+                   "docker-compose": ("ufw", "backups", "restore", "previous image")}
+        for target, words in needles.items():
+            self.write(".sdlc/config.json", json.dumps({"deploy": {"target": target}}))
+            p = subprocess.run([sys.executable, os.path.join(PLUGIN_ROOT, "scripts", "brief.py"), "--root", self.root],
+                               capture_output=True, encoding="utf-8", errors="replace")
+            self.assertEqual(p.returncode, 0, p.stderr)
+            self.assertIn(f"===== platform: {target}", p.stdout, target)
+            self.assertIn(f"references/platforms/{target}.md", p.stdout, target)
+            checks = p.stdout.split(f"===== platform: {target}", 1)[1].split(chr(10) + "===== ", 1)[0]
+            for word in words:
+                self.assertIn(word, checks, f"{target}: {word}")
+
+
 if __name__ == "__main__":
     unittest.main()

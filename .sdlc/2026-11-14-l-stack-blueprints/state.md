@@ -10,8 +10,8 @@ Started: 2026-11-14
 Base: 5628df6
 Owner: tammai.it@gmail.com
 Tool: claude-code
-Verified: cc17992 tree e79fd3a7ad809f87b1eb501e134f029a0a23a976
-Slice: B3   Slice base: cc17992   Slice gates: none
+Verified: 22c553b tree ecade4210b4b0b8cf8e01067a24c521a624a336f
+Slice: B4   Slice base: 22c553b   Slice gates: none
 Current: Stage 2 – Build
 
 ## Stages
@@ -51,6 +51,7 @@ parts in fresh sessions, because the user builds one part per session (backlog.m
 - 2026-11-14 handoff B1: stacks.md has ## Choosing a stack (web, mobile, backend language, shape) and ### Warnings (shape, language, mobile, deploy; Vercel Hobby non-commercial and Workers background limits checked against vercel.com and developers.cloudflare.com on 2026-11-14). The table names Vue, Next.js, Flutter, iOS, Android, FastAPI and the one-deployable Nuxt/Next shape, which have no sections yet: B2 adds them (the fallback line covers the gap until then). Auth, data and tenancy warnings from init/selection.json (supabase-auth token storage, better-auth password hashing on Workers free, self-hosted DB at medium scale, internal + multi-tenant) go to B3's templates and B4's platform references. ADR 0026 written.
 - 2026-11-14 handoff B2: stacks.md now has Vue, Next.js, Flutter, iOS, Android, FastAPI sections and a Config stack line per section; Node picks @hono/zod-openapi (consumer + contract) else @hono/zod-validator; Nuxt bridge server/api/[...].ts (toWebRequest, Nuxt 4; nuxi build), Next.js bridge app/api/[[...route]]/route.ts (@hono/vercel). scaffold.py CI_SETUP has swift (setup-xcode@v1) and a Swift stack defaults the runner to macos-latest when the repo config has no ci.os (scaffold.py generate_ci). Sources in plan-B2.md. B3 templates: Nuxt 5 changes the bridge to event.req; auth libraries go only in the auth template.
 - 2026-11-14 handoff B3: scaffold.py conventions <stack> <area> [--package] writes .claude/rules/<stack>-<area>.md (user-owned: in declined, never files; lock 'conventions' keeps stack, area, package, root, template, version, render sha256); upgrade-plan 'conventions' lists changed templates as a diff, 'conventions --seen <path>' takes the new baseline. 29 templates in templates/project/conventions/<stack>/<area>.md (node, go, fastapi: layers schema data-access contract auth; nuxt vue react nextjs: layers ui; flutter ios android: layers auth); prose, no placeholders. Define's stack is read from the manifest (flow.md, s-track.md). Better Auth on Workers free CPU limit is in node/auth.md marked (verify); B4's platform refs carry the data-layer driver notes (neon, cloud-sql, self-hosted) and Supabase/Workers limits. Sources in plan-B3.md.
+- 2026-11-14 handoff B4: platforms/cloudflare.md, vercel.md, docker-compose.md in gcp-cloud-run.md's shape; brief.py unchanged (platform() resolves any slug with a file). B1's Vercel warning corrected: Vercel runs Python (GA) and Go (beta) as functions, so the reason is function limits. Neon/Supabase driver notes and the self-hosted DB warning live in the platform refs. Not carried: the internal + multi-tenant warning (tenancy waits for the feature). CI now runs Linux only (22c553b, user's request). B5 next: stack-principles.md, scaling-roadmap template, AC-011 Run cell in change.md still (B5). Sources in plan-B4.md.
 
 ## Deviations
 - 2026-11-14 setup What: went on with setup none (no .sdlc/config.json). Why: the plugin's own repo runs sdlc without setup (as 2026-11-13-l-workbench). Effect: verify.py runs the AC tests; the full suite is run by hand with py -3.10 -m unittest discover -s tests -t tests.
@@ -62,6 +63,11 @@ parts in fresh sessions, because the user builds one part per session (backlog.m
 - 2026-11-14 B3 CHANGELOG.md, docs/specs/01-setup-upgrade-eject.md, docs/wiki/Project-setup.md, CONTRIBUTING.md What: Unreleased entry, SET-FR-056, the wiki greenfield line, the templates/project tree line. Why: the stale-docs audit. Effect: docs only.
 - 2026-11-14 B3 scripts/scaffold.py cmd_conventions convention_areas convention_root convention_template convention_text convention_updates What: module-level functions behind the conventions command and upgrade-plan's conventions list. Why: scaffold.py's style, one function per step; the public surface is the command (AC-007). Effect: none outside scaffold.py.
 - 2026-11-14 B3 fix scripts/scaffold.py convention_entry, tests/test_stack_blueprints.py, docs/adr/0026-stack-blueprints-in-setup.md, docs/wiki/Where-things-live.md, flow.md, s-track.md What: the rule header no longer carries the plugin version (every release would have re-offered every convention); lock entries are used only when their path is their own stack-area name; a test for the upgrade path; ADR and wiki name <stack>-<area>.md; Define says --root <repo> in a workbench. Why: self-check after the B3 commit. Effect: second B3 commit.
+- 2026-11-14 .github/workflows/ci.yml What: the suite runs on Linux only; the Windows runner and its python3 step are gone. Why: the user's request during B4. Effect: Windows code-page failures are caught only by local 3.10 runs.
+- 2026-11-14 B4 skills/setting-up-projects/references/stacks.md What: B1's Vercel warning now says Python runs as one function (GA) and Go in beta, under function limits, instead of 'goes on a container host'. Why: Vercel's runtime docs checked in B4 (plan-B4.md). Effect: AC-002's warning stays; reason corrected.
+- 2026-11-14 B4 CHANGELOG.md What: Unreleased entry for the three platform references. Why: the stale-docs audit. Effect: docs only.
+- 2026-11-14 B4 scripts/brief.py What: not changed. Why: platform() already prints the Define checks of any target whose reference exists. Effect: none.
+- 2026-11-14 B4 red run What: AC-010's first red record came from a SyntaxError in the new test; fixed, and red re-recorded with the three references moved aside (an assertion failure). Why: the escaped newline in the test was written as a real one. Effect: the red record is genuine; no change to what the test checks.
 
 ## Open questions
 -
