@@ -18,7 +18,7 @@ infras/                   only if the user says yes
 
 Ask what you can't infer, a few at a time, each with a suggested answer:
 
-- The apps and the stack of each; the package manager and test runner per stack (mainstream defaults, one line why).
+- The apps and the stack of each, picked with `stacks.md`'s **Choosing a stack** table from `greenfield.md`'s questions (each pick with its reason and any warning) and proposed from its sections; the package manager and test runner per stack (mainstream defaults, one line why).
 - **Who will work in this repo?** A solo developer or a small team → profile `lean`. Separate roles (BA, QA, design, frontend, backend, DevOps) → profile `large`. Ask; never infer it from anything else.
 - `large`: the team handle per area (`@org/web`, `@org/backend`, …). Backend owns the contract.
 - **Add `infras/`** for Dockerfiles and deploy playbooks? No → nothing is created.

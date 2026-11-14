@@ -65,7 +65,7 @@ sdlc/
 │   ├── backlog-template.md  a feature's backlog of parts (orchestrator)
 │   ├── design-system-template.md   setup's design-system step (UI projects)
 │   ├── knowledge/           OKF templates for tier 2/3 knowledge
-│   └── project/             what setup places in a repo: config defaults, rules/, hookify/, lint/, agents/ (the AGENTS.md workflow section), baseline.md
+│   └── project/             what setup places in a repo: config defaults, rules/, hookify/, lint/, agents/ (the AGENTS.md workflow section), baseline.md, conventions/<stack>/<area>.md (rendered by Define on first touch)
 ├── migrations/              <version>-<slug>.md steps that /sdlc:upgrade applies to project-owned files
 ├── examples/hookify/        sample rules
 ├── plugins/sdlc-stepper/    the optional stepper bar (a Claude Code hooks module in TypeScript: hooks/register.tsx and
