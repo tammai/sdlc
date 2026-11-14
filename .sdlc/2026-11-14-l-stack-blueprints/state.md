@@ -1,0 +1,59 @@
+# 2026-11-14-l-stack-blueprints
+Status: active
+Process: 3
+Change: .sdlc/2026-11-14-l-stack-blueprints/change.md   (this feature's record for people)
+Track: L   (sized up because: five distinct parts: setup references, scaffold.py render, orchestrator Define, platform references, constitution; footprint: 25 files)
+Risk: low
+Top model: opus   (fable only if the user chose it)
+Commands: test: (none recorded)
+Started: 2026-11-14
+Base: 5628df6
+Owner: tammai.it@gmail.com
+Tool: claude-code
+Slice: B1   Slice base: 5628df6   Slice gates: none
+Verified: 5628df6 tree c37183f29ac33e2353d98b0d7b63a94a56b092d5
+Current: Stage 2 – Build
+
+## Stages
+- [x] 1 Define   — the change file, the plan sections below
+- [ ] 2 Build
+- [ ] 3 Review   — the change file's ## Review
+- [ ] 4 Ship     — PR: (Learn: knowledge, recurring-defects.md)
+
+## How the build runs
+parts in fresh sessions, because the user builds one part per session (backlog.md); one growing draft PR
+
+## Handoff
+- Source (read-only): %USERPROFILE%/Downloads/stack-blueprints/stack-blueprints (VERSION 0.3.0); docs/SDLC-MAPPING.md maps each piece; init/selection.json holds the rules and warnings; catalog/<layer>/<id>/entry.json the packages and commands; modules/ the guidance
+- tests/test_workbench.py:591 PreferredStacks picks stacks.md sections by heading prefix (Nuxt, React, Node, Go) and checks five command rows: a new ## heading must not start with those words
+- scaffold.py:526 cmd_render writes LF/UTF-8 and records {class, sha256, template} in the lock; FILE_CLASSES is generated/seeded (scaffold.py:44); forget (scaffold.py:2064) untracks; shipped_files (scaffold.py:317) names plugin rules sdlc-<name>
+- eject keeps area rules (references/eject.md:13); brownfield writes area rules as .claude/rules/<area>.md user-owned (references/brownfield.md:38)
+- No .sdlc/config.json in this repo: verify.py runs only the AC tests; run the full suite by hand: py -3.10 -m unittest discover -s tests -t tests
+- Stale-docs for setup text: greenfield.md:10, workbench.md:31, monorepo.md stack step, docs/specs/01-setup-upgrade-eject.md SET-FR-053, docs/wiki/Project-setup.md:9, CHANGELOG ## Unreleased above ## 3.8.0, CONTRIBUTING.md:24
+
+## Tasks
+1. **B1 Selection table, warnings, stack interview, ADR 0026** — AC-001 AC-002 AC-003
+   - Files: `skills/setting-up-projects/references/stacks.md`, `skills/setting-up-projects/references/greenfield.md`, `skills/setting-up-projects/references/monorepo.md`, `skills/setting-up-projects/references/workbench.md`, `docs/adr/0026-stack-blueprints-in-setup.md`, `docs/adr/README.md`, `docs/specs/01-setup-upgrade-eject.md`, `docs/wiki/Project-setup.md`, `CHANGELOG.md`, `tests/test_stack_blueprints.py`
+2. **B2 Stack sections and CI toolchains** — AC-004 AC-005 AC-006 AC-009
+   - Files: `skills/setting-up-projects/references/stacks.md`, `scripts/scaffold.py`, `tests/test_stack_blueprints.py`, `tests/test_workbench.py`
+3. **B3 Convention templates and scaffold.py conventions** — AC-007 AC-008 AC-009
+   - Files: `templates/project/conventions/`, `scripts/scaffold.py`, `skills/orchestrator/references/flow.md`, `skills/orchestrator/references/s-track.md`, `skills/setting-up-projects/SKILL.md`, `skills/setting-up-projects/references/upgrade.md`, `skills/setting-up-projects/references/eject.md`, `tests/test_stack_blueprints.py`
+4. **B4 Platform references** — AC-010
+   - Files: `skills/orchestrator/references/platforms/cloudflare.md`, `skills/orchestrator/references/platforms/vercel.md`, `skills/orchestrator/references/platforms/docker-compose.md`, `scripts/brief.py`, `tests/test_stack_blueprints.py`
+5. **B5 Constitution per stack, scaling roadmap** — AC-011
+   - Files: `skills/project-constitution/references/stack-principles.md`, `skills/project-constitution/SKILL.md`, `templates/knowledge/scaling-roadmap.md`, `skills/setting-up-projects/references/greenfield.md`, `tests/test_stack_blueprints.py`
+
+## Public Surface
+- command `scaffold.py conventions` — AC-007
+
+## Gate log
+- 2026-11-14 Stage 1: pass — plan self-approved (L): (1) parts 1-5 map to AC-001-011, constraints to must-never-break; (2) open questions answered by the user (7 decisions confirmed, user-owned + rendered list, one growing PR); (3) every decision is the user's answer or the mapping doc's; (4) no unasked proposal, nothing irreversible
+- 2026-11-14 handoff B1: stacks.md has ## Choosing a stack (web, mobile, backend language, shape) and ### Warnings (shape, language, mobile, deploy; Vercel Hobby non-commercial and Workers background limits checked against vercel.com and developers.cloudflare.com on 2026-11-14). The table names Vue, Next.js, Flutter, iOS, Android, FastAPI and the one-deployable Nuxt/Next shape, which have no sections yet: B2 adds them (the fallback line covers the gap until then). Auth, data and tenancy warnings from init/selection.json (supabase-auth token storage, better-auth password hashing on Workers free, self-hosted DB at medium scale, internal + multi-tenant) go to B3's templates and B4's platform references. ADR 0026 written.
+
+## Deviations
+- 2026-11-14 setup What: went on with setup none (no .sdlc/config.json). Why: the plugin's own repo runs sdlc without setup (as 2026-11-13-l-workbench). Effect: verify.py runs the AC tests; the full suite is run by hand with py -3.10 -m unittest discover -s tests -t tests.
+- 2026-11-14 parts What: a draft PR opens after B1 and grows with each part. Why: the user's answer in Define (one growing PR). Effect: Review and Ship stay once, after B5.
+- 2026-11-14 B1 docs/adr/0026-stack-blueprints-in-setup.md, docs/adr/README.md, docs/specs/01-setup-upgrade-eject.md, docs/wiki/Project-setup.md, CHANGELOG.md What: ADR 0026, SET-FR-055, the wiki greenfield line, an Unreleased changelog entry. Why: the stale-docs audit and the ADR the request asked for. Effect: docs only.
+
+## Open questions
+-

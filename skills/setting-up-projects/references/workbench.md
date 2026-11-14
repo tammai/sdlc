@@ -28,7 +28,9 @@ feature records, never product code.
 
 Ask what you can't infer, a few at a time, each with a suggested answer:
 
-- The apps and the stack of each, proposed from `stacks.md` (package manager, test runner, generator, five commands).
+- The apps and the stack of each, picked with `stacks.md`'s **Choosing a stack** table from `greenfield.md`'s
+  questions (each pick with its reason and any warning) and proposed from its sections (package manager, test
+  runner, generator, five commands).
 - The team handle that owns each app (`@org/web`, `@org/backend`), when there is more than one person. Backend owns
   the contract.
 - With an API and a client: the contract format (default OpenAPI) and whether the workbench's CI should block breaking

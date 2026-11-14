@@ -6,11 +6,13 @@ The repo has no source code yet. Goal: a minimal skeleton whose commands all pas
 
 Ask only what you can't infer, a few questions at a time, with a suggested answer each:
 
-- What is being built: library, CLI, API service, web app, mobile app, several of these? Two or more apps → ask which layout, both on offer: one repo holding every app (`monorepo.md`, ADR 0005) or one repo per app inside a workbench repo (`workbench.md`, ADR 0025). Recommend the monorepo when one team owns every app and ships them together; the workbench when apps have separate owners or release cycles, or the project reads other teams' repos (specs, tests, designs). Then follow the chosen file for the `stack`, `skeleton`, `commands` and `ci` steps instead of the sections below.
-- Runtime and language per part; package manager; test runner. Propose from `stacks.md` (Nuxt, React, Node, Go: pieces, generator, five commands); a stack it doesn't list takes the ecosystem's current mainstream choice, with why in one line.
+- What is being built: library, CLI, API service, web app, mobile app, several of these?
+- For a product with an API (a web app, mobile app or API service), what decides the shape and the backend language: does anything outside this product call the API (partner integrations, other teams' systems, a public API; suggest "no, only its own apps"); the heaviest workload the backend runs (mostly CRUD, background jobs, CPU-heavy, realtime; suggest CRUD); the scale the first year plans for (internal tool, small product, medium product, high load; suggest internal); and a web app, mobile app or backend language the user already wants (suggest none: the table decides).
+- Two or more apps (named, or a standalone API with clients from `stacks.md`'s table) → ask which layout, both on offer: one repo holding every app (`monorepo.md`, ADR 0005) or one repo per app inside a workbench repo (`workbench.md`, ADR 0025). Recommend the monorepo when one team owns every app and ships them together; the workbench when apps have separate owners or release cycles, or the project reads other teams' repos (specs, tests, designs). Then follow the chosen file for the `stack`, `skeleton`, `commands` and `ci` steps instead of the sections below.
+- Runtime and language per part; package manager; test runner. Apply `stacks.md`'s **Choosing a stack** table to those answers, then propose each stack from its section (pieces, generator, five commands); a stack it doesn't list takes the ecosystem's current mainstream choice, with why in one line.
 - Where it deploys (only if it changes the skeleton, e.g. a Dockerfile).
 
-Propose: the stack per package, the directory layout, the generator command for each package, and the five commands per package (below). Keep it to what the first feature needs; no auth, DB, Docker, or infra "for later" unless the user named it. **The user approves before anything is generated.**
+Propose: each pick from the table with its reason and every warning that applies, the stack per package, the directory layout, the generator command for each package, and the five commands per package (below). Keep it to what the first feature needs; no auth, DB, Docker, or infra "for later" unless the user named it. **The user approves before anything is generated.**
 
 ## `skeleton` – generate with the official tools
 

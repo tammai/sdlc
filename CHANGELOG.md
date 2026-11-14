@@ -2,6 +2,11 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
+## Unreleased
+
+### Added
+- **Choosing a stack.** Greenfield setup asks three more questions (does anything outside the product call the API, the heaviest workload, the first-year scale) and applies a selection table in `references/stacks.md`: web and mobile app, backend language (Go for CPU-heavy or realtime work or high load, else TypeScript; the one you name wins) and shape (one deployable, or a standalone API with its clients, which leads to the monorepo-or-workbench question). Each pick shows its reason and any warning (heavy work in TypeScript or Python, Go for a small CRUD product, two native apps, iOS needing macOS, Workers and background jobs, Vercel's plans, a VPS's operations), and you still approve the proposal. First part of folding stack-blueprints into setup ([ADR 0026](docs/adr/0026-stack-blueprints-in-setup.md)).
+
 ## 3.8.0 — 2026-11-13
 
 Smoke test (runbook A–H and the new K, workbench) passed on 2026-11-13 against 7a777a2. All parts ran, because the release touches each one's scope; they ran in five parallel groups and took about 46 minutes, set by the C→D,E,H group. K ran the workbench in real sessions for the first time:

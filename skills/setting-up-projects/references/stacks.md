@@ -8,6 +8,53 @@ pieces, its generator and its five commands (`null`: the step doesn't apply or t
 
 Versions: take the generator's current release; don't pin older majors from memory.
 
+## Choosing a stack
+
+Apply the rows in order, from the interview's answers (`greenfield.md`); in each block the first row that matches
+wins. Show the user each pick with its reason, plus any warning below that applies, in the proposal. Then wait for
+approval. A pick the user overrides stands, and the rows after it are applied again.
+
+| Choice | Pick | When | Reason to give |
+|---|---|---|---|
+| Web app | the one the user names (Nuxt, Vue, React, Next.js) or none | they name one, or say there is no web app | requested |
+| | Nuxt | no preference | the default web frontend |
+| Mobile app | the one the user names: Flutter, native iOS and Android, iOS only, Android only | they ask for a mobile app | requested; Flutter covers both platforms from one codebase |
+| | none | otherwise | no mobile app was asked for |
+| Backend language | the one the user names: TypeScript, Go or Python | the user names one | requested |
+| | Go | the heaviest workload is CPU-heavy or realtime, or the scale is high load | real parallelism, low memory, stable long-running processes |
+| | TypeScript (Node section) | otherwise | CRUD-shaped work at this scale ships fastest with one language across the stack |
+| Shape | one deployable: the TypeScript API mounted in the Nuxt or Next.js app through one bridge file | one web client in Nuxt or Next.js, a TypeScript backend, no mobile app, nothing outside the product calls the API, internal or small scale, mostly CRUD | one codebase and one deploy is the cheapest to run; the bridge file is the only coupling, so the API can split out later |
+| | a standalone API with its clients | otherwise | more than one client, a backend outside the web framework, or a scale or workload that needs the API to deploy on its own |
+
+A standalone API with one or more clients is two or more apps: ask the layout (`greenfield.md`), then follow
+`monorepo.md` or `workbench.md`. One deployable, or an API with no client, is one app: `greenfield.md` as is. The
+database, sign-in and tenancy aren't chosen here: they wait for the first feature that needs them. The deploy
+target is setup's `deploy` step.
+
+### Warnings
+
+Say each one that applies, in the proposal, before approval:
+
+- **TypeScript asked for heavy work.** TypeScript was named for CPU-heavy or realtime work or high load; without
+  that preference the rows pick Go. Confirm the language.
+- **Python asked for heavy work.** CPU-bound work blocks the event loop and must move to worker processes; Go
+  handles it in-process. Confirm the language.
+- **Go for a small CRUD product.** An internal or small product doing CRUD or background jobs ships the same thing
+  in TypeScript with less code. Confirm Go is wanted.
+- **No web or mobile client.** Only the API gets built. Confirm that's intended.
+- **Two native apps.** Native iOS and Android are two codebases to build and keep in step; Flutter covers both from
+  one. Confirm native is needed.
+- **iOS needs macOS.** iOS builds and tests need macOS with Xcode, locally and in CI (a macOS runner). Confirm one
+  is available.
+- **Cloudflare Workers with background jobs.** Workers have no long-running process: background work must fit Cron
+  Triggers, Queues or Workflows, each with its own CPU and duration limits (verify), or the deploy target should
+  change.
+- **Vercel with a Go or Python API.** Vercel hosts the web app; the Go or Python API goes on a container host (Cloud
+  Run, say) behind a rewrite.
+- **Vercel's free plan.** Hobby is for personal, non-commercial use: a commercial product needs a paid plan (verify).
+- **One VPS.** The team owns operating system patching, backups, restore drills and uptime. Confirm someone has
+  time for that.
+
 ## Nuxt (web, SPA)
 
 - **Pieces:** Nuxt in SPA mode (`ssr: false` in `nuxt.config.ts`), Nuxt UI (`@nuxt/ui`), Pinia (`@pinia/nuxt`) for
