@@ -6,6 +6,7 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ### Added
 - **Choosing a stack.** Greenfield setup asks three more questions (does anything outside the product call the API, the heaviest workload, the first-year scale) and applies a selection table in `references/stacks.md`: web and mobile app, backend language (Go for CPU-heavy or realtime work or high load, else TypeScript; the one you name wins) and shape (one deployable, or a standalone API with its clients, which leads to the monorepo-or-workbench question). Each pick shows its reason and any warning (heavy work in TypeScript or Python, Go for a small CRUD product, two native apps, iOS needing macOS, Workers and background jobs, Vercel's plans, a VPS's operations), and you still approve the proposal. First part of folding stack-blueprints into setup ([ADR 0026](docs/adr/0026-stack-blueprints-in-setup.md)).
+- **More preferred stacks.** `references/stacks.md` adds Vue without Nuxt, Next.js, Flutter, native iOS, native Android and FastAPI, each with pieces, generator, its config `stack` and five commands. The Node section validates with `@hono/zod-openapi` when the API has a consumer and a contract, else `@hono/zod-validator`; Nuxt and Next.js cover the one-deployable shape through one bridge file. The generated CI sets up Xcode for a Swift package and runs it on `macos-latest` unless `ci.os` says otherwise.
 
 ## 3.8.0 — 2026-11-13
 

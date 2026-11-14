@@ -95,9 +95,9 @@ feature branch, later parts add commits, one Review and Ship at the end).
 | AC-001 | tests/test_stack_blueprints.py › Selection.test_choosing_a_stack_table | `py -3.10 -m unittest discover -s tests -t tests -p test_stack_blueprints.py -k test_choosing_a_stack_table` |
 | AC-002 | tests/test_stack_blueprints.py › Selection.test_warnings | `py -3.10 -m unittest discover -s tests -t tests -p test_stack_blueprints.py -k test_warnings` |
 | AC-003 | tests/test_stack_blueprints.py › Selection.test_stack_interview_applies_the_table | `py -3.10 -m unittest discover -s tests -t tests -p test_stack_blueprints.py -k test_stack_interview_applies_the_table` |
-| AC-004 | tests/test_stack_blueprints.py › StackSections.test_new_sections | (B2) |
-| AC-005 | tests/test_stack_blueprints.py › StackSections.test_reconciled_sections | (B2) |
-| AC-006 | tests/test_stack_blueprints.py › StackSections.test_ci_sets_up_mobile_toolchains | (B2) |
+| AC-004 | tests/test_stack_blueprints.py › StackSections.test_new_sections | `py -3.10 -m unittest discover -s tests -t tests -p test_stack_blueprints.py -k test_new_sections` |
+| AC-005 | tests/test_stack_blueprints.py › StackSections.test_reconciled_sections | `py -3.10 -m unittest discover -s tests -t tests -p test_stack_blueprints.py -k test_reconciled_sections` |
+| AC-006 | tests/test_stack_blueprints.py › CiToolchains.test_ci_sets_up_mobile_toolchains | `py -3.10 -m unittest discover -s tests -t tests -p test_stack_blueprints.py -k test_ci_sets_up_mobile_toolchains` |
 | AC-007 | tests/test_stack_blueprints.py › Conventions.test_render_one_area | (B3) |
 | AC-008 | tests/test_stack_blueprints.py › Conventions.test_rendered_on_first_touch_not_at_setup | (B3) |
 | AC-009 | manual | each API is checked against its docs while writing; a test can't read upstream docs |

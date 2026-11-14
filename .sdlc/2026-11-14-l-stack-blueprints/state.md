@@ -10,8 +10,8 @@ Started: 2026-11-14
 Base: 5628df6
 Owner: tammai.it@gmail.com
 Tool: claude-code
-Slice: B1   Slice base: 5628df6   Slice gates: none
-Verified: 5628df6 tree c37183f29ac33e2353d98b0d7b63a94a56b092d5
+Verified: c500b9d tree 94def3aaf4d3e849592150110fad5423c43d88d7
+Slice: B2   Slice base: c500b9d   Slice gates: none
 Current: Stage 2 – Build
 
 ## Stages
@@ -49,11 +49,14 @@ parts in fresh sessions, because the user builds one part per session (backlog.m
 ## Gate log
 - 2026-11-14 Stage 1: pass — plan self-approved (L): (1) parts 1-5 map to AC-001-011, constraints to must-never-break; (2) open questions answered by the user (7 decisions confirmed, user-owned + rendered list, one growing PR); (3) every decision is the user's answer or the mapping doc's; (4) no unasked proposal, nothing irreversible
 - 2026-11-14 handoff B1: stacks.md has ## Choosing a stack (web, mobile, backend language, shape) and ### Warnings (shape, language, mobile, deploy; Vercel Hobby non-commercial and Workers background limits checked against vercel.com and developers.cloudflare.com on 2026-11-14). The table names Vue, Next.js, Flutter, iOS, Android, FastAPI and the one-deployable Nuxt/Next shape, which have no sections yet: B2 adds them (the fallback line covers the gap until then). Auth, data and tenancy warnings from init/selection.json (supabase-auth token storage, better-auth password hashing on Workers free, self-hosted DB at medium scale, internal + multi-tenant) go to B3's templates and B4's platform references. ADR 0026 written.
+- 2026-11-14 handoff B2: stacks.md now has Vue, Next.js, Flutter, iOS, Android, FastAPI sections and a Config stack line per section; Node picks @hono/zod-openapi (consumer + contract) else @hono/zod-validator; Nuxt bridge server/api/[...].ts (toWebRequest, Nuxt 4; nuxi build), Next.js bridge app/api/[[...route]]/route.ts (@hono/vercel). scaffold.py CI_SETUP has swift (setup-xcode@v1) and a Swift stack defaults the runner to macos-latest when the repo config has no ci.os (scaffold.py generate_ci). Sources in plan-B2.md. B3 templates: Nuxt 5 changes the bridge to event.req; auth libraries go only in the auth template.
 
 ## Deviations
 - 2026-11-14 setup What: went on with setup none (no .sdlc/config.json). Why: the plugin's own repo runs sdlc without setup (as 2026-11-13-l-workbench). Effect: verify.py runs the AC tests; the full suite is run by hand with py -3.10 -m unittest discover -s tests -t tests.
 - 2026-11-14 parts What: a draft PR opens after B1 and grows with each part. Why: the user's answer in Define (one growing PR). Effect: Review and Ship stay once, after B5.
 - 2026-11-14 B1 docs/adr/0026-stack-blueprints-in-setup.md, docs/adr/README.md, docs/specs/01-setup-upgrade-eject.md, docs/wiki/Project-setup.md, CHANGELOG.md What: ADR 0026, SET-FR-055, the wiki greenfield line, an Unreleased changelog entry. Why: the stale-docs audit and the ADR the request asked for. Effect: docs only.
+- 2026-11-14 B2 red runs What: verify.py red for AC-004-006 was recorded after the code, by stashing stacks.md and scaffold.py and running it on the base. Why: the tests were run red by hand first, without verify.py. Effect: the red record is genuine (base code); no change to the tests.
+- 2026-11-14 B2 docs/specs/01-setup-upgrade-eject.md, docs/wiki/Project-setup.md, skills/setting-up-projects/references/greenfield.md, CHANGELOG.md What: SET-FR-011 and SET-FR-053, the wiki stack list, the ci step's macOS line, the Unreleased entry. Why: the stale-docs audit. Effect: docs only.
 
 ## Open questions
 -

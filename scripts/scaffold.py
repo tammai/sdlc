@@ -697,6 +697,7 @@ CI_SETUP = {
     "rust": ["- uses: dtolnay/rust-toolchain@stable", "  with:", "    components: clippy, rustfmt"],
     "dart": ["- uses: dart-lang/setup-dart@v1"],
     "flutter": ["- uses: subosito/flutter-action@v2", "  with:", "    channel: stable"],
+    "swift": ["- uses: maxim-lobanov/setup-xcode@v1", "  with:", "    xcode-version: latest-stable"],
     "java": ["- uses: actions/setup-java@v6", "  with:", "    distribution: temurin", '    java-version: "{java_version}"'],
     "dotnet": ["- uses: actions/setup-dotnet@v6", "  with:", '    dotnet-version: "{dotnet_version}"'],
     "shell": ["- run: sudo apt-get install -y shellcheck shfmt bats"],
@@ -737,6 +738,10 @@ def generate_ci(p, package=None):
     go_mod = os.path.normpath(os.path.join(go_scope["path"] if go_scope else ".", "go.mod")).replace(os.sep, "/")
     values = {"node_version": ci.get("node_version", "22"), "java_version": ci.get("java_version", "21"),
               "dotnet_version": ci.get("dotnet_version", "8.0.x"), "go_mod": go_mod}
+    stacks = project_stacks(p.config, package)
+    # Xcode runs only on macOS: Swift takes a macOS runner unless the repo's own config names the runners
+    user_os = (p.config.get("ci") or {}).get("os") if isinstance(p.config, dict) else None
+    runners = user_os or (["macos-latest"] if "swift" in stacks else ci.get("os", ["ubuntu-latest"]))
     pad = " " * 6
     name, group, trigger = "name: sdlc verify", "sdlc-verify", ["  pull_request:", "  push:", "    branches: [main, master]"]
     if package:
@@ -753,9 +758,9 @@ def generate_ci(p, package=None):
         "permissions:", "  contents: read", "",
         "defaults:", "  run:", "    shell: bash  # Git Bash on Windows runners: same shell everywhere", "",
         "jobs:", "  verify:", "    strategy:", "      fail-fast: false", "      matrix:",
-        f"        os: {json.dumps(ci.get('os', ['ubuntu-latest']))}",
+        f"        os: {json.dumps(runners)}",
         "    runs-on: ${{ matrix.os }}", "    timeout-minutes: 30", "    steps:", pad + "- uses: actions/checkout@v7"]
-    for st in project_stacks(p.config, package):
+    for st in stacks:
         if st in CI_SETUP:
             lines += [pad + x.format(**values) for x in CI_SETUP[st]]
         else:

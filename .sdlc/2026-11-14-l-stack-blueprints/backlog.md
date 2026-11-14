@@ -5,7 +5,7 @@ Record: the feature's change file (`.sdlc/2026-11-14-l-stack-blueprints/change.m
 | ID | Slice | FRs | ACs | Deps | Size | Status |
 |---|---|---|---|---|---|---|
 | B1 | Selection table, warnings and the extra `stack` interview questions; ADR 0026 | — | 1, 2, 3 | — | S | done |
-| B2 | Stack sections: Vue, Next.js, Flutter, iOS, Android, FastAPI; reconcile Nuxt, React, Node, Go; CI toolchains | — | 4, 5, 6, 9 | B1 | M | todo |
+| B2 | Stack sections: Vue, Next.js, Flutter, iOS, Android, FastAPI; reconcile Nuxt, React, Node, Go; CI toolchains | — | 4, 5, 6, 9 | B1 | M | done |
 | B3 | Per-stack convention templates and `scaffold.py conventions`, rendered on first touch | — | 7, 8, 9 | B2 | M | todo |
 | B4 | Platform references: cloudflare, vercel, docker-compose with Define checks | — | 10 | B1 | M | todo |
 | B5 | Constitution proposals per stack; scaling roadmap knowledge template | — | 11 | B2 | S | todo |
