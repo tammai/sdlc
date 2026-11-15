@@ -474,8 +474,12 @@ class LockSafety(ProjectTestCase):
         self.write("edit_lock.py", "import json\n"
                    "p = '.sdlc/scaffold.lock.json'\n"
                    "lock = json.load(open(p, encoding='utf-8'))\n"
-                   "lock['declined'].append('during.md')\n"
-                   "json.dump(lock, open(p, 'w', encoding='utf-8'))\n")
+                   "lock.setdefault('declined', []).append('during.md')\n"
+                   "json.dump(lock, open(p, 'w', encoding='utf-8'))\n"
+                   "c = '.sdlc/config.json'\n"  # and the config, edited while the run goes on
+                   "config = json.load(open(c, encoding='utf-8'))\n"
+                   "config['design'] = 'builtin'\n"
+                   "json.dump(config, open(c, 'w', encoding='utf-8'))\n")
         python = sys.executable.replace("\\", "/")
         if " " in python:
             self.skipTest("a Python path with a space can't be a bare shell command here")
@@ -484,6 +488,8 @@ class LockSafety(ProjectTestCase):
         lock = self.lock()
         self.assertIn("during.md", lock["declined"])
         self.assertTrue(lock["command_runs"])
+        with open(self.path(".sdlc/config.json"), encoding="utf-8") as f:
+            self.assertEqual(json.load(f).get("design"), "builtin")
 
     def test_killed_fallback_write_leaves_no_partial_file(self):
         import argparse
@@ -544,6 +550,235 @@ class LockSafety(ProjectTestCase):
         self.assertIn("unreadable", out["hookSpecificOutput"]["additionalContext"])
         self.sc("init", "--kind", "greenfield", "--force")
         self.sc("status")
+
+
+class LockMerge(ProjectTestCase):
+    """Concurrent saves merge, eject stays inside the repo, and the smaller lock tickets."""
+    sc, lock = Conventions.sc, Conventions.lock
+    write_lock = Hardening.write_lock
+
+    def test_concurrent_saves_merge(self):
+        import scaffold  # noqa: E402
+        self.sc("init", "--kind", "greenfield")
+        a, b = scaffold.Project(self.root), scaffold.Project(self.root)  # both read the lock first
+        a.require_lock()["declined"].append("a.md")
+        a.save()
+        b.require_lock()["declined"].append("b.md")
+        b.require_lock()["files"]["b.txt"] = {"class": "seeded", "sha256": None, "template": None}
+        b.save()
+        lock = self.lock()
+        self.assertIn("a.md", lock["declined"])
+        self.assertIn("b.md", lock["declined"])
+        self.assertIn("b.txt", lock["files"])
+        # both add the same key the lock didn't have: each one's entries are kept
+        c, d = scaffold.Project(self.root), scaffold.Project(self.root)
+        c.require_lock().setdefault("conventions", {})["c.md"] = {"x": 1}
+        c.save()
+        d.require_lock().setdefault("conventions", {})["d.md"] = {"x": 2}
+        d.save()
+        self.assertEqual(set(self.lock()["conventions"]), {"c.md", "d.md"})
+        # a list a command holds stays the one it saves, merge or not
+        e, f = scaffold.Project(self.root), scaffold.Project(self.root)
+        declined = f.require_lock()["declined"]
+        e.require_lock()["declined"].append("e.md")
+        e.save()
+        declined.append("f.md")
+        f.save()
+        declined.remove("f.md")  # a rollback through the reference it held
+        f.save()
+        lock = self.lock()
+        self.assertIn("e.md", lock["declined"])
+        self.assertNotIn("f.md", lock["declined"])
+        # a command that never reads the lock never rewrites it
+        g, h = scaffold.Project(self.root), scaffold.Project(self.root)
+        g.config["design"] = "builtin"
+        h.require_lock()["declined"].append("h.md")
+        h.save()
+        g.save()
+        self.assertIn("h.md", self.lock()["declined"])
+        # one entry changed by both: the last writer's whole entry, never a mix
+        i, j = scaffold.Project(self.root), scaffold.Project(self.root)
+        i.require_lock()["files"]["b.txt"] = {"class": "generated", "sha256": "i", "template": "t1"}
+        i.save()
+        j.require_lock()["files"]["b.txt"] = {"class": "seeded", "sha256": "j", "template": None}
+        j.save()
+        self.assertEqual(self.lock()["files"]["b.txt"], {"class": "seeded", "sha256": "j", "template": None})
+        # a collection below a section (setup.pending) merges key by key: two step-done runs both land
+        k = scaffold.Project(self.root)
+        k.require_lock()["setup"]["pending"] = {"x": "wait", "y": "wait"}
+        k.save()
+        m, n = scaffold.Project(self.root), scaffold.Project(self.root)
+        del m.require_lock()["setup"]["pending"]["x"]
+        m.save()
+        del n.require_lock()["setup"]["pending"]["y"]
+        n.save()
+        self.assertEqual(self.lock()["setup"]["pending"], {})
+
+    def test_removed_lock_is_not_recreated(self):
+        import json
+
+        import scaffold  # noqa: E402
+        self.sc("init", "--kind", "greenfield")
+        p = scaffold.Project(self.root)
+        p.require_lock()["declined"].append("x.md")
+        os.remove(self.path(".sdlc/scaffold.lock.json"))  # eject ran meanwhile
+        with self.assertRaises(ValueError):
+            p.save()
+        self.assertFalse(os.path.exists(self.path(".sdlc/scaffold.lock.json")))
+        # a lock broken meanwhile isn't overwritten with this command's older copy
+        self.sc("init", "--kind", "greenfield", "--force")
+        p = scaffold.Project(self.root)
+        p.require_lock()["declined"].append("x.md")
+        self.write(".sdlc/scaffold.lock.json", '{"files": [], "edited": "by hand"}')
+        with self.assertRaises(ValueError):
+            p.save()
+        with open(self.path(".sdlc/scaffold.lock.json"), encoding="utf-8") as f:
+            self.assertIn("by hand", f.read())
+        # a write that fails, then a save that works: nothing this command did is dropped
+        from unittest import mock
+        self.sc("init", "--kind", "greenfield", "--force")
+        p = scaffold.Project(self.root)
+        p.require_lock()["declined"].append("first.md")
+        with mock.patch.object(scaffold, "write_json", side_effect=OSError("disk full")), self.assertRaises(OSError):
+            p.save()
+        p.require_lock()["declined"].append("second.md")
+        p.save()
+        self.assertTrue({"first.md", "second.md"} <= set(self.lock()["declined"]))
+        # run-commands keeps its results whatever the save raises
+        import argparse
+        self.write(".sdlc/config.json", json.dumps({"commands": {"test": "true"}}))
+        with mock.patch.object(scaffold.Project, "save", side_effect=OSError("held open")), \
+                mock.patch.object(scaffold, "resolves", lambda *a: False), \
+                self.assertRaises(scaffold.CommandsFailed) as failed:
+            scaffold.cmd_run_commands(scaffold.Project(self.root), argparse.Namespace(timeout=30))
+        self.assertIn("held open", failed.exception.args[0]["lock_error"])
+        # run-commands still prints what ran
+        self.sc("init", "--kind", "greenfield", "--force")
+        self.write("drop_lock.py", "import os\nos.remove('.sdlc/scaffold.lock.json')\n")
+        python = sys.executable.replace("\\", "/")
+        if " " in python:
+            self.skipTest("a Python path with a space can't be a bare shell command here")
+        self.write(".sdlc/config.json", json.dumps({"commands": {"test": f"{python} drop_lock.py"}}))
+        out = self.sc("run-commands", expect=1)
+        self.assertTrue(out["scopes"])
+        self.assertIn("scaffold.lock.json", out["lock_error"])
+
+    def test_eject_stays_inside_the_repo(self):
+        import shutil
+        import tempfile
+        self.sc("init", "--kind", "greenfield")
+        outside = tempfile.mkdtemp(prefix="sdlc-outside-")
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        with open(os.path.join(outside, "keep.txt"), "w", encoding="utf-8") as f:
+            f.write("not the plugin's\n")
+        rel_out = os.path.relpath(os.path.join(outside, "keep.txt"), self.root).replace("\\", "/")
+        good = self.lock()
+        self.write_lock(dict(good, files=dict(good["files"], **{rel_out: {"class": "generated", "sha256": None}})))
+        self.assertIn("scaffold.lock.json", self.sc("eject", "--apply", expect=1)["error"])
+        self.assertTrue(os.path.exists(os.path.join(outside, "keep.txt")))
+        try:  # a link out of the repo, named by a path that looks inside
+            os.symlink(outside, self.path("linked"), target_is_directory=True)
+        except (OSError, NotImplementedError):
+            return
+        self.write_lock(dict(good, files=dict(good["files"], **{"linked/keep.txt": {"class": "generated",
+                                                                                   "sha256": None}})))
+        import scaffold  # noqa: E402
+        from unittest import mock
+        real_sha = scaffold.sha256
+
+        def never_outside(path):  # the plan doesn't even read a file outside the repo
+            self.assertNotIn(outside, os.path.realpath(path))
+            return real_sha(path)
+
+        with mock.patch.object(scaffold, "sha256", never_outside):
+            self.assertIn("linked/keep.txt", scaffold.eject_plan(scaffold.Project(self.root))["outside"])
+        out = self.sc("eject", "--apply")
+        self.assertIn("linked/keep.txt", out["outside"])
+        self.assertTrue(os.path.exists(os.path.join(outside, "keep.txt")))
+
+    def test_empty_placeholder_renders_again(self):
+        import scaffold  # noqa: E402
+        self.sc("init", "--kind", "greenfield")
+        self.sc("conventions", "go", "auth")
+        open(self.path(".claude/rules/go-auth.md"), "w").close()  # the interrupted render's empty placeholder
+        self.assertEqual(self.sc("conventions", "go", "auth")["rendered"], ".claude/rules/go-auth.md")
+        with open(self.path(".claude/rules/go-auth.md"), encoding="utf-8") as f:
+            self.assertEqual(f.read(), scaffold.convention_text("templates/project/conventions/go/auth.md", "."))
+
+    def test_config_and_null_lock_are_errors(self):
+        import json
+        self.sc("init", "--kind", "greenfield")
+        config = self.path(".sdlc/config.json")
+        with open(config, encoding="utf-8") as f:
+            good = f.read()
+        self.write(".sdlc/config.json", "[]")
+        self.assertIn("config.json", self.sc("status", expect=1)["error"])
+        lock_text = open(self.path(".sdlc/scaffold.lock.json"), encoding="utf-8").read()
+        os.remove(self.path(".sdlc/scaffold.lock.json"))  # no lock: plain init must still not replace that config
+        self.assertIn("config.json", self.sc("init", "--kind", "greenfield", expect=1)["error"])
+        with open(config, encoding="utf-8") as f:
+            self.assertEqual(f.read(), "[]")
+        self.write(".sdlc/scaffold.lock.json", lock_text)
+        out = run_hook([sys.executable, os.path.join(PLUGIN_ROOT, "hooks", "session_status.py")],
+                       json.dumps({"cwd": self.root}), self.root)[1]
+        self.assertIn("unreadable", out["hookSpecificOutput"]["additionalContext"])
+        self.sc("init", "--kind", "greenfield", "--force")  # --force restarts over it
+        with open(config, encoding="utf-8") as f:
+            self.assertIsInstance(json.load(f), dict)
+        self.write(".sdlc/config.json", good)
+        self.write(".sdlc/scaffold.lock.json", "null")
+        self.assertIn("scaffold.lock.json", self.sc("status", expect=1)["error"])
+        self.sc("init", "--kind", "greenfield", expect=1)  # it exists: only --force restarts over it
+
+    def test_stale_temp_files_are_swept(self):
+        import time
+        self.sc("init", "--kind", "greenfield")
+        os.makedirs(self.path(".claude/rules"), exist_ok=True)
+        self.write(".claude/rules/.sdlc-tmp-old", "left by a kill\n")
+        self.write(".claude/rules/.sdlc-tmp-new", "another writer, mid-write\n")
+        self.write(".claude/rules/.tmp-notes", "the user's own file\n")
+        old = time.time() - 7200
+        for name in (".sdlc-tmp-old", ".tmp-notes"):
+            os.utime(self.path(".claude/rules/" + name), (old, old))
+        self.sc("conventions", "go", "auth")
+        self.assertFalse(os.path.exists(self.path(".claude/rules/.sdlc-tmp-old")))
+        self.assertTrue(os.path.exists(self.path(".claude/rules/.sdlc-tmp-new")))
+        self.assertTrue(os.path.exists(self.path(".claude/rules/.tmp-notes")))  # not ours: never swept
+
+    def test_save_keeps_the_files_mode_and_links(self):
+        import scaffold  # noqa: E402
+        self.sc("init", "--kind", "greenfield")
+        lock = self.path(".sdlc/scaffold.lock.json")
+        if os.name != "nt":
+            os.chmod(lock, 0o644)
+        p = scaffold.Project(self.root)
+        p.require_lock()["declined"].append("x.md")
+        p.save()
+        if os.name != "nt":
+            self.assertEqual(os.stat(lock).st_mode & 0o777, 0o644)
+        import glob
+        import stat
+        os.chmod(lock, stat.S_IREAD)  # read-only: refused, not replaced, and no temp file left behind
+        self.addCleanup(os.chmod, lock, stat.S_IREAD | stat.S_IWRITE)
+        p = scaffold.Project(self.root)
+        p.require_lock()["declined"].append("y.md")
+        with self.assertRaises(OSError):
+            p.save()
+        os.chmod(lock, stat.S_IREAD | stat.S_IWRITE)
+        self.assertNotIn("y.md", self.lock()["declined"])
+        self.assertEqual(glob.glob(self.path(".sdlc/.sdlc-tmp-*")), [])
+        real = self.path("shared-config.json")  # a config kept elsewhere, linked in
+        os.replace(self.path(".sdlc/config.json"), real)
+        try:
+            os.symlink(real, self.path(".sdlc/config.json"))
+        except (OSError, NotImplementedError):
+            return
+        p = scaffold.Project(self.root)
+        p.config["design"] = "builtin"
+        p.save()
+        self.assertTrue(os.path.islink(self.path(".sdlc/config.json")))
+        with open(real, encoding="utf-8") as f:
+            self.assertIn("builtin", f.read())
 
 
 class Platforms(ProjectTestCase):
