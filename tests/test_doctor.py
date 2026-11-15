@@ -76,6 +76,23 @@ class DoctorTest(ProjectTestCase):
         for name in ("setup", "version", "plugin files", "commands", ".gitignore"):
             self.assertEqual(checks[("repo", name)]["status"], "ok", checks[("repo", name)])
 
+    def test_outside_files_warn(self):
+        import shutil
+        import tempfile
+        self.setup_repo()
+        outside = tempfile.mkdtemp(prefix="sdlc-outside-")
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        try:
+            os.symlink(outside, self.path("linked"), target_is_directory=True)
+        except (OSError, NotImplementedError):
+            self.skipTest("no symlinks here")
+        data = json.load(open(self.path(".sdlc/scaffold.lock.json"), encoding="utf-8"))
+        data["files"]["linked/x.md"] = {"class": "seeded", "sha256": "x"}
+        self.write(".sdlc/scaffold.lock.json", json.dumps(data))
+        found = self.check("plugin files")
+        self.assertEqual(found["status"], "warn", found)
+        self.assertIn("linked/x.md", found["detail"])
+
     def test_commands_never_run_warn_until_run_commands(self):
         self.setup_repo()
         self.assertEqual(self.check("commands run")["status"], "warn")
