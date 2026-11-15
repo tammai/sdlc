@@ -119,30 +119,82 @@ def plugin_version():
 
 # --- project state ---------------------------------------------------------------------
 
+LOCK_KINDS = {dict: "an object", list: "a list", str: "a string", bool: "true or false"}
+LOCK_SHAPE = {"scaffold_version": str, "files": dict, "declined": list, "merged": dict, "migrations": dict,
+              "setup": dict, "command_runs": dict, "hosts": list}  # every key a command reads (conventions: per entry)
+LOCK_NESTED = {"setup": {"kind": str, "completed_steps": list, "pending": dict, "complete": bool},
+               "migrations": {"applied": list, "skipped": dict}}
+
+
+def check_lock(lock):
+    """The lock's shape, checked the first time anything reads it (it is repo data, read like input). Null fields
+    read as empty; `conventions` items are checked per entry where they're read, so one bad entry is that item's
+    error in the upgrade plan."""
+    def bad(what):
+        return ValueError(f"{LOCK}: {what}; fix it, or restore it from git")
+
+    def fields(obj, shape, where):  # each key: absent or null reads as its reader's default, else the right type
+        for key, kind in shape.items():
+            if obj.get(key) is None:
+                obj.pop(key, None)
+            elif not isinstance(obj[key], kind):
+                raise bad(f"'{where}{key}' must be {LOCK_KINDS[kind]}")
+
+    if not isinstance(lock, dict):
+        raise bad("not a JSON object")
+    fields(lock, LOCK_SHAPE, "")
+    lock.setdefault("files", {})
+    lock.setdefault("declined", [])
+    for key, shape in LOCK_NESTED.items():
+        if key in lock:
+            fields(lock[key], shape, key + ".")
+    for path, e in lock["files"].items():
+        if not isinstance(e, dict) or not isinstance(e.get("class"), str):
+            raise bad(f"'files' entry {path!r} must be an object with a string 'class'")
+        if not isinstance(e.get("sha256"), (str, type(None))) or not isinstance(e.get("template"), (str, type(None))):
+            raise bad(f"'files' entry {path!r}: 'sha256' and 'template' must be strings")
+    strings = [("declined", lock["declined"]), ("hosts", lock.get("hosts", [])),
+               ("setup.completed_steps", lock.get("setup", {}).get("completed_steps", [])),
+               ("migrations.applied", lock.get("migrations", {}).get("applied", []))]
+    for where, items in strings:
+        if not all(isinstance(x, str) for x in items):
+            raise bad(f"every '{where}' item must be a string")
+    if not all(isinstance(v, list) for v in lock.get("merged", {}).values()):
+        raise bad("every 'merged' value must be a list")
+    for scope, steps in lock.get("command_runs", {}).items():  # contract and doctor read every run
+        if not isinstance(steps, dict) or not all(isinstance(r, dict) for r in steps.values()):
+            raise bad(f"'command_runs.{scope}' must be an object of runs")
+    return lock
+
+
 class Project:
     def __init__(self, root):
         self.root = os.path.abspath(root)
         self.config = read_json(self.path(CONFIG))
-        self.lock = read_json(self.path(LOCK))
+        self._lock, self._checked = read_json(self.path(LOCK)), False
+
+    @property
+    def lock(self):
+        """The lock, shape-checked on first read, so every reader gets the check (None when there is none)."""
+        if self._lock is not None and not self._checked:
+            check_lock(self._lock)
+            self._checked = True
+        return self._lock
+
+    @lock.setter
+    def lock(self, value):
+        self._lock, self._checked = value, False
 
     def path(self, p):
         return os.path.join(self.root, p)
 
     def require_lock(self):
-        """The lock, its shape checked once for every command that reads it (it is repo data, read like input)."""
         if self.lock is None:
             raise ValueError(f"no {LOCK}; run `init` first")
-        if not isinstance(self.lock, dict):
-            raise ValueError(f"{LOCK} is not a JSON object; fix it, or restore it from git")
-        for key, kind, what in (("files", dict, "an object"), ("declined", list, "a list of paths")):
-            if self.lock.get(key) is None:
-                self.lock[key] = kind()  # absent or null: the empty one
-            elif not isinstance(self.lock[key], kind):
-                raise ValueError(f"{LOCK}: '{key}' must be {what}; fix it, or restore it from git")
         return self.lock
 
     def save(self):
-        if self.lock is not None:
+        if self._lock is not None:
             write_json(self.path(LOCK), self.lock)
         if self.config is not None:
             write_json(self.path(CONFIG), self.config)
@@ -157,7 +209,7 @@ class Project:
 # --- commands ----------------------------------------------------------------------------
 
 def cmd_init(p, a):
-    if p.lock is not None and not a.force:
+    if p._lock is not None and not a.force:  # the raw lock: --force restarts over one of any shape
         raise ValueError(f"{LOCK} already exists (setup started or done); use status, or --force to restart")
     version = plugin_version()
     host = valid_host(a.host) if a.host else detect_host()["host"]
@@ -253,6 +305,7 @@ def cmd_step_done(p, a):
     """Records a setup step done, or with --pending held open for a reason (impeccable loading next session): a
     pending step isn't done, so a resumed setup runs it again, and the setup can't be marked complete until it is."""
     setup = p.require_lock().setdefault("setup", {"completed_steps": [], "complete": False})
+    setup.setdefault("completed_steps", [])
     pending = setup.setdefault("pending", {})
     if a.pending:
         pending[a.step] = a.pending
@@ -792,7 +845,7 @@ def cmd_run_commands(p, a):
     """Run install, then the verify plan, each in its directory; record every exit in the lock. A command that
     can't start (tool missing, timeout) fails this; a non-zero exit is only recorded (a known failure is normal
     in brownfield; the baseline step classifies it)."""
-    lock = p.require_lock()
+    p.require_lock()
     sh = shell()
     plan = verify_plan(p.config)
     runs, not_runnable = {}, []
@@ -814,10 +867,13 @@ def cmd_run_commands(p, a):
         runs.setdefault(step["scope"] or ROOT_SCOPE, {})[step["step"]] = rec
         if not rec["ran"]:
             not_runnable.append(f"{step['scope'] or ROOT_SCOPE} {step['step']}")
-    # The lock is committed: keep the outcome, never the output (it can hold tokens); the tail is printed only
-    lock["command_runs"] = {name: {k: {f: r[f] for f in ("command", "ran", "exit", "at")} for k, r in steps.items()}
-                            for name, steps in runs.items()}
-    p.save()
+    # The lock is committed: keep the outcome, never the output (it can hold tokens); the tail is printed only.
+    # The run can take minutes: save into the lock as it is on disk now, so a change made meanwhile is kept.
+    fresh = Project(p.root)
+    fresh.require_lock()["command_runs"] = {
+        name: {k: {f: r[f] for f in ("command", "ran", "exit", "at")} for k, r in steps.items()}
+        for name, steps in runs.items()}
+    fresh.save()
     if not_runnable:
         raise CommandsFailed({"scopes": runs, "not_runnable": not_runnable})
     return {"scopes": runs, "not_runnable": []}
@@ -1402,16 +1458,27 @@ def cmd_gitignore(p, a):
 
 # --- workbench: repos cloned inside a parent workbench repo ----------------------------------
 
-def _write_atomic(path, text, errors="strict"):
-    """Temp file in the same folder, fsync, rename, the temp file removed on failure: a crash never leaves half a
-    committed file, or a stray temp file for the next commit to pick up."""
+def _temp_copy(path, text, errors="strict", newline="\n"):
+    """`text` complete and synced in a temp file beside `path`; the caller moves it into place or removes it."""
     import tempfile
     fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path) or ".", prefix=".tmp-")
     try:
-        with os.fdopen(fd, "w", encoding="utf-8", errors=errors, newline="\n") as f:
+        with os.fdopen(fd, "w", encoding="utf-8", errors=errors, newline=newline) as f:
             f.write(text)
             f.flush()
             os.fsync(f.fileno())
+    except BaseException:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+        raise
+    return tmp
+
+
+def _write_atomic(path, text, errors="strict", newline="\n"):
+    """Temp file in the same folder, fsync, rename, the temp file removed on failure: a crash never leaves half a
+    committed file, or a stray temp file for the next commit to pick up."""
+    tmp = _temp_copy(path, text, errors, newline)
+    try:
         os.replace(tmp, path)
     finally:
         if os.path.exists(tmp):
@@ -1419,29 +1486,23 @@ def _write_atomic(path, text, errors="strict"):
 
 
 def _publish_new(path, text):
-    """Write `path` only if nothing is there, never over a file: a complete temp file hard-linked into place (the
-    link fails on an existing name); where the filesystem has no hard links, an exclusive create."""
-    import tempfile
-    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path) or ".", prefix=".tmp-")
+    """Write `path` only if nothing is there, never over a file, and never in part: a complete temp file
+    hard-linked into place (the link fails on an existing name). Where the filesystem has no hard links, the name is
+    claimed with an exclusive create of an empty placeholder, then the temp file replaces that placeholder: never
+    over anyone else's file, and a kill leaves the file absent, complete, or (in the instant between the two) empty."""
+    tmp = _temp_copy(path, text)
     try:
-        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
-            f.write(text)
-            f.flush()
-            os.fsync(f.fileno())
         os.chmod(tmp, 0o644)  # mkstemp's 0600 would make a rule file other tools can't read
         try:
             os.link(tmp, path)
         except FileExistsError:
             raise
-        except OSError:  # no hard links here (FAT, some network shares): an exclusive create, gone again on failure
-            out = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0), 0o644)
+        except OSError:  # no hard links here (FAT, some network shares)
+            os.close(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644))  # FileExistsError: someone else's
             try:
-                with os.fdopen(out, "wb") as f:
-                    f.write(text.encode("utf-8"))
-                    f.flush()
-                    os.fsync(f.fileno())
+                os.replace(tmp, path)
             except BaseException:
-                os.remove(path)
+                os.remove(path)  # our empty placeholder
                 raise
     finally:
         if os.path.exists(tmp):
@@ -2133,7 +2194,7 @@ def cmd_upgrade_plan(p, a):
             plan["regenerate"].append(item)
         elif state == "unchanged":
             new = render_source(tpl, p)
-            if hashlib.sha256(new.encode("utf-8")).hexdigest() != e["sha256"]:
+            if hashlib.sha256(new.encode("utf-8")).hexdigest() != e.get("sha256"):
                 plan["replace"].append(item)
         elif state == "modified":
             plan["review"].append(item)

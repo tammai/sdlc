@@ -5,7 +5,8 @@
 One line, only in a repo with `.sdlc/`: setup, drift, layout, the path pattern of a feature's change file, state
 file and work folder, whether a git remote exists, the PRD's path (or none), team rules, and the active
 features with their stage.
-Outside an sdlc repo, or on any error: no output.
+Outside an sdlc repo, or on the hook's own error: no output. A lock or config scaffold can't read is the repo's
+state, not the hook's error: the line says it is unreadable and points at /sdlc:doctor.
 """
 import json
 import os
@@ -47,7 +48,11 @@ def main():
     root = vf.project_root(data.get("cwd"))
     if not root:
         return
-    print(json.dumps({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": status_line(root)}}))
+    try:
+        context = status_line(root)
+    except ValueError as e:  # a lock or config scaffold can't read: say so, rather than start with no status at all
+        context = f"sdlc session status: unreadable ({e}); run /sdlc:doctor"
+    print(json.dumps({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": context}}))
 
 
 if __name__ == "__main__":
