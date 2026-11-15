@@ -1,5 +1,5 @@
 # 2026-11-14-l-stack-blueprints
-Status: active
+Status: done
 Process: 3
 Change: .sdlc/2026-11-14-l-stack-blueprints/change.md   (this feature's record for people)
 Track: L   (sized up because: five distinct parts: setup references, scaffold.py render, orchestrator Define, platform references, constitution; footprint: 25 files)
@@ -10,14 +10,14 @@ Started: 2026-11-14
 Base: 5628df6
 Owner: tammai.it@gmail.com
 Tool: claude-code
-Verified: 0bb10a8 tree 00b3e9ad59375126b69d7c59f67ec66d4803d916
+Verified: a7516c1 tree feccac6716c6b019ca3ad365b13cfb869d746d0e
 Slice: B5   Slice base: 7db5041   Slice gates: none
-Current: Stage 2 – Build
+Current: Stage 4 – Ship
 
 ## Stages
 - [x] 1 Define   — the change file, the plan sections below
 - [x] 2 Build
-- [ ] 3 Review   — the change file's ## Review
+- [x] 3 Review   — the change file's ## Review
 - [ ] 4 Ship     — PR: (Learn: knowledge, recurring-defects.md)
 
 ## How the build runs
@@ -56,6 +56,9 @@ parts in fresh sessions, because the user builds one part per session (backlog.m
 - 2026-11-14 handoff B5: every part done. stack-principles.md (Every stack + the ten CONVENTION_STACKS), templates/knowledge/scaling-roadmap.md (candidate rows in a comment; setup copies the fitting ones to knowledge/decisions/scaling-roadmap.md), setup's knowledge and deploy rows, greenfield.md's knowledge section. Next: Feature close (backlog-slices step 7): state.py advance 3 --gate pass, Review over the branch from Base 5628df6 (diff_stats.py --base 5628df6 --plan state.md and each plan-B*.md), then Ship; the draft PR #53 holds B1-B5.
 - 2026-11-14 Stage 2: pass — Feature close: B1-B5 done
 - 2026-11-14 review: ran code, security (Code: L and Public Surface; Security: area/stack names and package path reach a file path, failure mode AC-007), self-chosen: L
+- 2026-11-15 Stage 2: pass — r1 fixes a7516c1; full suite green (4 files rerun from Git Bash: WSL bash when launched from PowerShell)
+- 2026-11-15 Stage 2: pass — r2 mediums fixed (N1 test), full suite 586 OK from Git Bash
+- 2026-11-15 Stage 3: pass — r2 PASS both; r2 mediums fixed; Review recorded
 
 ## Deviations
 - 2026-11-14 setup What: went on with setup none (no .sdlc/config.json). Why: the plugin's own repo runs sdlc without setup (as 2026-11-13-l-workbench). Effect: verify.py runs the AC tests; the full suite is run by hand with py -3.10 -m unittest discover -s tests -t tests.
@@ -78,6 +81,7 @@ parts in fresh sessions, because the user builds one part per session (backlog.m
 - 2026-11-14 review r1 fix scripts/scaffold.py convention_lock generate_ci What: one shape check on the lock's conventions/declined before any write (S1/M2), upgrade's list reports a malformed lock or an unreadable rule per item, a deleted convention renders again (only a file on disk refuses, lexists) (M1), Swift packages in their own verify-macos job whatever ci.os says (M3), a missing area names the stack's areas. Why: Review round 1. Effect: four new tests in tests/test_stack_blueprints.py.
 - 2026-11-14 review r1 fix docs skills/orchestrator/references/flow.md, skills/project-constitution/references/stack-principles.md, skills/setting-up-projects/references/upgrade.md, skills/setting-up-projects/SKILL.md, docs/wiki/Project-setup.md, docs/wiki/Configuration.md, templates/project/conventions/vue/ui.md What: manifest-to-stack order (nuxt, next -> nextjs, react, vue; first match wins) (M4), upgrade shows error items, ownership tables name the convention diff, ci.os line names the macOS job, MUST reworded, one line wrapped. Why: Review round 1. Effect: docs only.
 - 2026-11-14 review r1 H1 templates/project/conventions/go/auth.md, templates/project/conventions/go/contract.md, .sdlc/2026-11-14-l-stack-blueprints/plan-B3.md What: the ten claims sourced only in the scratchpad re-checked against current docs (all confirmed), URLs added to plan-B3.md; scs/v2 import path, goth maintainer note, oapi-codegen v2 module path. Why: Review round 1 H1 (AC-009). Effect: template wording only.
+- 2026-11-15 review r2 fix scripts/scaffold.py generate_ci convention_lock, tests/test_stack_blueprints.py, templates/project/conventions/vue/ui.md, templates/project/conventions/flutter/layers.md, templates/project/conventions/node/data-access.md, skills/setting-up-projects/references/upgrade.md, skills/setting-up-projects/references/greenfield.md, docs/specs/01-setup-upgrade-eject.md, CHANGELOG.md What: packages with no stack take project.stack in the whole-repo workflow (N1, test added); the no-op root-install clause dropped; a null conventions/declined reads as empty; no --seen for an error item; three templates name the generator/driver instead of the plugin's stacks.md; ci.os wording in the spec, changelog and greenfield (N2). Why: Review round 2 mediums and lows, fixed without another round. Effect: one new test.
 
 ## Open questions
 -

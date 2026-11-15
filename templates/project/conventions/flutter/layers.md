@@ -13,7 +13,7 @@ The app talks to the backend only through a client generated from the contract.
 - State is Riverpod. Server data comes from async providers (`FutureProvider`, `AsyncNotifier`) that call the
   API client; widgets watch providers and never call the client. Local UI state stays in the widget.
 - Routing is `go_router`, with one `redirect` sending a signed-out user to sign-in.
-- The API client is generated from the contract into `lib/api/generated/` (the stack's Flutter section names the
+- The API client is generated from the contract into `lib/api/generated/` (OpenAPI Generator's `dart-dio`
   generator) on `dio`; generated code is never edited, and models come from it. Hand-written models are UI state
   only.
 - The API base URL and other public values come from `--dart-define`. The app bundle holds no secret: its users

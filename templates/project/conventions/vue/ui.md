@@ -8,7 +8,7 @@ paths:
 # Vue: UI with Nuxt UI
 
 `sdlc-ui.md` and the design system hold the general UI rules; this file says how they map onto Nuxt UI in a Vue
-app (its Vite plugin and Vue plugin, set up as the stack's Vue section says).
+app (its Vite plugin and Vue plugin, set up as Nuxt UI's Vue installation guide says).
 
 - `App.vue` wraps the app in `<UApp>`, so toasts, tooltips and overlays work.
 - Nuxt UI covers buttons, inputs, forms, tables, modals, menus, navigation and layout: look there before writing

@@ -138,3 +138,42 @@ The exact Run commands for B2–B5 are written when each part starts (its plan),
 - Data-layer entries (`neon`, `cloud-sql`, `supabase`, `self-hosted`) as stack sections: their driver notes go to
   the platform references (B4) and the data convention template (B3).
 
+## Review
+
+- **Recommended and chosen:** code and security. Code fired because the track is L and the change has a Public Surface (`scaffold.py conventions`). Security fired because stack, area and package names reach a written file path (failure mode → AC-007). Chosen by the trigger list, self-chosen on L (state.py log).
+- **Verdicts:**
+  - Round 1: code-reviewer → `.sdlc/.work/findings/2026-11-14-l-stack-blueprints/code-reviewer-r1.md` → FAIL — M1, M2, M3 (H1 unconfirmed). Security → `security-r1.md` → FAIL — S1.
+  - Round 2 (closing check): code-reviewer → `code-reviewer-r2.md` → PASS. Security → `security-r2.md` → PASS.
+- **Fixed:**
+  - S1/M2 (high/medium): a lock whose `conventions` isn't an object, or whose `declined` isn't a list, crashed `scaffold.py conventions` after it had written the rule file, leaving that file untracked; it also crashed upgrade-plan. Now `convention_lock` checks both before any write, upgrade-plan reports a malformed lock or a non-UTF-8 rule as an error on that item, and null reads as empty. Tests: `test_malformed_lock_is_refused_before_any_write`, `test_upgrade_reports_an_unreadable_rule_per_item`.
+  - M1: a lock entry alone refused re-rendering a convention the user had deleted. Now only a file on disk refuses (`lexists`). Test: `test_deleted_convention_renders_again`.
+  - M3: one workflow-wide runner. Swift on macOS forced every package onto macOS, and a user `ci.os` ran Xcode on Linux. Swift packages now get their own `verify-macos` job. Test: `test_swift_gets_its_own_macos_job`.
+  - N1 (round 2, medium): packages that name no stack lost `project.stack`'s setup in the whole-repo workflow. Test: `test_packages_without_a_stack_use_the_project_stack`.
+  - M4: the manifest-to-stack order is now `nuxt`, then `next` → `nextjs`, then `react`, then `vue`, first match wins (flow.md, stack-principles.md).
+  - H1 (AC-009): the ten claims whose sources stayed in a scratchpad were re-checked against current docs. All were confirmed, and their URLs are now in plan-B3.md. Wording updated: `scs/v2`, a maintainer note for goth, and oapi-codegen's v2 module path.
+  - In passing:
+    - the ownership tables, `ci.os` docs (spec SET-FR-011, CHANGELOG, greenfield.md, Configuration.md) and upgrade.md (error items, no `--seen` for them) match the new behaviour;
+    - three templates name the generator or driver instead of pointing at the plugin's stacks.md;
+    - a "MUST" is reworded, and a missing area now lists the stack's areas.
+  - Full suite: 586 tests OK on Python 3.10, run from Git Bash.
+- **Tickets:**
+  - S2: a symlinked `.claude/rules` folder is followed out of the repo (the other scaffold writers do the same).
+  - S3: the race between the exists check and the replace.
+  - Security L1: a lock that isn't an object at the top level crashes, and so does upgrade-plan's `set(lock.get("declined"))` when `declined` is a dict. That line predates this change; nothing is written before either crash.
+  - Security L2: a lock `root` of the wrong type renders an odd `paths:` line in the offered diff.
+  - Code L1: a crash between the rule write and the lock save leaves an untracked file.
+  - Code L2: in a one-deployable Next.js app with `src/`, node's `src/**` globs cover the web app.
+  - Code L3: the lock's `root` isn't rechecked on read.
+  - Code L4: the "Every stack" SSR and distributed-cache principle has no roadmap row, and brownfield gets no roadmap page.
+  - upgrade.md's step "5a" numbering.
+  - `libs.versions.toml` has no URL in plan-B3.md.
+- **Drift and manual checks:**
+  - Every `## Deviations` line in the state file is listed in the end-of-Review message: setup none; the one growing PR; the B1–B5 docs and red-run notes; CI on Linux only; the r1 and r2 fixes.
+  - AC-009 (manual): checked by reading the plan-B*.md source lists, then by the H1 re-check above.
+- **Security:**
+  - The written path comes only from exact allowlists: case changes, `..`, absolute paths, drive letters and UNC paths can't get through.
+  - The package path reaches only `paths:`, through `json.dumps`.
+  - The auth templates and platform references give sound advice on secrets and tokens.
+  - No dependency was added (the plugin is Python stdlib only), so there was nothing for a dependency audit to check.
+- **Lessons filed:** [.claude/rules/tests.md](../../.claude/rules/tests.md): run the suite from Git Bash, not PowerShell, where `bash` is WSL (18 false failures this round).
+

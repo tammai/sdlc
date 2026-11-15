@@ -151,6 +151,24 @@ class CiToolchains(unittest.TestCase):
         self.assertNotIn("bats tests", mac)
         self.assertNotIn("apt-get", mac)
 
+    def test_packages_without_a_stack_use_the_project_stack(self):
+        import json
+        import shutil
+        import tempfile
+
+        import scaffold  # noqa: E402
+        root = tempfile.mkdtemp(prefix="sdlc-test-")
+        self.addCleanup(shutil.rmtree, root, ignore_errors=True)
+        os.makedirs(os.path.join(root, ".sdlc"))
+        packages = [{"name": "web", "path": "apps/web", "commands": {"test": "pnpm test"}},
+                    {"name": "api", "path": "apps/api", "commands": {"test": "pnpm test"}}]
+        for stack, want in ((["typescript"], "actions/setup-node"), (["swift"], "setup-xcode")):
+            with open(os.path.join(root, ".sdlc", "config.json"), "w", encoding="utf-8") as f:
+                json.dump({"packages": packages, "project": {"stack": stack}}, f)
+            ci = scaffold.generate_ci(scaffold.Project(root))
+            self.assertIn(want, ci, stack)
+        self.assertIn('os: ["macos-latest"]', ci)
+
 
 class Conventions(ProjectTestCase):
     def sc(self, *args, expect=0):

@@ -612,7 +612,10 @@ def convention_text(template, root):
 
 def convention_lock(lock):
     """The lock's `conventions` and `declined`, checked before anything is written (the lock is repo data)."""
-    rendered, declined = lock.setdefault("conventions", {}), lock.setdefault("declined", [])
+    for key, empty in (("conventions", {}), ("declined", [])):  # null reads as empty, as upgrade-plan reads it
+        if lock.get(key) is None:
+            lock[key] = empty
+    rendered, declined = lock["conventions"], lock["declined"]
     if not isinstance(rendered, dict):
         raise Refused(f"{LOCK}: 'conventions' must be an object of rendered rule files; fix or remove it")
     if not isinstance(declined, list):
@@ -888,17 +891,19 @@ def generate_ci(p, package=None):
               "dotnet_version": ci.get("dotnet_version", "8.0.x"), "go_mod": go_mod}
     runners = ci.get("os", ["ubuntu-latest"])
 
+    # no package names a stack: every package takes `project.stack`, as the whole-repo workflow always did
+    shared = None if package or any(sc["stack"] for sc in pkg_scopes) else project_stacks(p.config)
+
     def scope_stacks(name):
-        return project_stacks(p.config, None if name == ROOT_SCOPE else name)
+        return shared if shared is not None else project_stacks(p.config, None if name == ROOT_SCOPE else name)
 
     # Xcode runs only on macOS: Swift packages get a job of their own there, whatever runners ci.os names, so the
     # other packages keep theirs (and their Linux-only setup steps) instead of all paying for macOS minutes
     mac = {sc["name"] for sc in pkg_scopes if "swift" in scope_stacks(sc["name"])}
 
-    def job_parts(on_mac):  # a workspace-wide install (root scope, packages beside it) runs in each job
+    def job_parts(on_mac):
         return ([s for sc in pkg_scopes if (sc["name"] in mac) == on_mac for s in scope_stacks(sc["name"])],
-                [s for s in plan["install"] + plan["verify"] if (s["scope"] in mac) == on_mac
-                 or (s in plan["install"] and s["scope"] == ROOT_SCOPE and ROOT_SCOPE not in mac)])
+                [s for s in plan["install"] + plan["verify"] if (s["scope"] in mac) == on_mac])
     jobs = [(name, runs, *job_parts(on_mac)) for name, runs, on_mac in
             (("verify", runners, False), ("verify-macos", ["macos-latest"], True))]
     jobs = [j for j in jobs if any(s in plan["verify"] for s in j[3])]

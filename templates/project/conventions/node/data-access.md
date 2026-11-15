@@ -15,5 +15,6 @@ paths:
 - A write to more than one table is one transaction: the service opens `db.transaction(async (tx) => …)` and passes
   `tx` to each repository call.
 - Select only the columns needed; no query inside a loop (N+1).
-- One connection pool per process, created in `db/`; on Workers, the driver the Node section of the stack names.
+- One connection pool per process, created in `db/`; on Workers, a serverless driver such as
+  `@neondatabase/serverless`.
 - Tests run repositories against a real database, not mocks.
