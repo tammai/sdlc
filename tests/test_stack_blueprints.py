@@ -781,6 +781,204 @@ class LockMerge(ProjectTestCase):
             self.assertIn("builtin", f.read())
 
 
+class ConfigAndContainment(ProjectTestCase):
+    """config.json merges like the lock, save temps stay in scratch, and links out of the repo aren't followed."""
+    sc, lock = Conventions.sc, Conventions.lock
+    write_lock = Hardening.write_lock
+
+    def config(self):
+        import json
+        with open(self.path(".sdlc/config.json"), encoding="utf-8") as f:
+            return json.load(f)
+
+    def test_config_saves_merge(self):
+        import scaffold  # noqa: E402
+        self.sc("init", "--kind", "greenfield")
+        a, b = scaffold.Project(self.root), scaffold.Project(self.root)
+        a.config["design"] = "builtin"
+        a.config["packages"] = [{"name": "web", "path": "apps/web"}]
+        a.save()
+        b.config["deploy"] = {"target": "vercel"}
+        b.config["packages"] = [{"name": "web", "path": "apps/site"}]
+        b.save()
+        config = self.config()
+        self.assertEqual(config["design"], "builtin")
+        self.assertEqual(config["deploy"], {"target": "vercel"})
+        self.assertEqual(config["packages"], [{"name": "web", "path": "apps/site"}])  # one whole list
+        # a config removed meanwhile isn't recreated, and a config broken meanwhile stops the save before the lock
+        c = scaffold.Project(self.root)
+        c.config["design"] = "impeccable"
+        os.remove(self.path(".sdlc/config.json"))
+        with self.assertRaises(ValueError):
+            c.save()
+        self.assertFalse(os.path.exists(self.path(".sdlc/config.json")))
+        self.write(".sdlc/config.json", '{"design": "builtin"}')
+        d = scaffold.Project(self.root)
+        d.config["design"] = "impeccable"
+        d.require_lock()["declined"].append("d.md")
+        self.write(".sdlc/config.json", "{not json")
+        with self.assertRaises(ValueError):
+            d.save()
+        self.assertNotIn("d.md", self.lock()["declined"])
+        # a read-only config refuses before the lock is written, too
+        import stat
+        self.write(".sdlc/config.json", '{"design": "builtin", "packages": [{"name": "web"}]}')
+        e = scaffold.Project(self.root)
+        e.config["design"] = "impeccable"
+        e.require_lock()["declined"].append("e.md")
+        os.chmod(self.path(".sdlc/config.json"), stat.S_IREAD)
+        self.addCleanup(os.chmod, self.path(".sdlc/config.json"), stat.S_IREAD | stat.S_IWRITE)
+        with self.assertRaises(OSError):
+            e.save()
+        os.chmod(self.path(".sdlc/config.json"), stat.S_IREAD | stat.S_IWRITE)
+        self.assertNotIn("e.md", self.lock()["declined"])
+        # a list this command holds stays the one it saves, even when another command replaced it
+        f, g = scaffold.Project(self.root), scaffold.Project(self.root)
+        pkgs = f.config["packages"]
+        g.config["packages"] = [{"name": "api"}]
+        g.save()
+        f.config["design"] = "impeccable"
+        f.save()
+        pkgs.append({"name": "docs"})
+        f.save()
+        self.assertEqual(self.config()["packages"], [{"name": "api"}, {"name": "docs"}])
+
+    def test_save_temp_stays_in_scratch(self):
+        import glob
+        from unittest import mock
+
+        import scaffold  # noqa: E402
+        self.sc("init", "--kind", "greenfield")
+        p = scaffold.Project(self.root)
+        p.require_lock()["declined"].append("x.md")
+        real_replace = os.replace
+
+        def killed(src, dst):  # the kill lands before the rename; no cleanup runs
+            if dst.endswith("scaffold.lock.json"):
+                raise SystemExit("killed")
+            return real_replace(src, dst)
+
+        with mock.patch.object(scaffold.os, "replace", killed), \
+                mock.patch.object(scaffold.os, "remove", lambda *a: None), self.assertRaises(SystemExit):
+            p.save()
+        self.assertEqual(glob.glob(self.path(".sdlc/.sdlc-tmp-*")), [])
+        self.assertTrue(glob.glob(self.path(".sdlc/.work/.sdlc-tmp-*")))
+        # an old temp copy beside the lock (an earlier version's kill) is swept by the next save
+        import errno
+        import time
+        self.write(".sdlc/.sdlc-tmp-old", "{}")
+        old = time.time() - 7200
+        os.utime(self.path(".sdlc/.sdlc-tmp-old"), (old, old))
+        # and a scratch folder on another device falls back to a temp beside the file
+        def cross_device(src, dst):
+            if ".work" in src.replace("\\", "/"):
+                raise OSError(errno.EXDEV, "Invalid cross-device link")
+            return real_replace(src, dst)
+
+        p = scaffold.Project(self.root)
+        p.require_lock()["declined"].append("z.md")
+        with mock.patch.object(scaffold.os, "replace", cross_device):
+            p.save()
+        self.assertIn("z.md", self.lock()["declined"])
+        self.assertFalse(os.path.exists(self.path(".sdlc/.sdlc-tmp-old")))
+        # a scratch folder that can't be used (here a file in its place) falls back beside the file
+        import shutil
+        shutil.rmtree(self.path(".sdlc/.work"))
+        self.write(".sdlc/.work", "not a folder\n")
+        p = scaffold.Project(self.root)
+        p.require_lock()["declined"].append("w.md")
+        p.save()
+        self.assertIn("w.md", self.lock()["declined"])
+
+    def test_links_out_are_not_followed(self):
+        import shutil
+        import tempfile
+        from unittest import mock
+
+        import scaffold  # noqa: E402
+        self.sc("init", "--kind", "greenfield")
+        outside = tempfile.mkdtemp(prefix="sdlc-outside-")
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        self.write("keep.txt", "")
+        shutil.copy(self.path("keep.txt"), os.path.join(outside, "keep.txt"))
+        try:
+            os.symlink(outside, self.path("linked"), target_is_directory=True)
+        except (OSError, NotImplementedError):
+            self.skipTest("no symlinks here")
+        lock = self.lock()
+        lock["files"]["linked/keep.txt"] = {"class": "seeded", "sha256": "x",
+                                            "template": "templates/project/rules/sdlc.md"}
+        lock["files"]["linked/gone.md"] = {"class": "seeded", "sha256": "x", "template": "templates/no-such.md"}
+        self.write_lock(lock)
+        # .claude/rules linked out too: the tracked AGENTS mirror and new shipped rules there are outside
+        rules_out = os.path.join(outside, "rules")
+        os.makedirs(rules_out)
+        with open(os.path.join(rules_out, "sdlc-agents-md.md"), "w", encoding="utf-8") as f:
+            f.write("mirror\n")
+        if os.path.isdir(self.path(".claude/rules")):
+            shutil.rmtree(self.path(".claude/rules"))
+        os.makedirs(self.path(".claude"), exist_ok=True)
+        os.symlink(rules_out, self.path(".claude/rules"), target_is_directory=True)
+        lock = self.lock()
+        lock["files"][scaffold.AGENTS_MIRROR] = {"class": "generated", "sha256": "x", "template": "builtin:agents-mirror"}
+        self.write_lock(lock)
+        real_sha = scaffold.sha256
+
+        def never_outside(path):
+            self.assertNotIn(os.path.realpath(outside), os.path.realpath(path))
+            return real_sha(path)
+
+        with mock.patch.object(scaffold, "sha256", never_outside):
+            p = scaffold.Project(self.root)
+            status = scaffold.cmd_status(p, None)
+            plan = scaffold.cmd_upgrade_plan(scaffold.Project(self.root), None)
+        self.assertEqual(status["files"]["linked/keep.txt"]["state"], "outside")
+        self.assertIn("linked/keep.txt", plan["outside"])
+        self.assertIn("linked/gone.md", plan["outside"])  # never offered for deletion as template_gone
+        self.assertNotIn("linked/gone.md", plan["template_gone"])
+        self.assertFalse([i for i in plan["add"] if i["path"].startswith(".claude/rules/")], plan["add"])
+        shutil.rmtree(self.path(".claude/rules")) if not os.path.islink(self.path(".claude/rules")) \
+            else os.remove(self.path(".claude/rules")) if os.name != "nt" else os.rmdir(self.path(".claude/rules"))
+        lock = self.lock()
+        del lock["files"][scaffold.AGENTS_MIRROR], lock["files"]["linked/gone.md"]
+        self.write_lock(lock)
+
+        def outside_text():
+            with open(os.path.join(outside, "keep.txt"), encoding="utf-8") as f:
+                return f.read()
+
+        before = outside_text()
+        self.sc("render", "templates/project/rules/sdlc.md", "linked/keep.txt", expect=2)
+        self.sc("record", "linked/keep.txt", expect=2)  # nor recorded (read) through the link
+        self.assertEqual(outside_text(), before)
+        # an edited guardrail reached through a link out is never deleted by a design swap
+        os.makedirs(self.path(".claude"), exist_ok=True)
+        hook_dir = os.path.join(outside, "hookify")
+        os.makedirs(hook_dir)
+        guard = os.path.join(hook_dir, scaffold.IMPECCABLE_REPLACES)
+        with open(guard, "w", encoding="utf-8") as f:
+            f.write("edited by the user\n")
+        if os.path.isdir(self.path(".claude/hookify")):
+            shutil.rmtree(self.path(".claude/hookify"))
+        os.symlink(hook_dir, self.path(".claude/hookify"), target_is_directory=True)
+        lock = self.lock()
+        lock["files"][".claude/hookify/" + scaffold.IMPECCABLE_REPLACES] = {"class": "seeded", "sha256": "x",
+                                                                         "template": None}
+        self.write_lock(lock)
+        with mock.patch.object(scaffold, "design_mode", lambda p: "impeccable"), \
+                mock.patch.object(scaffold, "impeccable_status", lambda root: {"hook": True}):
+            scaffold.swap_ui_guardrail(scaffold.Project(self.root))
+        self.assertTrue(os.path.exists(guard))
+        # upgrade-plan always lists outside, empty when nothing is
+        hook_link = self.path(".claude/hookify")
+        os.rmdir(hook_link) if os.name == "nt" else os.remove(hook_link)
+        lock = self.lock()
+        for key in [k for k in lock["files"] if k.startswith(("linked/", ".claude/hookify/"))]:
+            del lock["files"][key]
+        self.write_lock(lock)
+        self.assertEqual(scaffold.cmd_upgrade_plan(scaffold.Project(self.root), None)["outside"], [])
+
+
 class Platforms(ProjectTestCase):
     def test_define_checks_per_target(self):
         import json
