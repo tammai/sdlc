@@ -17,8 +17,9 @@ rendered when a feature first touches an area). Don't restate the plugin's own r
 - Dependencies MUST be pinned with a lockfile, and a new one MUST be added with a stated reason.
 - Generated files (API clients, server stubs, a spec exported from code) MUST NOT be edited by hand; the change that
   changes their source MUST regenerate them.
-- An SSR layer, a BFF, a queue, a distributed cache or a new service MUST NOT be added before its trigger in the
-  scaling roadmap (`knowledge/decisions/scaling-roadmap.md`) is met. Propose it as an addition to **V. Simplicity**.
+- An SSR layer, a BFF, a queue, a distributed cache or a new service MUST NOT be added before a measured need
+  calls for it, or, when the project has a scaling roadmap (`knowledge/decisions/scaling-roadmap.md`), before its
+  trigger there is met. Propose it as an addition to **V. Simplicity**.
 - Backends: email, storage, payments, error tracking and other vendors MUST sit behind an interface the business
   code owns; business code MUST NOT import a vendor SDK.
 
