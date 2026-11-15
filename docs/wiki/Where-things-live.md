@@ -23,6 +23,7 @@ docs/sdlc/                 docs_dir: the documents people read (default; setup a
   changes/<feature>.md     the change file, the record for people: Define writes it, Review adds ## Review; kept
 knowledge/                 tier 3, on-demand docs (index.md links everything)
 .claude/rules/<area>.md    tier 2, loads when matching paths are touched (yours)
+.claude/rules/<stack>-<area>.md   a stack's conventions, written by the first feature touching the area (yours)
 .claude/rules/sdlc*.md     plugin policy rules: workflow, code style, tests, migrations, sensitive areas, CI, UI (generated)
 .claude/hookify/*.md       team hookify rules; sdlc-*.md are the plugin's guardrails (seeded)
 .github/workflows/sdlc-verify.yml       CI generated from the commands in config (seeded)

@@ -10,7 +10,7 @@ Removes what the plugin owns from the project and keeps everything the team made
 $S eject           # dry run: delete / ask / already_gone / unmerge / keep
 ```
 
-Show the plan in a few lines. **Keeps:** the plan's `keep` list, which names only what exists here (any of `.sdlc/config.json` with the commands, the PRD, constitution, design system, `knowledge/`, baseline, and every feature's record: its change file (`<docs>/changes/`; older features: `<docs>/intents/`) and state (`.sdlc/state/`, or `.sdlc/<feature>/` in the old layout)), plus area rules; never name one the list leaves out. **Removes:** generated rules, unedited seeded files (guardrails, CI workflow, lint snippets), the allowlist, plugin-enablement and `.gitignore` entries the plugin added, the sdlc block in `AGENTS.md` (the file too if the plugin created it), and the lock.
+Show the plan in a few lines. **Keeps:** the plan's `keep` list, which names only what exists here (any of `.sdlc/config.json` with the commands, the PRD, constitution, design system, `knowledge/`, baseline, and every feature's record: its change file (`<docs>/changes/`; older features: `<docs>/intents/`) and state (`.sdlc/state/`, or `.sdlc/<feature>/` in the old layout)), plus area rules and the stack conventions Define rendered (`.claude/rules/<stack>-<area>.md`, user-owned from the start); never name one the list leaves out. **Removes:** generated rules, unedited seeded files (guardrails, CI workflow, lint snippets), the allowlist, plugin-enablement and `.gitignore` entries the plugin added, the sdlc block in `AGENTS.md` (the file too if the plugin created it), and the lock.
 
 For each file under `ask` (seeded but edited): ask whether to delete it too.
 

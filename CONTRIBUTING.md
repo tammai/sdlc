@@ -22,7 +22,7 @@ sdlc/
 │                            (references/trimming-context.md: /sdlc:context-diet; design-mode.md: the design step and
 │                            /sdlc:setup design; workbench.md: greenfield with two or more apps, one repo per app;
 │                            stacks.md: the preferred stacks greenfield proposes from); managing-knowledge/references/ holds
-│                            claude-md-improver.md and its folder
+│                            claude-md-improver.md and its folder; project-constitution/references/stack-principles.md
 ├── hooks/
 │   ├── hooks.json           which script runs on which event; every hook starts the Python sg-python.sh remembered, else sg-python.sh
 │   ├── verify_freshness.py  Review (Stage 3) stale/fresh test tracking, and its own copy of verify.py runs (original)
@@ -65,7 +65,7 @@ sdlc/
 │   ├── backlog-template.md  a feature's backlog of parts (orchestrator)
 │   ├── design-system-template.md   setup's design-system step (UI projects)
 │   ├── knowledge/           OKF templates for tier 2/3 knowledge
-│   └── project/             what setup places in a repo: config defaults, rules/, hookify/, lint/, agents/ (the AGENTS.md workflow section), baseline.md
+│   └── project/             what setup places in a repo: config defaults, rules/, hookify/, lint/, agents/ (the AGENTS.md workflow section), baseline.md, conventions/<stack>/<area>.md (rendered by Define on first touch)
 ├── migrations/              <version>-<slug>.md steps that /sdlc:upgrade applies to project-owned files
 ├── examples/hookify/        sample rules
 ├── plugins/sdlc-stepper/    the optional stepper bar (a Claude Code hooks module in TypeScript: hooks/register.tsx and
@@ -75,7 +75,7 @@ sdlc/
 │                            agents/ conversation-analyzer, type-design-analyzer, comment-analyzer, code-simplifier;
 │                            hooks/stop-hook.sh (the Ralph Stop hook) and scripts/setup-ralph-loop.sh
 ├── tests/                   stdlib unittest suite (helpers.py + one file per hook or script)
-├── .github/workflows/ci.yml the suite on Linux and Windows, plus `claude plugin validate`, on push and PR
+├── .github/workflows/ci.yml the suite on Linux, plus `claude plugin validate`, on push and PR
 ├── .github/workflows/wiki.yml, .github/scripts/wiki_sync.py   publish docs/wiki/ to the GitHub wiki on push to main; `wiki_sync.py check` finds broken links
 ├── docs/
 │   ├── wiki/                the user docs, one file per wiki page (wiki.yml publishes them; guidebook.md and playbook.md point there)

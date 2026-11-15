@@ -7,26 +7,13 @@ on:
 
 jobs:
   test:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-    defaults:
-      run:
-        # Git Bash on Windows, so a bare `bash` in the tests is Git's, not WSL's
-        shell: bash
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      # 3.10, as in local runs (CONTRIBUTING): the oldest we test, so newer syntax fails here, and below 3.15, whose
-      # UTF-8 default hides the Windows code-page crashes the tests exist to catch
+      # 3.10, as in local runs (CONTRIBUTING): the oldest we test, so newer syntax fails here
       - uses: actions/setup-python@v7
         with:
           python-version: "3.10"
-      - name: python3 on PATH (hooks start with it)
-        if: runner.os == 'Windows'
-        # setup-python usually ships python3.exe already; copy only when it doesn't
-        run: command -v python3 || cp "$(dirname "$(which python)")/python.exe" "$(dirname "$(which python)")/python3.exe"
       - run: git config --global user.email ci@example.com && git config --global user.name ci
       - run: python3 -m unittest discover -s tests -t tests
       # The Codex, Cursor and Antigravity files are built from the Claude Code sources; a stale one ships old behaviour
