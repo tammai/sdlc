@@ -13,6 +13,7 @@ Usage: python3 scaffold.py [--root DIR] <command> [args]   (see `python3 scaffol
 Stdlib only, Python 3.9+.
 """
 import argparse
+import copy
 import glob
 import hashlib
 import json
@@ -20,8 +21,10 @@ import os
 import posixpath
 import re
 import shutil
+import stat
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 
 # The resolver sits beside the hooks; found from this file, not CLAUDE_PLUGIN_ROOT (tests point that at a fake plugin)
@@ -67,10 +70,25 @@ def read_json(path, default=None):
 
 
 def write_json(path, data):
-    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-        f.write("\n")
+    """Atomically, so a command reading it meanwhile (every save re-reads the lock) never sees half a file; through a
+    link to the file it names, keeping that file's mode, in the platform's line endings: as the in-place write did. On
+    Windows a reader holding the file open makes the rename fail for a moment: retry."""
+    target = os.path.realpath(path)
+    os.makedirs(os.path.dirname(target) or ".", exist_ok=True)
+    try:
+        mode = stat.S_IMODE(os.stat(target).st_mode)
+    except FileNotFoundError:
+        mode = None  # a new file: what an ordinary create gives (0666 less the umask)
+    if mode is not None and not os.access(target, os.W_OK):  # protected by its owner: refused, as open('w') was
+        raise PermissionError(f"{path} is read-only; not written")
+    text = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+    for attempt in range(50):
+        try:
+            return _write_atomic(target, text, newline=None, mode=mode)
+        except PermissionError:
+            if os.name != "nt" or attempt == 49:
+                raise
+            time.sleep(0.05)
 
 
 def sha256(path):
@@ -148,6 +166,10 @@ def check_lock(lock):
     for key, shape in LOCK_NESTED.items():
         if key in lock:
             fields(lock[key], shape, key + ".")
+    for where, paths in (("files", lock["files"]), ("declined", lock["declined"])):
+        for path in paths:  # eject deletes and status hashes these: relative, and inside the repo
+            if not isinstance(path, str) or relative_root(path) in (None, "."):
+                raise bad(f"'{where}' names {path!r}, which isn't a relative path inside the project")
     for path, e in lock["files"].items():
         if not isinstance(e, dict) or not isinstance(e.get("class"), str):
             raise bad(f"'files' entry {path!r} must be an object with a string 'class'")
@@ -167,23 +189,86 @@ def check_lock(lock):
     return lock
 
 
+_ABSENT = object()
+
+
+LOCK_RECORDS = ("files", "conventions", "command_runs")  # sections whose entries are records, merged whole
+
+
+def merge_into(base, ours, theirs, whole=False, records=False, top=True):
+    """Another command's changes (`theirs`, the lock on disk now, against `base`, the lock as this command read it)
+    applied into this command's copy `ours`, in place: an object or list this command holds stays the one it saves,
+    so a later change through that reference (a rollback) still lands. Objects merge key by key and lists by item,
+    except a record (an entry of a LOCK_RECORDS section, such as one file's record): where both changed it, this
+    command's wins whole, as every save did before. A key both added starts from empty. Returns the merged value."""
+    if theirs == base:
+        return ours
+    if isinstance(ours, dict) and isinstance(theirs, dict) and not whole:
+        base = base if isinstance(base, dict) else {}
+        for key in [k for k in ours if k in base and k not in theirs and ours[k] == base[k]]:
+            del ours[key]  # they removed it, this command left it alone
+        for key, value in theirs.items():
+            was = base.get(key, _ABSENT)
+            if value == was:
+                continue  # they didn't change it
+            if key not in ours:
+                if was is _ABSENT:
+                    ours[key] = value  # they added it
+                continue  # this command removed what they changed: this command's wins
+            ours[key] = merge_into(was, ours[key], value, whole=records, records=top and key in LOCK_RECORDS,
+                                   top=False)
+        return ours
+    if isinstance(ours, list) and isinstance(theirs, list):
+        base = base if isinstance(base, list) else []
+        ours[:] = [x for x in ours if not (x in base and x not in theirs)]  # what they removed
+        ours.extend(x for x in theirs if x not in base and x not in ours)  # what they added
+        return ours
+    return theirs if ours == base else ours
+
+
 class Project:
     def __init__(self, root):
         self.root = os.path.abspath(root)
-        self.config = read_json(self.path(CONFIG))
-        self._lock, self._checked = read_json(self.path(LOCK)), False
+        self._config, self._config_checked = read_json(self.path(CONFIG)), False
+        self._config_read = copy.deepcopy(self._config)  # save writes config.json only when this command changed it
+        raw = read_json(self.path(LOCK), _ABSENT)
+        # a lock file holding JSON null exists: it is refused like any other non-object, never read as absent
+        self._lock_null = raw is None
+        self._lock, self._checked, self._base, self._fresh = (None if raw is _ABSENT else raw), False, None, False
 
     @property
     def lock(self):
-        """The lock, shape-checked on first read, so every reader gets the check (None when there is none)."""
+        """The lock, shape-checked on first read, so every reader gets the check (None when there is none). The
+        copy taken then is what `save` merges this command's changes against."""
+        if self._lock_null:
+            check_lock(None)
         if self._lock is not None and not self._checked:
             check_lock(self._lock)
             self._checked = True
+            if not self._fresh:  # read from disk: what save merges this command's changes against
+                self._base = copy.deepcopy(self._lock)
         return self._lock
 
     @lock.setter
-    def lock(self, value):
-        self._lock, self._checked = value, False
+    def lock(self, value):  # a new lock (init) or none (eject): checked like any, nothing to merge against
+        self._lock, self._checked, self._base, self._lock_null, self._fresh = value, False, None, False, True
+
+    @property
+    def config(self):
+        """config.json, checked on first read: a JSON object (None when there is none)."""
+        if self._config is not None and not self._config_checked:
+            if not isinstance(self._config, dict):
+                raise ValueError(f"{CONFIG} is not a JSON object; fix it, or restore it from git")
+            self._config_checked = True
+        return self._config
+
+    @config.setter
+    def config(self, value):
+        self._config, self._config_checked = value, False
+
+    def lock_exists(self):
+        """Whether a lock file is there, whatever its shape (init refuses over one unless --force)."""
+        return self._lock is not None or self._lock_null
 
     def path(self, p):
         return os.path.join(self.root, p)
@@ -194,10 +279,27 @@ class Project:
         return self.lock
 
     def save(self):
-        if self._lock is not None:
-            write_json(self.path(LOCK), self.lock)
-        if self.config is not None:
+        """Writes the lock only when this command set it (init) or read and changed it, and config.json only when this
+        command changed it: an untouched file stays exactly as it is on disk, whatever another command saved."""
+        if self._lock is not None and (self._fresh or (self._checked and self._lock != self._base)):
+            write_json(self.path(LOCK), self.merged_lock())
+            self._base, self._fresh = copy.deepcopy(self._lock), False  # written: later saves merge against it
+        if self._config is not None and self._config != self._config_read:  # an unchanged one stays as it is on disk
             write_json(self.path(CONFIG), self.config)
+            self._config_read = copy.deepcopy(self._config)
+
+    def merged_lock(self):
+        """The lock to write: this command's changes merged onto the file as it is now, when another command saved
+        since this one read it. A lock removed meanwhile (eject) is not recreated."""
+        if self._base is None:
+            return self._lock
+        disk = read_json(self.path(LOCK), _ABSENT)
+        if disk is _ABSENT:
+            raise ValueError(f"{LOCK} was removed while this command ran (eject?); not saved")
+        check_lock(disk)  # broken meanwhile: an error, never overwritten with this command's older copy
+        if disk != self._base:
+            merge_into(self._base, self._lock, disk)
+        return self._lock  # the base moves on only once this is written (save)
 
     def file_state(self, path, entry):
         actual = sha256(self.path(path))
@@ -209,7 +311,7 @@ class Project:
 # --- commands ----------------------------------------------------------------------------
 
 def cmd_init(p, a):
-    if p._lock is not None and not a.force:  # the raw lock: --force restarts over one of any shape
+    if p.lock_exists() and not a.force:  # whatever its shape: --force restarts over one
         raise ValueError(f"{LOCK} already exists (setup started or done); use status, or --force to restart")
     version = plugin_version()
     host = valid_host(a.host) if a.host else detect_host()["host"]
@@ -218,7 +320,9 @@ def cmd_init(p, a):
                          f"({', '.join(HOSTS)})")
     # A restart (--force) keeps the location already recorded unless one is given: documents may already be there
     docs = sdlc_layout.validate_docs_dir(a.docs_dir or sdlc_layout.docs_dir(p.root) or sdlc_layout.DOCS_DEFAULT)
-    if p.config is None:  # overrides only; everything else comes from the plugin defaults
+    if p._config is not None and not isinstance(p._config, dict) and not a.force:
+        raise ValueError(f"{CONFIG} is not a JSON object; fix it, or pass --force to start it again")
+    if not isinstance(p._config, dict):  # none, or (--force) one that isn't an object: overrides only, as new
         p.config = {"min_plugin_version": version, "project": {"kind": a.kind}}
     # Features from before setup stay where they are until `relocate` moves them: never a half-moved repo
     legacy = [os.path.basename(os.path.dirname(x)) for x in sorted(glob.glob(p.path(".sdlc/*/state.md")))]
@@ -734,7 +838,11 @@ def cmd_conventions(p, a):
         outside = True
     if outside:
         raise Refused(f".claude/rules resolves outside the project ({real_rules}); nothing written")
-    if os.path.lexists(p.path(dest)):  # a lock entry alone isn't a file: one the user deleted renders again
+    target = p.path(dest)
+    if (os.path.isfile(target) and not os.path.islink(target) and os.path.getsize(target) == 0
+            and convention_entry(dest, rendered.get(dest))):
+        os.remove(target)  # an interrupted render's empty placeholder (the lock says we made it): nothing to lose
+    if os.path.lexists(target):  # a lock entry alone isn't a file: one the user deleted renders again
         raise Refused(f"{dest} exists; it is never overwritten: widen its paths: by hand for another package")
     template = f"{CONVENTIONS_DIR}/{a.stack}/{a.area}.md"
     text = convention_text(template, root, a.one_deployable)
@@ -868,12 +976,14 @@ def cmd_run_commands(p, a):
         if not rec["ran"]:
             not_runnable.append(f"{step['scope'] or ROOT_SCOPE} {step['step']}")
     # The lock is committed: keep the outcome, never the output (it can hold tokens); the tail is printed only.
-    # The run can take minutes: save into the lock as it is on disk now, so a change made meanwhile is kept.
-    fresh = Project(p.root)
-    fresh.require_lock()["command_runs"] = {
+    # The run can take minutes: the save merges onto the lock as it is then, so a change made meanwhile is kept
+    p.require_lock()["command_runs"] = {
         name: {k: {f: r[f] for f in ("command", "ran", "exit", "at")} for k, r in steps.items()}
         for name, steps in runs.items()}
-    fresh.save()
+    try:
+        p.save()
+    except (ValueError, OSError) as e:  # the lock went away or couldn't be written: what ran is still the user's
+        raise CommandsFailed({"scopes": runs, "not_runnable": not_runnable, "lock_error": str(e)})
     if not_runnable:
         raise CommandsFailed({"scopes": runs, "not_runnable": not_runnable})
     return {"scopes": runs, "not_runnable": []}
@@ -1458,12 +1568,33 @@ def cmd_gitignore(p, a):
 
 # --- workbench: repos cloned inside a parent workbench repo ----------------------------------
 
+TEMP_PREFIX = ".sdlc-tmp-"  # scaffold's own: the sweep below never touches a file someone else named
+
+
 def _temp_copy(path, text, errors="strict", newline="\n"):
-    """`text` complete and synced in a temp file beside `path`; the caller moves it into place or removes it."""
+    """`text` complete and synced in a temp file beside `path`; the caller moves it into place or removes it. A kill
+    leaves its temp file behind, so this first removes scaffold's own (TEMP_PREFIX) there over an hour old (a younger
+    one may be another writer's, mid-write)."""
     import tempfile
-    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path) or ".", prefix=".tmp-")
+    folder = os.path.dirname(path) or "."
+    for old in glob.glob(os.path.join(glob.escape(folder), TEMP_PREFIX + "*")):
+        try:
+            if os.path.isfile(old) and not os.path.islink(old) and time.time() - os.path.getmtime(old) > 3600:
+                os.remove(old)
+        except OSError:
+            pass  # gone already, or not ours to remove
+    fd, tmp = tempfile.mkstemp(dir=folder, prefix=TEMP_PREFIX)
     try:
-        with os.fdopen(fd, "w", encoding="utf-8", errors=errors, newline=newline) as f:
+        f = os.fdopen(fd, "w", encoding="utf-8", errors=errors, newline=newline)
+    except BaseException:
+        for cleanup in (lambda: os.close(fd), lambda: os.remove(tmp)):
+            try:
+                cleanup()
+            except OSError:
+                pass  # closed already by the failed wrapper, or held: the original error is the one to see
+        raise
+    try:
+        with f:
             f.write(text)
             f.flush()
             os.fsync(f.fileno())
@@ -1474,11 +1605,18 @@ def _temp_copy(path, text, errors="strict", newline="\n"):
     return tmp
 
 
-def _write_atomic(path, text, errors="strict", newline="\n"):
+def _write_atomic(path, text, errors="strict", newline="\n", mode=False):
     """Temp file in the same folder, fsync, rename, the temp file removed on failure: a crash never leaves half a
-    committed file, or a stray temp file for the next commit to pick up."""
+    committed file. `mode`: False keeps the temp file's 0600 (as before); None gives an ordinary new file's mode
+    (0666 less the umask); a number sets it."""
     tmp = _temp_copy(path, text, errors, newline)
     try:
+        if mode is not False:
+            if mode is None:
+                umask = os.umask(0)
+                os.umask(umask)
+                mode = 0o666 & ~umask
+            os.chmod(tmp, mode)
         os.replace(tmp, path)
     finally:
         if os.path.exists(tmp):
@@ -2220,8 +2358,17 @@ def eject_plan(p):
             layout["intents_root"] + "<feature>/"]
     # Only what is there: the report reads this list, and a repo may have no baseline, design system or features
     keep = [k for k in dict.fromkeys(keep) if os.path.exists(p.path(k.split("<feature>")[0]))]
-    plan = {"delete": [], "ask": [], "already_gone": [], "unmerge": lock.get("merged", {}), "keep": keep}
+    plan = {"delete": [], "ask": [], "already_gone": [], "outside": [], "unmerge": lock.get("merged", {}),
+            "keep": keep}
+    real_root = os.path.realpath(p.root)
     for path, e in sorted(lock.get("files", {}).items()):
+        try:  # a folder on the way may be a link out of the repo: such a file is listed, never deleted
+            inside = os.path.commonpath([real_root, os.path.realpath(p.path(path))]) == real_root
+        except ValueError:  # another drive
+            inside = False
+        if not inside:  # not even read: it could be anything, a device or a huge file
+            plan["outside"].append(path)
+            continue
         state = p.file_state(path, e)
         if state == "missing":
             plan["already_gone"].append(path)
@@ -2265,7 +2412,7 @@ def cmd_eject(p, a):
         shutil.rmtree(work)
     out = {"deleted": deleted, "kept_edited": [x for x in plan["ask"] if x not in extra], "scratch_removed": scratch_removed,
            "unmerged": {SETTINGS: allow + team_keys, LOCAL_SETTINGS: plugin_keys, GITIGNORE: ignore, AGENTS: ["sdlc block"] if agents else []},
-           "lock_removed": True}
+           "lock_removed": True, "outside": plan["outside"]}
     kept = {path: keys for path, keys in ((LOCAL_SETTINGS, plugin_kept), (SETTINGS, team_kept)) if keys}
     if kept:
         out["kept"] = kept  # plugin keys sdlc wrote that the user has since changed
