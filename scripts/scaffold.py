@@ -346,8 +346,13 @@ class Project:
             if os.path.exists(target):
                 check_writable(target, CONFIG)
         if lock_changed:
+            before = copy.deepcopy(self._lock)
             lock = self.merged_lock()
-            write_json(self.path(LOCK), lock, scratch=self.path(SCRATCH))
+            try:
+                write_json(self.path(LOCK), lock, scratch=self.path(SCRATCH))
+            except BaseException:  # not written: undo the merge in place, so only this command's changes remain
+                merge_into(copy.deepcopy(self._lock), self._lock, before)
+                raise
             self._base, self._fresh = copy.deepcopy(self._lock), False  # written: later saves merge against it
         if config_changed:
             write_json(self.path(CONFIG), self.config, scratch=self.path(SCRATCH))
