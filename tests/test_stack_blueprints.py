@@ -245,8 +245,8 @@ class Conventions(ProjectTestCase):
             self.assertIn(field, out.get("refused") or out["error"], field)  # declined: require_lock's error
             self.assertFalse(os.path.exists(self.path(".claude/rules/go-auth.md")), field)
             # upgrade's list reports the bad lock instead of crashing the whole plan
-            items = scaffold.convention_updates(scaffold.Project(self.root))
-            if field == "conventions":
+            if field == "conventions":  # a bad declined fails the lock check itself (LockSafety)
+                items = scaffold.convention_updates(scaffold.Project(self.root))
                 self.assertTrue(items and "error" in items[0], items)
 
     def test_upgrade_reports_an_unreadable_rule_per_item(self):
@@ -401,17 +401,16 @@ class Hardening(ProjectTestCase):
 
         import scaffold  # noqa: E402
         self.sc("init", "--kind", "greenfield")
-        real = os.fsync
-        calls = []
+        real_replace = os.replace
 
-        def fsync_fails_on_the_rule(fd):  # the temp file syncs; the exclusive create's write then fails
-            calls.append(fd)
-            if len(calls) > 1:
+        def replace_fails_on_the_rule(src, dst):  # the lock's own saves go through
+            if dst.endswith("go-auth.md"):
                 raise OSError("disk full")
-            real(fd)
+            return real_replace(src, dst)
 
         with mock.patch.object(scaffold.os, "link", side_effect=PermissionError("no hard links")), \
-                mock.patch.object(scaffold.os, "fsync", fsync_fails_on_the_rule), self.assertRaises(OSError):
+                mock.patch.object(scaffold.os, "replace", side_effect=replace_fails_on_the_rule), \
+                self.assertRaises(OSError):
             scaffold.cmd_conventions(scaffold.Project(self.root), argparse.Namespace(
                 seen=None, stack="go", area="auth", package=None, one_deployable=False))
         self.assertFalse(os.path.exists(self.path(".claude/rules/go-auth.md")))
@@ -462,6 +461,89 @@ class Hardening(ProjectTestCase):
         self.write_lock(lock)
         items = {i.get("path"): i for i in scaffold.convention_updates(scaffold.Project(self.root))}
         self.assertIn("error", items[".claude/rules/nuxt-ui.md"])
+
+
+class LockSafety(ProjectTestCase):
+    """run-commands keeps a concurrent change, no partial rule file, and every reader of the lock checks its shape."""
+    sc, lock = Conventions.sc, Conventions.lock
+    write_lock = Hardening.write_lock
+
+    def test_run_commands_keeps_a_concurrent_change(self):
+        import json
+        self.sc("init", "--kind", "greenfield")
+        self.write("edit_lock.py", "import json\n"
+                   "p = '.sdlc/scaffold.lock.json'\n"
+                   "lock = json.load(open(p, encoding='utf-8'))\n"
+                   "lock['declined'].append('during.md')\n"
+                   "json.dump(lock, open(p, 'w', encoding='utf-8'))\n")
+        python = sys.executable.replace("\\", "/")
+        if " " in python:
+            self.skipTest("a Python path with a space can't be a bare shell command here")
+        self.write(".sdlc/config.json", json.dumps({"commands": {"test": f"{python} edit_lock.py"}}))
+        self.sc("run-commands")
+        lock = self.lock()
+        self.assertIn("during.md", lock["declined"])
+        self.assertTrue(lock["command_runs"])
+
+    def test_killed_fallback_write_leaves_no_partial_file(self):
+        import argparse
+        from unittest import mock
+
+        import scaffold  # noqa: E402
+        self.sc("init", "--kind", "greenfield")
+        real_fdopen, writes = os.fdopen, []
+
+        class Dying:  # the second write of rule text is cut off halfway by a kill: no cleanup runs
+            def __init__(self, f):
+                self.f = f
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                self.f.close()
+
+            def write(self, data):
+                text = data.decode("utf-8") if isinstance(data, bytes) else str(data)
+                if not text.startswith("---"):  # the lock's own save
+                    return self.f.write(data)
+                writes.append(data)
+                if len(writes) == 2:
+                    self.f.write(data[:len(data) // 2])
+                    self.f.flush()
+                    raise SystemExit("killed")
+                return self.f.write(data)
+
+            def __getattr__(self, name):
+                return getattr(self.f, name)
+
+        with mock.patch.object(scaffold.os, "link", side_effect=PermissionError("no hard links")), \
+                mock.patch.object(scaffold.os, "fdopen", lambda *a, **k: Dying(real_fdopen(*a, **k))), \
+                mock.patch.object(scaffold.os, "remove", lambda *a: None):
+            try:
+                scaffold.cmd_conventions(scaffold.Project(self.root), argparse.Namespace(
+                    seen=None, stack="go", area="auth", package=None, one_deployable=False))
+            except SystemExit:
+                pass
+        # the only write is the temp file's, so the cut never lands on the rule: it arrives whole
+        self.assertEqual(len(writes), 1, "the rule text should be written once, to the temp file")
+        with open(self.path(".claude/rules/go-auth.md"), encoding="utf-8") as f:
+            self.assertEqual(f.read(), scaffold.convention_text("templates/project/conventions/go/auth.md", "."))
+
+    def test_every_reader_checks_the_lock(self):
+        import json
+        self.sc("init", "--kind", "greenfield")
+        good = self.lock()
+        self.write_lock([])
+        for args in (("status",), ("design", "builtin")):
+            self.assertIn("scaffold.lock.json", self.sc(*args, expect=1)["error"], args)
+        self.write_lock(dict(good, files={".claude/rules/sdlc.md": 5}))
+        self.assertIn("scaffold.lock.json", self.sc("upgrade-plan", expect=1)["error"])
+        out = run_hook([sys.executable, os.path.join(PLUGIN_ROOT, "hooks", "session_status.py")],
+                       json.dumps({"cwd": self.root}), self.root)[1]  # the session hook says so, not silence
+        self.assertIn("unreadable", out["hookSpecificOutput"]["additionalContext"])
+        self.sc("init", "--kind", "greenfield", "--force")
+        self.sc("status")
 
 
 class Platforms(ProjectTestCase):
