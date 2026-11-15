@@ -843,6 +843,28 @@ class ConfigAndContainment(ProjectTestCase):
         f.save()
         self.assertEqual(self.config()["packages"], [{"name": "api"}, {"name": "docs"}])
 
+    @unittest.skipUnless(os.name == "nt", "Windows ACLs")
+    def test_acl_protected_config_is_refused(self):
+        import subprocess
+
+        import scaffold  # noqa: E402
+        self.sc("init", "--kind", "greenfield")
+        config = self.path(".sdlc/config.json")
+        user = os.environ.get("USERNAME", "")
+        p = scaffold.Project(self.root)
+        p.config["design"] = "impeccable"
+        p.require_lock()["declined"].append("acl.md")
+        denied = subprocess.run(["icacls", config, "/deny", f"{user}:(WD)"], capture_output=True)  # write data only
+        self.addCleanup(subprocess.run, ["icacls", config, "/remove:d", user], capture_output=True)
+        if denied.returncode != 0:
+            self.skipTest("icacls can't deny here")
+        with self.assertRaises(OSError):
+            p.save()
+        subprocess.run(["icacls", config, "/remove:d", user], capture_output=True)
+        self.assertNotIn("acl.md", self.lock().get("declined", []))
+        with open(config, encoding="utf-8") as f:
+            self.assertNotIn("impeccable", f.read())
+
     def test_init_creates_no_scratch(self):
         self.sc("init", "--kind", "greenfield")
         self.assertTrue(os.path.exists(self.path(".sdlc/scaffold.lock.json")))

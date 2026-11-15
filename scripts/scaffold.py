@@ -71,6 +71,16 @@ def read_json(path, default=None):
         raise ValueError(f"{path} is not valid JSON: {e}")
 
 
+def check_writable(target, shown=None):
+    """Refuses a file its owner protected (the read-only attribute, a mode, or a Windows ACL that `os.access` can't
+    see), as the in-place `open('w')` did: it opens the file for writing without truncating, then closes it."""
+    try:
+        with open(target, "r+b"):
+            pass
+    except PermissionError:
+        raise PermissionError(f"{shown or target} is protected from writing; not written") from None
+
+
 def write_json(path, data, scratch=None):
     """Atomically, so a command reading it meanwhile (every save re-reads the lock) never sees half a file; through a
     link to the file it names, keeping that file's mode, in the platform's line endings: as the in-place write did. On
@@ -89,8 +99,8 @@ def write_json(path, data, scratch=None):
         mode = stat.S_IMODE(os.stat(target).st_mode)
     except FileNotFoundError:
         mode = None  # a new file: what an ordinary create gives (0666 less the umask)
-    if mode is not None and not os.access(target, os.W_OK):  # protected by its owner: refused, as open('w') was
-        raise PermissionError(f"{path} is read-only; not written")
+    if mode is not None:
+        check_writable(target, path)
     text = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
     for attempt in range(50):
         try:
@@ -222,6 +232,11 @@ def check_lock(lock):
 _ABSENT = object()
 
 
+def check_config(config):
+    if not isinstance(config, dict):
+        raise ValueError(f"{CONFIG} is not a JSON object (changed while this command ran?); not saved")
+
+
 LOCK_RECORDS = ("files", "conventions", "command_runs")  # sections whose entries are records, merged whole
 
 
@@ -325,18 +340,11 @@ class Project:
         lock_changed = self._lock is not None and (self._fresh or (self._checked and self._lock != self._base))
         config_changed = self._config is not None and self._config != self._config_read
         if config_changed and isinstance(self._config_read, dict):  # read from disk: merge onto it now, like the lock
-            disk = read_json(self.path(CONFIG), _ABSENT)
-            if disk is _ABSENT:
-                raise ValueError(f"{CONFIG} was removed while this command ran; not saved")
-            if not isinstance(disk, dict):
-                raise ValueError(f"{CONFIG} became something other than a JSON object while this command ran; "
-                                 f"not saved")
-            if disk != self._config_read:
-                merge_into(self._config_read, self.config, disk, top=False)
+            self._merge_onto_disk(CONFIG, self._config_read, self.config, check_config, top=False)
         if config_changed and lock_changed:  # a config that will refuse the write refuses before the lock is written
             target = os.path.realpath(self.path(CONFIG))
-            if os.path.exists(target) and not os.access(target, os.W_OK):
-                raise PermissionError(f"{CONFIG} is read-only; nothing saved")
+            if os.path.exists(target):
+                check_writable(target, CONFIG)
         if lock_changed:
             lock = self.merged_lock()
             write_json(self.path(LOCK), lock, scratch=self.path(SCRATCH))
@@ -350,13 +358,19 @@ class Project:
         since this one read it. A lock removed meanwhile (eject) is not recreated."""
         if self._base is None:
             return self.lock  # a new lock (init): checked, so it is written in the checked shape
-        disk = read_json(self.path(LOCK), _ABSENT)
-        if disk is _ABSENT:
-            raise ValueError(f"{LOCK} was removed while this command ran (eject?); not saved")
-        check_lock(disk)  # broken meanwhile: an error, never overwritten with this command's older copy
-        if disk != self._base:
-            merge_into(self._base, self._lock, disk)
+        self._merge_onto_disk(LOCK, self._base, self._lock, check_lock)
         return self._lock  # the base moves on only once this is written (save)
+
+    def _merge_onto_disk(self, name, base, ours, check, top=True):
+        """This command's changes (`ours` against `base`, the file as it read it) merged onto the file as it is on
+        disk now. Removed or broken meanwhile: an error, never recreated or overwritten with this command's older
+        copy (eject removes the lock)."""
+        disk = read_json(self.path(name), _ABSENT)
+        if disk is _ABSENT:
+            raise ValueError(f"{name} was removed while this command ran; not saved")
+        check(disk)
+        if disk != base:
+            merge_into(base, ours, disk, top=top)
 
     def file_state(self, path, entry):
         if not inside_repo(self.root, path):  # through a link out of the repo: never read (a device, a huge file)
