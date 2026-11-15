@@ -1042,6 +1042,23 @@ class LastTickets(ProjectTestCase):
         with open(path, encoding="utf-8") as f:
             self.assertEqual(f.read(), "through the link\n")
 
+    def test_failed_write_undoes_the_merge(self):
+        from unittest import mock
+
+        import scaffold  # noqa: E402
+        self.sc("init", "--kind", "greenfield")
+        a, b = scaffold.Project(self.root), scaffold.Project(self.root)
+        b.require_lock()["declined"].append("b.md")
+        b.save()
+        declined = a.require_lock()["declined"]
+        declined.append("a.md")
+        with mock.patch.object(scaffold, "write_json", side_effect=OSError("disk full")), self.assertRaises(OSError):
+            a.save()  # merged b.md in, then the write failed
+        declined.remove("a.md")  # this command undoes its own change
+        with mock.patch.object(scaffold, "write_json") as write:
+            a.save()
+        write.assert_not_called()  # nothing of its own left to write
+
     def test_temp_creation_refusal_is_not_retried(self):
         from unittest import mock
 
