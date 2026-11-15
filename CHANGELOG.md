@@ -2,7 +2,17 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
-## Unreleased
+## 3.9.0 — 2026-11-15
+
+Smoke test passed on 2026-11-15 against eb1dcb4. Parts A, B, C, E, G, H and K ran, in four parallel groups (A+B; C then E and H in C's repo; G; K), about 31 minutes, set by the C→E,H group. D and F didn't run: the release touches no guardrail or security-hook file. A ran with `--plugin-dir`, since the installed marketplace is also named `sdlc`. The new checks passed: setup's stack questions and table pick with reasons, the scaling-roadmap page, `scaffold.py conventions` writing once and refusing to overwrite, upgrade and eject keeping the convention file, and valid lock and config with no temp files left.
+
+Known issues (should):
+- In a brownfield repo whose only failing test is in `.sdlc/baseline.md`, `state.py advance <f> 3 --verified` is refused (no passing verify), though `flow.md` says to log the failure and pass Build's gate; `ship.py --waive-baseline` at Ship gets past it (not new in 3.9.0).
+- In a workbench, an S change can write its failing test in an app repo before `state.py new`, so before `state.py repo` branches it; the guard holds once the feature exists.
+- A monorepo change file's acceptance-test `Run` cells run from the repo root, so they need `cd <package> &&`.
+- The guardrail loop the setup skill gives agents (`scaffold.py guardrails | while read`) picks up `\r` on Windows and renders nothing at first; agents noticed and re-rendered.
+- After `/sdlc:upgrade` applies a merge to an edited guardrail, `/sdlc:eject` deletes that file (seen in 3.8.0 too).
+- The plugin-layers and setup-phase diagrams in `docs/diagrams/` predate the workbench and stack choice and need relayout.
 
 ### Fixed
 - **The CI workflow generated for a Python repo pins a `setup-uv` tag that exists.** It pinned `astral-sh/setup-uv@v10`, but setup-uv publishes only full version tags, so the `verify` job failed at "Set up job" (`unable to find version v10`) on every PR and push before lint or tests ran. It now pins `astral-sh/setup-uv@v10.3.3`. Existing repos get it from `/sdlc:upgrade`, which regenerates the workflow; a repo that already pinned it by hand gets the same line.
