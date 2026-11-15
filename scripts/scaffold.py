@@ -507,7 +507,7 @@ def cmd_step_done(p, a):
 
 
 def cmd_record(p, a):
-    files = p.require_lock().setdefault("files", {})
+    files = p.require_lock()["files"]
     recorded = {}
     for path in a.paths:
         r = rel(p.root, path)
@@ -529,8 +529,8 @@ def cmd_record(p, a):
 def cmd_forget(p, a):
     """Hand files to the user for good: untracked, and never re-added by an upgrade."""
     lock = p.require_lock()
-    files = lock.setdefault("files", {})
-    declined = lock.setdefault("declined", [])
+    files = lock["files"]
+    declined = lock["declined"]
     forgotten = []
     for x in a.paths:
         path = rel(p.root, x)
@@ -703,7 +703,7 @@ def swap_ui_guardrail(p, loads_later=False):
     tpl, dest = f"templates/project/hookify/{IMPECCABLE_REPLACES}", f".claude/hookify/{IMPECCABLE_REPLACES}"
     if p.lock is None or "claude-code" not in hosts(p) or not template_exists(tpl):
         return None
-    files = p.lock.setdefault("files", {})
+    files = p.lock["files"]
     entry = files.get(dest)
     if design_mode(p) == "impeccable":
         if not entry:
@@ -773,7 +773,7 @@ def cmd_render(p, a):
     dest = rel(p.root, a.dest)
     if not inside_repo(p.root, dest):
         raise Refused(f"{dest} resolves outside the project through a link; nothing written")
-    entry = lock.setdefault("files", {}).get(dest)
+    entry = lock["files"].get(dest)
     if a.if_unchanged and entry and p.file_state(dest, entry) == "modified":
         raise Refused(f"{dest} was edited since the plugin wrote it; review the diff instead of overwriting")
     if a.if_unchanged and not entry and os.path.exists(p.path(dest)):
@@ -2129,7 +2129,7 @@ def write_agents(p, want):
 
 
 def write_mirror(p):
-    files = p.require_lock().setdefault("files", {})
+    files = p.require_lock()["files"]
     if agents_mirror(p) is not None:
         return cmd_render(p, argparse.Namespace(template="builtin:agents-mirror", dest=AGENTS_MIRROR,
                                                 cls="generated", if_unchanged=False))["rendered"]
