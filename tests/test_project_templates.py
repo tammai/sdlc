@@ -54,11 +54,21 @@ class ProjectTemplatesTest(ProjectTestCase):
             "commands": {"install": "uv sync --frozen", "test": "uv run pytest", "lint": "uv run ruff check .",
                          "typecheck": "uv run mypy .", "build": None}}))
         text = self.sc("preview", "builtin:ci")["text"]
-        self.assertIn("astral-sh/setup-uv@v10", text)
+        self.assertIn("astral-sh/setup-uv@v10.3.3", text)
         self.assertIn('os: ["ubuntu-latest"]', text)
         order = [l.strip() for l in text.splitlines() if l.strip().startswith("uv ")]
         self.assertEqual(order, ["uv sync --frozen", "uv run ruff check .", "uv run mypy .", "uv run pytest"])
         self.assertNotIn("{{", text.replace("${{", ""))
+
+    def test_python_ci_pins_setup_uv_by_full_version(self):
+        # astral-sh/setup-uv publishes only full version tags (no moving v10): a bare major fails to resolve
+        self.write(".sdlc/config.json", json.dumps({
+            "min_plugin_version": "1.3.0", "project": {"kind": "greenfield", "stack": ["python"]},
+            "commands": {"install": "uv sync --frozen", "test": "uv run pytest"}}))
+        text = self.sc("preview", "builtin:ci")["text"]
+        pins = re.findall(r"uses:\s*astral-sh/setup-uv@(\S+)", text)
+        self.assertEqual(len(pins), 1, text)
+        self.assertRegex(pins[0], r"^v\d+\.\d+\.\d+$")
 
     def test_area_rules_have_paths_frontmatter_and_stay_short(self):
         for path in shipped("rules", "*.md"):
