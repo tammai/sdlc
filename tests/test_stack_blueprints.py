@@ -241,8 +241,8 @@ class Conventions(ProjectTestCase):
             lock[field] = bad
             with open(self.path(".sdlc/scaffold.lock.json"), "w", encoding="utf-8") as f:
                 json.dump(lock, f)
-            out = self.sc("conventions", "go", "auth", expect=2)
-            self.assertIn(field, out["refused"], field)
+            out = self.sc("conventions", "go", "auth", expect=2 if field == "conventions" else 1)
+            self.assertIn(field, out.get("refused") or out["error"], field)  # declined: require_lock's error
             self.assertFalse(os.path.exists(self.path(".claude/rules/go-auth.md")), field)
             # upgrade's list reports the bad lock instead of crashing the whole plan
             items = scaffold.convention_updates(scaffold.Project(self.root))
@@ -312,6 +312,156 @@ class Conventions(ProjectTestCase):
         for text in (flow, s_track):
             self.assertIn("scaffold.py\" conventions", text)
             self.assertIn("first touch", text.lower())
+
+
+class Hardening(ProjectTestCase):
+    """The conventions command against links, races, kills and a lock of the wrong shape."""
+    sc, lock = Conventions.sc, Conventions.lock
+
+    def write_lock(self, lock):
+        import json
+        with open(self.path(".sdlc/scaffold.lock.json"), "w", encoding="utf-8") as f:
+            json.dump(lock, f)
+
+    def test_rules_folder_linked_outside_is_refused(self):
+        import shutil
+        import tempfile
+        self.sc("init", "--kind", "greenfield")
+        outside = tempfile.mkdtemp(prefix="sdlc-outside-")
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        os.makedirs(self.path(".claude"), exist_ok=True)
+        if os.path.isdir(self.path(".claude/rules")):
+            shutil.rmtree(self.path(".claude/rules"))
+        try:
+            os.symlink(outside, self.path(".claude/rules"), target_is_directory=True)
+        except (OSError, NotImplementedError):
+            self.skipTest("no symlinks here")
+        self.assertIn("outside", self.sc("conventions", "go", "auth", expect=2)["refused"])
+        self.assertEqual(os.listdir(outside), [])
+
+    def test_rules_folder_on_another_drive_is_refused(self):
+        import argparse
+        from unittest import mock
+
+        import scaffold  # noqa: E402
+        self.sc("init", "--kind", "greenfield")
+        with mock.patch.object(scaffold.os.path, "commonpath", side_effect=ValueError("Paths don't have the same drive")):
+            with self.assertRaises(scaffold.Refused):
+                scaffold.cmd_conventions(scaffold.Project(self.root), argparse.Namespace(
+                    seen=None, stack="go", area="auth", package=None, one_deployable=False))
+        self.assertFalse(os.path.exists(self.path(".claude/rules/go-auth.md")))
+
+    def test_file_appearing_mid_render_is_kept(self):
+        import argparse
+        from unittest import mock
+
+        import scaffold  # noqa: E402
+        self.sc("init", "--kind", "greenfield")
+        self.sc("conventions", "go", "auth")  # rendered once, then deleted by the user: its entry stays
+        dest = self.path(".claude/rules/go-auth.md")
+        os.remove(dest)
+        before = self.lock()["conventions"][".claude/rules/go-auth.md"]
+        real = scaffold.convention_text
+
+        def racing(*args):  # another writer lands the file after the exists check
+            os.makedirs(os.path.dirname(dest), exist_ok=True)
+            with open(dest, "w", encoding="utf-8") as f:
+                f.write("mine\n")
+            return real(*args)
+
+        with mock.patch.object(scaffold, "convention_text", racing):
+            with self.assertRaises(scaffold.Refused):
+                scaffold.cmd_conventions(scaffold.Project(self.root), argparse.Namespace(
+                    seen=None, stack="go", area="auth", package=None, one_deployable=False))
+        with open(dest, encoding="utf-8") as f:
+            self.assertEqual(f.read(), "mine\n")
+        self.assertEqual(self.lock()["conventions"][".claude/rules/go-auth.md"], before)  # the lock as it was
+
+    def test_render_killed_before_the_write_reruns(self):
+        import argparse
+        from unittest import mock
+
+        import scaffold  # noqa: E402
+        self.sc("init", "--kind", "greenfield")
+        real = scaffold.Project.save
+
+        def save_then_die(project):
+            real(project)
+            raise SystemExit("killed")
+
+        with mock.patch.object(scaffold.Project, "save", save_then_die), self.assertRaises(SystemExit):
+            scaffold.cmd_conventions(scaffold.Project(self.root), argparse.Namespace(
+                seen=None, stack="go", area="auth", package=None, one_deployable=False))
+        self.assertFalse(os.path.exists(self.path(".claude/rules/go-auth.md")))
+        self.assertEqual(self.sc("conventions", "go", "auth")["rendered"], ".claude/rules/go-auth.md")
+
+    def test_failed_write_without_hard_links_leaves_no_file(self):
+        import argparse
+        from unittest import mock
+
+        import scaffold  # noqa: E402
+        self.sc("init", "--kind", "greenfield")
+        real = os.fsync
+        calls = []
+
+        def fsync_fails_on_the_rule(fd):  # the temp file syncs; the exclusive create's write then fails
+            calls.append(fd)
+            if len(calls) > 1:
+                raise OSError("disk full")
+            real(fd)
+
+        with mock.patch.object(scaffold.os, "link", side_effect=PermissionError("no hard links")), \
+                mock.patch.object(scaffold.os, "fsync", fsync_fails_on_the_rule), self.assertRaises(OSError):
+            scaffold.cmd_conventions(scaffold.Project(self.root), argparse.Namespace(
+                seen=None, stack="go", area="auth", package=None, one_deployable=False))
+        self.assertFalse(os.path.exists(self.path(".claude/rules/go-auth.md")))
+        self.assertNotIn(".claude/rules/go-auth.md", self.lock()["conventions"])  # a failed write leaves no entry
+        self.assertEqual(self.sc("conventions", "go", "auth")["rendered"], ".claude/rules/go-auth.md")
+
+    def test_lock_of_the_wrong_shape_is_an_error(self):
+        self.sc("init", "--kind", "greenfield")
+        good = self.lock()
+        for bad in ([], dict(good, files=[]), dict(good, declined=5)):
+            self.write_lock(bad)
+            for args in (("conventions", "go", "auth"), ("upgrade-plan",)):
+                out = self.sc(*args, expect=1)
+                self.assertIn("scaffold.lock.json", out["error"], (bad, args))
+            self.assertFalse(os.path.exists(self.path(".claude/rules/go-auth.md")))
+
+    def test_lock_root_is_checked_on_read(self):
+        import scaffold  # noqa: E402
+        self.sc("init", "--kind", "greenfield")
+        self.sc("conventions", "go", "auth")
+        good = self.lock()
+        for root in ("..", None):
+            lock = dict(good)
+            lock["conventions"] = {".claude/rules/go-auth.md": dict(good["conventions"][".claude/rules/go-auth.md"],
+                                                                    root=root, sha256="stale")}
+            self.write_lock(lock)
+            self.assertEqual(scaffold.convention_updates(scaffold.Project(self.root)), [], root)
+            self.sc("conventions", "--seen", ".claude/rules/go-auth.md", expect=2)
+
+    def test_one_deployable_keeps_backend_globs(self):
+        import scaffold  # noqa: E402
+        self.sc("init", "--kind", "greenfield")
+        self.sc("conventions", "node", "layers", "--one-deployable")
+        with open(self.path(".claude/rules/node-layers.md"), encoding="utf-8") as f:
+            globs = scaffold.rule_scope(f.read())
+        self.assertTrue(globs and all(g.startswith("backend/") for g in globs), globs)
+        self.sc("conventions", "node", "schema", "--one-deployable")
+        with open(self.path(".claude/rules/node-schema.md"), encoding="utf-8") as f:
+            globs = scaffold.rule_scope(f.read())
+        self.assertIn("drizzle.config.ts", globs)  # root-level config isn't the web app's
+        self.assertFalse([g for g in globs if g.startswith("src/")], globs)
+        self.assertIn("backend", self.sc("conventions", "nuxt", "ui", "--one-deployable", expect=2)["refused"])
+        self.assertFalse(os.path.exists(self.path(".claude/rules/nuxt-ui.md")))
+        # a lock entry marked one-deployable on a template with no backend/ paths: that item's error, not the plan's
+        self.sc("conventions", "nuxt", "ui")
+        lock = self.lock()
+        lock["conventions"][".claude/rules/nuxt-ui.md"].update(one_deployable=True, sha256="stale")
+        self.write_lock(lock)
+        items = {i.get("path"): i for i in scaffold.convention_updates(scaffold.Project(self.root))}
+        self.assertIn("error", items[".claude/rules/nuxt-ui.md"])
 
 
 class Platforms(ProjectTestCase):

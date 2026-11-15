@@ -129,8 +129,16 @@ class Project:
         return os.path.join(self.root, p)
 
     def require_lock(self):
+        """The lock, its shape checked once for every command that reads it (it is repo data, read like input)."""
         if self.lock is None:
             raise ValueError(f"no {LOCK}; run `init` first")
+        if not isinstance(self.lock, dict):
+            raise ValueError(f"{LOCK} is not a JSON object; fix it, or restore it from git")
+        for key, kind, what in (("files", dict, "an object"), ("declined", list, "a list of paths")):
+            if self.lock.get(key) is None:
+                self.lock[key] = kind()  # absent or null: the empty one
+            elif not isinstance(self.lock[key], kind):
+                raise ValueError(f"{LOCK}: '{key}' must be {what}; fix it, or restore it from git")
         return self.lock
 
     def save(self):
@@ -568,8 +576,12 @@ def convention_template(template):
 
 
 def convention_entry(dest, e):
-    """A lock `conventions` entry, only when its path is exactly the one its allowlisted stack and area give."""
+    """A lock `conventions` entry, only when its path is exactly the one its allowlisted stack and area give, and its
+    `root` passes the check `--package`'s path does."""
     if not isinstance(e, dict) or not convention_template(e.get("template")):
+        return False
+    root = e.get("root", ".")
+    if root is None or relative_root(root) != root:
         return False
     return (dest == f".claude/rules/{e.get('stack')}-{e.get('area')}.md"
             and e["template"] == f"{CONVENTIONS_DIR}/{e.get('stack')}/{e.get('area')}.md")
@@ -587,22 +599,37 @@ def convention_root(p, package):
     match = next((x for x in packages if x.get("name") == package), None)
     if match is None:
         raise Refused(f"name the package with --package, one of: {', '.join(names) or '(none)'}")
-    path = match.get("path")
-    path = path.replace("\\", "/").strip() if isinstance(path, str) else ""
+    root = relative_root(match.get("path"))
+    if root is None:
+        raise Refused(f"package {package}: its path {match.get('path')!r} must be relative and inside the project")
+    return package, root
+
+
+def relative_root(path):
+    """A package path as `paths:` takes it ("apps/api", or "." for the project), or None when it isn't a relative
+    path inside the project. Used for config's path and for the lock's `root` read back."""
+    if not isinstance(path, str):
+        return None
+    path = path.replace("\\", "/").strip()
     parts = [x for x in path.split("/") if x not in ("", ".")]
     if path.startswith("/") or re.match(r"^[A-Za-z]:", path) or ".." in parts:
-        raise Refused(f"package {package}: its path {path!r} must be relative and inside the project")
-    return package, "/".join(parts) or "."
+        return None
+    return "/".join(parts) or "."
 
 
-def convention_text(template, root):
-    """The rule file: the template's globs under `root`, a provenance line, then the template's body."""
+def convention_text(template, root, backend_only=False):
+    """The rule file: the template's globs under `root` (`backend_only`, for the API in a one-deployable app: without
+    its `src/` ones, which there are the web app's), a provenance line, then the template's body."""
     with open(os.path.join(PLUGIN_ROOT, template), encoding="utf-8") as f:
         source = f.read().replace("\r\n", "\n")
     m = re.match(r"^---\n.*?\n---\n", source, re.S)
     globs = rule_scope(source)
     if not m or not globs:
         raise ValueError(f"{template} has no paths: frontmatter")
+    if backend_only:
+        if not any(g.startswith("backend/") for g in globs):
+            raise Refused(f"{template} has no backend/ paths: --one-deployable is for the API's conventions (node)")
+        globs = [g for g in globs if not g.startswith("src/")]
     globs = globs if root == "." else [f"{root}/{g}" for g in globs]
     return (f"---\npaths:\n{format_value(globs, 'yaml_list')}\n---\n"
             f"<!-- Written by the sdlc plugin from {template}. Yours to edit: an upgrade offers template changes as a "
@@ -611,27 +638,26 @@ def convention_text(template, root):
 
 
 def convention_lock(lock):
-    """The lock's `conventions` and `declined`, checked before anything is written (the lock is repo data)."""
-    for key, empty in (("conventions", {}), ("declined", [])):  # null reads as empty, as upgrade-plan reads it
-        if lock.get(key) is None:
-            lock[key] = empty
-    rendered, declined = lock["conventions"], lock["declined"]
-    if not isinstance(rendered, dict):
+    """The lock's `conventions` (null reads as empty, as upgrade-plan reads it) and `declined`, checked before anything
+    is written; require_lock has already checked `declined`."""
+    if lock.get("conventions") is None:
+        lock["conventions"] = {}
+    if not isinstance(lock["conventions"], dict):
         raise Refused(f"{LOCK}: 'conventions' must be an object of rendered rule files; fix or remove it")
-    if not isinstance(declined, list):
-        raise Refused(f"{LOCK}: 'declined' must be a list of paths; fix it")
-    return rendered, declined
+    return lock["conventions"], lock["declined"]
 
 
 def cmd_conventions(p, a):
     lock = p.require_lock()
     rendered, declined = convention_lock(lock)
     if a.seen:  # the user has been shown an upgrade's diff: the current template is the baseline from now on
+        if getattr(a, "one_deployable", False):
+            raise Refused("--one-deployable applies to a new render, not --seen: the lock entry keeps its own")
         dest = rel(p.root, a.seen)
         e = rendered.get(dest)
         if not convention_entry(dest, e):
             raise Refused(f"{dest} is not a convention this plugin rendered")
-        text = convention_text(e["template"], e.get("root", "."))
+        text = convention_text(e["template"], e.get("root", "."), e.get("one_deployable") is True)
         e.update(version=plugin_version(), sha256=hashlib.sha256(text.encode("utf-8")).hexdigest())
         p.save()
         return {"seen": dest, "version": e["version"]}
@@ -648,17 +674,40 @@ def cmd_conventions(p, a):
         raise Refused(f"{a.stack} has no {a.area} convention; its areas: {', '.join(areas) or '(none)'}")
     package, root = convention_root(p, a.package)
     dest = f".claude/rules/{a.stack}-{a.area}.md"
+    real_root, real_rules = os.path.realpath(p.root), os.path.realpath(p.path(".claude/rules"))
+    try:  # .claude or .claude/rules is a link out (another drive: commonpath raises)
+        outside = os.path.commonpath([real_root, real_rules]) != real_root
+    except ValueError:
+        outside = True
+    if outside:
+        raise Refused(f".claude/rules resolves outside the project ({real_rules}); nothing written")
     if os.path.lexists(p.path(dest)):  # a lock entry alone isn't a file: one the user deleted renders again
         raise Refused(f"{dest} exists; it is never overwritten: widen its paths: by hand for another package")
     template = f"{CONVENTIONS_DIR}/{a.stack}/{a.area}.md"
-    text = convention_text(template, root)
-    os.makedirs(os.path.dirname(p.path(dest)), exist_ok=True)
-    _write_atomic(p.path(dest), text)
-    rendered[dest] = {"stack": a.stack, "area": a.area, "package": package, "root": root, "template": template,
-                      "version": plugin_version(), "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest()}
-    if dest not in declined:
+    text = convention_text(template, root, a.one_deployable)
+    entry = {"stack": a.stack, "area": a.area, "package": package, "root": root, "template": template,
+             "version": plugin_version(), "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest()}
+    if a.one_deployable:
+        entry["one_deployable"] = True
+    previous, added = rendered.get(dest), dest not in declined
+    rendered[dest] = entry
+    if added:
         declined.append(dest)
-    p.save()
+    p.save()  # the lock first: a kill before the file lands leaves an entry with no file, which a rerun renders
+    try:
+        os.makedirs(os.path.dirname(p.path(dest)), exist_ok=True)
+        _publish_new(p.path(dest), text)
+    except Exception as exc:  # no file landed (a kill isn't an Exception: its entry stays for the rerun)
+        if previous is None:  # the lock goes back to what it was
+            rendered.pop(dest, None)
+        else:
+            rendered[dest] = previous
+        if added:
+            declined.remove(dest)
+        p.save()
+        if isinstance(exc, FileExistsError):  # another writer got there after the check: theirs stays
+            raise Refused(f"{dest} appeared while rendering; it is never overwritten")
+        raise
     out = {"rendered": dest, "paths": rule_scope(text)}
     try:  # the AGENTS.md block carries every area rule to the other agents: say when it needs a rebuild
         if agents_state(p) == "stale":
@@ -679,7 +728,11 @@ def convention_updates(p):
     for dest, e in sorted(rendered.items()):
         if not convention_entry(dest, e) or not os.path.isfile(p.path(dest)):
             continue
-        new = convention_text(e["template"], e.get("root", "."))
+        try:
+            new = convention_text(e["template"], e.get("root", "."), e.get("one_deployable") is True)
+        except Refused as exc:  # a hand-edited entry: that item's error, the rest of the plan stands
+            out.append({"path": dest, "template": e["template"], "error": str(exc)})
+            continue
         if hashlib.sha256(new.encode("utf-8")).hexdigest() == e.get("sha256"):
             continue
         try:
@@ -1360,6 +1413,36 @@ def _write_atomic(path, text, errors="strict"):
             f.flush()
             os.fsync(f.fileno())
         os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+
+
+def _publish_new(path, text):
+    """Write `path` only if nothing is there, never over a file: a complete temp file hard-linked into place (the
+    link fails on an existing name); where the filesystem has no hard links, an exclusive create."""
+    import tempfile
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path) or ".", prefix=".tmp-")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
+            f.write(text)
+            f.flush()
+            os.fsync(f.fileno())
+        os.chmod(tmp, 0o644)  # mkstemp's 0600 would make a rule file other tools can't read
+        try:
+            os.link(tmp, path)
+        except FileExistsError:
+            raise
+        except OSError:  # no hard links here (FAT, some network shares): an exclusive create, gone again on failure
+            out = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0), 0o644)
+            try:
+                with os.fdopen(out, "wb") as f:
+                    f.write(text.encode("utf-8"))
+                    f.flush()
+                    os.fsync(f.fileno())
+            except BaseException:
+                os.remove(path)
+                raise
     finally:
         if os.path.exists(tmp):
             os.remove(tmp)
@@ -2250,6 +2333,8 @@ def build_parser():
     s.add_argument("stack", nargs="?", help=", ".join(CONVENTION_STACKS))
     s.add_argument("area", nargs="?", help=", ".join(CONVENTION_AREAS))
     s.add_argument("--package", help="the package in .sdlc/config.json whose path scopes the rule (monorepo)")
+    s.add_argument("--one-deployable", action="store_true",
+                   help="the API mounted in a Nuxt or Next.js app: keep only the template's backend/ paths")
     s.add_argument("--seen", metavar="PATH", help="after an upgrade showed a convention's diff: take the current "
                    "template as its baseline")
     s.set_defaults(fn=cmd_conventions)
