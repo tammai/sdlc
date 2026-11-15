@@ -109,7 +109,7 @@ def write_json(path, data, scratch=None):
             if temp_dir:  # scratch on another device or not writable: the temp goes beside the file, as before
                 temp_dir = None
                 continue
-            if not isinstance(e, PermissionError):
+            if not getattr(e, "during_replace", False):  # a refusal that won't clear (a folder, a protection)
                 raise
             if os.name != "nt" or attempt == 49:
                 raise
@@ -963,7 +963,12 @@ def convention_updates(p):
     if not isinstance(rendered, dict):  # reported, not raised: the rest of the upgrade plan still stands
         return [{"error": f"{LOCK}: 'conventions' must be an object of rendered rule files; fix or remove it"}]
     for dest, e in sorted(rendered.items()):
-        if not convention_entry(dest, e) or not os.path.isfile(p.path(dest)):
+        if not convention_entry(dest, e):
+            if isinstance(dest, str) and dest.startswith(".claude/rules/") and "/" not in dest[len(".claude/rules/"):]:
+                out.append({"path": dest, "error": "its lock entry doesn't match a convention the plugin renders "
+                                                   "(stack, area, template or root); fix or remove it"})
+            continue  # anything else the lock names here is never read
+        if not os.path.isfile(p.path(dest)):
             continue
         try:
             new = convention_text(e["template"], e.get("root", "."), e.get("one_deployable") is True)
@@ -1692,17 +1697,28 @@ def _temp_copy(path, text, errors="strict", newline="\n", folder=None):
 
 def _write_atomic(path, text, errors="strict", newline="\n", mode=False, temp_dir=None):
     """Temp file in the same folder (or `temp_dir`, on the same filesystem), fsync, rename, the temp file removed on
-    failure: a crash never leaves half a committed file. `mode`: False keeps the temp file's 0600 (as before); None
-    gives an ordinary new file's mode (0666 less the umask); a number sets it."""
+    failure: a crash never leaves half a committed file. Through a link to the file it names. `mode`: False keeps the
+    file's own mode (an ordinary new file's when there is none yet); None gives an ordinary new file's mode (0666
+    less the umask); a number sets it. A permission error from the rename (another process has the file open) is
+    marked `during_replace`, the only one worth retrying."""
+    path = os.path.realpath(path)
+    if mode is False:
+        try:
+            mode = stat.S_IMODE(os.stat(path).st_mode)
+        except FileNotFoundError:
+            mode = None
     tmp = _temp_copy(path, text, errors, newline, temp_dir)
     try:
-        if mode is not False:
-            if mode is None:
-                umask = os.umask(0)
-                os.umask(umask)
-                mode = 0o666 & ~umask
-            os.chmod(tmp, mode)
-        os.replace(tmp, path)
+        if mode is None:
+            umask = os.umask(0)
+            os.umask(umask)
+            mode = 0o666 & ~umask
+        os.chmod(tmp, mode)
+        try:
+            os.replace(tmp, path)
+        except PermissionError as e:
+            e.during_replace = True
+            raise
     finally:
         if os.path.exists(tmp):
             os.remove(tmp)
@@ -2490,12 +2506,12 @@ def cmd_eject(p, a):
         while d != p.root and os.path.isdir(d) and not os.listdir(d):  # tidy dirs we emptied
             os.rmdir(d)
             d = os.path.dirname(d)
-    allow = plan["unmerge"].get(SETTINGS, [])
+    allow = list(plan["unmerge"].get(SETTINGS, []))  # copies: the unmerge empties the lock's own lists
     if allow:
         cmd_allow(p, argparse.Namespace(add=[], remove=list(allow)))
     plugin_keys, plugin_kept = unmerge_plugin_keys(p, LOCAL_SETTINGS, PLUGIN_MERGE)
     team_keys, team_kept = unmerge_plugin_keys(p, SETTINGS, TEAM_PLUGIN_MERGE)
-    ignore = plan["unmerge"].get(GITIGNORE, [])
+    ignore = list(plan["unmerge"].get(GITIGNORE, []))
     if ignore:
         cmd_gitignore(p, argparse.Namespace(add=[], remove=list(ignore)))
     agents = plan["unmerge"].get(AGENTS_MERGE) and write_agents(p, None) == "removed"

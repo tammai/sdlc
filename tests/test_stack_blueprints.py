@@ -437,7 +437,10 @@ class Hardening(ProjectTestCase):
             lock["conventions"] = {".claude/rules/go-auth.md": dict(good["conventions"][".claude/rules/go-auth.md"],
                                                                     root=root, sha256="stale")}
             self.write_lock(lock)
-            self.assertEqual(scaffold.convention_updates(scaffold.Project(self.root)), [], root)
+            [item] = scaffold.convention_updates(scaffold.Project(self.root))  # reported, not read, not silent
+            self.assertEqual(item["path"], ".claude/rules/go-auth.md")
+            self.assertIn("error", item)
+            self.assertNotIn("diff", item)
             self.sc("conventions", "--seen", ".claude/rules/go-auth.md", expect=2)
 
     def test_one_deployable_keeps_backend_globs(self):
@@ -1005,6 +1008,56 @@ class ConfigAndContainment(ProjectTestCase):
             del lock["files"][key]
         self.write_lock(lock)
         self.assertEqual(scaffold.cmd_upgrade_plan(scaffold.Project(self.root), None)["outside"], [])
+
+
+class LastTickets(ProjectTestCase):
+    """Eject's unmerged report, atomic writes keeping mode and links, and no retry on a refusal that won't clear."""
+    sc, lock = Conventions.sc, Conventions.lock
+
+    def test_eject_reports_what_it_unmerged(self):
+        self.sc("init", "--kind", "greenfield")
+        self.sc("allow", "--add", "Bash(make test:*)")
+        self.sc("gitignore", "--add", ".sdlc/.work/")
+        out = self.sc("eject", "--apply")
+        self.assertIn("Bash(make test:*)", out["unmerged"][".claude/settings.json"])
+        self.assertIn(".sdlc/.work/", out["unmerged"][".gitignore"])
+
+    def test_atomic_write_keeps_mode_and_links(self):
+        import scaffold  # noqa: E402
+        path = self.path("kept.txt")
+        self.write("kept.txt", "old\n")
+        if os.name != "nt":
+            os.chmod(path, 0o644)
+        scaffold._write_atomic(path, "new\n")
+        if os.name != "nt":
+            self.assertEqual(os.stat(path).st_mode & 0o777, 0o644)
+        with open(path, encoding="utf-8") as f:
+            self.assertEqual(f.read(), "new\n")
+        try:
+            os.symlink(path, self.path("link.txt"))
+        except (OSError, NotImplementedError):
+            return
+        scaffold._write_atomic(self.path("link.txt"), "through the link\n")
+        self.assertTrue(os.path.islink(self.path("link.txt")))
+        with open(path, encoding="utf-8") as f:
+            self.assertEqual(f.read(), "through the link\n")
+
+    def test_temp_creation_refusal_is_not_retried(self):
+        from unittest import mock
+
+        import scaffold  # noqa: E402
+        self.sc("init", "--kind", "greenfield")
+        calls = []
+
+        def refused(*a, **k):
+            calls.append(1)
+            raise PermissionError("the folder refuses new files")
+
+        p = scaffold.Project(self.root)
+        p.require_lock()["declined"].append("x.md")
+        with mock.patch.object(scaffold, "_temp_copy", refused), self.assertRaises(PermissionError):
+            p.save()
+        self.assertEqual(len(calls), 1)
 
 
 class Platforms(ProjectTestCase):
