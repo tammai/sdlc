@@ -35,6 +35,7 @@ import sdlc_scopes  # noqa: E402
 PLUGIN_ROOT = os.environ.get("CLAUDE_PLUGIN_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG = ".sdlc/config.json"
 LOCK = ".sdlc/scaffold.lock.json"
+SCRATCH = ".sdlc/.work"  # gitignored scratch: the lock's and config's temp copies go here while they're saved
 SETTINGS = ".claude/settings.json"
 LOCAL_SETTINGS = ".claude/settings.local.json"
 GITIGNORE = ".gitignore"
@@ -69,12 +70,22 @@ def read_json(path, default=None):
         raise ValueError(f"{path} is not valid JSON: {e}")
 
 
-def write_json(path, data):
+def write_json(path, data, scratch=None):
     """Atomically, so a command reading it meanwhile (every save re-reads the lock) never sees half a file; through a
     link to the file it names, keeping that file's mode, in the platform's line endings: as the in-place write did. On
-    Windows a reader holding the file open makes the rename fail for a moment: retry."""
+    Windows a reader holding the file open makes the rename fail for a moment: retry. `scratch`: a folder beside the
+    file for its temp copy (the lock's and config's go in `.sdlc/.work/`, gitignored, so a kill leaves nothing to
+    commit); used only when the file is where its path says, not linked elsewhere."""
     target = os.path.realpath(path)
     os.makedirs(os.path.dirname(target) or ".", exist_ok=True)
+    temp_dir = None
+    if scratch and os.path.dirname(os.path.realpath(scratch)) == os.path.dirname(target):
+        _sweep_temps(os.path.dirname(target))  # an earlier version made its temp copies beside the file
+        try:
+            os.makedirs(scratch, exist_ok=True)
+            temp_dir = scratch
+        except OSError:
+            pass  # can't be made (a file in its place, no permission): the temp goes beside the file
     try:
         mode = stat.S_IMODE(os.stat(target).st_mode)
     except FileNotFoundError:
@@ -84,8 +95,13 @@ def write_json(path, data):
     text = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
     for attempt in range(50):
         try:
-            return _write_atomic(target, text, newline=None, mode=mode)
-        except PermissionError:
+            return _write_atomic(target, text, newline=None, mode=mode, temp_dir=temp_dir)
+        except OSError as e:
+            if temp_dir:  # scratch on another device or not writable: the temp goes beside the file, as before
+                temp_dir = None
+                continue
+            if not isinstance(e, PermissionError):
+                raise
             if os.name != "nt" or attempt == 49:
                 raise
             time.sleep(0.05)
@@ -98,6 +114,16 @@ def sha256(path):
             return hashlib.sha256(f.read().replace(b"\r\n", b"\n")).hexdigest()
     except FileNotFoundError:
         return None
+
+
+def inside_repo(root, path):
+    """Whether `path` (repo-relative or absolute) resolves inside `root` after links: the one check every reader and
+    writer of a recorded path uses (another drive counts as outside)."""
+    real_root = os.path.realpath(root)
+    try:
+        return os.path.commonpath([real_root, os.path.realpath(os.path.join(root, path))]) == real_root
+    except ValueError:
+        return False
 
 
 def rel(root, path):
@@ -218,12 +244,22 @@ def merge_into(base, ours, theirs, whole=False, records=False, top=True):
             ours[key] = merge_into(was, ours[key], value, whole=records, records=top and key in LOCK_RECORDS,
                                    top=False)
         return ours
-    if isinstance(ours, list) and isinstance(theirs, list):
+    if isinstance(ours, list) and isinstance(theirs, list) and not any(
+            isinstance(x, (dict, list)) for x in ours + theirs):  # a list of objects merges whole (below)
         base = base if isinstance(base, list) else []
         ours[:] = [x for x in ours if not (x in base and x not in theirs)]  # what they removed
         ours.extend(x for x in theirs if x not in base and x not in ours)  # what they added
         return ours
-    return theirs if ours == base else ours
+    if ours != base:
+        return ours  # both changed it: this command's wins whole
+    if isinstance(ours, list) and isinstance(theirs, list):
+        ours[:] = theirs  # theirs, in the object this command holds
+        return ours
+    if isinstance(ours, dict) and isinstance(theirs, dict):
+        ours.clear()
+        ours.update(theirs)
+        return ours
+    return theirs
 
 
 class Project:
@@ -281,18 +317,35 @@ class Project:
     def save(self):
         """Writes the lock only when this command set it (init) or read and changed it, and config.json only when this
         command changed it: an untouched file stays exactly as it is on disk, whatever another command saved."""
-        if self._lock is not None and (self._fresh or (self._checked and self._lock != self._base)):
-            write_json(self.path(LOCK), self.merged_lock())
+        # every check and merge first, then the writes: a refusal leaves both files as they were
+        lock_changed = self._lock is not None and (self._fresh or (self._checked and self._lock != self._base))
+        config_changed = self._config is not None and self._config != self._config_read
+        if config_changed and isinstance(self._config_read, dict):  # read from disk: merge onto it now, like the lock
+            disk = read_json(self.path(CONFIG), _ABSENT)
+            if disk is _ABSENT:
+                raise ValueError(f"{CONFIG} was removed while this command ran; not saved")
+            if not isinstance(disk, dict):
+                raise ValueError(f"{CONFIG} became something other than a JSON object while this command ran; "
+                                 f"not saved")
+            if disk != self._config_read:
+                merge_into(self._config_read, self.config, disk, top=False)
+        if config_changed and lock_changed:  # a config that will refuse the write refuses before the lock is written
+            target = os.path.realpath(self.path(CONFIG))
+            if os.path.exists(target) and not os.access(target, os.W_OK):
+                raise PermissionError(f"{CONFIG} is read-only; nothing saved")
+        if lock_changed:
+            lock = self.merged_lock()
+            write_json(self.path(LOCK), lock, scratch=self.path(SCRATCH))
             self._base, self._fresh = copy.deepcopy(self._lock), False  # written: later saves merge against it
-        if self._config is not None and self._config != self._config_read:  # an unchanged one stays as it is on disk
-            write_json(self.path(CONFIG), self.config)
+        if config_changed:
+            write_json(self.path(CONFIG), self.config, scratch=self.path(SCRATCH))
             self._config_read = copy.deepcopy(self._config)
 
     def merged_lock(self):
         """The lock to write: this command's changes merged onto the file as it is now, when another command saved
         since this one read it. A lock removed meanwhile (eject) is not recreated."""
         if self._base is None:
-            return self._lock
+            return self.lock  # a new lock (init): checked, so it is written in the checked shape
         disk = read_json(self.path(LOCK), _ABSENT)
         if disk is _ABSENT:
             raise ValueError(f"{LOCK} was removed while this command ran (eject?); not saved")
@@ -302,6 +355,8 @@ class Project:
         return self._lock  # the base moves on only once this is written (save)
 
     def file_state(self, path, entry):
+        if not inside_repo(self.root, path):  # through a link out of the repo: never read (a device, a huge file)
+            return "outside"
         actual = sha256(self.path(path))
         if actual is None:
             return "missing"
@@ -438,6 +493,8 @@ def cmd_record(p, a):
     recorded = {}
     for path in a.paths:
         r = rel(p.root, path)
+        if not inside_repo(p.root, r):
+            raise Refused(f"{r} resolves outside the project through a link; not recorded")
         h = sha256(p.path(r))
         if h is None:
             raise ValueError(f"cannot record {r}: file does not exist")
@@ -636,7 +693,10 @@ def swap_ui_guardrail(p, loads_later=False):
         if loads_later or not impeccable_status(p.root)["hook"]:
             return {"kept": dest, "why": "impeccable's detector hook doesn't run here yet: set the mode again once "
                                          "it does (after a restart, or /impeccable hooks on)"}
-        if p.file_state(dest, entry) == "modified":
+        state = p.file_state(dest, entry)
+        if state == "outside":  # through a link out of the repo: never deleted
+            return {"kept": dest, "why": "it resolves outside the project through a link: remove it by hand if wanted"}
+        if state == "modified":
             return {"ask": dest, "why": "edited since the plugin wrote it: delete it only if the user agrees"}
         if os.path.exists(p.path(dest)):
             os.remove(p.path(dest))
@@ -693,6 +753,8 @@ def cmd_render(p, a):
     template = a.template.replace(os.sep, "/")
     text = render_source(template, p)
     dest = rel(p.root, a.dest)
+    if not inside_repo(p.root, dest):
+        raise Refused(f"{dest} resolves outside the project through a link; nothing written")
     entry = lock.setdefault("files", {}).get(dest)
     if a.if_unchanged and entry and p.file_state(dest, entry) == "modified":
         raise Refused(f"{dest} was edited since the plugin wrote it; review the diff instead of overwriting")
@@ -831,13 +893,9 @@ def cmd_conventions(p, a):
         raise Refused(f"{a.stack} has no {a.area} convention; its areas: {', '.join(areas) or '(none)'}")
     package, root = convention_root(p, a.package)
     dest = f".claude/rules/{a.stack}-{a.area}.md"
-    real_root, real_rules = os.path.realpath(p.root), os.path.realpath(p.path(".claude/rules"))
-    try:  # .claude or .claude/rules is a link out (another drive: commonpath raises)
-        outside = os.path.commonpath([real_root, real_rules]) != real_root
-    except ValueError:
-        outside = True
-    if outside:
-        raise Refused(f".claude/rules resolves outside the project ({real_rules}); nothing written")
+    if not inside_repo(p.root, ".claude/rules"):  # .claude or .claude/rules is a link out
+        raise Refused(f".claude/rules resolves outside the project ({os.path.realpath(p.path('.claude/rules'))}); "
+                      f"nothing written")
     target = p.path(dest)
     if (os.path.isfile(target) and not os.path.islink(target) and os.path.getsize(target) == 0
             and convention_entry(dest, rendered.get(dest))):
@@ -895,6 +953,9 @@ def convention_updates(p):
             out.append({"path": dest, "template": e["template"], "error": str(exc)})
             continue
         if hashlib.sha256(new.encode("utf-8")).hexdigest() == e.get("sha256"):
+            continue
+        if not inside_repo(p.root, dest):  # .claude/rules links out: never read
+            out.append({"path": dest, "template": e["template"], "error": "it resolves outside the project"})
             continue
         try:
             with open(p.path(dest), encoding="utf-8") as f:
@@ -1571,18 +1632,24 @@ def cmd_gitignore(p, a):
 TEMP_PREFIX = ".sdlc-tmp-"  # scaffold's own: the sweep below never touches a file someone else named
 
 
-def _temp_copy(path, text, errors="strict", newline="\n"):
-    """`text` complete and synced in a temp file beside `path`; the caller moves it into place or removes it. A kill
-    leaves its temp file behind, so this first removes scaffold's own (TEMP_PREFIX) there over an hour old (a younger
-    one may be another writer's, mid-write)."""
-    import tempfile
-    folder = os.path.dirname(path) or "."
+def _sweep_temps(folder):
+    """Removes scaffold's own temp files (TEMP_PREFIX) in `folder` over an hour old: a kill leaves one behind; a younger
+    one may be another writer's, mid-write."""
     for old in glob.glob(os.path.join(glob.escape(folder), TEMP_PREFIX + "*")):
         try:
             if os.path.isfile(old) and not os.path.islink(old) and time.time() - os.path.getmtime(old) > 3600:
                 os.remove(old)
         except OSError:
             pass  # gone already, or not ours to remove
+
+
+def _temp_copy(path, text, errors="strict", newline="\n", folder=None):
+    """`text` complete and synced in a temp file in `folder` (default: beside `path`; on the same filesystem); the
+    caller moves it into place or removes it. A kill leaves its temp file behind, so this first sweeps that folder's
+    old ones (_sweep_temps)."""
+    import tempfile
+    folder = folder or os.path.dirname(path) or "."
+    _sweep_temps(folder)
     fd, tmp = tempfile.mkstemp(dir=folder, prefix=TEMP_PREFIX)
     try:
         f = os.fdopen(fd, "w", encoding="utf-8", errors=errors, newline=newline)
@@ -1605,11 +1672,11 @@ def _temp_copy(path, text, errors="strict", newline="\n"):
     return tmp
 
 
-def _write_atomic(path, text, errors="strict", newline="\n", mode=False):
-    """Temp file in the same folder, fsync, rename, the temp file removed on failure: a crash never leaves half a
-    committed file. `mode`: False keeps the temp file's 0600 (as before); None gives an ordinary new file's mode
-    (0666 less the umask); a number sets it."""
-    tmp = _temp_copy(path, text, errors, newline)
+def _write_atomic(path, text, errors="strict", newline="\n", mode=False, temp_dir=None):
+    """Temp file in the same folder (or `temp_dir`, on the same filesystem), fsync, rename, the temp file removed on
+    failure: a crash never leaves half a committed file. `mode`: False keeps the temp file's 0600 (as before); None
+    gives an ordinary new file's mode (0666 less the umask); a number sets it."""
+    tmp = _temp_copy(path, text, errors, newline, temp_dir)
     try:
         if mode is not False:
             if mode is None:
@@ -1984,6 +2051,7 @@ def agents_state(p):
         and have.group(0).replace("\r\n", "\n").rstrip("\n") == want.rstrip("\n"))
     mirror_ok = (mirror is None and not tracked) or (
         mirror is not None and tracked is not None
+        and inside_repo(p.root, AGENTS_MIRROR)  # through a link out of the repo: never read
         and sha256(p.path(AGENTS_MIRROR)) == hashlib.sha256(mirror.encode("utf-8")).hexdigest())
     return "in_sync" if block_ok and mirror_ok else "stale"
 
@@ -2031,6 +2099,8 @@ def write_mirror(p):
     if agents_mirror(p) is not None:
         return cmd_render(p, argparse.Namespace(template="builtin:agents-mirror", dest=AGENTS_MIRROR,
                                                 cls="generated", if_unchanged=False))["rendered"]
+    if AGENTS_MIRROR in files and not inside_repo(p.root, AGENTS_MIRROR):
+        return None  # through a link out of the repo: kept, and still recorded so upgrade and eject list it
     if files.pop(AGENTS_MIRROR, None) is not None:
         if os.path.exists(p.path(AGENTS_MIRROR)):
             os.remove(p.path(AGENTS_MIRROR))
@@ -2302,11 +2372,15 @@ def cmd_set_version(p, a):
 def cmd_upgrade_plan(p, a):
     lock = p.require_lock()
     plan = {"from": lock.get("scaffold_version"), "to": plugin_version(),
-            "add": [], "regenerate": [], "replace": [], "review": [], "restore": [], "template_gone": []}
+            "add": [], "regenerate": [], "replace": [], "review": [], "restore": [], "template_gone": [],
+            "outside": []}
     tracked, declined = lock.get("files", {}), set(lock.get("declined", []))
     # new in this plugin version; the rules and guardrails are Claude Code's, the other hosts get them in AGENTS.md
     for tpl, dest, cls in shipped_files(p) if "claude-code" in hosts(p) else []:
         if dest not in tracked and dest not in declined:
+            if not inside_repo(p.root, dest):  # its folder links out of the repo: listed, never rendered there
+                plan["outside"].append(dest)
+                continue
             item = {"path": dest, "template": tpl, "class": cls}
             if os.path.exists(p.path(dest)):
                 item["exists"] = True  # a file the plugin never wrote is in the way: review, never overwrite
@@ -2315,6 +2389,9 @@ def cmd_upgrade_plan(p, a):
     if any(re.fullmatch(r"\.github/workflows/sdlc-verify(-.+)?\.yml", path) for path in tracked):
         for tpl, dest in INVARIANTS:
             if dest not in tracked and dest not in declined:
+                if not inside_repo(p.root, dest):
+                    plan["outside"].append(dest)
+                    continue
                 item = {"path": dest, "template": tpl, "class": "seeded"}
                 if os.path.exists(p.path(dest)):
                     item["exists"] = True
@@ -2323,12 +2400,17 @@ def cmd_upgrade_plan(p, a):
         tpl = e.get("template")
         if not tpl:
             continue
+        if not inside_repo(p.root, path):  # through a link out of the repo: listed, never rendered or deleted
+            plan["outside"].append(path)
+            continue
         if not template_exists(tpl):
             plan["template_gone"].append(path)
             continue
         state = p.file_state(path, e)
         item = {"path": path, "template": tpl}
-        if e["class"] == "generated":
+        if state == "outside":  # through a link out of the repo: listed, never rendered over
+            plan["outside"].append(path)
+        elif e["class"] == "generated":
             plan["regenerate"].append(item)
         elif state == "unchanged":
             new = render_source(tpl, p)
@@ -2360,16 +2442,11 @@ def eject_plan(p):
     keep = [k for k in dict.fromkeys(keep) if os.path.exists(p.path(k.split("<feature>")[0]))]
     plan = {"delete": [], "ask": [], "already_gone": [], "outside": [], "unmerge": lock.get("merged", {}),
             "keep": keep}
-    real_root = os.path.realpath(p.root)
     for path, e in sorted(lock.get("files", {}).items()):
-        try:  # a folder on the way may be a link out of the repo: such a file is listed, never deleted
-            inside = os.path.commonpath([real_root, os.path.realpath(p.path(path))]) == real_root
-        except ValueError:  # another drive
-            inside = False
-        if not inside:  # not even read: it could be anything, a device or a huge file
+        state = p.file_state(path, e)
+        if state == "outside":  # through a link out of the repo: listed, never read or deleted
             plan["outside"].append(path)
             continue
-        state = p.file_state(path, e)
         if state == "missing":
             plan["already_gone"].append(path)
         elif e["class"] == "generated" or state == "unchanged":
