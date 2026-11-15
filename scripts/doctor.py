@@ -272,11 +272,15 @@ def check_repo(r, root):
         missing = [f for f, e in files.items() if e["state"] == "missing"]
         edited = [f for f, e in files.items() if e["state"] == "modified" and e["class"] == "seeded"]
         regen = [f for f, e in files.items() if e["state"] == "modified" and e["class"] == "generated"]
-        if missing or regen:
+        outside = [f for f, e in files.items() if e["state"] == "outside"]
+        if missing or regen or outside:
             r.add(g, "plugin files", "warn",
                   "; ".join(x for x in (f"missing: {', '.join(missing)}" if missing else "",
-                                       f"generated but hand-edited (lost on upgrade): {', '.join(regen)}" if regen else "") if x),
-                  f"/sdlc:upgrade restores or regenerates them · {RUNBOOK} R14")
+                                       f"generated but hand-edited (lost on upgrade): {', '.join(regen)}" if regen else "",
+                                       f"outside the project through a link (upgrade and eject skip them): "
+                                       f"{', '.join(outside)}" if outside else "") if x),
+                  f"/sdlc:upgrade restores or regenerates them; for files outside, remove the link or untrack them "
+                  f"(scaffold.py forget) · {RUNBOOK} R14")
         else:
             r.add(g, "plugin files", "ok", f"{len(files)} tracked" + (f"; you edited: {', '.join(edited)}" if edited else ""))
         if scaffold.sdlc_scopes.is_workbench(root):

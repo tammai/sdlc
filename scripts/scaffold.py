@@ -14,6 +14,7 @@ Stdlib only, Python 3.9+.
 """
 import argparse
 import copy
+import functools
 import glob
 import hashlib
 import json
@@ -79,13 +80,11 @@ def write_json(path, data, scratch=None):
     target = os.path.realpath(path)
     os.makedirs(os.path.dirname(target) or ".", exist_ok=True)
     temp_dir = None
-    if scratch and os.path.dirname(os.path.realpath(scratch)) == os.path.dirname(target):
+    # scratch only once it exists (setup's gitignore step, or the first scratch file, makes it): a new repo's first
+    # save never creates a folder git would commit; a file in its place, or none, puts the temp beside the file
+    if scratch and os.path.isdir(scratch) and os.path.dirname(os.path.realpath(scratch)) == os.path.dirname(target):
         _sweep_temps(os.path.dirname(target))  # an earlier version made its temp copies beside the file
-        try:
-            os.makedirs(scratch, exist_ok=True)
-            temp_dir = scratch
-        except OSError:
-            pass  # can't be made (a file in its place, no permission): the temp goes beside the file
+        temp_dir = scratch
     try:
         mode = stat.S_IMODE(os.stat(target).st_mode)
     except FileNotFoundError:
@@ -116,10 +115,15 @@ def sha256(path):
         return None
 
 
+@functools.lru_cache(maxsize=64)
+def _real_root(root):
+    return os.path.realpath(root)  # once per process: status checks every tracked file at each session start
+
+
 def inside_repo(root, path):
     """Whether `path` (repo-relative or absolute) resolves inside `root` after links: the one check every reader and
     writer of a recorded path uses (another drive counts as outside)."""
-    real_root = os.path.realpath(root)
+    real_root = _real_root(root)
     try:
         return os.path.commonpath([real_root, os.path.realpath(os.path.join(root, path))]) == real_root
     except ValueError:

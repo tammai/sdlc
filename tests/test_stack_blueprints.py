@@ -843,12 +843,18 @@ class ConfigAndContainment(ProjectTestCase):
         f.save()
         self.assertEqual(self.config()["packages"], [{"name": "api"}, {"name": "docs"}])
 
+    def test_init_creates_no_scratch(self):
+        self.sc("init", "--kind", "greenfield")
+        self.assertTrue(os.path.exists(self.path(".sdlc/scaffold.lock.json")))
+        self.assertFalse(os.path.exists(self.path(".sdlc/.work")))  # setup's gitignore step comes first
+
     def test_save_temp_stays_in_scratch(self):
         import glob
         from unittest import mock
 
         import scaffold  # noqa: E402
         self.sc("init", "--kind", "greenfield")
+        os.makedirs(self.path(".sdlc/.work"), exist_ok=True)  # scratch is used once it exists
         p = scaffold.Project(self.root)
         p.require_lock()["declined"].append("x.md")
         real_replace = os.replace
