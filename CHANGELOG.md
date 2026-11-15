@@ -10,7 +10,7 @@ Known issues (should):
 - In a brownfield repo whose only failing test is in `.sdlc/baseline.md`, `state.py advance <f> 3 --verified` is refused (no passing verify), though `flow.md` says to log the failure and pass Build's gate; `ship.py --waive-baseline` at Ship gets past it (not new in 3.9.0).
 - In a workbench, an S change can write its failing test in an app repo before `state.py new`, so before `state.py repo` branches it; the guard holds once the feature exists.
 - A monorepo change file's acceptance-test `Run` cells run from the repo root, so they need `cd <package> &&`.
-- The guardrail loop the setup skill gives agents (`scaffold.py guardrails | while read`) picks up `` on Windows and renders nothing at first; agents noticed and re-rendered.
+- The guardrail loop the setup skill gives agents (`scaffold.py guardrails | while read`) picks up `\r` on Windows and renders nothing at first; agents noticed and re-rendered.
 - After `/sdlc:upgrade` applies a merge to an edited guardrail, `/sdlc:eject` deletes that file (seen in 3.8.0 too).
 - The plugin-layers and setup-phase diagrams in `docs/diagrams/` predate the workbench and stack choice and need relayout.
 
