@@ -121,6 +121,36 @@ class CiToolchains(unittest.TestCase):
         self.assertNotIn("macos-", scaffold.generate_ci(p, "android"))
         self.assertIn("ubuntu-latest", scaffold.generate_ci(p, "android"))
 
+    def test_swift_gets_its_own_macos_job(self):
+        """A monorepo with an iOS app: only the Swift package runs on macOS, whatever ci.os the repo names."""
+        import json
+        import shutil
+        import tempfile
+
+        import scaffold  # noqa: E402
+        root = tempfile.mkdtemp(prefix="sdlc-test-")
+        self.addCleanup(shutil.rmtree, root, ignore_errors=True)
+        os.makedirs(os.path.join(root, ".sdlc"))
+        packages = [
+            {"name": "ios", "path": "apps/ios", "stack": "swift", "commands": {"test": "xcodebuild test"}},
+            {"name": "tools", "path": "tools", "stack": "shell", "commands": {"test": "bats tests"}},
+        ]
+        with open(os.path.join(root, ".sdlc", "config.json"), "w", encoding="utf-8") as f:
+            json.dump({"packages": packages, "ci": {"os": ["windows-latest"]}}, f)
+        ci = scaffold.generate_ci(scaffold.Project(root))
+        jobs = ci.split("\n  verify")
+        main = next(j for j in jobs if j.startswith(":"))
+        mac = next(j for j in jobs if j.startswith("-macos:"))
+        self.assertIn("windows-latest", main)
+        self.assertNotIn("setup-xcode", main)
+        self.assertNotIn("xcodebuild", main)
+        self.assertIn("bats tests", main)
+        self.assertIn('os: ["macos-latest"]', mac)
+        self.assertIn("setup-xcode", mac)
+        self.assertIn("xcodebuild test", mac)
+        self.assertNotIn("bats tests", mac)
+        self.assertNotIn("apt-get", mac)
+
 
 class Conventions(ProjectTestCase):
     def sc(self, *args, expect=0):
@@ -175,6 +205,52 @@ class Conventions(ProjectTestCase):
         refused("go", "auth", "--package", "api")
         with open(self.path(".claude/rules/go-auth.md"), encoding="utf-8") as f:
             self.assertEqual(f.read(), "mine\n")
+
+    def test_deleted_convention_renders_again(self):
+        self.sc("init", "--kind", "greenfield")
+        self.sc("conventions", "go", "auth")
+        os.remove(self.path(".claude/rules/go-auth.md"))
+        self.assertEqual(self.sc("conventions", "go", "auth")["rendered"], ".claude/rules/go-auth.md")
+        self.assertTrue(os.path.exists(self.path(".claude/rules/go-auth.md")))
+
+    def test_malformed_lock_is_refused_before_any_write(self):
+        import json
+
+        import scaffold  # noqa: E402
+        self.sc("init", "--kind", "greenfield")
+        for field, bad in (("conventions", []), ("conventions", "x"), ("declined", {})):
+            lock = dict(self.lock(), conventions={}, declined=[])
+            lock[field] = bad
+            with open(self.path(".sdlc/scaffold.lock.json"), "w", encoding="utf-8") as f:
+                json.dump(lock, f)
+            out = self.sc("conventions", "go", "auth", expect=2)
+            self.assertIn(field, out["refused"], field)
+            self.assertFalse(os.path.exists(self.path(".claude/rules/go-auth.md")), field)
+            # upgrade's list reports the bad lock instead of crashing the whole plan
+            items = scaffold.convention_updates(scaffold.Project(self.root))
+            if field == "conventions":
+                self.assertTrue(items and "error" in items[0], items)
+
+    def test_upgrade_reports_an_unreadable_rule_per_item(self):
+        import shutil
+        from unittest import mock
+
+        import scaffold  # noqa: E402
+        self.sc("init", "--kind", "greenfield")
+        self.sc("conventions", "go", "auth")
+        self.sc("conventions", "go", "layers")
+        with open(self.path(".claude/rules/go-auth.md"), "wb") as f:
+            f.write(b"\xff\xfe not utf-8\n")
+        plugin = os.path.join(self.root, "plugin-copy")
+        shutil.copytree(os.path.join(PLUGIN_ROOT, "templates", "project", "conventions"),
+                        os.path.join(plugin, "templates", "project", "conventions"))
+        for area in ("auth", "layers"):
+            with open(os.path.join(plugin, f"templates/project/conventions/go/{area}.md"), "a", encoding="utf-8") as f:
+                f.write("- A new line.\n")
+        with mock.patch.object(scaffold, "PLUGIN_ROOT", plugin):
+            items = {i["path"]: i for i in scaffold.convention_updates(scaffold.Project(self.root))}
+        self.assertIn("error", items[".claude/rules/go-auth.md"])
+        self.assertIn("+- A new line.", items[".claude/rules/go-layers.md"]["diff"])
 
     def test_upgrade_offers_only_a_changed_template(self):
         import argparse

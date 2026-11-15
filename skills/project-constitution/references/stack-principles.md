@@ -3,7 +3,8 @@
 Proposals for the constitution's architecture principles, one section per stack (the names `scaffold.py
 conventions` uses). Propose **Every stack** and the section of each stack the project uses; the user keeps, rewords
 or drops each line. Name the stack from the package's manifest, as Define does (`flow.md`, Conventions on first
-touch): `nuxt`, `next`, `react` or `vue` in `package.json`; `hono` → `node`; `pubspec.yaml` → `flutter`;
+touch): in `package.json`, `nuxt` → `nuxt`, else `next` → `nextjs`, else `react` → `react`, else `vue` → `vue`
+(the first match wins); `hono` → `node`; `pubspec.yaml` → `flutter`;
 `Package.swift` or an `.xcodeproj` → `ios`; `build.gradle.kts` → `android`; `go.mod` → `go`; `fastapi` in
 `pyproject.toml`. Config `stack` is the CI toolchain (`typescript` covers four web stacks), so it doesn't say which.
 
@@ -28,7 +29,7 @@ Rationale: the stack stays replaceable piece by piece, and growth happens when a
 - Business logic MUST live in services. A route validates the input, builds the caller's context, calls one service
   and returns its result.
 - Services and repositories MUST NOT import Hono or a vendor SDK, and the backend MUST NOT import from any client app.
-- One deployable (mounted in Nuxt or Next.js): only the bridge file MUST import the backend, and it holds no logic.
+- One deployable (mounted in Nuxt or Next.js): the bridge file is the only one that imports the backend, and it holds no logic.
 
 Rationale: services stay callable from a job, a script or a split-out API without a rewrite.
 

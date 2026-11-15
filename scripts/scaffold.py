@@ -610,9 +610,19 @@ def convention_text(template, root):
     # that leaves the template alone must render the same text, or every upgrade would re-offer every convention
 
 
+def convention_lock(lock):
+    """The lock's `conventions` and `declined`, checked before anything is written (the lock is repo data)."""
+    rendered, declined = lock.setdefault("conventions", {}), lock.setdefault("declined", [])
+    if not isinstance(rendered, dict):
+        raise Refused(f"{LOCK}: 'conventions' must be an object of rendered rule files; fix or remove it")
+    if not isinstance(declined, list):
+        raise Refused(f"{LOCK}: 'declined' must be a list of paths; fix it")
+    return rendered, declined
+
+
 def cmd_conventions(p, a):
     lock = p.require_lock()
-    rendered = lock.setdefault("conventions", {})
+    rendered, declined = convention_lock(lock)
     if a.seen:  # the user has been shown an upgrade's diff: the current template is the baseline from now on
         dest = rel(p.root, a.seen)
         e = rendered.get(dest)
@@ -626,6 +636,8 @@ def cmd_conventions(p, a):
         return {"stacks": {s: convention_areas(s) for s in CONVENTION_STACKS}, "rendered": rendered}
     if a.stack not in CONVENTION_STACKS:
         raise Refused(f"unknown stack {a.stack!r}; allowed: {', '.join(CONVENTION_STACKS)}")
+    if not a.area:
+        raise Refused(f"name an area; {a.stack} has: {', '.join(convention_areas(a.stack)) or '(none)'}")
     if a.area not in CONVENTION_AREAS:
         raise Refused(f"unknown area {a.area!r}; allowed: {', '.join(CONVENTION_AREAS)}")
     areas = convention_areas(a.stack)
@@ -633,7 +645,7 @@ def cmd_conventions(p, a):
         raise Refused(f"{a.stack} has no {a.area} convention; its areas: {', '.join(areas) or '(none)'}")
     package, root = convention_root(p, a.package)
     dest = f".claude/rules/{a.stack}-{a.area}.md"
-    if os.path.exists(p.path(dest)) or dest in rendered:
+    if os.path.lexists(p.path(dest)):  # a lock entry alone isn't a file: one the user deleted renders again
         raise Refused(f"{dest} exists; it is never overwritten: widen its paths: by hand for another package")
     template = f"{CONVENTIONS_DIR}/{a.stack}/{a.area}.md"
     text = convention_text(template, root)
@@ -641,7 +653,6 @@ def cmd_conventions(p, a):
     _write_atomic(p.path(dest), text)
     rendered[dest] = {"stack": a.stack, "area": a.area, "package": package, "root": root, "template": template,
                       "version": plugin_version(), "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest()}
-    declined = lock.setdefault("declined", [])
     if dest not in declined:
         declined.append(dest)
     p.save()
@@ -658,14 +669,22 @@ def convention_updates(p):
     """Rendered conventions whose template changed since: the user's file against the new render, as a diff."""
     import difflib
     out = []
-    for dest, e in sorted(((p.lock or {}).get("conventions") or {}).items()):
+    rendered = (p.lock or {}).get("conventions", {})
+    rendered = {} if rendered is None else rendered
+    if not isinstance(rendered, dict):  # reported, not raised: the rest of the upgrade plan still stands
+        return [{"error": f"{LOCK}: 'conventions' must be an object of rendered rule files; fix or remove it"}]
+    for dest, e in sorted(rendered.items()):
         if not convention_entry(dest, e) or not os.path.isfile(p.path(dest)):
             continue
         new = convention_text(e["template"], e.get("root", "."))
         if hashlib.sha256(new.encode("utf-8")).hexdigest() == e.get("sha256"):
             continue
-        with open(p.path(dest), encoding="utf-8") as f:
-            have = f.read().replace("\r\n", "\n")
+        try:
+            with open(p.path(dest), encoding="utf-8") as f:
+                have = f.read().replace("\r\n", "\n")
+        except (OSError, UnicodeDecodeError) as exc:
+            out.append({"path": dest, "template": e["template"], "error": f"can't read it as UTF-8 text: {exc}"})
+            continue
         diff = "".join(difflib.unified_diff(have.splitlines(True), new.splitlines(True), dest, dest + " (template)"))
         if not diff:  # the file already reads like the new template: nothing to offer
             continue
@@ -867,10 +886,22 @@ def generate_ci(p, package=None):
     go_mod = os.path.normpath(os.path.join(go_scope["path"] if go_scope else ".", "go.mod")).replace(os.sep, "/")
     values = {"node_version": ci.get("node_version", "22"), "java_version": ci.get("java_version", "21"),
               "dotnet_version": ci.get("dotnet_version", "8.0.x"), "go_mod": go_mod}
-    stacks = project_stacks(p.config, package)
-    # Xcode runs only on macOS: Swift takes a macOS runner unless the repo's own config names the runners
-    user_os = (p.config.get("ci") or {}).get("os") if isinstance(p.config, dict) else None
-    runners = user_os or (["macos-latest"] if "swift" in stacks else ci.get("os", ["ubuntu-latest"]))
+    runners = ci.get("os", ["ubuntu-latest"])
+
+    def scope_stacks(name):
+        return project_stacks(p.config, None if name == ROOT_SCOPE else name)
+
+    # Xcode runs only on macOS: Swift packages get a job of their own there, whatever runners ci.os names, so the
+    # other packages keep theirs (and their Linux-only setup steps) instead of all paying for macOS minutes
+    mac = {sc["name"] for sc in pkg_scopes if "swift" in scope_stacks(sc["name"])}
+
+    def job_parts(on_mac):  # a workspace-wide install (root scope, packages beside it) runs in each job
+        return ([s for sc in pkg_scopes if (sc["name"] in mac) == on_mac for s in scope_stacks(sc["name"])],
+                [s for s in plan["install"] + plan["verify"] if (s["scope"] in mac) == on_mac
+                 or (s in plan["install"] and s["scope"] == ROOT_SCOPE and ROOT_SCOPE not in mac)])
+    jobs = [(name, runs, *job_parts(on_mac)) for name, runs, on_mac in
+            (("verify", runners, False), ("verify-macos", ["macos-latest"], True))]
+    jobs = [j for j in jobs if any(s in plan["verify"] for s in j[3])]
     pad = " " * 6
     name, group, trigger = "name: sdlc verify", "sdlc-verify", ["  pull_request:", "  push:", "    branches: [main, master]"]
     if package:
@@ -886,22 +917,24 @@ def generate_ci(p, package=None):
         "concurrency:", f"  group: {group}-${{{{ github.ref }}}}", "  cancel-in-progress: true", "",
         "permissions:", "  contents: read", "",
         "defaults:", "  run:", "    shell: bash  # Git Bash on Windows runners: same shell everywhere", "",
-        "jobs:", "  verify:", "    strategy:", "      fail-fast: false", "      matrix:",
-        f"        os: {json.dumps(runners)}",
-        "    runs-on: ${{ matrix.os }}", "    timeout-minutes: 30", "    steps:", pad + "- uses: actions/checkout@v7"]
-    for st in stacks:
-        if st in CI_SETUP:
-            lines += [pad + x.format(**values) for x in CI_SETUP[st]]
-        else:
-            lines.append(pad + f"# TODO: add the toolchain setup for '{st}'")
-    if not package:
-        lines += [pad + x for x in workbench_checkout(p)]
-    for step in plan["install"] + plan["verify"]:
-        label = step["step"] if step["scope"] == ROOT_SCOPE else f"{step['scope']} · {step['step']}"
-        lines.append(pad + f"- name: {json.dumps(label, ensure_ascii=False)}")
-        if step["cwd"] != ".":
-            lines.append(pad + f"  working-directory: {step['cwd']}")
-        lines += [pad + "  run: |", pad + "    " + step["run"]]
+        "jobs:"]
+    for i, (job, runs, stacks, steps) in enumerate(jobs):
+        lines += ([""] if i else []) + [
+            f"  {job}:", "    strategy:", "      fail-fast: false", "      matrix:", f"        os: {json.dumps(runs)}",
+            "    runs-on: ${{ matrix.os }}", "    timeout-minutes: 30", "    steps:", pad + "- uses: actions/checkout@v7"]
+        for st in dict.fromkeys(stacks):
+            if st in CI_SETUP:
+                lines += [pad + x.format(**values) for x in CI_SETUP[st]]
+            else:
+                lines.append(pad + f"# TODO: add the toolchain setup for '{st}'")
+        if not package:
+            lines += [pad + x for x in workbench_checkout(p)]
+        for step in steps:
+            label = step["step"] if step["scope"] == ROOT_SCOPE else f"{step['scope']} · {step['step']}"
+            lines.append(pad + f"- name: {json.dumps(label, ensure_ascii=False)}")
+            if step["cwd"] != ".":
+                lines.append(pad + f"  working-directory: {step['cwd']}")
+            lines += [pad + "  run: |", pad + "    " + step["run"]]
     return "\n".join(lines) + "\n"
 
 

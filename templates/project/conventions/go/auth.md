@@ -9,8 +9,9 @@ Sessions live in PostgreSQL behind an `HttpOnly` cookie; no token reaches browse
 maintained libraries, and the code joining them stays small. Password hashing, session tokens and other
 cryptography are never written by hand.
 
-- Libraries: `alexedwards/scs` with its `pgxstore` for sessions, `alexedwards/argon2id` for password hashing,
-  `markbates/goth` for OAuth sign-in. Passkeys or 2FA only when asked for.
+- Libraries: `alexedwards/scs/v2` with its `pgxstore` for sessions, `alexedwards/argon2id` for password hashing,
+  `markbates/goth` for OAuth sign-in (it has asked for a new maintainer: check its activity before relying on it).
+  Passkeys or 2FA only when asked for.
 - Endpoints under `/api/auth/*`, in the contract: sign-in, sign-out, current session, one callback per provider.
 - Cookie: `HttpOnly`, `Secure`, `SameSite=Lax`, a fixed lifetime and an idle timeout.
 - Sign-in calls `RenewToken` before storing the user id (no session fixation); sign-out destroys the session.

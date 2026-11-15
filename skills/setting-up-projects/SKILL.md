@@ -47,7 +47,7 @@ Every file the plugin places is in one class (the lock records it). Respect it i
 | Seeded | `.claude/hookify/sdlc-*.md`, `.github/workflows/sdlc-verify.yml`, `.sdlc/lint/*` | `$S render --if-unchanged`; exit 2 → show the user a diff, never overwrite |
 | Keyed merge | `.claude/settings.json` allow entries, the plugin-enablement keys in `.claude/settings.local.json` (this machine only, never committed), `.gitignore` lines, the `<!-- sdlc:begin -->`…`<!-- sdlc:end -->` block in `AGENTS.md` | only via `$S allow` / `$S enable-plugin` / `$S gitignore` / `$S agents`; text outside the block is the user's |
 | Commands | `commands` / `packages[].commands` in `.sdlc/config.json` | user-owned data; `$S contract` checks, `$S commands` prints the verify plan |
-| User-owned | `CLAUDE.md`, the PRD (`<docs>/prd.md`, or the one the repo already had, recorded as `prd` in config), `<docs>/constitution.md`, `<docs>/design-system.md`, `knowledge/**`, `.sdlc/baseline.md`, other `.claude/rules/*.md` | write once with approval; afterwards only through approved migrations |
+| User-owned | `CLAUDE.md`, the PRD (`<docs>/prd.md`, or the one the repo already had, recorded as `prd` in config), `<docs>/constitution.md`, `<docs>/design-system.md`, `knowledge/**`, `.sdlc/baseline.md`, other `.claude/rules/*.md` | write once with approval; afterwards only through approved migrations (a stack convention, `.claude/rules/<stack>-<area>.md`: also offered as a diff when its template changes) |
 
 Plugin-owned files are named `sdlc-*` (or `sdlc.md`); everything else belongs to the project.
 

@@ -20,7 +20,7 @@ Setup runs on an `sdlc/setup` branch with one commit per step, resumes where it 
 | Generated | `.claude/rules/sdlc*.md` | regenerated |
 | Seeded | `.claude/hookify/sdlc-*.md`, `.github/workflows/sdlc-verify.yml`, `sdlc-invariants.yml`, `.sdlc/ci/invariants.py`, `.sdlc/lint/*` | replaced only if you haven't edited it; otherwise you choose: merge, skip, or keep yours for good |
 | Keyed merge | allowlist in `.claude/settings.json`, plugin-enablement keys in `.claude/settings.local.json` (or `.claude/settings.json` when the team's), `.gitignore` lines, the `<!-- sdlc:begin -->` block in `AGENTS.md` | only the entries the plugin added; your text around the block is never touched |
-| Yours | the commands in `.sdlc/config.json`, `CLAUDE.md`, PRD, constitution, design system, `knowledge/`, baseline, your own rules | changed only by migrations you approve |
+| Yours | the commands in `.sdlc/config.json`, `CLAUDE.md`, PRD, constitution, design system, `knowledge/`, baseline, your own rules | changed only by migrations you approve (a stack convention rule is also offered as a diff when its template changes) |
 
 Files named `sdlc-*` belong to the plugin; everything else is yours.
 

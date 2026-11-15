@@ -65,6 +65,14 @@ Checked by a research subagent and two searches; full list with a URL per claim 
   iOS 17+ (developer.apple.com migrating-from-the-observable-object-protocol); Android Jetpack Security Crypto
   deprecated in favour of the Keystore (developer.android.com/jetpack/androidx/releases/security); Navigation
   Compose `@Serializable` routes; Hilt; `libs.versions.toml`.
+- Re-checked in Review round 1 (2026-11-14), the claims whose URL stayed in the scratchpad: scs v2 + `pgxstore`,
+  `RenewToken` (github.com/alexedwards/scs); argon2id `CreateHash`/`ComparePasswordAndHash`
+  (github.com/alexedwards/argon2id); goth providers, maintainer notice (github.com/markbates/goth); oapi-codegen v2
+  `gin-server` + `strict-server` (github.com/oapi-codegen/oapi-codegen); pydantic-settings `BaseSettings`
+  (pydantic.dev/docs/validation/latest/concepts/pydantic_settings/); Riverpod 3.x `FutureProvider`/`AsyncNotifier`
+  (riverpod.dev/docs/whats_new); go_router `redirect` (pub.dev/packages/go_router); Hilt
+  (developer.android.com/training/dependency-injection/hilt-android); Better Auth `npx auth@latest generate`
+  (better-auth.com/docs/concepts/cli), `BETTER_AUTH_SECRET`/`_URL`/`_SECRETS` (better-auth.com/docs/reference/options).
 - Dropped, not confirmed: Nuxt UI's color option for plain Vue (the Vue template says "one place"); DataStore +
   Tink for Android tokens (community pattern only); Zustand API details (named only as the store);
   `NavigationStack`, Keychain Services and String Catalogs are named as Apple features, not APIs, since Apple's
