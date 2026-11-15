@@ -2,7 +2,7 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
-## Unreleased
+## 3.9.0 — 2026-11-15
 
 ### Fixed
 - **The CI workflow generated for a Python repo pins a `setup-uv` tag that exists.** It pinned `astral-sh/setup-uv@v10`, but setup-uv publishes only full version tags, so the `verify` job failed at "Set up job" (`unable to find version v10`) on every PR and push before lint or tests ran. It now pins `astral-sh/setup-uv@v10.3.3`. Existing repos get it from `/sdlc:upgrade`, which regenerates the workflow; a repo that already pinned it by hand gets the same line.
