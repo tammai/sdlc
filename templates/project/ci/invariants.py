@@ -5,6 +5,10 @@ Only active features count (`Status: active` in their state file):
   - the record matches the phase reached: past Define (Stage 1), the change file (<docs>/changes/<feature>.md) has its
     `## Acceptance tests` table; in Ship (Stage 4), its `## Review` section says what was reviewed.
   - the baseline: against --base, a new row or a higher lint count needs a feature's Deviations entry naming it.
+  - past Define, each `## Acceptance tests` row's test file exists (`manual` and `departure D-nnn` rows name none).
+  - the test lock: each file under the state file's `## Test lock` still has the sha256 it had at its red run (LF or
+    CRLF), unless a `test-change <file> What: … Why: …` deviation names it. With --base, a feature whose state file
+    changed since then is checked too, active or not: Ship marks it done in the commit that finishes it.
 
 Usage: python3 .sdlc/ci/invariants.py [--base REF] [--require-ancestor]   (--require-ancestor: accepted, unused since 2.0)
 Exits 1 and prints one line per problem. As a pre-commit hook: python3 .sdlc/ci/invariants.py --base HEAD
@@ -12,6 +16,7 @@ Stdlib only, Python 3.9+; it imports nothing from the plugin.
 """
 import argparse
 import glob
+import hashlib
 import json
 import os
 import re
@@ -69,6 +74,72 @@ def check_record(path, stage, build=2, ship=4):
     return problems
 
 
+LOCK_LINE = re.compile(r"^- `([^`]+)` sha256:([0-9a-f]{64})\s*$", re.M)
+ROW = re.compile(r"^\s*\|\s*(AC-\d{3})\s*\|(.*?)\|(.*?)\|\s*$", re.M)
+
+
+def sha256s(path):
+    """The file's sha256 as it is, and with its line endings as LF and as CRLF: the lock was written on whichever
+    checkout the developer had; None when there's no file."""
+    try:
+        with open(path, "rb") as f:
+            data = f.read()
+    except OSError:
+        return None
+    lf = data.replace(b"\r\n", b"\n")
+    return {hashlib.sha256(d).hexdigest() for d in (data, lf, lf.replace(b"\n", b"\r\n"))}
+
+
+def app_repos():
+    """In a workbench, the app repos cloned inside it (workbench.json, each in a folder named after it): their files
+    aren't in the workbench's checkout, so CI can't check them here; each repo's own CI covers its tests."""
+    try:
+        data = json.loads(read("workbench.json") or "{}")
+    except ValueError:
+        return ()
+    repos = data.get("repos") if isinstance(data, dict) else None
+    return tuple(r["name"].strip("/") + "/" for r in repos or [] if isinstance(r, dict) and isinstance(r.get("name"), str))
+
+
+def check_lock(state_path, state):
+    """A test file locked at its red run (`## Test lock`) that changed or was deleted, without a `test-change <file>
+    What: … Why: …` deviation naming it. CI can't rerun the red step; the deviation records why it changed."""
+    deviations = section(state, "Deviations").splitlines()
+    problems = []
+    for file, sha in LOCK_LINE.findall(section(state, "Test lock")):
+        if file.replace("\\", "/").startswith(app_repos()):
+            continue
+        now = sha256s(file)
+        if now is not None and sha in now:
+            continue
+        if any(f"test-change {file} " in line and re.search(r"What:\s*\S", line) and re.search(r"Why:\s*\S", line)
+               for line in deviations):
+            continue
+        what = "was deleted" if now is None else "changed"
+        problems.append(f"{state_path}: {file} {what} since its red run (## Test lock) and no `test-change {file} "
+                        "What: … Why: …` deviation says why")
+    return problems
+
+
+def check_test_files(path):
+    """Each `## Acceptance tests` row's test file exists; `manual` and `departure D-nnn` rows name none."""
+    problems = []
+    for ac, test, _ in ROW.findall(section(read(path) or "", "Acceptance tests")):
+        test = test.strip().strip("`").strip()
+        if test.lower() == "manual" or re.fullmatch(r"departure\s+D-\d{3,}", test, re.I):
+            continue
+        file = test.split("›")[0].strip().strip("`").strip()
+        if file and not file.replace("\\", "/").startswith(app_repos()) and not os.path.exists(file):
+            problems.append(f"{path}: {ac}: its test file {file} doesn't exist")
+    return problems
+
+
+def changed_since(base):
+    """Paths changed between `base` and the working tree; None when git can't tell."""
+    code, out = git("diff", "--name-only", base)
+    return set(out.splitlines()) if code == 0 else None
+
+
 def baseline_rows(text):
     """{key: count}: failing tests by (package, test), lint by (package, tool, rule, file); placeholder rows skipped."""
     rows = {}
@@ -114,16 +185,24 @@ def main(argv=None):
     a = ap.parse_args(argv)
     sys.stdout.reconfigure(encoding="utf-8")  # file names and messages aren't ASCII; Windows consoles default to cp1252
     problems, deviations = [], ""
+    changed = changed_since(a.base) if a.base else None
     for name, (state_path, change_path) in features().items():
         state = read(state_path) or ""
         deviations += section(state, "Deviations")  # any feature's: one may record it and finish in the same push
-        if not re.search(r"^Status:\s*active\b", state, re.M):
+        active = re.search(r"^Status:\s*active\b", state, re.M)
+        # Ship marks the feature done in its own commit, so the push that finishes it is checked too
+        if active or (changed and state_path.replace(os.sep, "/") in changed):
+            problems += check_lock(state_path, state)
+        if not active:
             continue
         stage = STAGE.search(state)
         # a feature not yet migrated to Process: 3 (sdlc 2.x) still counts Build as 4 and Ship as 8
         current = re.search(r"^Process:\s*3\b", state, re.M)
-        problems += check_record(change_path, int(stage.group(1)) if stage else 0,
-                                 *((2, 4) if current else (4, 8)))
+        build, ship = (2, 4) if current else (4, 8)
+        stage = int(stage.group(1)) if stage else 0
+        problems += check_record(change_path, stage, build, ship)
+        if stage >= build:
+            problems += check_test_files(change_path)
     if a.base:
         problems += check_baseline(a.base, deviations)
     for line in problems:

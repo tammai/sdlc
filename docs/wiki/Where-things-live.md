@@ -12,7 +12,7 @@
     release.md                                        /sdlc:deploy
   state/<feature>.json, <feature>.events.jsonl   control contract for a runner or control app (git-ignored)
   lint/                    sdlc lint snippets your ESLint/Ruff config imports (seeded)
-  ci/invariants.py         checks test reports, the baseline and active features' change files in CI (seeded)
+  ci/invariants.py         checks test reports, the baseline, active features' change files and the test lock in CI (seeded)
   ci/contract-check.sh     the API contract check CI runs (multi-app repos that chose it; seeded)
   .work/                   scratch, git-ignored (verify record, freshness, dispatch log, trust anchor, QA runs)
 docs/sdlc/                 docs_dir: the documents people read (default; setup asks when the repo publishes docs/)
