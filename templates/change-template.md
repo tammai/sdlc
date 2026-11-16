@@ -31,6 +31,10 @@
 
 <!-- Each an id, AC-001 onward, and a new or changed behaviour a test can prove, so its test fails before the change.
      About 10 or fewer. Never "existing tests still pass": verify.py runs the whole suite anyway.
+     A good one: one behaviour (a criterion with "and also" in it is two); observable, so someone who never saw the
+     code could tell whether it holds ("shows an error when the upload is over 10 MB", not "handles large uploads");
+     and between them they cover the case the user would most hate to see broken, not only the happy path. Name that
+     case in the test's name (test_rejects_an_expired_token, not test_2).
      A bug: AC-001 is the test that proves it today. A written spec exists: the AC names what it proves
      (`- **AC-002** prd.md §4.2: Given …`, or `§FR-003`), and `verify.py trace` checks those refs. A spec-backed
      change (an rspec criteria.lock.json) cites criteria instead of restating them: `- **AC-003** → F-ISS-01.AC2`. -->
