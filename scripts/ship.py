@@ -49,6 +49,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(HERE), "hooks"))
 sys.path.insert(0, HERE)
 import sdlc_layout  # noqa: E402
 import sdlc_scopes  # noqa: E402  (a workbench: its repos, the feature's ## Repos and ## PRs, merge order)
+import capabilities  # noqa: E402  (the living spec, #73: checked first, written after verify)
 import problems as P  # noqa: E402  (a refusal's code and fix, for --json)
 import verify  # noqa: E402  (status, the full run, and what the tests leave behind)
 
@@ -254,6 +255,7 @@ def ship(root, feature, message, review=None, note=None, timeout=1800, waive_bas
         add_review(root, paths["change"], review)
     # Every refusal comes before the state moves, so a refusal leaves the state file as it was
     repos = check_repos(root, state) if sdlc_scopes.is_workbench(root) else None
+    living_spec(root, feature)
     head, tree, waiver = verified(root, feature, timeout, waive_baseline)
     branch = None
     if git(root, "branch", "--show-current").strip() != feature and on_default_branch(root):
@@ -262,6 +264,7 @@ def ship(root, feature, message, review=None, note=None, timeout=1800, waive_bas
                           "again", "branch_exists", fix=f"git switch {feature}")
         branch = feature
         git(root, "switch", "-c", branch)
+    written = living_spec(root, feature, write=True)
     if waiver:
         state_py(root, "log", feature, waiver)
     state_py(root, "advance", feature, "4", "--gate", "pass", "--verified", head, tree, *(["--note", note] if note else []),
@@ -274,9 +277,24 @@ def ship(root, feature, message, review=None, note=None, timeout=1800, waive_bas
     with open(os.path.join(root, MESSAGE), "w", encoding="utf-8", newline="\n") as f:
         f.write(f"{message}\n\nRecord: {paths['change']}\n")
     out = {"ok": True, "head": head, "tree": tree, "branch": branch, "staged": files, "message": MESSAGE}
+    if written:
+        out["capabilities"] = written
     if sdlc_scopes.is_workbench(root):
         out["repos"] = ship_repos(root, feature, paths["change"], message, files, branch, repos)
     return out
+
+
+def living_spec(root, feature, write=False):
+    """The living spec (#73), when config turns it on: checked before anything moves, written after verify, so the
+    capability files are docs in Ship's own commit. The files written or deleted."""
+    try:
+        files, problems = (capabilities.merge if write else capabilities.plan)(root, feature)
+    except ValueError as e:
+        raise Refused(f"living_spec: {e}", "living_spec_folder_invalid")
+    if problems:
+        raise Refused("the change file's ## Capabilities can't be applied:\n" + "\n".join(problems),
+                      "capabilities_invalid", fix=problems[0].fix, problems=problems)
+    return sorted(files)
 
 
 def check_repos(root, state):
