@@ -5,6 +5,7 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 ## Unreleased
 
 ### Added
+- **Output tools can match on** (#76, from OpenSpec's agent contract). `verify.py --json` and `ship.py --json` print one JSON document: `result`, then `problems`, each `{severity, code, message, target?, fix?}`. The code is stable (`red_not_recorded`, `test_lock_changed`, `drift_unrecorded`, `verify_failed`, …) and `fix` is the command to run (`verify.py red AC-001`). The plain-text output and exit codes don't change. `doctor` gives each check a `code` (`repo.commands`) and lists failing and warning checks under `problems`. The CI check `.sdlc/ci/invariants.py` takes `--json` too; repos get it with `/sdlc:upgrade`.
 - **Project rules per document** (#75, from OpenSpec's per-artifact rules). An optional `rules` object in `.sdlc/config.json`, keyed `change`, `plan` and `review`, each a list of lines: `brief.py` prints them as their own section, Define applies `change` to the change file and `plan` to the plan, and every review checks `review` against the diff. For example `"rules": {"plan": ["Every task touching file paths adds a Windows check."]}`. Other keys and non-string items are ignored. They're instructions to the agent, read like CLAUDE.md; nothing runs without asking because of them.
 
 ### Changed

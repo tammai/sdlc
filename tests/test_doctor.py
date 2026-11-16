@@ -120,6 +120,11 @@ class DoctorTest(ProjectTestCase):
         self.configure(commands={"test": "git --version"})
         c = self.doctor(expect=1)[0][("repo", "commands")]
         self.assertEqual((c["status"], c["detail"]), ("fail", "no install, lint, typecheck, build command"))
+        # #76: each check has a stable code, and the failing ones are listed in the shared problem shape
+        p = subprocess.run([sys.executable, DOCTOR, "--root", self.root], capture_output=True, encoding="utf-8",
+                           env={**os.environ, "CLAUDE_PLUGIN_ROOT": PLUGIN_ROOT})
+        problem = next(x for x in json.loads(p.stdout)["problems"] if x["code"] == "repo.commands")
+        self.assertEqual((problem["severity"], problem["target"], problem["fix"]), ("error", "commands", c["fix"]))
 
     def test_command_tools_not_installed_warn(self):
         self.setup_repo()

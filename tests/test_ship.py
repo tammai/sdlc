@@ -115,6 +115,17 @@ class ShipTest(ProjectTestCase):
             self.assertIn("Current: Stage 2", f.read())
         self.assertEqual(self.out("diff", "--cached", "--name-only"), "")
 
+    def test_json_names_the_refusal_and_verifys_own_problems(self):
+        # #76: a refusal is one JSON document, its code first, then the verify problems that stopped it
+        self.write(".sdlc/config.json", json.dumps({"commands": {"test": "python3 -c \"raise SystemExit(1)\""}}))
+        p = subprocess.run([sys.executable, SCRIPT, "--root", self.root, "login", "--json"], capture_output=True,
+                           encoding="utf-8")
+        self.assertEqual(p.returncode, 1, p.stderr)
+        doc = json.loads(p.stdout)
+        self.assertEqual(doc["result"], "refused")
+        self.assertEqual([x["code"] for x in doc["problems"]][:2], ["verify_failed", "verify_step_failed"])
+        self.assertIn("fix the failures and run ship.py again", doc["problems"][0]["fix"])
+
     def test_a_baseline_listed_test_failure_ships_only_when_waived_and_is_logged(self):
         self.failing("test", "test_div_by_zero")
         self.baseline("| (root) | tests/test_div.py › T.test_div_by_zero | returns Infinity | b8392a3 |")

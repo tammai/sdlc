@@ -53,6 +53,7 @@ sdlc/
 │   ├── ship.py              Ship's one command: reuses or reruns verify, advances to Stage 4, branches, stages the change, writes the commit message; in a workbench each repo in merge order, and `--status` for the PRs
 │   ├── review_report.py     writes a review report from rated findings (the built-in code review, the dependency audit) with the VERDICT line their ratings give
 │   ├── autopilot.py         runs a backlog one fresh headless claude session per part (opt-in)
+│   ├── problems.py          one problem's shape for --json output: severity, code, message, target, fix (#76)
 │   ├── prune.py             lists and deletes merged features' working files (/sdlc:prune)
 │   ├── context_diet.py      per-source estimate of what Claude Code lists every call (/sdlc:context-diet)
 │   ├── spec_lock.py         an rspec spec's criteria lock and the spec-backed switch (spec_backed_repo)

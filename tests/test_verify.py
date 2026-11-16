@@ -78,6 +78,24 @@ class VerifyTest(ProjectTestCase):
         self.assertEqual(rec["last"]["result"], "pass")
         self.assertEqual(rec["last"]["manual"], ["AC-002"])
 
+    def test_json_prints_one_document_with_each_problems_code_and_fix(self):
+        # #76: the same problems, each with a stable code and a fix, as the one thing on stdout
+        self.spec("AC-001")
+        self.plan([("AC-001", "tests/t.py › ok", 'python3 -c "pass"')])
+        self.write("tests/t.py", "")
+        plain = self.verify()[1]
+        code, out, _ = self.verify("--json")
+        self.assertEqual(code, 1)
+        doc = json.loads(out)
+        self.assertEqual((doc["result"], doc["feature"]), ("fail", "login"))
+        p = next(x for x in doc["problems"] if x["code"] == "red_not_recorded")
+        self.assertEqual((p["severity"], p["target"], p["fix"]), ("error", "AC-001", "verify.py red AC-001"))
+        self.assertIn(p["message"] + "\n", plain)  # the text the plain run prints, unchanged
+        code, out, _ = self.verify("--json", "red", "AC-001")
+        self.assertEqual(code, 1)
+        self.assertEqual([(x["code"], x["target"]) for x in json.loads(out)["problems"]],
+                         [("test_passes_before_code", "AC-001")])
+
     def test_one_test_proving_several_acs_runs_once(self):
         self.spec("AC-001", "AC-002")
         count = "python3 -c \"open('runs.txt', 'a').write('x'); import os, sys; sys.exit(0 if os.path.exists('done') else 1)\""

@@ -2,7 +2,7 @@
 """One command that proves a feature: the project's verify plan, then every acceptance criterion against the test
 change.md names for it (plan.md on a 1.x feature) (ADR 0013, 0020).
 
-Usage: verify.py [--root DIR] [--feature NAME] [--timeout S] [red AC-nnn [AC-nnn ...] | status | trace]
+Usage: verify.py [--root DIR] [--feature NAME] [--timeout S] [--json] [red AC-nnn [AC-nnn ...] | status | trace]
   Runs the verify plan (lint, typecheck, build, test from .sdlc/config.json, per package; in a workbench also each
   repo the feature branched, from its own config in its folder, a failure naming the repo), then, for every `AC-nnn`
   in change.md: a row in its `## Acceptance tests` table (plan.md's on a 1.x feature), a `manual` row's reason, the
@@ -35,6 +35,10 @@ Recorded acceptance tests (spec 03 S3): a row whose Test is a file in the repo's
   traces or no AC cites a spec. L's plan self-approval runs it; a full run prints the same findings as `trace:` notes
   (advisory, recorded in verify.json) and never fails on them.
 A passing run prints the tree and HEAD that `state.py verified` takes.
+`--json` (#76): one JSON document on stdout instead of the lines: `result` (a full run: pass or fail; red:
+  recorded, refused; trace: traced, findings, none; error), the feature, and `problems`, each `{severity, code,
+  message, target?, fix?}` (scripts/problems.py): `message` is the plain line unchanged, `code` is stable, `fix`
+  one command or sentence. Exit codes are the same. `status` is JSON already.
 Each run also writes the freshness hook's copy of itself (.sdlc/.work/verify-freshness.json).
 `status`: JSON for Review. `reuse` is true only when the last run passed, the freshness hook's copy of it agrees
   (same tree, every red AC), and the code hasn't changed since; otherwise `reason` says why and Review reruns verify.
@@ -57,6 +61,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(HERE), "hooks"))
 sys.path.insert(0, HERE)
 import backlog  # noqa: E402  (a backlog's parts: which ACs belong to parts not started yet)
+import problems as P  # noqa: E402  (each problem's code and fix, for --json; the text stays as it was)
 import diff_stats  # noqa: E402  (changed files and the Public Surface check, since the feature's Base)
 import scaffold  # noqa: E402  (the verify plan and the shell that runs project commands)
 import sdlc_layout  # noqa: E402
@@ -161,12 +166,14 @@ def trace(root, feature):
                 if file not in cited:
                     cited[file] = spec_text(root, file)
                 if cited[file] is None or not has_ref(cited[file], ref):
-                    findings.append(f"{ac}: {file} §{ref} is not in the spec")
+                    findings.append(P.problem("trace_ref_missing", f"{ac}: {file} §{ref} is not in the spec",
+                                              target=ac))
     if not cited:
         return None
     covered |= set(FR_ID.findall(section(change, "Out of scope") or ""))
     for file, text in cited.items():
-        findings += [f"{fr} ({file}) has no AC and isn't in ## Out of scope"
+        findings += [P.problem("trace_requirement_uncovered", f"{fr} ({file}) has no AC and isn't in ## Out of scope",
+                               target=fr, fix=f"name {fr} in an AC, or set it aside in ## Out of scope")
                      for fr in dict.fromkeys(FR_ID.findall(text or "")) if fr not in covered]
     return findings
 
@@ -397,18 +404,18 @@ def repo_failures(root, feature, timeout):
         except ValueError:
             config = None
         if not isinstance(config, dict):
-            failures.append(f"{name}: no readable .sdlc/config.json (its small sdlc setup holds its commands)")
+            failures.append(P.problem("repo_config_missing", f"{name}: no readable .sdlc/config.json (its small sdlc setup holds its commands)", target=name, fix=f"run /sdlc:setup in {name}"))
             continue
         try:
             steps = scaffold.verify_plan(config)["verify"]
         except ValueError as e:
-            failures.append(f"{name}: {e}")
+            failures.append(P.problem("repo_verify_plan_invalid", f"{name}: {e}", target=name))
             continue
         for step in steps:
             code, out = run(step["run"], os.path.join(repo, step["cwd"]), timeout)
             if code:
-                failures.append(f"{name}: {step['scope'] or scaffold.ROOT_SCOPE} {step['step']}: exit {code}\n"
-                                f"{out[-500:]}")
+                failures.append(P.problem("verify_step_failed", f"{name}: {step['scope'] or scaffold.ROOT_SCOPE} "
+                                          f"{step['step']}: exit {code}\n{out[-500:]}", target=name))
     return failures
 
 
@@ -427,7 +434,7 @@ def full(root, feature, timeout=1800, whole=False):
         code, out = run(step["run"], os.path.join(root, step["cwd"]), timeout,
                         tail=TEST_OUTPUT if step["step"] == "test" else 2000)
         if code:
-            failures.append(f"{name}: exit {code}\n{out[-500:]}")
+            failures.append(P.problem("verify_step_failed", f"{name}: exit {code}\n{out[-500:]}", target=name))
             if step["step"] == "test":  # ship.py's baseline waiver names the failing tests from it (#56 P2)
                 test_output[name] = out
     failures += repo_failures(root, feature, timeout)
@@ -436,10 +443,13 @@ def full(root, feature, timeout=1800, whole=False):
     skipped = [ac for ac in acs if ac in later]
     acs = [ac for ac in acs if ac not in later]
     if skipped:
-        notes.append("not checked yet, later parts: " + ", ".join(f"{ac} ({later[ac]})" for ac in skipped))
+        notes.append(P.problem("acs_in_later_parts", "not checked yet, later parts: " + ", ".join(
+            f"{ac} ({later[ac]})" for ac in skipped), severity="info"))
     manual = []
     if rows is None:
-        notes.append("no acceptance tests section: every 2.0 plan has one")
+        notes.append(P.problem("no_acceptance_tests", "no acceptance tests section: every 2.0 plan has one",
+                               fix="add `## Acceptance tests` to the change file, one row per AC",
+                               severity="warning"))
     else:
         by_ac = {r["ac"]: r for r in test_rows(rows)}
         set_aside = {}
@@ -449,50 +459,59 @@ def full(root, feature, timeout=1800, whole=False):
         ran, build = {}, Build(root)
         try:
             for ac in acs:
-                failures += [p for p in (departure_check(root, d) for d in set_aside.get(ac, [])) if p]
+                failures += P.tag("departure_invalid", [p for p in (departure_check(root, d)
+                                                                     for d in set_aside.get(ac, [])) if p])
                 row = by_ac.get(ac)
                 recorded = row and not row["manual"] and bundle_check(root, row)
                 if not row:
-                    failures.append(NO_BUILDER_ROW.format(ac=ac) if ac in set_aside
-                                    else f"{ac}: no row in ## Acceptance tests")
+                    failures.append(no_row(ac, ac in set_aside))
                 elif row["manual"]:
                     if row["run"]:
                         manual.append(ac)
                     else:
-                        failures.append(f"{ac}: a manual row needs its reason in the Run column")
+                        failures.append(P.problem("manual_row_no_reason", f"{ac}: a manual row needs its reason in "
+                                                  "the Run column", target=ac,
+                                                  fix="write why no test can prove it in the Run cell"))
                 elif not os.path.exists(os.path.join(root, row["file"])):
-                    failures.append(f"{ac}: {row['file']} not found")
+                    failures.append(file_missing(ac, row["file"]))
                 elif recorded and recorded[1]:
-                    failures.append(recorded[1])
+                    failures += P.tag("recorded_test_invalid", [recorded[1]])
                 elif ac not in rec.get("red", {}):
-                    failures.append(f"{ac}: no red run recorded (run `verify.py red {ac}` before writing its code)")
+                    failures.append(P.problem("red_not_recorded", f"{ac}: no red run recorded (run `verify.py red "
+                                              f"{ac}` before writing its code)", target=ac, fix=f"verify.py red {ac}"))
                 elif recorded and build.ensure():
-                    failures.append(f"{ac}: {build.error}")
+                    failures.append(P.problem("acceptance_build_failed", f"{ac}: {build.error}", target=ac))
                 else:
                     code, out = run_once(ran, resolve(row["run"]) if recorded else row["run"], root, timeout,
                                          build.env if recorded else None)
                     if code:
-                        failures.append(f"{ac}: its test fails (exit {code})\n{out[-500:]}")
+                        failures.append(P.problem("test_fails", f"{ac}: its test fails (exit {code})\n"
+                                                  f"{out[-500:]}", target=ac))
                     elif NOT_FOUND.search(out) or recorded and "not run: " in out:  # a run of no tests (#56 P1)
-                        failures.append(f"{ac}: its test did not run (exit 0, the runner found no test): check the "
-                                        f"Test and Run cells\n{out[-500:]}")
+                        failures.append(P.problem("test_did_not_run", f"{ac}: its test did not run (exit 0, the runner "
+                                                  f"found no test): check the Test and Run cells\n{out[-500:]}",
+                                                  target=ac, fix=CHECK_CELLS))
         finally:
             build.close()
     backed = spec_lock.spec_backed_repo(root)  # sdlc 3.5: cited criteria, in such a repo only
     failures += lock_failures(root, feature, rows or [], rec)  # whatever lock the red step wrote (#56 P3)
     drifted = drift(root, feature, later)
     if drifted is None:
-        notes.append("no plan (the state file's ## Tasks) or no Base:, so drift wasn't checked")
+        notes.append(P.problem("drift_not_checked", "no plan (the state file's ## Tasks) or no Base:, so drift "
+                               "wasn't checked", severity="warning"))
     for d in drifted or []:
         if not d["covered"]:
-            failures.append(f"drift: {d['item']} has no Deviations entry with What:, Why: and Effect:")
-    failures += (spec_backed(root, feature) if backed else None) or []
+            failures.append(P.problem("drift_unrecorded", f"drift: {d['item']} has no Deviations entry with What:, "
+                                      "Why: and Effect:", target=d["item"],
+                                      fix=f'state.py deviation {feature} "{d["item"]} What: … Why: … Effect: …"'))
+    failures += P.tag("criterion_citation", (spec_backed(root, feature) if backed else None) or [])
     cited_count = len({c for ids in spec_lock.cited(ac_entries(docs(root, feature)[0])).values() for c in ids}) \
         if backed else 0
     if cited_count > 10:
-        notes.append(f"warning: {cited_count} cited criteria: a change takes about 10; split the slice")
+        notes.append(P.problem("too_many_criteria", f"warning: {cited_count} cited criteria: a change takes about "
+                               "10; split the slice", severity="warning"))
     traced = trace(root, feature) or []  # advisory: a note, never a failure, until its false-positive rate is known
-    notes += [f"trace: {t}" for t in traced]
+    notes += [P.problem(getattr(t, "code", "trace_finding"), f"trace: {t}", severity="warning") for t in traced]
     rec["last"] = {"at": vf.now(), "tree": vf.worktree_tree(root), "head": vf.git_head(root),
                    "result": "fail" if failures else "pass", "seconds": round(time.time() - started, 1),
                    "failures": failures, "manual": manual, "drift": drifted or [], "skipped": skipped,
@@ -550,10 +569,14 @@ def lock_failures(root, feature, rows, rec):
         rered = all((at_base.get(ac) or {}).get("sha256") == now for ac in owners) if now else not owners
         if not (noted and rered):
             what = "was deleted" if now is None else "changed"
-            out.append(f"test lock: {f} {what} since its red run ({', '.join(owners) or 'no AC names it now'}): "
-                       f"record why with `state.py deviation <feature> \"test-change {f} What: … Why: …\"`, then "
-                       f"`verify.py red --at <Base> {' '.join(owners) or '<AC>'}` to show it still fails without the "
-                       "feature")
+            out.append(P.problem(
+                "test_lock_changed",
+                f"test lock: {f} {what} since its red run ({', '.join(owners) or 'no AC names it now'}): "
+                f"record why with `state.py deviation <feature> \"test-change {f} What: … Why: …\"`, then "
+                f"`verify.py red --at <Base> {' '.join(owners) or '<AC>'}` to show it still fails without the "
+                "feature", target=f,
+                fix=f'state.py deviation {feature} "test-change {f} What: … Why: …", then verify.py red --at <Base> '
+                    f"{' '.join(owners) or '<AC>'}"))
     return out
 
 
@@ -576,29 +599,32 @@ def red_at(root, feature, ref, acs, timeout=1800):
     code without the feature); each must fail there. Recorded per AC with the file's hash, all or nothing; the
     worktree is always removed."""
     if not locks_tests(root, feature):
-        return None, ["red --at: the test lock is on for M and L features and in a spec-backed repo (an rspec "
+        return None, [P.problem("red_at_no_lock", "red --at: the test lock is on for M and L features and in a spec-backed repo (an rspec "
                       "criteria.lock.json, config spec_lock or acceptance/manifest.json); here a changed test needs "
-                      "no re-red"]
+                      "no re-red", severity="info")]
     rows = test_rows(acceptance(root, feature)[1])
     chosen, reasons = [], []
     for ac in acs:
         row = next((r for r in rows if r["ac"] == ac), None)
         if not row or row["manual"]:
-            reasons.append(f"{ac}: no test row to run at {ref}")
+            reasons.append(P.problem("ac_no_test_row", f"{ac}: no test row to run at {ref}", target=ac))
         elif bundle_check(root, row) is not None:
-            reasons.append(f"{ac}: a recorded acceptance test isn't locked: its manifest's sha256 guards it")
+            reasons.append(P.problem("recorded_test_not_locked", f"{ac}: a recorded acceptance test isn't locked: its "
+                                     "manifest's sha256 guards it", target=ac))
         elif spec_lock.inside(root, row["file"]) is None:  # it is copied into the temporary worktree
-            reasons.append(f"{ac}: {row['file']} isn't a path inside the repo")
+            reasons.append(P.problem("test_file_outside_repo", f"{ac}: {row['file']} isn't a path inside the repo",
+                                     target=row["file"]))
         elif not os.path.isfile(os.path.join(root, row["file"])):
-            reasons.append(f"{ac}: {row['file']} not found")
+            reasons.append(file_missing(ac, row["file"]))
         else:
             chosen.append(row)
     bases = feature_bases(root, feature)
     base = commit_of(root, ref)
     if base not in bases:
-        reasons.append(f"red --at {ref}: that isn't the feature's Base or its part's Slice base "
-                       f"({', '.join(bases.values()) or 'none recorded'}); the changed test must fail on the code the "
-                       "feature or part started from")
+        reasons.append(P.problem("red_at_wrong_base", f"red --at {ref}: that isn't the feature's Base or its part's "
+                                 f"Slice base ({', '.join(bases.values()) or 'none recorded'}); the changed test must "
+                                 "fail on the code the feature or part started from", target=ref,
+                                 fix=f"verify.py red --at {next(iter(bases.values()), '<Base>')} <ACs>"))
     if reasons:
         return None, reasons
     git = ["git", "-C", root]
@@ -623,7 +649,8 @@ def red_at(root, feature, ref, acs, timeout=1800):
         p = subprocess.run(git + ["worktree", "add", "--detach", tree, ref], capture_output=True, encoding="utf-8",
                            errors="replace")
         if p.returncode:
-            return None, [f"red --at {ref}: no worktree ({p.stderr.strip()[-300:]})"]
+            return None, [P.problem("red_at_no_worktree", f"red --at {ref}: no worktree "
+                                    f"({p.stderr.strip()[-300:]})", target=ref)]
         for row in chosen:
             dest = os.path.join(tree, row["file"])
             os.makedirs(os.path.dirname(dest) or tree, exist_ok=True)
@@ -632,9 +659,11 @@ def red_at(root, feature, ref, acs, timeout=1800):
         for row in chosen:
             code, out = run_once(ran, row["run"], tree, timeout)
             if code == 0:
-                reasons.append(f"{row['ac']}: its test passes at {ref}, without the feature, so it proves nothing")
+                reasons.append(P.problem("test_passes_without_feature", f"{row['ac']}: its test passes at {ref}, "
+                                         "without the feature, so it proves nothing", target=row["ac"]))
             elif code in NOT_RUNNABLE or NOT_FOUND.search(out):
-                reasons.append(f"{row['ac']}: the test did not run at {ref} (exit {code})\n{out[-500:]}")
+                reasons.append(P.problem("test_did_not_run", f"{row['ac']}: the test did not run at {ref} (exit "
+                                         f"{code})\n{out[-500:]}", target=row["ac"], fix=CHECK_CELLS))
     finally:
         subprocess.run(git + ["worktree", "remove", "--force", tree], capture_output=True)
         shutil.rmtree(tmp, ignore_errors=True)
@@ -695,6 +724,19 @@ DEPARTURE_CELL = re.compile(r"departure\s+(D-\d{3,})", re.I)
 DEPARTURES = "docs/departures.yaml"  # contracts C5; product-rebuild's one registry, at the workbench or repo root
 NO_BUILDER_ROW = ("{ac}: a departure row needs a builder test row beside it (`| {ac} | <test file> › <name> | "
                   "<command> |`) that proves the behaviour")
+CHECK_CELLS = "check the AC's Test and Run cells: the command must run exactly that test"
+
+
+def no_row(ac, departure_only):
+    if departure_only:
+        return P.problem("departure_needs_builder_row", NO_BUILDER_ROW.format(ac=ac), target=ac,
+                         fix=f"add `| {ac} | <test file> › <name> | <command> |` beside the departure row")
+    return P.problem("ac_no_test_row", f"{ac}: no row in ## Acceptance tests", target=ac,
+                     fix=f"add `| {ac} | <test file> › <name> | <command> |` to ## Acceptance tests")
+
+
+def file_missing(ac, file):
+    return P.problem("test_file_missing", f"{ac}: {file} not found", target=file)
 
 
 def departure_check(root, row):
@@ -883,7 +925,7 @@ def red(root, feature, acs, timeout=1800):
         try:
             state.run(argparse.Namespace(root=root, feature=feature, cmd="lock", entries=entries))
         except state.Refused as e:
-            return None, [f"test lock not written: {e}"]
+            return None, [P.problem("test_lock_not_written", f"test lock not written: {e}")]
     rec = load_record(root)
     if rec.get("feature") != feature:
         rec = {"feature": feature}
@@ -905,28 +947,29 @@ def red_one(root, rows, ac, timeout, ran, build):
     """(exit code, None) when the AC's test fails as it should, else (None, reason)."""
     row = next((r for r in test_rows(rows) if r["ac"] == ac), None)
     if not row:
-        if any(r["ac"] == ac for r in rows):  # only a departure row
-            return None, NO_BUILDER_ROW.format(ac=ac)
-        return None, f"{ac}: no row in ## Acceptance tests"
+        return None, no_row(ac, any(r["ac"] == ac for r in rows))  # only a departure row, or none
     if row["manual"]:
-        return None, f"{ac}: a manual row has no test to run"
+        return None, P.problem("manual_row_no_test", f"{ac}: a manual row has no test to run", target=ac)
     if not os.path.exists(os.path.join(root, row["file"])):
-        return None, f"{ac}: {row['file']} not found"
+        return None, file_missing(ac, row["file"])
     recorded = bundle_check(root, row)
     if recorded and recorded[1]:
-        return None, recorded[1]
+        return None, P.tag("recorded_test_invalid", [recorded[1]])[0]
     env = None
     if recorded:
         if build.ensure():
-            return None, f"{ac}: {build.error}"
+            return None, P.problem("acceptance_build_failed", f"{ac}: {build.error}", target=ac)
         env = build.env
     code, out = run_once(ran, resolve(row["run"]) if recorded else row["run"], root, timeout, env)
     if code == 0:
-        return None, f"{ac}: its test passes before its code exists, so it proves nothing"
+        return None, P.problem("test_passes_before_code", f"{ac}: its test passes before its code exists, so it "
+                               "proves nothing", target=ac,
+                               fix="make the test check the new behaviour, so it fails until the code exists")
     # The vendored runner says `not run: <reason>` when it couldn't run a recorded test; for the project's own tests
     # that text is ordinary output
     if code in NOT_RUNNABLE or NOT_FOUND.search(out) or recorded and "not run: " in out:
-        return None, f"{ac}: the test did not run (exit {code}): check the Test and Run cells\n{out[-500:]}"
+        return None, P.problem("test_did_not_run", f"{ac}: the test did not run (exit {code}): check the Test and "
+                               f"Run cells\n{out[-500:]}", target=ac, fix=CHECK_CELLS)
     return code, None
 
 
@@ -973,14 +1016,27 @@ def main(argv=None):
     ap.add_argument("--feature")
     ap.add_argument("--timeout", type=int, default=1800)
     ap.add_argument("--at", metavar="REF", help="red only: run the ACs' current tests at REF (the feature's Base)")
+    ap.add_argument("--json", action="store_true",
+                    help="print one JSON document: result, then each problem's severity, code, message, target, fix")
     ap.add_argument("action", nargs="?", choices=["red", "status", "trace"])
     ap.add_argument("acs", nargs="*")
     a = ap.parse_intermixed_args(argv)  # `red --at <ref> AC-001`: an option between positionals (Python < 3.12)
     root = os.path.abspath(a.root)
     feature = a.feature or active_feature(root)
+
+    def report(result, problems, lines, code, **extra):
+        """Plain text: the lines as before. --json: one document on stdout, the same problems with their codes."""
+        if a.json:
+            P.emit(result, problems, **({"feature": feature} if feature else {}), **extra)
+        else:
+            for line in lines:
+                print(line)
+        return code
+
     if not feature:
-        print("verify: no active feature (pass --feature)")
-        return 2
+        return report("error", [P.problem("no_active_feature", "verify: no active feature (pass --feature)",
+                                          fix="pass --feature <name>")],
+                      ["verify: no active feature (pass --feature)"], 2)
     if a.action == "status":
         print(json.dumps(status(root, feature), indent=2))
         return 0
@@ -988,40 +1044,40 @@ def main(argv=None):
         cited = spec_backed(root, feature) if spec_lock.spec_backed_repo(root) else None
         found = trace(root, feature)
         if found is None and cited is None:
-            print("trace: no spec refs in the ACs, nothing to trace")
-            return 0
-        found = (cited or []) + (found or [])
-        for line in found:
-            print(line)
-        print(f"trace {feature}: " + (f"{len(found)} finding(s)" if found else "traced"))
-        return 1 if found else 0
+            return report("none", [], ["trace: no spec refs in the ACs, nothing to trace"], 0)
+        found = P.tag("criterion_citation", cited or []) + (found or [])
+        return report("findings" if found else "traced", found,
+                      found + [f"trace {feature}: " + (f"{len(found)} finding(s)" if found else "traced")],
+                      1 if found else 0)
     if a.action == "red":
         if not a.acs or not all(AC_ID.fullmatch(ac) for ac in a.acs):
-            print("verify red: name the acceptance criteria, e.g. AC-001 AC-002")
-            return 2
+            usage = "verify red: name the acceptance criteria, e.g. AC-001 AC-002"
+            return report("error", [P.problem("usage", usage, fix="verify.py red AC-001 AC-002")], [usage], 2)
         if a.at:
             done, reasons = red_at(root, feature, a.at, a.acs, a.timeout)
-            for line in reasons or [f"{ac}: fails at {a.at} with its test as it is now" for ac in done]:
-                print(line)
-            print("nothing recorded" if reasons else "recorded: the changed tests still fail without the feature")
-            return 1 if reasons else 0
+            lines = list(reasons) or [f"{ac}: fails at {a.at} with its test as it is now" for ac in done]
+            lines.append("nothing recorded" if reasons else "recorded: the changed tests still fail without the feature")
+            return report("refused" if reasons else "recorded", reasons, lines, 1 if reasons else 0,
+                          **({} if reasons else {"red_at": a.at, "acs": list(done)}))
         codes, reasons = red(root, feature, a.acs, a.timeout)
-        for line in reasons or [f"{ac}: red recorded (exit {code})" for ac, code in codes.items()]:
-            print(line)
-        print("nothing recorded: fix those tests and rerun the whole batch" if reasons else "now write their code")
-        return 1 if reasons else 0
+        lines = list(reasons) or [f"{ac}: red recorded (exit {code})" for ac, code in codes.items()]
+        lines.append("nothing recorded: fix those tests and rerun the whole batch" if reasons else "now write their code")
+        return report("refused" if reasons else "recorded", reasons, lines, 1 if reasons else 0,
+                      **({} if reasons else {"red": codes}))
     if a.at:
-        print("verify: --at goes with red")
-        return 2
+        usage = "verify: --at goes with red"
+        return report("error", [P.problem("usage", usage, fix="verify.py red --at <Base> <ACs>")], [usage], 2)
     last, notes = full(root, feature, a.timeout)
-    for line in notes + last["failures"]:
-        print(line)
+    lines = notes + last["failures"]
     if last["manual"]:
-        print("checked by reading, not by a test: " + ", ".join(last["manual"]))
-    print(f"verify {feature}: {last['result'].upper()} ({last['seconds']}s)")
+        lines.append("checked by reading, not by a test: " + ", ".join(last["manual"]))
+    lines.append(f"verify {feature}: {last['result'].upper()} ({last['seconds']}s)")
     if last["result"] == "pass":
-        print(f"head {last['head']} tree {last['tree']}")
-    return 0 if last["result"] == "pass" else 1
+        lines.append(f"head {last['head']} tree {last['tree']}")
+    extra = {"seconds": last["seconds"], "manual": last["manual"]}
+    if last["result"] == "pass":
+        extra.update(head=last["head"], tree=last["tree"])
+    return report(last["result"], notes + last["failures"], lines, 0 if last["result"] == "pass" else 1, **extra)
 
 
 if __name__ == "__main__":
