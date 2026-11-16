@@ -2473,7 +2473,7 @@ def eject_plan(p):
     lock = p.require_lock()
     layout = sdlc_layout.paths(p.root)
     keep = [CONFIG, sdlc_layout.prd(p.root), layout["constitution"], layout["design_system"], ".sdlc/baseline.md",
-            "knowledge/",
+            "knowledge/", layout["docs_dir"] + "/capabilities/",  # the living spec (#73), when it's on
             layout["state_root"] + ("<feature>.md" if layout["layout"] == "new" else "<feature>/"),
             layout["changes_root"] + ("<feature>.md" if layout["layout"] == "new" else "<feature>/change.md"),
             layout["intents_root"] + "<feature>/"]

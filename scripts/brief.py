@@ -100,6 +100,29 @@ def rules(root):
     return section("project rules (.sdlc/config.json `rules`)", "\n".join(lines)) if lines else None
 
 
+def living_spec(root):
+    """The living spec's capabilities (#73), when config turns it on: each file's name and purpose, so Define reuses
+    a name instead of starting a near-duplicate. None when it's off."""
+    import capabilities  # only here: it loads verify.py
+    try:
+        base = capabilities.folder(root)
+    except ValueError as e:
+        return section("living spec", f"living_spec: {e}")
+    if base is None:
+        return None
+    try:
+        names = sorted(n[:-3] for n in os.listdir(os.path.join(root, base)) if n.endswith(".md"))
+    except OSError:
+        names = []
+    lines = []
+    for n in names:
+        purpose = capabilities.parse_file(read(root, f"{base}/{n}.md"))[0]
+        lines.append(f"{n}: {(purpose.splitlines() or [''])[0]}")
+    return section(f"living spec: {base}/ (write ## Capabilities: "
+                   "${CLAUDE_PLUGIN_ROOT}/skills/orchestrator/references/living-spec.md)",
+                   "\n".join(lines) or "no capabilities yet")
+
+
 def criteria_text(root, ids):
     """One line per criterion ID: its text from the spec, its level and recorded test; or why it can't be shown."""
     locked, problems = spec_lock.load(root)
@@ -140,6 +163,9 @@ def brief(root, name=None, criteria=()):
     given = rules(root)
     if given:
         parts.append(given)
+    living = living_spec(root)
+    if living:
+        parts.append(living)
     parts.append(section("change template", read(os.path.dirname(HERE), os.path.join("templates", "change-template.md"))))
     return "\n\n".join(parts) + "\n"
 
