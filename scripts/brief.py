@@ -4,7 +4,8 @@
 Prints, each under a `===== <path> =====` line and cut at a line limit: the feature's paths (with a name), the
 project's .sdlc/config.json, .sdlc/baseline.md, knowledge/index.md, <docs>/recurring-defects.md (and, near the end,
 the plugin's own list, so the builder checks what Review checks), the constitution,
-the PRD, README.md, the package manifest, the tracked files and the plugin's change template. A missing file is one
+the PRD, README.md, the package manifest, the tracked files, config's `rules` for the change file, plan and review
+(only when set) and the plugin's change template. A missing file is one
 `(none)` line. When config's `deploy.target` names one of the plugin's platform references, it also
 prints that reference's `## Define checks` and the file's path; a target that isn't a plain slug names no
 file. The code the change touches isn't printed: the agent reads that itself, in the same turn. Run when
@@ -78,6 +79,27 @@ def platform(root):
     return section(f"platform: {target} (the rest: ${{CLAUDE_PLUGIN_ROOT}}/{rel})", m.group(1).strip())
 
 
+RULE_DOCS = ("change", "plan", "review")  # the documents config's `rules` may shape
+
+
+def rules(root):
+    """Config's `rules` (#75) as a section: each document's rules, for whoever writes or reviews it; None when there
+    are none. Instructions to the agent only, read like CLAUDE.md: nothing runs without asking because of them."""
+    try:
+        cfg = json.loads(read(root, ".sdlc/config.json") or "{}")
+    except ValueError:
+        return None
+    given = cfg.get("rules") if isinstance(cfg, dict) else None
+    if not isinstance(given, dict):
+        return None
+    lines = []
+    for doc in RULE_DOCS:
+        items = given.get(doc)
+        if isinstance(items, list) and any(isinstance(x, str) and x.strip() for x in items):
+            lines += [f"{doc}:"] + [f"- {x.strip()}" for x in items if isinstance(x, str) and x.strip()]
+    return section("project rules (.sdlc/config.json `rules`)", "\n".join(lines)) if lines else None
+
+
 def criteria_text(root, ids):
     """One line per criterion ID: its text from the spec, its level and recorded test; or why it can't be shown."""
     locked, problems = spec_lock.load(root)
@@ -115,6 +137,9 @@ def brief(root, name=None, criteria=()):
     parts.append(section("git ls-files", tracked(root), 300))
     parts.append(section("plugin recurring defects", read(os.path.dirname(HERE), os.path.join(
         "skills", "orchestrator", "references", "recurring-defects.md"))))
+    given = rules(root)
+    if given:
+        parts.append(given)
     parts.append(section("change template", read(os.path.dirname(HERE), os.path.join("templates", "change-template.md"))))
     return "\n\n".join(parts) + "\n"
 
