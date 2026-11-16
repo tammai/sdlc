@@ -2,6 +2,11 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
+## Unreleased
+
+### Changed
+- **The verification record holds up** (#56, P1–P3 and P5). An AC whose Run command exits 0 after running no tests (unittest's `Ran 0 tests`, node's `# tests 0`, and the texts the red step already knew) now fails `verify.py` as "did not run" instead of passing. `ship.py --waive-baseline` waives only failing tests `.sdlc/baseline.md` lists: it names them from the test step's report (pytest, unittest, jest, vitest, go test, node --test), checks the count against the runner's own summary, writes the waived names to the Gate log, and refuses, naming them, a failure the baseline doesn't list or a report it can't name. `verify.py` keeps a failing test step's whole output (its last 1 MB) in `.sdlc/.work/verify.json` for that. The test lock (each test file's sha256 at its red run; a later change needs a `test-change` deviation and a `red --at <Base>` that still fails) is now on for M and L features in every repo, not only spec-backed ones; S, and a state file with no `Track:`, lock nothing, and a feature already in flight has no lock to check. The PRD now lists the eval rounds on record (§8) and what hasn't been measured (§11).
+
 ## 3.9.0 — 2026-11-15
 
 Smoke test passed on 2026-11-15 against eb1dcb4. Parts A, B, C, E, G, H and K ran, in four parallel groups (A+B; C then E and H in C's repo; G; K), about 31 minutes, set by the C→E,H group. D and F didn't run: the release touches no guardrail or security-hook file. A ran with `--plugin-dir`, since the installed marketplace is also named `sdlc`. The new checks passed: setup's stack questions and table pick with reasons, the scaling-roadmap page, `scaffold.py conventions` writing once and refusing to overwrite, upgrade and eject keeping the convention file, and valid lock and config with no temp files left.

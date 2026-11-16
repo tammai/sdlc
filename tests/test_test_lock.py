@@ -18,6 +18,11 @@ class VerifyBase(test_verify.VerifyTest):
         with open(self.path(".sdlc/login/state.md"), encoding="utf-8") as f:
             return f.read()
 
+    def deviation(self, text):
+        p = subprocess.run([sys.executable, os.path.join(PLUGIN_ROOT, "scripts", "state.py"), "--root", self.root,
+                            "deviation", "login", text], capture_output=True, encoding="utf-8")
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+
 
 class TestLockTest(VerifyBase):
     """Spec 03 S4: a test recorded red is locked; changing it needs a recorded reason and a red run at Base."""
@@ -37,11 +42,6 @@ class TestLockTest(VerifyBase):
         code, out, _ = self.verify("red", "AC-001")
         self.assertEqual(code, 0, out)
         self.write("done", "")
-
-    def deviation(self, text):
-        p = subprocess.run([sys.executable, os.path.join(PLUGIN_ROOT, "scripts", "state.py"), "--root", self.root,
-                            "deviation", "login", text], capture_output=True, encoding="utf-8")
-        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
 
     def test_red_locks_each_test_file_it_ran(self):
         self.locked()
@@ -159,10 +159,59 @@ class TestLockTest(VerifyBase):
         self.assertIn("test lock: tests/t.py", out)
 
 
+class StandaloneLockTest(VerifyBase):
+    """#56 P3: a repo that isn't spec-backed locks the tests of an M or L feature; S locks nothing."""
+
+    def setUp(self):
+        super().setUp()  # config names no criteria lock: a standalone repo
+        self.track("M")
+
+    def track(self, name):
+        self.state = re.sub(r"Track: \w\n", "", self.state)
+        if name:
+            self.state = self.state.replace("Current:", f"Track: {name}\nCurrent:", 1)
+        self.write(".sdlc/login/state.md", self.state)
+
+    def red(self):
+        if os.path.exists(self.path("done")):
+            os.remove(self.path("done"))
+        self.spec("AC-001")
+        self.plan([("AC-001", "tests/t.py › ok", TestLockTest.RUN)], tasks=["1. t `tests/t.py` `done`"])
+        self.write("tests/t.py", "assert answer == 42\n")
+        code, out, _ = self.verify("red", "AC-001")
+        self.assertEqual(code, 0, out)
+        self.write("done", "")
+
+    def test_m_and_l_lock_s_and_no_track_do_not(self):
+        for name in ("S", None, "L", "M"):
+            with self.subTest(track=name):
+                self.track(name)
+                self.red()
+                self.write("tests/t.py", "assert answer\n")
+                code, out, _ = self.verify()
+                if name in ("M", "L"):
+                    self.assertIn("## Test lock", self.read_state())
+                    self.assertEqual(code, 1, out)
+                    self.assertIn("test lock: tests/t.py changed since its red run (AC-001)", out)
+                else:
+                    self.assertNotIn("## Test lock", self.read_state())
+                    self.assertEqual(code, 0, out)
+
+    def test_m_re_red_at_base_passes(self):
+        self.red()
+        self.write("tests/t.py", "assert answer == 42, 'the answer'\n")
+        self.deviation("test-change tests/t.py What: a message on the assert. Why: the failure didn't say what.")
+        base = re.search(r"^Base:\s*(\S+)", self.read_state(), re.M).group(1)
+        code, out, _ = self.verify("red", "--at", base, "AC-001")
+        self.assertEqual(code, 0, out)
+        code, out, _ = self.verify()
+        self.assertEqual(code, 0, out)
+
+
 def load_tests(loader, tests, pattern):
     """Only the tests this file defines: the fixture classes it extends run in their own files."""
     suite = unittest.TestSuite()
-    for cls in (TestLockTest,):
+    for cls in (TestLockTest, StandaloneLockTest):
         for name in loader.getTestCaseNames(cls):
             if name in vars(cls):
                 suite.addTest(cls(name))

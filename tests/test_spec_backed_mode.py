@@ -42,7 +42,7 @@ class ModeVerifyTest(test_verify.VerifyTest):
         base = re.search(r"^Base:\s*(\S+)", self.read_state(), re.M).group(1)
         code, out, _ = self.verify("red", "--at", base, "AC-001")
         self.assertEqual(code, 1, out)
-        self.assertIn("only in a spec-backed repo", out)
+        self.assertIn("here a changed test needs no re-red", out)  # no Track: (S-like), so no lock (#56 P3)
 
     def test_a_standalone_repo_gets_no_criteria_lint(self):
         # rc.1-rc.5 linted this AC (no Given/when/then, no literal, no tag) on an M feature marked Criteria: c1

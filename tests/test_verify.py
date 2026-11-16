@@ -112,6 +112,18 @@ class VerifyTest(ProjectTestCase):
         self.plan([("AC-001", "tests/t.py › ok", 'python3 -c "import sys; sys.exit(4)"')])  # pytest: node id not found
         self.assertEqual(self.verify("red", "AC-001")[0], 1)
 
+    def test_an_ac_that_runs_no_tests_did_not_run(self):
+        self.spec("AC-001")
+        zero = 'python3 -c "print(\'Ran 0 tests in 0.000s\'); print(\'OK\')"'  # unittest before 3.12 exits 0
+        self.plan([("AC-001", "tests/t.py › ok", zero)])
+        self.write("tests/t.py", "")
+        self.assertEqual(self.verify("red", "AC-001")[0], 1)
+        self.verify()  # writes the record for this feature, which write_red adds to
+        self.write_red("AC-001")
+        code, out, _ = self.verify()
+        self.assertEqual(code, 1, out)
+        self.assertIn("AC-001: its test did not run", out)
+
     def test_one_red_call_records_every_ac_or_none(self):
         self.spec("AC-001", "AC-002")
         fails = 'python3 -c "import sys; sys.exit(1)"'

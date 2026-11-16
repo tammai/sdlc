@@ -41,8 +41,8 @@ def lock_paths(root):
 
 def spec_backed_repo(root):
     """sdlc 3.5's one switch: a repo with a criteria lock (config `spec_lock`, or a tracked criteria.lock.json) or an
-    acceptance bundle (acceptance/manifest.json) is spec-backed, and only there do the test lock, `red --at`, the
-    accept.* keys and their doctor row apply. Without either, sdlc behaves as 3.4.0."""
+    acceptance bundle (acceptance/manifest.json) is spec-backed, and only there do the accept.* keys and their doctor
+    row apply, and the test lock and `red --at` on every track (elsewhere on M and L only, verify.locks_tests)."""
     return bool(lock_paths(root)) or os.path.isfile(os.path.join(root, "acceptance", "manifest.json"))
 
 

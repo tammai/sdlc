@@ -14,12 +14,15 @@ Usage: verify.py [--root DIR] [--feature NAME] [--timeout S] [red AC-nnn [AC-nnn
   the run records them as `skipped` and can't be reused for Review; with no part in progress everything is checked. Then drift from the plan (the state file's
   `## Tasks` and `## Public Surface`; plan.md on 1.x): a changed file no task or acceptance test names, a task whose
   files didn't change, an export or dependency the Public Surface doesn't list; each needs a `## Deviations` line
-  (`state.py deviation`) naming it, with What:, Why: and Effect:. Then, only in a spec-backed repo (an rspec
-  criteria.lock.json, config `spec_lock` or acceptance/manifest.json), the test lock (spec 03 S4): a test file locked
-  at its red run that changed or was deleted fails the run, unless a `test-change <file> What: … Why: …` deviation
-  names it and `red --at` ran its ACs with the file as it is now.
+  (`state.py deviation`) naming it, with What:, Why: and Effect:. Then the test lock (spec 03 S4), wherever the red
+  step wrote one: a test file locked at its red run that changed or was deleted fails the run, unless a
+  `test-change <file> What: … Why: …` deviation names it and `red --at` ran its ACs with the file as it is now. An AC
+  whose Run command exits 0 but prints a runner's "no tests ran" fails as not run. A failing test step's whole output
+  (its last 1 MB) is kept in verify.json's `last.test_output`, for ship.py's baseline waiver.
 `red AC-nnn [AC-nnn ...]`, run before those ACs' code is written: runs each AC's test and records it failing (exit 0),
-  and, in a spec-backed repo, locks each test file it ran (its sha256 under the state file's `## Test lock`). A test that passes, can't be
+  and, on an M or L feature or in a spec-backed repo (an rspec criteria.lock.json, config `spec_lock` or
+  acceptance/manifest.json), locks each test file it ran (its sha256 under the state file's `## Test lock`). A test
+  that passes, can't be
   found or can't run is refused (exit 1, and none of the named ACs is recorded): it would prove nothing.
 `red --at <ref> AC-nnn …`: the ACs' test files as they are now, run in a temporary git worktree at `ref` (the
   feature's Base); each must fail there, which shows a changed test still fails without the feature.
@@ -198,7 +201,7 @@ def spec_backed(root, feature):
     return findings
 
 
-def run(cmd, cwd, timeout, env=None):
+def run(cmd, cwd, timeout, env=None, tail=2000):
     sh = scaffold.shell()
     try:
         p = subprocess.run(sh + [cmd] if sh else cmd, shell=not sh, cwd=cwd, capture_output=True,
@@ -206,7 +209,7 @@ def run(cmd, cwd, timeout, env=None):
                            env={**os.environ, **env} if env else None)
     except subprocess.TimeoutExpired:
         return 124, f"timed out after {timeout}s"
-    return p.returncode, (p.stdout + p.stderr)[-2000:]
+    return p.returncode, (p.stdout + p.stderr)[-tail:]
 
 
 def read(path):
@@ -408,10 +411,15 @@ def full(root, feature, timeout=1800, whole=False):
         rec = {"feature": feature}
     failures, notes = [], []
     config = json.loads(read(os.path.join(root, ".sdlc", "config.json")) or "{}")
+    test_output = {}
     for step in scaffold.verify_plan(config)["verify"]:
-        code, out = run(step["run"], os.path.join(root, step["cwd"]), timeout)
+        name = f"{step['scope'] or scaffold.ROOT_SCOPE} {step['step']}"
+        code, out = run(step["run"], os.path.join(root, step["cwd"]), timeout,
+                        tail=TEST_OUTPUT if step["step"] == "test" else 2000)
         if code:
-            failures.append(f"{step['scope'] or scaffold.ROOT_SCOPE} {step['step']}: exit {code}\n{out[-500:]}")
+            failures.append(f"{name}: exit {code}\n{out[-500:]}")
+            if step["step"] == "test":  # ship.py's baseline waiver names the failing tests from it (#56 P2)
+                test_output[name] = out
     failures += repo_failures(root, feature, timeout)
     acs, rows = acceptance(root, feature)
     later = {} if whole else later_parts(root, feature)
@@ -449,11 +457,13 @@ def full(root, feature, timeout=1800, whole=False):
                                          build.env if recorded else None)
                     if code:
                         failures.append(f"{ac}: its test fails (exit {code})\n{out[-500:]}")
+                    elif NOT_FOUND.search(out) or recorded and "not run: " in out:  # a run of no tests (#56 P1)
+                        failures.append(f"{ac}: its test did not run (exit 0, the runner found no test): check the "
+                                        f"Test and Run cells\n{out[-500:]}")
         finally:
             build.close()
-    backed = spec_lock.spec_backed_repo(root)  # sdlc 3.5: the test lock and cited criteria, in such a repo only
-    if backed:
-        failures += lock_failures(root, feature, rows or [], rec)
+    backed = spec_lock.spec_backed_repo(root)  # sdlc 3.5: cited criteria, in such a repo only
+    failures += lock_failures(root, feature, rows or [], rec)  # whatever lock the red step wrote (#56 P3)
     drifted = drift(root, feature, later)
     if drifted is None:
         notes.append("no plan (the state file's ## Tasks) or no Base:, so drift wasn't checked")
@@ -470,7 +480,7 @@ def full(root, feature, timeout=1800, whole=False):
     rec["last"] = {"at": vf.now(), "tree": vf.worktree_tree(root), "head": vf.git_head(root),
                    "result": "fail" if failures else "pass", "seconds": round(time.time() - started, 1),
                    "failures": failures, "manual": manual, "drift": drifted or [], "skipped": skipped,
-                   "trace": traced, "repos": repo_trees(root, feature)}
+                   "trace": traced, "repos": repo_trees(root, feature), "test_output": test_output}
     save_record(root, rec, ("full", None))
     return rec["last"], notes
 
@@ -481,7 +491,18 @@ NOT_RUNNABLE = {126, 127, 9009, 5, 4, 124}
 # Runner output that means the named test wasn't found. Only the runner's own lookup: an ImportError or
 # AttributeError about the code under test is the normal red of a test written first
 NOT_FOUND = re.compile(r"no tests ran|collected 0 items|No tests found|no tests to run|ERROR: not found:|"
-                       r"has no attribute '?test\w*", re.I)
+                       r"has no attribute '?test\w*|\bRan 0 tests\b|^# tests 0\s*$", re.I | re.M)
+TEST_OUTPUT = 1_000_000  # characters of a failing test step's output kept for the baseline waiver
+
+
+def locks_tests(root, feature):
+    """Whether the red step locks builder-written tests (spec 03 S4): on every track in a spec-backed repo (3.5.0),
+    and on M and L in every repo (#56 P3). S, and a state file with no `Track:`, lock nothing."""
+    if spec_lock.spec_backed_repo(root):
+        return True
+    text = read(os.path.join(root, sdlc_layout.paths(root, feature)["state"])) or ""
+    m = re.search(r"^Track:[ \t]*([A-Za-z]+)", text, re.M)
+    return bool(m) and m.group(1) in ("M", "L")
 
 
 def file_sha(path):
@@ -538,9 +559,10 @@ def red_at(root, feature, ref, acs, timeout=1800):
     """`red --at <ref>` (spec 03 S4): the ACs' test files as they are now, run in a temporary worktree at `ref` (the
     code without the feature); each must fail there. Recorded per AC with the file's hash, all or nothing; the
     worktree is always removed."""
-    if not spec_lock.spec_backed_repo(root):
-        return None, ["red --at: the test lock is on only in a spec-backed repo (an rspec criteria.lock.json, config "
-                      "spec_lock or acceptance/manifest.json); here a changed test needs no re-red"]
+    if not locks_tests(root, feature):
+        return None, ["red --at: the test lock is on for M and L features and in a spec-backed repo (an rspec "
+                      "criteria.lock.json, config spec_lock or acceptance/manifest.json); here a changed test needs "
+                      "no re-red"]
     rows = acceptance(root, feature)[1] or []
     chosen, reasons = [], []
     for ac in acs:
@@ -781,10 +803,10 @@ def red(root, feature, acs, timeout=1800):
         build.close()
     if reasons:
         return None, reasons
-    # The test lock (spec 03 S4), in a spec-backed repo only: each builder-written test, as it was when it failed;
-    # recorded tests have their manifest's hash instead
+    # The test lock (spec 03 S4), on M and L and in a spec-backed repo: each builder-written test, as it was when it
+    # failed; recorded tests have their manifest's hash instead
     entries = []
-    for row in rows if spec_lock.spec_backed_repo(root) else ():
+    for row in rows if locks_tests(root, feature) else ():
         if row["ac"] in codes and not row["manual"] and bundle_check(root, row) is None:
             entries += [row["file"], file_sha(os.path.join(root, row["file"]))]
     if entries:
