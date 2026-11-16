@@ -10,8 +10,10 @@ Only active features count (`Status: active` in their state file):
     CRLF), unless a `test-change <file> What: … Why: …` deviation names it. With --base, a feature whose state file
     changed since then is checked too, active or not: Ship marks it done in the commit that finishes it.
 
-Usage: python3 .sdlc/ci/invariants.py [--base REF] [--require-ancestor]   (--require-ancestor: accepted, unused since 2.0)
+Usage: python3 .sdlc/ci/invariants.py [--base REF] [--json] [--require-ancestor]   (--require-ancestor: unused since 2.0)
 Exits 1 and prints one line per problem. As a pre-commit hook: python3 .sdlc/ci/invariants.py --base HEAD
+--json: one JSON document instead, `{result: ok|fail, problems: [{severity, code, message, target?, fix?}]}`, the
+message being the line's text after `sdlc invariants: `; codes are stable, for tools to match on.
 Stdlib only, Python 3.9+; it imports nothing from the plugin.
 """
 import argparse
@@ -25,6 +27,20 @@ import sys
 
 SDLC = ".sdlc"
 STAGE = re.compile(r"^Current:\s*Stage\s+(\d+)", re.M)
+
+
+class Problem(str):
+    """A problem's text, as printed, carrying its stable code, target and fix for --json."""
+
+    def __new__(cls, code, message, target=None, fix=None):
+        p = super().__new__(cls, message)
+        p.code, p.target, p.fix = code, target, fix
+        return p
+
+    def as_dict(self):
+        d = {"severity": "error", "code": self.code, "message": str(self)}
+        d.update({k: v for k, v in (("target", self.target), ("fix", self.fix)) if v})
+        return d
 
 
 def git(*args):
@@ -68,9 +84,11 @@ def check_record(path, stage, build=2, ship=4):
     problems = []
     change = read(path) or ""
     if stage >= build and "## Acceptance tests" not in change:
-        problems.append(f"{path}: past Define but no `## Acceptance tests` table naming each AC's test")
+        problems.append(Problem("no_acceptance_tests", f"{path}: past Define but no `## Acceptance tests` table naming "
+                                "each AC's test", path, "add `## Acceptance tests`, one row per AC with its test"))
     if stage >= ship and not section(change, "Review").strip():
-        problems.append(f"{path}: in Ship but no `## Review` section saying what was reviewed")
+        problems.append(Problem("no_review_section", f"{path}: in Ship but no `## Review` section saying what was "
+                                "reviewed", path, "write `## Review` in the change file (Review does)"))
     return problems
 
 
@@ -116,8 +134,9 @@ def check_lock(state_path, state):
                for line in deviations):
             continue
         what = "was deleted" if now is None else "changed"
-        problems.append(f"{state_path}: {file} {what} since its red run (## Test lock) and no `test-change {file} "
-                        "What: … Why: …` deviation says why")
+        problems.append(Problem("test_lock_changed", f"{state_path}: {file} {what} since its red run (## Test lock) "
+                                f"and no `test-change {file} What: … Why: …` deviation says why", file,
+                                f'add a deviation under ## Deviations: "test-change {file} What: … Why: …"'))
     return problems
 
 
@@ -130,7 +149,7 @@ def check_test_files(path):
             continue
         file = test.split("›")[0].strip().strip("`").strip()
         if file and not file.replace("\\", "/").startswith(app_repos()) and not os.path.exists(file):
-            problems.append(f"{path}: {ac}: its test file {file} doesn't exist")
+            problems.append(Problem("test_file_missing", f"{path}: {ac}: its test file {file} doesn't exist", file))
     return problems
 
 
@@ -173,14 +192,16 @@ def check_baseline(base, deviations):
         names = [key[2]] if key[0] == "test" else [key[3], key[4]]
         if not all(n in deviations for n in names):
             what = key[2] if key[0] == "test" else f"{key[3]} in {key[4]}"
-            problems.append(f"{path}: `{what}` was added or went up without a Deviations entry in a feature's "
-                            "state file naming it")
+            problems.append(Problem("baseline_grew", f"{path}: `{what}` was added or went up without a Deviations "
+                                    "entry in a feature's state file naming it", what,
+                                    f"name `{what}` in a Deviations line of the feature's state file, with why"))
     return problems
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--base", help="the commit to compare the baseline against")
+    ap.add_argument("--json", action="store_true", help="one JSON document: result and each problem's code")
     ap.add_argument("--require-ancestor", action="store_true", help="accepted for old CI workflows; unused since 2.0")
     a = ap.parse_args(argv)
     sys.stdout.reconfigure(encoding="utf-8")  # file names and messages aren't ASCII; Windows consoles default to cp1252
@@ -205,6 +226,10 @@ def main(argv=None):
             problems += check_test_files(change_path)
     if a.base:
         problems += check_baseline(a.base, deviations)
+    if a.json:
+        print(json.dumps({"result": "fail" if problems else "ok", "problems": [p.as_dict() for p in problems]},
+                         indent=2, ensure_ascii=False))
+        return 1 if problems else 0
     for line in problems:
         print(f"sdlc invariants: {line}")
     if not problems:

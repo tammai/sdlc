@@ -1,4 +1,5 @@
 """templates/project/ci/invariants.py: the shared sdlc files, checked in CI whichever agent changed them."""
+import json
 import os
 import subprocess
 import sys
@@ -111,6 +112,10 @@ class TestLockTest(InvariantsTest):
         self.assertEqual(self.check()[0], 0)
         os.remove(self.path("t.py"))
         self.locked()
+        code, out = self.check("--json")  # #76: one document, each problem with its stable code
+        self.assertEqual((code, json.loads(out)["result"]), (1, "fail"))
+        self.assertEqual([(p["code"], p["target"]) for p in json.loads(out)["problems"]],
+                         [("test_lock_changed", "t.py"), ("test_file_missing", "t.py")])
         code, out = self.check()
         self.assertEqual(code, 1, out)
         self.assertIn("t.py was deleted since its red run", out)

@@ -2,6 +2,7 @@
 """Ship's one command: everything before the commit, so Ship is a single shell call (ADR 0020).
 
 Usage: ship.py [--root DIR] FEATURE [--message SUBJECT] [--review TEXT] [--note TEXT] [--waive-baseline] [--timeout S]
+               [--json]
        ship.py [--root DIR] FEATURE --status
   1. `Owner:` must be `git config user.email`; someone else's is refused (the user decides a handover).
   2. `--review TEXT`: when the change file has no `## Review` yet, appends one holding TEXT (an S change, or an M no
@@ -25,6 +26,9 @@ Usage: ship.py [--root DIR] FEATURE [--message SUBJECT] [--review TEXT] [--note 
      (.sdlc/.work/pr-<repo>.md) linking the others; `repos` lists them with the workbench in merge order: workbench,
      then providers, then consumers (workbench.json `contract`). The caller commits each (`git -C <repo> commit -F
      <message>`), pushes, opens each PR with its body, and records it: `state.py pr FEATURE <repo> <url>`.
+`--json` (#76): the success object gains `result: ready` and `problems: []`; a refusal is one JSON document,
+  `{result: refused, feature, problems}`, each problem `{severity, code, message, fix?}` (verify's own when
+  verify stopped it), instead of the `ship: …` line. Exit codes are the same.
 `--status`: a workbench feature's recorded PRs (`## PRs`), each one's state from gh, a warning for each consumer
   merged before its provider (or an app before the workbench's contract PR), never a block; `done` only when every PR
   is merged. Always exit 0 once the state file is read.
@@ -45,6 +49,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(HERE), "hooks"))
 sys.path.insert(0, HERE)
 import sdlc_layout  # noqa: E402
 import sdlc_scopes  # noqa: E402  (a workbench: its repos, the feature's ## Repos and ## PRs, merge order)
+import problems as P  # noqa: E402  (a refusal's code and fix, for --json)
 import verify  # noqa: E402  (status, the full run, and what the tests leave behind)
 
 MESSAGE = os.path.join(".sdlc", ".work", "commit-msg.txt")
@@ -53,13 +58,22 @@ CONTRACT = re.compile(r"^\.sdlc/state/[^/]+(\.json|\.events\.jsonl|\.commands/)"
 
 
 class Refused(Exception):
-    pass
+    """Ship stopped before anything moved. `code` and `fix` are for --json (#76); `problems`, verify's own, when it
+    stopped on them."""
+
+    def __init__(self, message, code="ship_refused", fix=None, problems=()):
+        super().__init__(message)
+        self.code, self.fix, self.problems = code, fix, list(problems)
+
+    def as_problems(self):
+        own = P.problem(self.code, str(self).split("\n")[0] if self.problems else str(self), fix=self.fix)
+        return [own] + self.problems
 
 
 def git(root, *args, check=True):
     p = subprocess.run(["git", "-C", root, *args], capture_output=True, encoding="utf-8", errors="replace")
     if check and p.returncode:
-        raise Refused(f"git {args[0]}: {(p.stderr or p.stdout).strip()}")
+        raise Refused(f"git {args[0]}: {(p.stderr or p.stdout).strip()}", "git_failed")
     return p.stdout
 
 
@@ -72,7 +86,7 @@ def add_review(root, change, text):
     path = os.path.join(root, change)
     body = verify.read(path)
     if body is None:
-        raise Refused(f"{change} not found")
+        raise Refused(f"{change} not found", "change_file_missing")
     if re.search(r"^## Review\b", body, re.M):
         return False
     with open(path, "w", encoding="utf-8", newline="") as f:
@@ -110,11 +124,14 @@ def verified(root, feature, timeout, waive_baseline=False):
         if not problem:
             return last["head"], last["tree"], ("Stage 4: baseline failures waived (listed in .sdlc/baseline.md): "
                                                 + ", ".join(waived))
-        raise Refused("verify failed:\n" + "\n".join(notes + last["failures"]) + "\n" + problem)
+        raise Refused("verify failed:\n" + "\n".join(notes + last["failures"]) + "\n" + problem, "verify_failed",
+                      problems=notes + last["failures"] + [P.problem("baseline_waiver_refused", problem)])
     waivable = listed and not (apps and any(f.startswith(apps) for f in last["failures"]))
     hint = ("\nIf only the test step failed and every failure is in .sdlc/baseline.md, rerun with --waive-baseline."
             if waivable else "")
-    raise Refused("verify failed:\n" + "\n".join(notes + last["failures"]) + hint)
+    raise Refused("verify failed:\n" + "\n".join(notes + last["failures"]) + hint, "verify_failed",
+                  fix="fix the failures and run ship.py again" + (", or rerun with --waive-baseline" if waivable else ""),
+                  problems=notes + last["failures"])
 
 
 # #56 P2: the failing tests each runner's report names, and the count its own summary gives
@@ -201,7 +218,7 @@ def state_py(root, *args, ok=None):
     p = subprocess.run([sys.executable, os.path.join(HERE, "state.py"), "--root", root, *args], capture_output=True,
                        encoding="utf-8", errors="replace")
     if p.returncode and not (ok and ok in p.stdout):
-        raise Refused(f"state.py {args[0]}: {p.stdout.strip()}")
+        raise Refused(f"state.py {args[0]}: {p.stdout.strip()}", "state_refused")
 
 
 def title(root, change):
@@ -227,11 +244,12 @@ def ship(root, feature, message, review=None, note=None, timeout=1800, waive_bas
     paths = sdlc_layout.paths(root, feature)
     state = verify.read(os.path.join(root, paths["state"]))
     if state is None:
-        raise Refused(f"no state file for {feature}")
+        raise Refused(f"no state file for {feature}", "no_state_file")
     owner, me = field(state, "Owner"), git(root, "config", "user.email", check=False).strip()
     message = message or title(root, paths["change"]) or feature
     if owner and me and owner != me:
-        raise Refused(f"Owner is {owner}, not {me}: ask the user before taking it over")
+        raise Refused(f"Owner is {owner}, not {me}: ask the user before taking it over", "owner_differs",
+                      fix="ask the user whether to take it over (state.py set <feature> Owner <you>)")
     if review:
         add_review(root, paths["change"], review)
     # Every refusal comes before the state moves, so a refusal leaves the state file as it was
@@ -240,7 +258,8 @@ def ship(root, feature, message, review=None, note=None, timeout=1800, waive_bas
     branch = None
     if git(root, "branch", "--show-current").strip() != feature and on_default_branch(root):
         if git(root, "rev-parse", "--verify", "--quiet", f"refs/heads/{feature}", check=False).strip():
-            raise Refused(f"a branch named {feature} exists already: switch to it (or rename it) and run ship.py again")
+            raise Refused(f"a branch named {feature} exists already: switch to it (or rename it) and run ship.py "
+                          "again", "branch_exists", fix=f"git switch {feature}")
         branch = feature
         git(root, "switch", "-c", branch)
     if waiver:
@@ -268,27 +287,28 @@ def check_repos(root, state):
         kept, dropped = sdlc_scopes.branched_repos(root, state)
         listed = [r["name"] for r in sdlc_scopes.manifest(root)]
     except ValueError as e:
-        raise Refused(str(e))
+        raise Refused(str(e), "workbench_invalid")
     if dropped:
         raise Refused("; ".join(why for _, why in dropped) + ": sdlc doesn't stage or commit there. Fix workbench.json "
-                      "or the state file's ## Repos line, then run ship.py again")
+                      "or the state file's ## Repos line, then run ship.py again", "repo_not_writable")
     for name in listed:
         ignored = subprocess.run(["git", "-C", root, "check-ignore", "-q", f"{name}/"], capture_output=True).returncode
         if os.path.isdir(os.path.join(root, name)) and ignored != 0:
             raise Refused(f"{name}/ isn't gitignored in the workbench, so its commit would take the repo in: add "
-                          f"/{name}/ to .gitignore (scaffold.py workbench add does) and run ship.py again")
+                          f"/{name}/ to .gitignore (scaffold.py workbench add does) and run ship.py again", "repo_not_ignored")
     # Any other git repo inside the workbench that git would stage (listed or not) goes in as a gitlink too
     for entry in git(root, "ls-files", "-z", "--others", "--exclude-standard").split("\0"):
         if entry.endswith("/") and os.path.exists(os.path.join(root, entry, ".git")):
             raise Refused(f"{entry} is a git repo inside the workbench that isn't gitignored, so the workbench commit "
                           f"would take it in: list it (scaffold.py workbench add) or add /{entry} to .gitignore, then "
-                          "run ship.py again")
+                          "run ship.py again", "nested_repo_not_ignored")
     for name, rec in kept:
         current = git(os.path.join(root, name), "branch", "--show-current").strip()
         if current != rec["branch"]:
             raise Refused(f"{name} is on {current or 'a detached HEAD'}, not the feature's branch {rec['branch']}: "
                           f"switch it back (git -C {shlex.quote(name)} switch {shlex.quote(rec['branch'])}) and run "
-                          "ship.py again")
+                          "ship.py again", "repo_off_branch",
+                          fix=f"git -C {shlex.quote(name)} switch {shlex.quote(rec['branch'])}")
     return kept
 
 
@@ -354,7 +374,7 @@ def status(root, feature):
     and `done` only when every PR is merged."""
     state = verify.read(os.path.join(root, sdlc_layout.paths(root, feature)["state"]))
     if state is None:
-        raise Refused(f"no state file for {feature}")
+        raise Refused(f"no state file for {feature}", "no_state_file")
     prs = sdlc_scopes.feature_prs(state)
     if not prs:
         return {"done": False, "prs": [], "warnings": [],
@@ -398,6 +418,8 @@ def main(argv=None):
     ap.add_argument("--waive-baseline", action="store_true",
                     help="ship past a failed test step when .sdlc/baseline.md lists failing tests")
     ap.add_argument("--timeout", type=int, default=1800)
+    ap.add_argument("--json", action="store_true",
+                    help="a refusal as one JSON document too: result, then each problem's code, message and fix")
     ap.add_argument("--status", action="store_true",
                     help="a workbench feature: its PRs' states, warnings for out-of-order merges; never blocks")
     a = ap.parse_args(argv)
@@ -412,9 +434,12 @@ def main(argv=None):
     try:
         out = ship(os.path.abspath(a.root), a.feature, a.message, a.review, a.note, a.timeout, a.waive_baseline)
     except Refused as e:
-        print(f"ship: {e}")
+        if a.json:
+            P.emit("refused", e.as_problems(), feature=a.feature)
+        else:
+            print(f"ship: {e}")
         return 1
-    print(json.dumps(out, ensure_ascii=False))
+    print(json.dumps({"result": "ready", **out, "problems": []} if a.json else out, ensure_ascii=False))
     return 0
 
 

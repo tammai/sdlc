@@ -33,7 +33,26 @@ class Report:
         self.checks = []
 
     def add(self, group, name, status, detail, fix=None):
-        self.checks.append({"group": group, "check": name, "status": status, "detail": detail, "fix": fix})
+        self.checks.append({"group": group, "check": name, "status": status, "detail": detail, "fix": fix,
+                            "code": slug(f"{group} {name}")})
+
+
+def slug(text):
+    """A check's stable code (#76), from its group and name, never its detail: `machine.git`, `repo.config_and_lock`."""
+    return ".".join(re.sub(r"[^a-z0-9]+", "_", part.lower()).strip("_") for part in text.split(" ", 1))
+
+
+def problems(checks):
+    """The failing and warning checks in the shared problem shape (scripts/problems.py)."""
+    out = []
+    for c in checks:
+        if c["status"] in ("fail", "warn"):
+            p = {"severity": "error" if c["status"] == "fail" else "warning", "code": c["code"],
+                 "message": f"{c['check']}: {c['detail']}", "target": c["check"]}
+            if c["fix"]:
+                p["fix"] = c["fix"]
+            out.append(p)
+    return out
 
 
 def knowledge_links(text):
@@ -518,7 +537,7 @@ def main(argv=None):
     check_repo(r, root)
     check_workbench(r, root)
     summary = {k: sum(1 for c in r.checks if c["status"] == k) for k in ("ok", "warn", "fail", "skip")}
-    report = {"root": root, "checks": r.checks, "summary": summary}
+    report = {"root": root, "checks": r.checks, "summary": summary, "problems": problems(r.checks)}
     sys.stdout.reconfigure(encoding="utf-8")  # a cp1252 pipe (Windows) can't encode the status emoji
     print(to_markdown(report) if a.format == "md" else json.dumps(report, indent=2, ensure_ascii=False))
     return 1 if summary["fail"] else 0
