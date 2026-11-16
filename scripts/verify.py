@@ -94,9 +94,19 @@ def acceptance_map(plan_text):
             continue
         test, run = m.group(2).strip(), m.group(3).strip()
         manual = test.lower() == "manual"
+        departure = DEPARTURE_CELL.fullmatch(test.strip("`").strip())
+        if departure:  # #68: sets the recorded test its Run cell names aside; a builder row beside it proves the AC
+            rows.append({"ac": m.group(1), "test": test, "file": None, "run": run.strip("`").strip(), "manual": False,
+                         "departure": departure.group(1)})
+            continue
         rows.append({"ac": m.group(1), "test": test, "file": None if manual else test.split("›")[0].strip().strip("`").strip(),
                      "run": run if manual else run.strip("`").strip(), "manual": manual})
     return rows
+
+
+def test_rows(rows):
+    """The rows that name a test (or `manual`): every row but a departure's."""
+    return [r for r in rows or [] if not r.get("departure")]
 
 
 def spec_acs(spec_text):
@@ -431,14 +441,20 @@ def full(root, feature, timeout=1800, whole=False):
     if rows is None:
         notes.append("no acceptance tests section: every 2.0 plan has one")
     else:
-        by_ac = {r["ac"]: r for r in rows}
+        by_ac = {r["ac"]: r for r in test_rows(rows)}
+        set_aside = {}
+        for r in rows:
+            if r.get("departure"):
+                set_aside.setdefault(r["ac"], []).append(r)
         ran, build = {}, Build(root)
         try:
             for ac in acs:
+                failures += [p for p in (departure_check(root, d) for d in set_aside.get(ac, [])) if p]
                 row = by_ac.get(ac)
                 recorded = row and not row["manual"] and bundle_check(root, row)
                 if not row:
-                    failures.append(f"{ac}: no row in ## Acceptance tests")
+                    failures.append(NO_BUILDER_ROW.format(ac=ac) if ac in set_aside
+                                    else f"{ac}: no row in ## Acceptance tests")
                 elif row["manual"]:
                     if row["run"]:
                         manual.append(ac)
@@ -563,7 +579,7 @@ def red_at(root, feature, ref, acs, timeout=1800):
         return None, ["red --at: the test lock is on for M and L features and in a spec-backed repo (an rspec "
                       "criteria.lock.json, config spec_lock or acceptance/manifest.json); here a changed test needs "
                       "no re-red"]
-    rows = acceptance(root, feature)[1] or []
+    rows = test_rows(acceptance(root, feature)[1])
     chosen, reasons = [], []
     for ac in acs:
         row = next((r for r in rows if r["ac"] == ac), None)
@@ -673,6 +689,60 @@ def bundle_check(root, row):
         return entry, (f"{ac}: {rel} differs from the sha256 in {BUNDLE}/manifest.json: a recorded test changes only "
                        "through the spec's amend flow")
     return entry, None
+
+
+DEPARTURE_CELL = re.compile(r"departure\s+(D-\d{3,})", re.I)
+DEPARTURES = "docs/departures.yaml"  # contracts C5; product-rebuild's one registry, at the workbench or repo root
+NO_BUILDER_ROW = ("{ac}: a departure row needs a builder test row beside it (`| {ac} | <test file> › <name> | "
+                  "<command> |`) that proves the behaviour")
+
+
+def departure_check(root, row):
+    """#68: None when the row's departure is decided in docs/departures.yaml and covers the criterion of the recorded
+    test its Run cell names; else the reason. The file is read with the vendored contracts' parser and checks (C5)."""
+    ac, did = row["ac"], row["departure"]
+    rel = row["run"].split("›")[0].strip().strip("`").strip()
+    found = bundle_check(root, {"ac": ac, "file": rel})
+    entry = found[0] if found else None
+    if not entry or not isinstance(entry.get("criterion"), str):
+        return (f"{ac}: departure {did} must name the recorded test it sets aside in its Run cell (an {BUNDLE}/ path "
+                f"listed in {BUNDLE}/manifest.json), not {rel or 'nothing'}")
+    text = read(os.path.join(root, DEPARTURES))
+    if text is None:
+        return f"{ac}: departure {did}: {DEPARTURES} not found"
+    try:
+        c = contracts()
+        data = c.parse_yaml(text)
+        issues = [m for s, m in c.check_departures(data) if s in ("error", "blocked")]
+    except Exception as e:  # noqa: BLE001  a malformed registry is a failure with its reason, never a traceback
+        return f"{ac}: departure {did}: {DEPARTURES} can't be read ({type(e).__name__}: {e})"
+    d = next((x for x in data if isinstance(x, dict) and x.get("id") == did), None) if isinstance(data, list) else None
+    if d is None:
+        return f"{ac}: departure {did} isn't in {DEPARTURES}" + (f" ({issues[0]})" if issues else "")
+    if d.get("status") == "proposed":
+        return f"{ac}: departure {did} is proposed: a person decides it (decided_by) before it sets a test aside"
+    if not d.get("decided_by"):
+        return f"{ac}: departure {did} has no decided_by: nobody decided it"
+    mine = [m for m in issues if m.startswith(did + ":") or m.startswith(did + " ") or not m.startswith("D-")]
+    if mine:
+        return f"{ac}: departure {did}: {DEPARTURES} isn't valid: {mine[0]}"
+    if entry["criterion"] not in (d.get("criteria") or []):
+        return f"{ac}: departure {did} doesn't cover {entry['criterion']}, the criterion of {rel}"
+    return None
+
+
+_CONTRACTS = []
+
+
+def contracts():
+    """The vendored contracts v1 module (C5's parser and checks), loaded once."""
+    if not _CONTRACTS:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("sdlc_contracts_v1", CONTRACTS)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        _CONTRACTS.append(module)
+    return _CONTRACTS[0]
 
 
 def resolve(cmd):
@@ -806,7 +876,7 @@ def red(root, feature, acs, timeout=1800):
     # The test lock (spec 03 S4), on M and L and in a spec-backed repo: each builder-written test, as it was when it
     # failed; recorded tests have their manifest's hash instead
     entries = []
-    for row in rows if locks_tests(root, feature) else ():
+    for row in test_rows(rows) if locks_tests(root, feature) else ():
         if row["ac"] in codes and not row["manual"] and bundle_check(root, row) is None:
             entries += [row["file"], file_sha(os.path.join(root, row["file"]))]
     if entries:
@@ -833,8 +903,10 @@ def run_once(ran, cmd, root, timeout, env=None):
 
 def red_one(root, rows, ac, timeout, ran, build):
     """(exit code, None) when the AC's test fails as it should, else (None, reason)."""
-    row = next((r for r in rows if r["ac"] == ac), None)
+    row = next((r for r in test_rows(rows) if r["ac"] == ac), None)
     if not row:
+        if any(r["ac"] == ac for r in rows):  # only a departure row
+            return None, NO_BUILDER_ROW.format(ac=ac)
         return None, f"{ac}: no row in ## Acceptance tests"
     if row["manual"]:
         return None, f"{ac}: a manual row has no test to run"

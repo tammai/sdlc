@@ -68,6 +68,7 @@ Why: the 3.5.0-rc.5 eval measured M-low tokens +97% and S +62% against 3.4.0 wit
 - The red step runs it against the unbuilt feature like any other test.
 - The PreToolUse hook denies Write/Edit/Bash writes on paths in the manifest. A wrong recorded test is a question (S10), never an edit.
 - Criteria without a recorded test fall back to builder-written tests, which the test lock (S4) covers.
+- A recorded test a decided departure says can't pass (#68): the AC's row `| AC-nnn | departure D-nnn | <recorded test path> |` sets it aside, and a second row for the AC names a builder test. `verify.py` fails the AC unless `docs/departures.yaml` (C5) holds the ID with `decided_by`, not `status: proposed`, and its `criteria` include the recorded test's manifest criterion, and unless the builder row is there.
 
 ### S4 Test lock — spec-backed mode only (see Scope)
 
