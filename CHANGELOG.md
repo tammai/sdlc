@@ -5,6 +5,7 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 ## Unreleased
 
 ### Added
+- **A decided departure can set a recorded acceptance test aside** (#68). In a spec-backed repo, an AC whose open recorded test can't pass against the rebuild (a decided departure in `docs/departures.yaml` explains why) gets a row `| AC-003 | departure D-004 | acceptance/http/F-ISS-01.AC2.yaml |` beside a builder test row for the same AC. `verify.py` accepts it only when the registry is valid (contracts C5), holds the ID with `decided_by` (not `status: proposed`) and covers the recorded test's criterion, and fails an AC that has the departure row but no builder test; `red` runs the builder row.
 - **CI checks the test lock and each AC's test file** (#56 P6). `.sdlc/ci/invariants.py` fails when a file under a feature's `## Test lock` no longer has the sha256 it had at its red run (LF or CRLF line endings both match) and no `test-change <file> What: … Why: …` deviation says why, for active features and, with `--base`, any feature whose state file changed in the push (Ship marks it done in its own commit). Past Define, it also fails on an AC row whose test file doesn't exist (`manual` and `departure` rows name none). In a workbench, app repos' files are left to their own CI. Existing repos get it from `/sdlc:upgrade`, which offers the regenerated script.
 
 ### Changed

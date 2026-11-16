@@ -329,10 +329,73 @@ class RecordedTestGuardTest(ProjectTestCase):
         self.assertEqual(codex(tool_name="Bash", tool_input={"command": "rm acceptance/manifest.json"}), "deny")
 
 
+DEPARTURE = ("- id: D-004\n  kind: deliberate-change\n  criteria: [{criterion}]\n"
+             "  summary: The rebuild serves the locked REST contract, not the reference's GraphQL.\n{extra}")
+
+
+class DepartureTest(AcceptanceBundleTest):
+    """#68: a decided departure sets a recorded test aside; a builder test still proves the AC."""
+
+    def setUp(self):
+        super().setUp()
+        self.bundle()
+        self.departures()
+        self.table([("AC-001", "departure D-004", "acceptance/http/F-APP-01.AC1.yaml"),
+                   ("AC-001", "tests/t.py › ping", TestLockTest.RUN)])
+        self.write("tests/t.py", "assert answer == 42\n")
+
+    def departures(self, criterion="F-APP-01.AC1", extra='  decided_by: "Tam Mai, ADR approval 2026-11-16"\n'):
+        self.write("docs/departures.yaml", DEPARTURE.format(criterion=criterion, extra=extra))
+
+    def table(self, rows):
+        self.plan(rows, tasks=["1. t `server.py` `built` `done` `tests/t.py` `docs/departures.yaml` "
+                               "`acceptance/manifest.json` `acceptance/http/F-APP-01.AC1.yaml`"],
+                  deviations=["- H (server.py) What: the stand-in build. Why: a fixture. Effect: none."])
+
+    def test_a_decided_departure_sets_the_recorded_test_aside(self):
+        code, out, rec = self.verify("red", "AC-001")  # the builder test, not the recorded one, runs red
+        self.assertEqual(code, 0, out)
+        self.write("done", "")
+        code, out, _ = self.verify()  # the recorded test would still fail: nothing serves /api/ping
+        self.assertEqual(code, 0, out)
+
+    def test_a_departure_that_does_not_hold_fails(self):
+        self.assertEqual(self.verify("red", "AC-001")[0], 0, "builder test red")
+        self.write("done", "")
+        cases = [
+            (lambda: os.remove(self.path("docs/departures.yaml")), "docs/departures.yaml not found"),
+            (lambda: self.departures(extra=""), "nobody decided it"),
+            (lambda: self.departures(extra="  status: proposed\n"), "is proposed"),
+            (lambda: self.departures(criterion="F-APP-02.AC1"), "doesn't cover F-APP-01.AC1"),
+            (lambda: self.table([("AC-001", "departure D-009", "acceptance/http/F-APP-01.AC1.yaml"),
+                                ("AC-001", "tests/t.py › ping", TestLockTest.RUN)]), "D-009 isn't in docs/departures.yaml"),
+            (lambda: self.table([("AC-001", "departure D-004", "tests/t.py"),
+                                ("AC-001", "tests/t.py › ping", TestLockTest.RUN)]), "must name the recorded test"),
+        ]
+        for change, message in cases:
+            with self.subTest(message):
+                self.departures()
+                self.table([("AC-001", "departure D-004", "acceptance/http/F-APP-01.AC1.yaml"),
+                           ("AC-001", "tests/t.py › ping", TestLockTest.RUN)])
+                change()
+                code, out, _ = self.verify()
+                self.assertEqual(code, 1, out)
+                self.assertIn(message, out)
+
+    def test_a_departure_needs_a_builder_test(self):
+        self.table([("AC-001", "departure D-004", "acceptance/http/F-APP-01.AC1.yaml")])
+        code, out, _ = self.verify("red", "AC-001")
+        self.assertEqual(code, 1, out)
+        self.assertIn("needs a builder test row", out)
+        code, out, _ = self.verify()
+        self.assertEqual(code, 1, out)
+        self.assertIn("needs a builder test row", out)
+
+
 def load_tests(loader, tests, pattern):
     """Only the tests this file defines: the fixture classes it extends run in their own files."""
     suite = unittest.TestSuite()
-    for cls in (AcceptanceBundleTest, RecordedTestGuardTest):
+    for cls in (AcceptanceBundleTest, RecordedTestGuardTest, DepartureTest):
         for name in loader.getTestCaseNames(cls):
             if name in vars(cls):
                 suite.addTest(cls(name))
