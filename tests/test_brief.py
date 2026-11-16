@@ -11,9 +11,9 @@ SCRIPT = os.path.join(PLUGIN_ROOT, "scripts", "brief.py")
 
 
 class BriefTest(ProjectTestCase):
-    def brief(self, *args):
+    def brief(self, *args, env=None):
         p = subprocess.run([sys.executable, SCRIPT, "--root", self.root, *args], capture_output=True,
-                           encoding="utf-8", errors="replace")
+                           encoding="utf-8", errors="replace", env=env)
         self.assertEqual(p.returncode, 0, p.stderr)
         return p.stdout
 
@@ -48,10 +48,15 @@ class BriefTest(ProjectTestCase):
     def test_points_define_at_a_graphify_graph_only_when_the_repo_has_one(self):
         self.assertNotIn("graphify", self.brief())  # none: nothing said, nothing run
         self.write("graphify-out/graph.json", "{}")
-        out = self.brief()
+        bin_dir = os.path.join(self.root, "bin")  # outside the brief's file reads: only PATH points at it
+        tool = self.write("bin/graphify.bat" if os.name == "nt" else "bin/graphify", "exit 0\n")
+        os.chmod(tool, 0o755)
+        out = self.brief(env={**os.environ, "PATH": bin_dir + os.pathsep + os.environ.get("PATH", "")})
         self.assertIn("===== graphify graph: graphify-out/graph.json", out)
         self.assertIn('graphify query "<the request in a few words>"', out)
         self.assertIn("the code wins", out)
+        out = self.brief(env={**os.environ, "PATH": os.path.join(self.root, "empty")})  # no graphify command
+        self.assertIn("graphify-out/GRAPH_REPORT.md summarizes the graph", out)
 
     def test_prints_the_projects_rules_for_each_document(self):
         # #75: config's `rules`, keyed by the document they shape, printed beside the change template
