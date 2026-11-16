@@ -23,15 +23,18 @@ A capability file:
   - Test: <file › name>
   - From: <feature> AC-001
 
-Usage: capabilities.py [--root DIR] check|merge FEATURE   (merge writes; check only plans). Prints one JSON object:
-{"ok", "files": [paths written or deleted], "problems": [...] (scripts/problems.py shape)}; exit 1 on a problem.
-ship.py runs check before anything moves and merge after verify, so the files go into Ship's commit.
+Usage: capabilities.py [--root DIR] check|merge FEATURE. Prints one JSON object: {"ok", "files": [paths written or
+deleted], "problems": [...] (scripts/problems.py shape)}; exit 1 on a problem. `check` is the one to run by hand (Define
+runs it once the section is written); `merge` is Ship's: ship.py checks before anything moves and merges after verify,
+so the files go into Ship's commit. Both apply the section to the files as HEAD has them, so a rerun of Ship before
+its commit writes the same files; a feature already done is skipped.
 Stdlib only, Python 3.9+.
 """
 import argparse
 import json
 import os
 import re
+import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -93,14 +96,29 @@ def requirement(feature, ac, text, row):
     return f"{body}\n- Test: {test}\n- From: {feature} {ac}"
 
 
+def committed(root, rel):
+    """The file as HEAD has it (None when HEAD hasn't it), so applying a change twice, as a rerun of Ship does before
+    its commit, gives the same file; outside a git repo, the file on disk."""
+    inside = subprocess.run(["git", "-C", root, "rev-parse", "--verify", "--quiet", "HEAD"], capture_output=True,
+                            encoding="utf-8", errors="replace")
+    if inside.returncode:
+        return verify.read(os.path.join(root, rel))
+    p = subprocess.run(["git", "-C", root, "show", f"HEAD:{rel}"], capture_output=True, encoding="utf-8",
+                       errors="replace")
+    return p.stdout if p.returncode == 0 else None
+
+
 def plan(root, feature):
-    """({path: new text or None to delete}, problems): what merge would write, or why it can't."""
+    """({path: new text or None to delete}, problems): what merge would write, or why it can't. A feature already
+    done was merged by the Ship that finished it: nothing more."""
     base = folder(root)
     if base is None:
         return {}, []
     paths = sdlc_layout.paths(root, feature)
     change = verify.read(os.path.join(root, paths["change"])) or ""
     state = verify.read(os.path.join(root, paths["state"])) or ""
+    if re.search(r"^Status:\s*done\b", state, re.M):
+        return {}, []
     section = verify.section(change, "Capabilities")
     section = None if section is None else re.sub(r"<!--.*?-->", "", section, flags=re.S)
     track = (re.search(r"^Track:[ \t]*([A-Za-z]+)", state, re.M) or [None, ""])[1]
@@ -117,7 +135,7 @@ def plan(root, feature):
     def load(name):
         if name not in loaded:
             rel = f"{base}/{name}.md"
-            text = verify.read(os.path.join(root, rel))
+            text = committed(root, rel)
             loaded[name] = [rel, *(parse_file(text) if text is not None else (None, None, 0))]
         return loaded[name]
 

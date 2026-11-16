@@ -99,9 +99,12 @@ class ShipLivingSpecTest(ProjectTestCase):
         subprocess.run(git + ["commit", "-q", "-m", "base"], check=True)
         self.write(".sdlc/s/state.md", STATE.format(track="M"))
 
-    def ship(self, caps):
+    def change(self, caps):
         self.write(".sdlc/s/change.md", CHANGE.replace("`pytest`", "manual").replace(
             "tests/t.py › test_idle", "manual").replace("tests/t.py › test_sign_out", "manual").format(caps=caps))
+
+    def ship(self, caps):
+        self.change(caps)
         p = subprocess.run([sys.executable, SHIP, "--root", self.root, "s", "--json", "--review", "none ran"],
                            capture_output=True, encoding="utf-8")
         return p.returncode, json.loads(p.stdout)
@@ -112,8 +115,15 @@ class ShipLivingSpecTest(ProjectTestCase):
                          (1, "capabilities_invalid", "capability_unknown"))
         with open(self.path(".sdlc/s/state.md"), encoding="utf-8") as f:
             self.assertIn("Current: Stage 2", f.read())
+        # an earlier Ship wrote the file, then stopped before its commit: rerunning applies the section once, not twice
+        self.change("- add sessions: AC-001 — Sessions")
+        subprocess.run([sys.executable, SCRIPT, "--root", self.root, "merge", "s"], capture_output=True)
         code, out = self.ship("- add sessions: AC-001 — Sessions")
         self.assertEqual(code, 0, out)
+        with open(self.path(".sdlc/capabilities/sessions.md"), encoding="utf-8") as f:
+            text = f.read()
+        self.assertIn("### R-001\n", text)
+        self.assertNotIn("### R-002", text)
         self.assertEqual(out["capabilities"], [".sdlc/capabilities/sessions.md"])  # the legacy layout's docs
         self.assertIn(".sdlc/capabilities/sessions.md", out["staged"])
 
