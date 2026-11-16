@@ -2,7 +2,19 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
-## Unreleased
+## 3.10.0 — 2026-11-16
+
+Smoke test passed on 2026-11-16 against 731d45c. Parts A, B, C, E, G, H and K ran in four parallel groups (A+B; C then E and H in C's repo; G; K), about 25 minutes, set by the C→E,H group. D and F didn't run: the release touches no guardrail or security-hook file. A ran with `--plugin-dir`, since the installed marketplace is also named `sdlc`. The new checks passed: an S fix wrote no `## Test lock` and an M change did; the generated `invariants.py` passed on the shipped M and failed, naming the file, once its locked test was edited; in a brownfield repo `--waive-baseline` named the baselined test in the Gate log and refused an unlisted failing test by name.
+
+Known issues (should):
+- In a brownfield repo whose only failing test is in the baseline, `verify.py` doesn't record a pass, so Build's gate needs the verified head and tree recorded by hand before `ship.py --waive-baseline` (seen in 3.9.0 too).
+- In a workbench, an S change can write its failing test in an app repo before `state.py new`; that repo is then dirty, `state.py repo` refuses to branch it, and the guard denies the agent's own revert, so the user reverts it (seen in 3.9.0, worse here).
+- An AC's Run cell runs from the repo (or workbench) root, so a package's test command needs `cd <package> &&`.
+- The guardrail loop the setup skill gives agents picks up `\r` on Windows and writes nothing at first; agents noticed and re-rendered.
+- After `/sdlc:upgrade` applies a merge to an edited guardrail, `/sdlc:eject` deletes that file (seen since 3.8.0).
+- After `/sdlc:eject`, the untracked `.sdlc/state/*.json`, `*.events.jsonl` and `.sdlc/.work/` show in `git status`, since eject removes the `.gitignore` lines that hid them.
+- Setup's knowledge audit (drafts in batches) wasn't exercised: both brownfield samples were small enough that setup skipped it.
+- The plugin-layers and setup-phase diagrams in `docs/diagrams/` need relayout.
 
 ### Added
 - **A decided departure can set a recorded acceptance test aside** (#68). In a spec-backed repo, an AC whose open recorded test can't pass against the rebuild (a decided departure in `docs/departures.yaml` explains why) gets a row `| AC-003 | departure D-004 | acceptance/http/F-ISS-01.AC2.yaml |` beside a builder test row for the same AC. `verify.py` accepts it only when the registry is valid (contracts C5), holds the ID with `decided_by` (not `status: proposed`) and covers the recorded test's criterion, and fails an AC that has the departure row but no builder test; `red` runs the builder row.
