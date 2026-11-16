@@ -104,8 +104,10 @@ Measured so far (the eval harness `eval-the-sdlc`, outside this repo, one run pe
 | `1817fc0` | M, 3 | 3.90x (median) | 2.34x |
 | `7c9b385` | M, 1 | 3.97x | 2.30x |
 | 3.5.0-rc.5 | S, M low | — | +62% (S) and +97% (M) against 3.4.0, quality unchanged, so its added checks were withdrawn |
+| `bf620c0` (3.10.0) | M, 1 (the next row's baseline round) | 4.00x | 4.20x (main session 2.72M, subagents 442k) |
+| `a5b0710` (main after 3.10.0) | S, 1; M, 1 | S 2.11x (a 28 s baseline: noise); M 3.35x | S 1.58x; M 3.21x (main session 2.18M, subagents 233k) |
 
-M held at 3.9–4.1x time, at the 4x bar, and 2.2–2.3x tokens, inside the 3x bar; S was inside its time bar once; the one L round was inside its time bar and over its token bar. Nothing has been measured on 3.6 to 3.9.
+M held at 3.9–4.1x time, at the 4x bar, and 2.2–2.3x tokens, inside the 3x bar, until 3.5; S was inside its time bar once; the one L round was inside its time bar and over its token bar. Nothing was measured on 3.6 to 3.9. On 2026-11-16, M's tokens were over the 3x bar: the plugin's M round grew from 1.4–1.5M tokens (`83de649`, `7c9b385`) to 3.16M at 3.10.0, nearly all in the main session, so the growth came in between 3.5 and 3.10. The commits after 3.10.0 brought it down to 2.42M (3.21x), still over. Every round held the hidden tests level, and the blind review rated the plugin's M work higher (tests). The extra tokens are mostly cache reads: M cost 2.10x in USD at list prices, S 0.96x. One run each: a direction, not a size.
 
 For a team rollout, from repo artifacts: reviews chosen and their findings (the change file's `## Review`), deviations per feature, `CLAUDE.md` under 60 lines, a shrinking baseline, and repos on the current scaffold (`/sdlc:status`).
 
