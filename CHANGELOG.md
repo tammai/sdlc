@@ -2,7 +2,7 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
-## Unreleased
+## 3.10.0 — 2026-11-16
 
 ### Added
 - **A decided departure can set a recorded acceptance test aside** (#68). In a spec-backed repo, an AC whose open recorded test can't pass against the rebuild (a decided departure in `docs/departures.yaml` explains why) gets a row `| AC-003 | departure D-004 | acceptance/http/F-ISS-01.AC2.yaml |` beside a builder test row for the same AC. `verify.py` accepts it only when the registry is valid (contracts C5), holds the ID with `decided_by` (not `status: proposed`) and covers the recorded test's criterion, and fails an AC that has the departure row but no builder test; `red` runs the builder row.
