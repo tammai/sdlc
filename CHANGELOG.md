@@ -2,6 +2,11 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
+## Unreleased
+
+### Changed
+- **Better acceptance criteria and a checklist at the approval** (#74, ideas from OpenSpec). The change template says what makes a good criterion: one behaviour, observable by someone who never saw the code, and between them the case the user would most hate to see broken, named in its test. When Define stops for approval (high-risk M, or L in doubt), the message ends with what to check, in order: the why, scope, testable criteria, the missing case, tasks mapped to criteria. Sizing treats a request with more than one intent (not sayable in one sentence, or half could ship alone) as more than one change, done one after another.
+
 ## 3.10.0 — 2026-11-16
 
 Smoke test passed on 2026-11-16 against 731d45c. Parts A, B, C, E, G, H and K ran in four parallel groups (A+B; C then E and H in C's repo; G; K), about 25 minutes, set by the C→E,H group. D and F didn't run: the release touches no guardrail or security-hook file. A ran with `--plugin-dir`, since the installed marketplace is also named `sdlc`. The new checks passed: an S fix wrote no `## Test lock` and an M change did; the generated `invariants.py` passed on the shipped M and failed, naming the file, once its locked test was edited; in a brownfield repo `--waive-baseline` named the baselined test in the Gate log and refused an unlisted failing test by name.
