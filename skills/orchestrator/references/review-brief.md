@@ -20,6 +20,7 @@ One depth, the full one (a lighter first pass only moves its findings into later
 - **Writes:** persisted data survives a crash or a failed write (temp file synced before the rename, the temp removed on failure, the original never overwritten by bad input). A kill between a create and its write is a crash window: high when the spec says a killed process must not leave the system unusable.
 - **Error paths:** every failure the code can hit, I/O included, reaches the user in the spec's error format and exit code, never as a raw error or stack trace.
 - **Loaded data:** anything read back from disk or the network is checked like user input.
+- **Project rules:** each `rules.review` line in `.sdlc/config.json`, if any, checked against the diff; one broken is a finding, medium unless it breaks an AC, a must-never-break line or a constitution MUST rule.
 - **Recurring defects:** `recurring-defects.md` (this folder) and `<docs>/recurring-defects.md` if present; each checked, a hit rated as its entry says.
 
 ## Security review

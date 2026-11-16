@@ -4,6 +4,9 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
+### Added
+- **Project rules per document** (#75, from OpenSpec's per-artifact rules). An optional `rules` object in `.sdlc/config.json`, keyed `change`, `plan` and `review`, each a list of lines: `brief.py` prints them as their own section, Define applies `change` to the change file and `plan` to the plan, and every review checks `review` against the diff. For example `"rules": {"plan": ["Every task touching file paths adds a Windows check."]}`. Other keys and non-string items are ignored. They're instructions to the agent, read like CLAUDE.md; nothing runs without asking because of them.
+
 ### Changed
 - **Better acceptance criteria and a checklist at the approval** (#74, ideas from OpenSpec). The change template says what makes a good criterion: one behaviour, observable by someone who never saw the code, and between them the case the user would most hate to see broken, named in its test. When Define stops for approval (high-risk M, or L in doubt), the message ends with what to check, in order: the why, scope, testable criteria, the missing case, tasks mapped to criteria. Sizing treats a request with more than one intent (not sayable in one sentence, or half could ship alone) as more than one change, done one after another.
 

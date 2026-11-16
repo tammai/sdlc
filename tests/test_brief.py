@@ -45,6 +45,18 @@ class BriefTest(ProjectTestCase):
         self.write(".sdlc/config.json", json.dumps({"deploy": "gcp-cloud-run"}))  # malformed: no crash, no section
         self.assertNotIn("===== platform", self.brief())
 
+    def test_prints_the_projects_rules_for_each_document(self):
+        # #75: config's `rules`, keyed by the document they shape, printed beside the change template
+        self.write(".sdlc/config.json", json.dumps({"rules": {
+            "plan": ["Every task touching file paths adds a Windows check."], "review": ["No raw SQL."],
+            "change": "not a list", "other": ["ignored"]}}))
+        out = self.brief()
+        self.assertIn("===== project rules (.sdlc/config.json `rules`) =====\n"
+                      "plan:\n- Every task touching file paths adds a Windows check.\nreview:\n- No raw SQL.\n", out)
+        self.assertNotIn("- ignored", out.split("===== project rules")[1])
+        self.write(".sdlc/config.json", json.dumps({"rules": ["not", "a", "dict"]}))  # malformed: no section
+        self.assertNotIn("===== project rules", self.brief())
+
 
 if __name__ == "__main__":
     unittest.main()

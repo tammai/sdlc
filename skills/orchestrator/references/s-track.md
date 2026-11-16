@@ -13,6 +13,7 @@ Everything an S change needs, in one file: don't load `flow.md`, another referen
      | AC-001 | tests/test_calc.py › test_add_positive | `python -m unittest tests.test_calc.T.test_add_positive` |
      ```
    - every AC's test (the bug's is already written).
+   - The brief's `project rules` (config's `rules`, when set): its `change` lines shape `<change>`, its `plan` lines the tasks.
    - Conventions on first touch: the change touches an area (layers, schema, contract, auth, data-access, ui) of its package's stack, named from the manifest as `flow.md`'s Define says, with no `.claude/rules/<stack>-<area>.md` yet (`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" conventions` lists the areas) → the task renders it first, `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" conventions <stack> <area> [--package <name>]` (a one-deployable app's API in `backend/` is also `node`: `node … --one-deployable`; a workbench: `--root <repo>`), and names that file.
    - UI work (a changed path in `areas.ui`): read `ui-work.md` first; its `## UI mapping` goes into `<state>` after `$S new` writes it.
    Then one call: `$S new <name> --track S --risk low|high --footprint <n> --task "…" [--surface "…"] && $S advance <name> 2 --gate pass && $V red AC-001 AC-002 …` (no stop on S). If a test is refused, nothing is recorded: fix it and rerun the red step.
