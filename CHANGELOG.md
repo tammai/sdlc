@@ -4,6 +4,9 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
+### Added
+- **A decided departure can set a recorded acceptance test aside** (#68). In a spec-backed repo, an AC whose open recorded test can't pass against the rebuild (a decided departure in `docs/departures.yaml` explains why) gets a row `| AC-003 | departure D-004 | acceptance/http/F-ISS-01.AC2.yaml |` beside a builder test row for the same AC. `verify.py` accepts it only when the registry is valid (contracts C5), holds the ID with `decided_by` (not `status: proposed`) and covers the recorded test's criterion, and fails an AC that has the departure row but no builder test; `red` runs the builder row.
+
 ### Changed
 - **The verification record holds up** (#56, P1–P3 and P5). An AC whose Run command exits 0 after running no tests (unittest's `Ran 0 tests`, node's `# tests 0`, and the texts the red step already knew) now fails `verify.py` as "did not run" instead of passing. `ship.py --waive-baseline` waives only failing tests `.sdlc/baseline.md` lists: it names them from the test step's report (pytest, unittest, jest, vitest, go test, node --test), checks the count against the runner's own summary, writes the waived names to the Gate log, and refuses, naming them, a failure the baseline doesn't list or a report it can't name. `verify.py` keeps a failing test step's whole output (its last 1 MB) in `.sdlc/.work/verify.json` for that. The test lock (each test file's sha256 at its red run; a later change needs a `test-change` deviation and a `red --at <Base>` that still fails) is now on for M and L features in every repo, not only spec-backed ones; S, and a state file with no `Track:`, lock nothing, and a feature already in flight has no lock to check. The PRD now lists the eval rounds on record (§8) and what hasn't been measured (§11).
 
