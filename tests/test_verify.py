@@ -163,10 +163,12 @@ class VerifyTest(ProjectTestCase):
         self.write("src/store.py", "x = 1\n")
         self.write("src/cache.py", "y = 2\n")  # untracked, not in the plan
         self.write("src/__pycache__/store.cpython-310.pyc", "bytecode")  # what running the tests leaves behind
+        self.write("graphify-out/graph.json", "{}")  # a code graph `graphify --watch` rebuilds: never drift
         code, out, _ = self.verify()
         self.assertEqual(code, 1)
         self.assertIn("drift: src/cache.py", out)
         self.assertNotIn("__pycache__", out)
+        self.assertNotIn("graphify-out", out)
         self.plan([], tasks=tasks, deviations=["- `src/cache.py` (task 1) — What: helper · Why: reuse · Effect: none on ACs"])
         code, out, rec = self.verify()
         self.assertEqual(code, 0, out)

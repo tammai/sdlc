@@ -155,7 +155,8 @@ class VerifyFreshnessTest(ProjectTestCase):
         self.set_state()
         self.bash("npm test")
         for rel in ["README.md", "src/notes.MD", "CHANGELOG.txt", "docs/api.ts", "knowledge/index.md",
-                    ".claude/rules/api.md", ".sdlc/login/test-report.md", ".sdlc/login/notes.json"]:
+                    ".claude/rules/api.md", ".sdlc/login/test-report.md", ".sdlc/login/notes.json",
+                    "graphify-out/graph.json"]:  # graphify's code graph, rebuilt by the tool
             with self.subTest(rel=rel):
                 self.edit(rel)
                 self.assertAllows()

@@ -39,7 +39,7 @@ import sdlc_scopes  # sibling module: the packages, read as scripts read them
 
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 SHELL_TOOLS = {"Bash", "PowerShell"}  # Windows sessions run commands through either
-NON_CODE_DIRS = (".sdlc/", "knowledge/", ".claude/", ".git/", "docs/")
+NON_CODE_DIRS = (".sdlc/", "knowledge/", ".claude/", ".git/", "docs/", "graphify-out/")  # graphify's code graph
 NON_CODE_EXT = (".md", ".mdx", ".txt", ".rst")
 GENERIC_TEST = re.compile(
     r"\b(npm|pnpm|yarn|bun)\s+(run\s+)?test\b|\bnpx\s+(vitest|jest)\b|\bvitest\b|\bjest\b|"

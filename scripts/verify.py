@@ -78,8 +78,10 @@ FR_ID = re.compile(r"\bFR-\d{3}\b")
 SPEC_TOKEN = re.compile(r"(?P<file>[\w./-]+\.md)|§\s*(?P<ref>[\w.-]+)")
 TASK_START = re.compile(r"^\s*(\d+)\.\s")
 BACKTICKED = re.compile(r"`([^`]+)`")
-# What running the tests or tools leaves behind when a repo doesn't ignore it: never drift
-GENERATED = re.compile(r"(^|/)(__pycache__|\.pytest_cache|\.mypy_cache|\.ruff_cache|node_modules|\.tox)/|\.py[co]$")
+# What running the tests or tools leaves behind when a repo doesn't ignore it: never drift (graphify-out/: a code
+# graph the graphify tool rebuilds, e.g. on its --watch)
+GENERATED = re.compile(r"(^|/)(__pycache__|\.pytest_cache|\.mypy_cache|\.ruff_cache|node_modules|\.tox)/|\.py[co]$|"
+                       r"^graphify-out/")
 
 
 def section(text, heading):

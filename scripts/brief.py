@@ -4,7 +4,8 @@
 Prints, each under a `===== <path> =====` line and cut at a line limit: the feature's paths (with a name), the
 project's .sdlc/config.json, .sdlc/baseline.md, knowledge/index.md, <docs>/recurring-defects.md (and, near the end,
 the plugin's own list, so the builder checks what Review checks), the constitution,
-the PRD, README.md, the package manifest, the tracked files, config's `rules` for the change file, plan and review
+the PRD, README.md, the package manifest, the tracked files, a pointer to graphify-out/graph.json (only when the
+repo has that code graph: Define runs `graphify query` alongside its reads), config's `rules` for the change file, plan and review
 (only when set) and the plugin's change template. A missing file is one
 `(none)` line. When config's `deploy.target` names one of the plugin's platform references, it also
 prints that reference's `## Define checks` and the file's path; a target that isn't a plain slug names no
@@ -18,8 +19,10 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PLATFORMS = "skills/orchestrator/references/platforms"
@@ -100,6 +103,25 @@ def rules(root):
     return section("project rules (.sdlc/config.json `rules`)", "\n".join(lines)) if lines else None
 
 
+GRAPH = "graphify-out/graph.json"  # a code graph the graphify tool built, when the user runs it; sdlc never builds one
+
+
+def graph(root):
+    """A pointer to the repo's graphify graph, when it has one: Define queries it for the files a request touches,
+    alongside its reads. None when there is none, so a repo without graphify sees nothing."""
+    path = os.path.join(root, GRAPH)
+    if not os.path.isfile(path):
+        return None
+    built = time.strftime("%Y-%m-%d", time.localtime(os.path.getmtime(path)))
+    if shutil.which("graphify"):
+        how = (f'In the same turn as the code reads, run `graphify query "<the request in a few words>" --budget 1500` '
+               "and read the files it names that the request touches.")
+    else:
+        how = "The graphify command isn't installed here: graphify-out/GRAPH_REPORT.md summarizes the graph instead."
+    return section(f"graphify graph: {GRAPH} (built {built})",
+                   how + " The graph can be older than the code: where they disagree, the code wins.")
+
+
 def living_spec(root):
     """The living spec's capabilities (#73), when config turns it on: each file's name and purpose, so Define reuses
     a name instead of starting a near-duplicate. None when it's off."""
@@ -155,6 +177,9 @@ def brief(root, name=None, criteria=()):
     checks = platform(root)
     if checks:
         parts.append(checks)
+    pointer = graph(root)
+    if pointer:
+        parts.append(pointer)
     manifest = next((m for m in MANIFESTS if os.path.isfile(os.path.join(root, m))), None)
     parts.append(section(manifest or "package manifest", read(root, manifest) if manifest else "", 80))
     parts.append(section("git ls-files", tracked(root), 300))

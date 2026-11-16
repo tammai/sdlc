@@ -45,6 +45,14 @@ class BriefTest(ProjectTestCase):
         self.write(".sdlc/config.json", json.dumps({"deploy": "gcp-cloud-run"}))  # malformed: no crash, no section
         self.assertNotIn("===== platform", self.brief())
 
+    def test_points_define_at_a_graphify_graph_only_when_the_repo_has_one(self):
+        self.assertNotIn("graphify", self.brief())  # none: nothing said, nothing run
+        self.write("graphify-out/graph.json", "{}")
+        out = self.brief()
+        self.assertIn("===== graphify graph: graphify-out/graph.json", out)
+        self.assertIn('graphify query "<the request in a few words>"', out)
+        self.assertIn("the code wins", out)
+
     def test_prints_the_projects_rules_for_each_document(self):
         # #75: config's `rules`, keyed by the document they shape, printed beside the change template
         self.write(".sdlc/config.json", json.dumps({"rules": {
