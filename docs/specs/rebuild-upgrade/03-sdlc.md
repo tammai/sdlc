@@ -23,7 +23,7 @@ sdlc 3.5.0 keeps **3.4.0's behaviour unchanged** and adds only what product-rebu
 | Contracts v1 vendored (`scripts/contracts/v1/`) | kept |
 | S2 spec-backed change files (cite IDs, trace, stale criterion, slice coverage, `brief.py`) | kept |
 | S3 external acceptance tests and the read-only hook on manifest paths | kept |
-| S4 test lock | kept, **spec-backed mode only** |
+| S4 test lock | kept, **spec-backed mode only** (since #56, also on M and L in every repo) |
 | S10 spec questions | kept |
 | S12 `accept.start` / `accept.base_url` keys; doctor warns only when a lock or manifest exists | kept (the mutation-command key is removed) |
 | S1 C1 lint in Define, S5 test-auditor, S6 mutation probe, S7 test-writer, S8 qa-tester row, S9 UI render, S11 Level column | **removed** |

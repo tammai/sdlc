@@ -44,8 +44,12 @@ class ShipTest(ProjectTestCase):
                    "| Package | Test (file › name) | Failure, one line | Since |\n|---|---|---|---|\n" + row + "\n\n"
                    "## Lint and type errors\n\n| Package | Tool | Rule | File | Count |\n|---|---|---|---|---|\n| — | none | | | |\n")
 
-    def failing(self, step="test"):
-        self.write(".sdlc/config.json", json.dumps({"commands": {step: "python3 -c \"raise SystemExit(1)\""}}))
+    def failing(self, step="test", *tests):
+        """The step fails; with test names, it prints unittest's report of each failing."""
+        prints = "".join(f"print('FAIL: {t} (tests.test_div.T.{t})'); " for t in tests)
+        summary = f"print('FAILED (failures={len(tests)})'); " if tests else ""
+        self.write(".sdlc/config.json", json.dumps({"commands": {
+            step: f"python3 -c \"{prints}{summary}raise SystemExit(1)\""}}))
 
     def state_text(self):
         with open(self.path(".sdlc/login/state.md"), encoding="utf-8") as f:
@@ -112,8 +116,8 @@ class ShipTest(ProjectTestCase):
         self.assertEqual(self.out("diff", "--cached", "--name-only"), "")
 
     def test_a_baseline_listed_test_failure_ships_only_when_waived_and_is_logged(self):
-        self.failing()
-        self.baseline("| (root) | src/div.test.js › div by zero throws | returns Infinity | b8392a3 |")
+        self.failing("test", "test_div_by_zero")
+        self.baseline("| (root) | tests/test_div.py › T.test_div_by_zero | returns Infinity | b8392a3 |")
         code, out = self.ship()  # without the flag the failure still stops Ship, and says how to proceed
         self.assertEqual(code, 1)
         self.assertIn("--waive-baseline", out)
@@ -122,7 +126,25 @@ class ShipTest(ProjectTestCase):
         self.assertEqual(code, 0, out)
         text = self.state_text()
         self.assertIn("Current: Stage 4", text)
-        self.assertRegex(text, r"Stage 4: baseline failures waived: only the test step failed; 1 listed in \.sdlc/baseline\.md")
+        self.assertIn("Stage 4: baseline failures waived (listed in .sdlc/baseline.md): "
+                      "tests.test_div.T.test_div_by_zero", text)
+
+    def test_the_waiver_refuses_a_failure_the_baseline_doesnt_list(self):
+        self.failing("test", "test_div_by_zero", "test_mul")
+        self.baseline("| (root) | tests/test_div.py › T.test_div_by_zero | returns Infinity | b8392a3 |")
+        code, out = self.ship("--waive-baseline")
+        self.assertEqual(code, 1, out)
+        self.assertIn("not in .sdlc/baseline.md: tests.test_div.T.test_mul", out)
+        self.assertIn("Current: Stage 2", self.state_text())
+        self.assertEqual(self.out("diff", "--cached", "--name-only"), "")
+
+    def test_the_waiver_refuses_failures_it_cannot_name(self):
+        self.failing()  # fails without a report that names its tests
+        self.baseline("| (root) | tests/test_div.py › T.test_div_by_zero | returns Infinity | b8392a3 |")
+        code, out = self.ship("--waive-baseline")
+        self.assertEqual(code, 1, out)
+        self.assertIn("couldn't match the failing tests to .sdlc/baseline.md", out)
+        self.assertIn("Current: Stage 2", self.state_text())
 
     def test_the_waiver_needs_the_baseline_to_list_a_failing_test(self):
         self.failing()
@@ -151,6 +173,38 @@ class ShipTest(ProjectTestCase):
         code, out = self.ship()
         self.assertEqual(code, 1)
         self.assertIn("AC-001: tests/t.py not found", out)
+
+
+class FailingTestsTest(unittest.TestCase):
+    """The waiver's parser: each runner's failing tests and the count its own summary gives."""
+    SAMPLES = {
+        "pytest": ("FAILED tests/test_calc.py::T::test_mul - AssertionError: 6 != 7\n"
+                   "ERROR tests/test_io.py::test_read - OSError\n"
+                   "============ 1 failed, 3 passed, 1 error in 0.12s ============\n",
+                   ["tests/test_calc.py::T::test_mul", "tests/test_io.py::test_read"]),
+        "unittest": ("FAIL: test_mul (tests.test_calc.T.test_mul)\nTraceback ...\n"
+                     "ERROR: test_read (tests.test_io.T)\n----\nRan 5 tests in 0.001s\n\nFAILED (failures=1, errors=1)\n",
+                     ["tests.test_calc.T.test_mul", "tests.test_io.T.test_read"]),
+        "jest": ("  ● Calc › div by zero throws\n\n    expect(received)\n  ● Calc › mul\n"
+                 "Summary of all failing tests\n  ● Calc › div by zero throws\n  ● Calc › mul\n"
+                 "Tests:       2 failed, 5 passed, 7 total\n",
+                 ["Calc › div by zero throws", "Calc › mul"]),
+        "vitest": (" FAIL  src/calc.test.ts > Calc > div by zero throws\nAssertionError\n"
+                   " Test Files  1 failed (1)\n      Tests  1 failed | 4 passed (5)\n",
+                   ["src/calc.test.ts > Calc > div by zero throws"]),
+        "go": ("--- FAIL: TestDiv (0.00s)\n    --- FAIL: TestDiv/by_zero (0.00s)\nFAIL\nFAIL\texample.com/calc\t0.002s\n",
+               ["TestDiv", "TestDiv/by_zero"]),
+        "node --test": ("not ok 1 - div by zero throws\n  ---\n  ...\n# tests 3\n# pass 2\n# fail 1\n",
+                        ["div by zero throws"]),
+    }
+
+    def test_names_and_counts_failures_per_runner(self):
+        sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
+        import ship
+        for runner, (out, names) in self.SAMPLES.items():
+            with self.subTest(runner):
+                self.assertEqual(ship.failing_tests(out), (names, len(names)))
+        self.assertEqual(ship.failing_tests("exit 1\n")[0], [])  # nothing to name
 
 
 if __name__ == "__main__":

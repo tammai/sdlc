@@ -8,9 +8,9 @@ Usage: ship.py [--root DIR] FEATURE [--message SUBJECT] [--review TEXT] [--note 
      review ran on); one written already is left as it is.
   3. The last passing verify.py run is reused when the code hasn't changed since (`verify.py status`); otherwise
      verify.py runs now, and a failure stops here with nothing moved, unless `--waive-baseline` and only the test
-     step failed while .sdlc/baseline.md lists failing tests: the user's brownfield repo then ships past failures it
-     already had. verify.py doesn't read the baseline, so the caller has checked that every failure is listed; the
-     waiver is written to the Gate log.
+     step failed and every failing test its report names is listed in .sdlc/baseline.md: the user's brownfield repo
+     then ships past failures it already had. Output that doesn't name its failures (or names fewer than its summary
+     counts) is refused, as is any failure the baseline doesn't list. The waived tests are written to the Gate log.
   4. On the default branch (and not on a branch named after the feature, which origin/HEAD can name on a repo whose
      first push was that branch), switches to a new branch named after the feature; one that exists already is
      refused. This comes before the state moves, so a refusal leaves the state file as it was.
@@ -106,11 +106,95 @@ def verified(root, feature, timeout, waive_baseline=False):
     apps = tuple(f"{name}: " for name, _ in verify.branched_repos(root, feature))
     if waive_baseline and listed and all(re.match(r"[^\n]*\btest: exit", f) and not (apps and f.startswith(apps))
                                          for f in last["failures"]):
-        return last["head"], last["tree"], f"Stage 4: baseline failures waived: only the test step failed; {len(listed)} listed in .sdlc/baseline.md"
+        problem, waived = baseline_match(last, listed)
+        if not problem:
+            return last["head"], last["tree"], ("Stage 4: baseline failures waived (listed in .sdlc/baseline.md): "
+                                                + ", ".join(waived))
+        raise Refused("verify failed:\n" + "\n".join(notes + last["failures"]) + "\n" + problem)
     waivable = listed and not (apps and any(f.startswith(apps) for f in last["failures"]))
     hint = ("\nIf only the test step failed and every failure is in .sdlc/baseline.md, rerun with --waive-baseline."
             if waivable else "")
     raise Refused("verify failed:\n" + "\n".join(notes + last["failures"]) + hint)
+
+
+# #56 P2: the failing tests each runner's report names, and the count its own summary gives
+NAMED = (
+    re.compile(r"^(?:FAILED|ERROR) ([^\s(]\S*)", re.M),  # pytest's short summary
+    re.compile(r"^\s*● (?!Console$)(.+?)\s*$", re.M),  # jest
+    re.compile(r"^\s*FAIL\s+(\S+ > .+?)\s*$", re.M),  # vitest
+    re.compile(r"^not ok \d+ - (.+?)\s*$", re.M),  # node --test, TAP, top-level tests
+    re.compile(r"^\s*✖ (?!failing tests:)(.+?)(?: \([\d.]+m?s\))?\s*$", re.M),  # node --test, spec reporter
+)
+COUNTED = (
+    re.compile(r"^\s*Tests:?\s+(\d+) failed", re.M),  # jest, vitest
+    re.compile(r"^[#ℹ] fail (\d+)\s*$", re.M),  # node --test
+)
+PYTEST_SUMMARY = re.compile(r"^[= ]*\d+ (?:failed|passed|errors?|skipped|deselected|xfailed|xpassed|warnings?)\b"
+                            r".* in [\d.]+s\b", re.M)
+
+
+def failing_tests(out):
+    """([names], count): the failing tests named in a test run's output (pytest, unittest, jest, vitest, go test,
+    node --test) and the count the runners' own summaries give (go has none: its `--- FAIL` lines are the count);
+    count is None when no summary was found."""
+    names, count = [], None
+
+    def add(name):
+        if name not in names:
+            names.append(name)
+    for pattern in NAMED:
+        for m in pattern.finditer(out):
+            add(m.group(1))
+    for m in re.finditer(r"^(?:FAIL|ERROR): (\w+) \(([\w.]+)\)", out, re.M):  # unittest
+        method, where = m.groups()
+        add(where if where.endswith("." + method) else f"{where}.{method}")
+    found = [int(n) for p in COUNTED for n in p.findall(out)]
+    found += [int(n) for line in PYTEST_SUMMARY.findall(out) for n in re.findall(r"(\d+) (?:failed|errors?)\b", line)]
+    found += [int(n) for m in re.finditer(r"^FAILED \(([^)]*)\)", out, re.M)
+              for n in re.findall(r"(?:failures|errors)=(\d+)", m.group(1))]
+    go = re.findall(r"^\s*--- FAIL: (\S+)", out, re.M)
+    for name in go:
+        add(name)
+    if found or go:
+        count = sum(found) + len(go)
+    return names, count
+
+
+def leaves(name):
+    """A test's name and its shorter forms: the part after `::`, ` › `, ` > ` or a dotted name's last `.`, and a
+    go subtest's parent."""
+    out = {name.strip()}
+    for sep in ("::", " › ", " > "):
+        if sep in name:
+            out.add(name.rsplit(sep, 1)[1].strip())
+    for n in list(out):
+        if re.fullmatch(r"[\w.]+", n) and "." in n:
+            out.add(n.rsplit(".", 1)[1])
+        if re.match(r"Test\w*/", n):
+            out.add(n.split("/", 1)[0])
+    return out
+
+
+def baseline_match(last, listed):
+    """(problem, None) when a failing test isn't in the baseline or the failures can't be named; else (None, names).
+    Each failing test step's output (verify.json `last.test_output`) must name as many tests as its summary counts."""
+    outputs = last.get("test_output") or {}
+    listed_leaves = set().union(*(leaves(cell) for cell in listed))
+    names = []
+    for failure in last["failures"]:
+        step = failure.split(": exit", 1)[0]
+        found, count = failing_tests(outputs.get(step) or "")
+        if not found or count != len(found):
+            counted = "no summary count" if count is None else f"its summary counts {count}"
+            return (f"--waive-baseline refused: couldn't match the failing tests to .sdlc/baseline.md: {step} named "
+                    f"{len(found)} failing test(s) and {counted}. Fix them, or, with the user's OK, rerun the tests "
+                    "with a runner whose report names each failure"), None
+        names += found
+    unlisted = [n for n in names if not leaves(n) & listed_leaves]
+    if unlisted:
+        return (f"--waive-baseline refused: failing tests not in .sdlc/baseline.md: {', '.join(unlisted)}. Fix them; "
+                "adding one to the baseline needs the user's OK and a Deviations line"), None
+    return None, names
 
 
 def state_py(root, *args, ok=None):

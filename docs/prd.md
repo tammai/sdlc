@@ -94,7 +94,18 @@ The plugin collects no metrics. The primary measures come from the eval harness,
 | Hidden acceptance and regression tests | held level |
 | The user's time reading and approving | not counted |
 
-Not yet measured: the eval of the current flow against plain Claude is a separate step.
+Measured so far (the eval harness `eval-the-sdlc`, outside this repo, one run per arm unless noted; ratios against plain Claude, plus a review step from `f06c56c` on; hidden tests held level in each round):
+
+| Commit | Size, runs per arm | Time | Tokens |
+|---|---|---|---|
+| `c925268` (2.0) | L (gh-rising), 1 | 1.88x | 3.6x |
+| `f06c56c` (2.1) | S, 1; M, 1 | S 1.12x; M 4.5x | — |
+| `83de649` | M, 1 | 4.1x | 2.2x |
+| `1817fc0` | M, 3 | 3.90x (median) | 2.34x |
+| `7c9b385` | M, 1 | 3.97x | 2.30x |
+| 3.5.0-rc.5 | S, M low | — | +62% (S) and +97% (M) against 3.4.0, quality unchanged, so its added checks were withdrawn |
+
+M held at 3.9–4.1x time, at the 4x bar, and 2.2–2.3x tokens, inside the 3x bar; S was inside its time bar once; the one L round was inside its time bar and over its token bar. Nothing has been measured on 3.6 to 3.9.
 
 For a team rollout, from repo artifacts: reviews chosen and their findings (the change file's `## Review`), deviations per feature, `CLAUDE.md` under 60 lines, a shrinking baseline, and repos on the current scaffold (`/sdlc:status`).
 
@@ -110,7 +121,7 @@ The [changelog](../CHANGELOG.md) is the per-release record. The current release 
 
 ## 11. Known gaps and open questions
 
-- **The flow is instructed, not yet evaluated.** Whether it meets the §8 limits is open. Review's per-command cap is enforced (ADR 0012); a probe hidden behind a project command (`npm test; node probe.js`) escapes it. Build's `verify.py` evidence (ADR 0013) is tamper-evident, not tamper-proof ([spec 04](specs/04-verification.md#known-gaps)).
+- **The flow is measured thinly.** §8 lists the rounds: M several times, S and L once each, and none on 3.6 to 3.9. Review's per-command cap is enforced (ADR 0012); a probe hidden behind a project command (`npm test; node probe.js`) escapes it. Build's `verify.py` evidence (ADR 0013) is tamper-evident, not tamper-proof ([spec 04](specs/04-verification.md#known-gaps)).
 - **Prompt-only guarantees:** apart from the model router, phase and hard-stop rules rest on instructions plus the user's approval. Mechanical are `verify.py`'s red records and drift check, freshness, Review's 120 s command limit, guardrails, the surface check, file ownership, the model router, the role guard's file-tool limits, the commit review gate and the trust anchor (a passing full run of the current code to leave Review, a review's `VERDICT: FAIL` unless waived), which makes a change visible rather than preventing it. The review recommendation, one question at a time, the one CI fix and the stop at the PR are instructions; nothing enforces them. Each spec marks which is which; their Known gaps sections list the rest.
 - **Reviewers and the qa-tester keep Bash,** so a shell edit, a reviewer's own script or reading source is only instructed against ([specs 03](specs/03-scope-and-review.md), [04](specs/04-verification.md)).
 - **Security-guidance hooks** are vendored and untested here; the review gate's limits live in a repo the agent can write ([spec 05](specs/05-security.md)).
