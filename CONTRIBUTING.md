@@ -54,6 +54,7 @@ sdlc/
 │   ├── review_report.py     writes a review report from rated findings (the built-in code review, the dependency audit) with the VERDICT line their ratings give
 │   ├── autopilot.py         runs a backlog one fresh headless claude session per part (opt-in)
 │   ├── capabilities.py      the living spec (#73): checks and merges a change's ## Capabilities at Ship
+│   ├── objects.py           the domain model (spec 13): checks objects.md, and a change's ACs against its Avoid list
 │   ├── problems.py          one problem's shape for --json output: severity, code, message, target, fix (#76)
 │   ├── prune.py             lists and deletes merged features' working files (/sdlc:prune)
 │   ├── context_diet.py      per-source estimate of what Claude Code lists every call (/sdlc:context-diet)
@@ -61,6 +62,7 @@ sdlc/
 │   └── contracts/v1/        shared contracts v1, vendored byte-identical from product-rebuild (never edited here; MANIFEST, -text)
 ├── templates/
 │   ├── change-template.md   the feature's record for people, its change file (Define, Review)
+│   ├── objects-template.md  the domain model's objects.md, when config's objects is on (spec 13)
 │   ├── plan-template.md     a part's plan-B<n>.md (work split into parts)
 │   ├── prd-template.md            the project's product doc (setup's prd step)
 │   ├── constitution-template.md   the constitution
@@ -90,7 +92,7 @@ sdlc/
 ├── CHANGELOG.md  NOTICE.md  LICENSE  README.md
 ```
 
-Original to this plugin: the orchestrator and setting-up-projects skills (with `setting-up-projects/references/trimming-context.md` and `design-mode.md`), `managing-knowledge`, the `qa-tester` and `ui-reviewer` agents, `verify_freshness.py`, `sdlc_review_gate.py`, `model_router.py`, `role_guard.py`, `prove_budget.py`, `session_status.py`, `trust_anchor.py`, `review_rounds.py`, `user_answer.py`, `commands/deploy.md`, everything in `scripts/`, `templates/project/`, `templates/knowledge/`, `templates/design-system-template.md`, `templates/backlog-template.md`, `migrations/`, `tests/`, `docs/`. Everything else is vendored; `NOTICE.md` says what came from where and what was changed.
+Original to this plugin: the orchestrator and setting-up-projects skills (with `setting-up-projects/references/trimming-context.md` and `design-mode.md`), `managing-knowledge`, the `qa-tester` and `ui-reviewer` agents, `verify_freshness.py`, `sdlc_review_gate.py`, `model_router.py`, `role_guard.py`, `prove_budget.py`, `session_status.py`, `trust_anchor.py`, `review_rounds.py`, `user_answer.py`, `commands/deploy.md`, everything in `scripts/`, `templates/project/`, `templates/knowledge/`, `templates/design-system-template.md`, `templates/backlog-template.md`, `templates/objects-template.md`, `migrations/`, `tests/`, `docs/`. Everything else is vendored; `NOTICE.md` says what came from where and what was changed.
 
 ## Dev loop
 

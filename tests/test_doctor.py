@@ -65,6 +65,22 @@ class DoctorTest(ProjectTestCase):
         self.assertEqual(checks[("environment", "hook python")]["status"], "fail")
         self.assertEqual(p.returncode, 1)
 
+    def test_objects_check_and_unused_code_names(self):
+        self.setup_repo()
+        self.assertIsNone(self.check("objects"))  # switch off: no row
+        self.configure(objects=True, docs_dir="docs/sdlc")
+        self.write("docs/sdlc/objects.md", "# Objects\n\n## Objects\n\n### Invoice\nA bill.\n- Code: Invoice "
+                   "(table invoices)\n\n### Customer\nWho pays.\n- Code: Customer\n- States: `active`\n")
+        self.write("src/invoice.py", "class Invoice:\n    pass\n")
+        subprocess.run(["git", "init", "-q", self.root], check=True)
+        subprocess.run(["git", "-C", self.root, "add", "-A"], check=True)
+        row = self.check("objects")
+        self.assertEqual(row["status"], "warn", row)
+        self.assertIn("Customer", row["detail"])
+        self.assertNotIn("Invoice", row["detail"])
+        self.write("docs/sdlc/objects.md", "# Objects\n\n`stray`\n")  # a file error fails the row
+        self.assertEqual(self.check("objects")["status"], "fail")
+
     def test_repo_not_set_up_is_a_warning_not_a_failure(self):
         checks, code = self.doctor(expect=0)
         self.assertEqual((checks[("repo", "setup")]["status"], checks[("repo", "setup")]["fix"]),

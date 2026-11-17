@@ -21,6 +21,7 @@ One depth, the full one (a lighter first pass only moves its findings into later
 - **Error paths:** every failure the code can hit, I/O included, reaches the user in the spec's error format and exit code, never as a raw error or stack trace.
 - **Loaded data:** anything read back from disk or the network is checked like user input.
 - **Project rules:** each `rules.review` line in `.sdlc/config.json`, if any, checked against the diff; one broken is a finding, medium unless it breaks an AC, a must-never-break line or a constitution MUST rule.
+- **Domain model** (M and L only; an S review skips it): when `.sdlc/config.json` turns `objects` on (the file is `<docs>/objects.md`, or the path it names): each `DR` rule checked like a must-never-break line; a state transition the file doesn't declare is a finding; an Avoid word or a second name for an object in user-visible text is medium, in identifiers fixed in passing.
 - **Recurring defects:** `recurring-defects.md` (this folder) and `<docs>/recurring-defects.md` if present; each checked, a hit rated as its entry says.
 
 ## Security review
@@ -33,7 +34,7 @@ Security only: injection, authz, secrets, SSRF, XSS, unsafe deserialization, dep
 - **Fix in passing:** code-style rules (comments, naming, formatting, docs wording). Never high.
 - **Medium / low:** everything else. Mark one that's a bug in code this change touched (wrong behaviour, a crash, an unhandled error, a missing test for something it does) `(bug)`: it's fixed before Ship like a high; the rest are ticketed.
 
-Severity is impact, not confidence. Each finding names the requirement it breaks, if any (an AC, a must-never-break line, a section of the spec the change file links, a constitution rule): one that names one is high, whatever else you'd call it. End the report with `VERDICT: PASS` or `VERDICT: FAIL — <ids>`: in round 1, every high and every confirmed `(bug)`; from round 2, every high only.
+Severity is impact, not confidence. Each finding names the requirement it breaks, if any (an AC, a must-never-break line, a section of the spec the change file links, a constitution rule, on M and L a `DR` rule of the objects file): one that names one is high, whatever else you'd call it. End the report with `VERDICT: PASS` or `VERDICT: FAIL — <ids>`: in round 1, every high and every confirmed `(bug)`; from round 2, every high only.
 
 ## Round 2: the closing check
 

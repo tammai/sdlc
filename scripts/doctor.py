@@ -483,6 +483,21 @@ def check_repo(r, root):
                   "broken links: " + ", ".join(broken) if broken else f"{len(links)} links resolve",
                   "fix or remove the links" if broken else None)
 
+    import objects  # the domain model (spec 13): a row only when config's `objects` is on
+    try:
+        model = objects.path(root)
+    except ValueError:
+        model = ".sdlc/config.json"
+    if model:
+        found = objects.check(root)
+        unused = objects.unused_code_names(root)
+        errors = [str(p) for p in found if p.severity == "error"]
+        warnings = [str(p) for p in found if p.severity != "error"] + (
+            [f"Code names in no tracked file but {model}: {', '.join(unused)}"] if unused else [])
+        r.add(g, "objects", "fail" if errors else "warn" if warnings else "ok",
+              "; ".join(errors + warnings) or model,
+              "python3 <plugin>/scripts/objects.py check" if errors or warnings else None)
+
     states = sdlc_layout.features(root)
     if states:
         active, malformed = [], []
