@@ -70,6 +70,15 @@ class BriefTest(ProjectTestCase):
         self.write(".sdlc/config.json", json.dumps({"rules": ["not", "a", "dict"]}))  # malformed: no section
         self.assertNotIn("===== project rules", self.brief())
 
+    def test_prints_the_objects_file_only_when_the_switch_is_on(self):
+        self.write("docs/sdlc/objects.md", "# Objects\n\n## Objects\n\n### Invoice\n" + "line\n" * 300)
+        self.write(".sdlc/config.json", json.dumps({"docs_dir": "docs/sdlc"}))
+        self.assertNotIn("===== objects:", self.brief())
+        self.write(".sdlc/config.json", json.dumps({"docs_dir": "docs/sdlc", "objects": True}))
+        out = self.brief().split("===== objects: docs/sdlc/objects.md =====\n")[1]
+        self.assertTrue(out.startswith("# Objects\n\n## Objects\n\n### Invoice\n"))
+        self.assertIn("more lines: read the file for the rest", out.split("=====")[0])
+
 
 if __name__ == "__main__":
     unittest.main()

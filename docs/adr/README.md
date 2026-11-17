@@ -31,5 +31,6 @@ Decisions about how the plugin itself is built: what was decided, why, and what 
 | [0025](0025-workbench-for-multi-app-projects.md) | New multi-app projects can get one repo per app inside a workbench repo (beside 0005's monorepo), which holds the contract and one feature record driving a PR per repo | Accepted |
 | [0026](0026-stack-blueprints-in-setup.md) | The stack-blueprints knowledge lives in setup: a selection table the agent applies, more stacks, conventions rendered when a feature first touches an area; no separate tool, no resolver code | Accepted |
 | [0027](0027-scaffold-lock-merge-at-save.md) | Scaffold's lock and config merge this command's changes at save (no mutex across commands); atomic writes keep mode and links; one inside-the-repo check | Accepted |
+| [0028](0028-domain-model-objects-md.md) | An opt-in domain model in `objects.md` (not rspec's `domain.md`), checked by a script in Define's gate and doctor, never a model turn | Accepted |
 
 New ADR: copy the shape of an existing one (Status, Context, Decision, Consequences), take the next number, and add a row here.

@@ -4,6 +4,9 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
+### Added
+- **An opt-in domain model** (spec 13, ADR 0028). With `"objects": true` in `.sdlc/config.json`, `<docs>/objects.md` (from `templates/objects-template.md`) says what the product's things are: each object's UI name, code name, states, actions and how it's shown, the rules it obeys (`DR-001` onward) and the names to avoid. `brief.py` prints it for Define, which uses its names and states and asks you before adding or renaming an object or changing a rule. `scripts/objects.py check [FEATURE]` runs in Define's gate: it fails on a missing file, an undeclared state, a duplicate or avoided object name or a bad `DR` id, warns on a long file or missing UI fields, and on an avoided name in the ACs warns on M and fails on L. Review checks each `DR` rule like a must-never-break line; doctor gets an `objects` row that also warns about an object whose code name is in no tracked file. Off by default; a spec-backed repo's brief points at rspec's `domain.md` instead. The UI layer and `/sdlc:setup objects` wait for an eval of its cost.
+
 ## 3.11.0 — 2026-11-17
 
 No migration: `living_spec` and `rules` are optional config keys, and `.sdlc/ci/invariants.py` is generated, so `/sdlc:upgrade` offers the new one.

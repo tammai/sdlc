@@ -34,6 +34,7 @@ Enforcement sits beside the tiers: anything that was corrected twice and can be 
 For each candidate (from a retro, a review, a debugging session, or the user saying "remember this"):
 
 1. **Is it durable?** Still true in a month, outside this feature? No → leave it in the retro.
+   - From an M or L change, a fact about what a product object is, its states or a rule it obeys, in a repo with the domain model on (`objects` in `.sdlc/config.json`; not a spec-backed repo) → the objects file (`<docs>/objects.md`, or the path config names), not `knowledge/`; stop here. A new or renamed object, or a changed or removed `DR` rule, is the owner's call: ask first. From an S change, leave it in the change file.
 2. **Is it enforceable and was it corrected before?** → hookify rule. Optionally one line in the tier-2 rule saying why.
 3. **Pick the tier:**
    - Applies to almost every task in the repo (build/test commands, a global non-negotiable) → **tier 1**. CLAUDE.md is over 60 lines? Something must move down a tier first.

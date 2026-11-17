@@ -6,7 +6,8 @@ project's .sdlc/config.json, .sdlc/baseline.md, knowledge/index.md, <docs>/recur
 the plugin's own list, so the builder checks what Review checks), the constitution,
 the PRD, README.md, the package manifest, the tracked files, a pointer to graphify-out/graph.json (only when the
 repo has that code graph: Define runs `graphify query` alongside its reads), config's `rules` for the change file, plan and review
-(only when set) and the plugin's change template. A missing file is one
+(only when set), the objects file (only when config's `objects` is on; a spec-backed repo gets a pointer to rspec's
+domain.md instead) and the plugin's change template. A missing file is one
 `(none)` line. When config's `deploy.target` names one of the plugin's platform references, it also
 prints that reference's `## Define checks` and the file's path; a target that isn't a plain slug names no
 file. The code the change touches isn't printed: the agent reads that itself, in the same turn. Run when
@@ -145,6 +146,29 @@ def living_spec(root):
                    "\n".join(lines) or "no capabilities yet")
 
 
+def domain(root):
+    """The domain model (spec 13): the objects file when config turns it on, so Define uses its names, states and
+    rules; in a spec-backed repo, a pointer to rspec's `<spec>/domain.md` instead (read-only, D5). None when off."""
+    import objects  # only here: it loads spec_lock and, for UI checks, doctor
+    try:
+        rel = objects.path(root)
+    except ValueError:  # Define still sees an objects section, so its gate runs the check, which says why
+        return section("objects: invalid (objects.py check says why)", "The objects file can't be read as config "
+                       "names it; fix `objects` in .sdlc/config.json.")
+    if rel is not None:
+        text = read(root, rel)
+        if not text:
+            text = "(empty)" if os.path.isfile(os.path.join(root, rel)) else f"(not readable: {rel}; objects.py check says why)"
+        return section(f"objects: {rel}", text)
+    if objects.setting(root) and spec_lock.spec_backed_repo(root):
+        found = objects.rspec_domain(root)
+        if found:
+            return "\n\n".join(section(f"domain (rspec, read-only): {p}", "The spec's roles, enumerations, limits and "
+                                       "identifiers: use its names in ACs and copy; sdlc never writes it.")
+                               for p in found)
+    return None
+
+
 def criteria_text(root, ids):
     """One line per criterion ID: its text from the spec, its level and recorded test; or why it can't be shown."""
     locked, problems = spec_lock.load(root)
@@ -191,6 +215,9 @@ def brief(root, name=None, criteria=()):
     living = living_spec(root)
     if living:
         parts.append(living)
+    model = domain(root)
+    if model:
+        parts.append(model)
     parts.append(section("change template", read(os.path.dirname(HERE), os.path.join("templates", "change-template.md"))))
     return "\n\n".join(parts) + "\n"
 
