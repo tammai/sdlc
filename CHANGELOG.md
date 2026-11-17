@@ -11,6 +11,7 @@ No migration: `objects` is an optional config key, off by default; `/sdlc:setup 
 SMOKEPLACEHOLDER
 
 ### Fixed
+- **Setup writes every guardrail itself.** On Windows, setup's guardrails step could leave `.claude/hookify/` empty: the agent looped over `scaffold.py guardrails` in the shell, a carriage return (`\r`) on each path failed every render unseen, and doctor said ok. `scaffold.py guardrails --render` now writes them all in one call (keeping ones you edited or declined), setup uses it, and `/sdlc:doctor` warns when a finished setup's guardrails were never written.
 - **The brainstorm companion is branded sdlc.** The browser page `sdlc:brainstorming` opens showed "Superpowers Brainstorming" and a Superpowers header; it now says sdlc, with sdlc's version, and credits Superpowers (MIT), whose code it is.
 
 ### Added

@@ -302,6 +302,24 @@ def check_repo(r, root):
                   f"(scaffold.py forget) · {RUNBOOK} R14")
         else:
             r.add(g, "plugin files", "ok", f"{len(files)} tracked" + (f"; you edited: {', '.join(edited)}" if edited else ""))
+        if drift == "current" and "claude-code" in scaffold.hosts(p):
+            # Claude Code's rules and guardrails setup writes, never written at all (absent from the lock and the
+            # disk, not declined), as when a shell loop failed unseen. A scaffold behind the plugin is upgrade's to add.
+            lock = p.lock or {}
+            unwritten = [(t, d) for t, d, _ in scaffold.shipped_files(p)
+                         if d.startswith((".claude/hookify/sdlc-", ".claude/rules/sdlc"))
+                         and d not in lock.get("files", {}) and d not in lock.get("declined", [])
+                         and not os.path.lexists(os.path.join(root, d)) and scaffold.inside_repo(root, d)]
+            guards = [d for _, d in unwritten if d.startswith(".claude/hookify/")]
+            rules = [(t, d) for t, d in unwritten if not d.startswith(".claude/hookify/")]
+            fixes = (["python3 <plugin>/scripts/scaffold.py guardrails --render"] if guards else []) + [
+                f"python3 <plugin>/scripts/scaffold.py render {t} {d}" for t, d in rules]
+            r.add(g, "guardrails", "warn" if unwritten else "ok",
+                  "never written: " + "; ".join(x for x in (
+                      f"{len(guards)} guardrails ({', '.join(guards)})" if guards else "",
+                      f"{len(rules)} rules ({', '.join(d for _, d in rules)})" if rules else "") if x)
+                  if unwritten else "rules and guardrails written",
+                  "; ".join(fixes) if unwritten else None)
         if scaffold.sdlc_scopes.is_workbench(root):
             # A workbench holds no product code: each app repo records and runs its own commands (doctor there)
             r.add(g, "commands", "ok", "a workbench: each app repo holds its own commands (run /sdlc:doctor in it)")
