@@ -1,6 +1,6 @@
 # Health check
 
-Run `/sdlc:doctor` when something feels off, after installing or upgrading, or before onboarding a teammate. It changes nothing; it prints one row per check with ✅ / ⚠️ / ❌ and, for anything not ok, the fix and the [Troubleshooting](Troubleshooting.md) procedure that covers it. The same report from a shell: `python3 <plugin>/scripts/doctor.py --format md` (exit 1 if anything fails).
+Run `/sdlc:doctor` when something feels off, after installing or upgrading, or before onboarding a teammate. It changes nothing; it prints one row per check with ✅ / ⚠️ / ❌ and, for anything not ok, the fix and the [Troubleshooting](Troubleshooting.md) procedure that covers it. The same report from a shell: `python3 <plugin>/scripts/doctor.py --format md` (exit 1 if anything fails). Without `--format md` it prints JSON: each check has a stable `code` (`repo.commands`), and failing and warning checks are listed again under `problems`, each with its `fix`.
 
 | Group | What it checks |
 |---|---|
