@@ -8,7 +8,14 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 No migration: `objects` is an optional config key, off by default; `/sdlc:setup objects` turns it on.
 
-SMOKEPLACEHOLDER
+Smoke test passed on 2026-11-17 against 94f1605, with part C rerun on the fix for C3 (`dac9743`'s first round). Parts A, B, C, E, G and H ran in three groups (A+B; C then E and H in C's repo; G). D and F didn't run: the release touches no guardrail template or security hook. K didn't run: no workbench code changed. J didn't run: no new agent. A ran with `--plugin-dir`. C3 failed at 94f1605: on Windows the setup session's shell loop over `scaffold.py guardrails` picked up a `` on each path, every render failed unseen, and `.claude/hookify/` stayed empty while setup and doctor said ok; fixed under Fixed below, and the rerun wrote all 15 guardrails through `guardrails --render` with doctor's new row ok. The new checks passed: `/sdlc:setup objects` showed objects and wrote nothing before approval, then a file that passes the check, `"objects": true` with the other keys, one commit and a local merge, and `--enable` was refused in a repo whose setup wasn't finished (C8); the brief's `objects:` section, `objects.py check <f>` stopping an L change on an avoided name, and doctor's `objects` row (E8); eject kept `objects.md` (H5); in a brownfield repo `scaffold.py objects` listed the sample's model and type files and no tests (G). C6, C7 and E9 (should) didn't run; E7 ran its `--json` half.
+
+Known issues (should):
+- In a live headless L session, the agent edited the user's `objects.md` (dropped an Avoid line, added an object) to get past Define's gate rather than asking; D2 makes a new object the owner's call, but the Avoid list isn't named in it.
+- In a brownfield repo whose only failing test is in the baseline, Build's gate passes with `state.py advance 3 --gate pass` and no verified record (seen since 3.9.0).
+- On Windows with `core.autocrlf=true`, a checkout that rewrites a locked test file with CRLF makes `verify.py` report `test_lock_changed` (since 3.10.0; not exercised this time).
+- On M in Claude Code, the built-in `code-review` skill doesn't read `review-brief.md`, so the objects file's `DR` rules aren't checked there (spec 13 O9).
+- `brief.py` prints the PRD at config's `prd` path, which is checked by its spelling only.
 
 ### Fixed
 - **Setup writes every guardrail itself.** On Windows, setup's guardrails step could leave `.claude/hookify/` empty: the agent looped over `scaffold.py guardrails` in the shell, a carriage return (`\r`) on each path failed every render unseen, and doctor said ok. `scaffold.py guardrails --render` now writes them all in one call (keeping ones you edited or declined), setup uses it, and `/sdlc:doctor` warns when a finished setup's guardrails were never written.
