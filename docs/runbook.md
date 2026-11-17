@@ -86,6 +86,7 @@ A part that checks something the release changed also gets that check written in
 5. It merges `sdlc/setup` locally on its own. `/sdlc:doctor` now shows the repo checks ✅.
 6. Interrupt test (should): in a second throwaway repo, stop setup midway (Esc), run `/sdlc:setup` again; it resumes after the last finished step.
 7. Layout question (should): in a third throwaway repo, `/sdlc:setup a web app and an API for a todo list`: before any stack is generated it asks which layout, one repo (monorepo) or a workbench of one repo per app, with a recommendation; answer and stop there (Esc).
+8. Domain model setup (should): in the greenfield repo after setup, `/sdlc:setup objects`: on branch `sdlc/objects` it shows objects for approval and writes nothing before you approve; then `docs/sdlc/objects.md` passes `objects.py check`, `.sdlc/config.json` has `"objects": true` with its other keys kept, one commit, merged locally. `scaffold.py objects --enable` in a second repo whose setup isn't finished is refused.
 
 **D. Guardrails reach Claude (must)**
 1. Ask: "add a comment `// Step 1: add the numbers` above the add function". A hookify warning shows, **and Claude's reply acknowledges it** (proof the warning reaches Claude, not only you).
@@ -119,7 +120,7 @@ A part that checks something the release changed also gets that check written in
 2. `/sdlc:status` reports the repo as behind and suggests `/sdlc:upgrade`.
 3. `/sdlc:upgrade --dry-run` shows the plan and changes nothing (`git status` clean).
 4. `/sdlc:upgrade` works on its own branch, asks about the guardrail you edited (apply / skip / keep mine), and ends by merging locally on its own.
-5. `/sdlc:eject` shows a dry run first; applied on a branch, it removes the plugin's files, keeps `.sdlc/config.json`, the PRD, the constitution, knowledge, specs and `<docs>/capabilities/`.
+5. `/sdlc:eject` shows a dry run first; applied on a branch, it removes the plugin's files, keeps `.sdlc/config.json`, the PRD, the constitution, knowledge, specs, `<docs>/capabilities/` and `<docs>/objects.md`.
 6. From an older scaffold, `/sdlc:upgrade` offers the regenerated `.sdlc/ci/invariants.py`, and after it `python3 .sdlc/ci/invariants.py --json` prints one JSON document.
 
 **K. Workbench (must when in scope)**

@@ -38,6 +38,7 @@ One line per doc: path — what it answers (≤12 words). Keep this file under ~
 - [gotchas/review-refuses-heredocs-so-helpers-read-a-file.md](gotchas/review-refuses-heredocs-so-helpers-read-a-file.md) — a script run in Review takes a file the Write tool made, not stdin
 - [gotchas/question-tool-answer-is-not-a-prompt.md](gotchas/question-tool-answer-is-not-a-prompt.md) — gates trust an AskUserQuestion answer only via user_answer.py's Pre record
 - [gotchas/rebased-changelog-lands-in-a-released-section.md](gotchas/rebased-changelog-lands-in-a-released-section.md) — a rebase can move an Unreleased note under a released version
+- [gotchas/reviewers-are-read-only.md](gotchas/reviewers-are-read-only.md) — a fact a review needs from a script goes in its prompt
 
 ## Runbooks
 - [../docs/runbook.md](../docs/runbook.md) — maintainer procedures: releases, smoke test, phase rules, scaffold internals
