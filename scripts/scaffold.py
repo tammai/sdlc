@@ -576,10 +576,55 @@ def shipped_files(p=None):
     return out
 
 
+def guardrail_list(p):
+    return [(t, d) for t, d, cls in shipped_files(p) if t.startswith("templates/project/hookify/")]
+
+
 def cmd_guardrails(p, a):
-    """The guardrails setup renders for this repo's design mode."""
-    return {"design": design_mode(p), "guardrails": [{"template": t, "dest": d} for t, d, cls in shipped_files(p)
-                                                     if t.startswith("templates/project/hookify/")]}
+    """The guardrails setup renders for this repo's design mode. With --render, writes every one itself, seeded and
+    recorded, in one call: setup's step used to loop over this list in the shell, and on Windows a `\\r` on each
+    path made every render fail unseen (3.12.0 smoke C3). A guardrail the user edited, a file the plugin never
+    wrote, and one the user declined (`forget`) are left as they are."""
+    listed = guardrail_list(p)
+    out = {"design": design_mode(p), "guardrails": [{"template": t, "dest": d} for t, d in listed]}
+    if not a.render:
+        return out
+    lock = p.require_lock()
+    if "claude-code" not in hosts(p):
+        raise Refused("guardrails are Claude Code's (.claude/hookify/); this repo isn't set up for Claude Code, so "
+                      "other agents get the rules through AGENTS.md")
+    if cmd_status(p, None)["drift"] == "behind":
+        raise Refused("the scaffold is behind the plugin: /sdlc:upgrade brings the guardrails forward on its branch, "
+                      "with the version and migrations; --render is setup's")
+    groups = {k: [] for k in ("rendered", "kept", "deleted", "declined", "outside", "failed", "unrecorded")}
+    for template, dest in listed:
+        entry = lock["files"].get(dest)
+        state = p.file_state(dest, entry) if entry else None
+        if dest in lock["declined"]:
+            groups["declined"].append(dest)
+        elif state == "missing":  # the plugin wrote it and the user deleted it: theirs to bring back (upgrade offers)
+            groups["deleted"].append(dest)
+        elif state == "outside" or not inside_repo(p.root, dest):
+            groups["outside"].append(dest)
+        else:
+            before = copy.deepcopy(lock["files"].get(dest))
+            try:  # cmd_render's own rules and write, recorded as it goes: a later failure loses nothing written
+                cmd_render(p, argparse.Namespace(template=template, dest=dest, cls="seeded", if_unchanged=True))
+                groups["rendered"].append(dest)
+            except Refused:  # edited by the user, or a file the plugin never wrote: left as it is
+                groups["kept"].append(dest)
+            except Exception as e:  # one guardrail's error (I/O, a template value) never stops the others
+                written = lock["files"].get(dest) != before  # cmd_render set the entry, then the lock save failed
+                groups["unrecorded" if written else "failed"].append(
+                    f"{dest} ({getattr(e, 'strerror', None) or e or type(e).__name__})")
+    out.update({k: v for k, v in groups.items() if v or k not in ("failed", "unrecorded")})
+    if groups["failed"] or groups["unrecorded"]:
+        out["error"] = "; ".join(x for x in (
+            "could not write: " + "; ".join(groups["failed"]) if groups["failed"] else "",
+            "written but the lock couldn't be saved (run --render again once .sdlc/scaffold.lock.json is writable): "
+            + "; ".join(groups["unrecorded"]) if groups["unrecorded"] else "") if x)
+        raise CommandsFailed(out)
+    return out
 
 
 def skill_dirs(root):
@@ -773,9 +818,11 @@ def render_text(template_text, p):
 
 def cmd_render(p, a):
     lock = p.require_lock()
-    template = a.template.replace(os.sep, "/")
+    # a shell loop over this script's own output on Windows hands both on with a trailing `\r` (3.12.0 smoke C3):
+    # no template or path of the plugin's ends in whitespace, so it is dropped, never written into a file name
+    template = a.template.strip().replace(os.sep, "/")
     text = render_source(template, p)
-    dest = rel(p.root, a.dest)
+    dest = rel(p.root, a.dest.strip())
     if not inside_repo(p.root, dest):
         raise Refused(f"{dest} resolves outside the project through a link; nothing written")
     entry = lock["files"].get(dest)
@@ -2856,8 +2903,10 @@ def build_parser():
     s.add_argument("--enable", action="store_true",
                    help="turn an installed but disabled impeccable plugin on for this repo, on this machine")
     s.set_defaults(fn=cmd_design)
-    sub.add_parser("guardrails", help="the guardrails setup renders for this repo's design mode") \
-        .set_defaults(fn=cmd_guardrails)
+    s = sub.add_parser("guardrails", help="the guardrails setup renders for this repo's design mode")
+    s.add_argument("--render", action="store_true",
+                   help="write every one (seeded), leaving edited, foreign and declined ones as they are")
+    s.set_defaults(fn=cmd_guardrails)
     sub.add_parser("add-config-keys", help="in a spec-backed repo, add sdlc 3.5's keys (accept.start, "
                    "accept.base_url) empty where missing, per package").set_defaults(fn=cmd_add_config_keys)
 

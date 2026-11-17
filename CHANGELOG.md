@@ -4,6 +4,23 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
+## 3.12.0 — 2026-11-17
+
+No migration: `objects` is an optional config key, off by default; `/sdlc:setup objects` turns it on.
+
+Smoke test passed on 2026-11-17 against 94f1605, with part C rerun on the fix for C3 (`dac9743`'s first round). Parts A, B, C, E, G and H ran in three groups (A+B; C then E and H in C's repo; G). D and F didn't run: the release touches no guardrail template or security hook. K didn't run: no workbench code changed. J didn't run: no new agent. A ran with `--plugin-dir`. C3 failed at 94f1605: on Windows the setup session's shell loop over `scaffold.py guardrails` picked up a `` on each path, every render failed unseen, and `.claude/hookify/` stayed empty while setup and doctor said ok; fixed under Fixed below, and the rerun wrote all 15 guardrails through `guardrails --render` with doctor's new row ok. The new checks passed: `/sdlc:setup objects` showed objects and wrote nothing before approval, then a file that passes the check, `"objects": true` with the other keys, one commit and a local merge, and `--enable` was refused in a repo whose setup wasn't finished (C8); the brief's `objects:` section, `objects.py check <f>` stopping an L change on an avoided name, and doctor's `objects` row (E8); eject kept `objects.md` (H5); in a brownfield repo `scaffold.py objects` listed the sample's model and type files and no tests (G). C6, C7 and E9 (should) didn't run; E7 ran its `--json` half.
+
+Known issues (should):
+- In a live headless L session, the agent edited the user's `objects.md` (dropped an Avoid line, added an object) to get past Define's gate rather than asking; D2 makes a new object the owner's call, but the Avoid list isn't named in it.
+- In a brownfield repo whose only failing test is in the baseline, Build's gate passes with `state.py advance 3 --gate pass` and no verified record (seen since 3.9.0).
+- On Windows with `core.autocrlf=true`, a checkout that rewrites a locked test file with CRLF makes `verify.py` report `test_lock_changed` (since 3.10.0; not exercised this time).
+- On M in Claude Code, the built-in `code-review` skill doesn't read `review-brief.md`, so the objects file's `DR` rules aren't checked there (spec 13 O9).
+- `brief.py` prints the PRD at config's `prd` path, which is checked by its spelling only.
+
+### Fixed
+- **Setup writes every guardrail itself.** On Windows, setup's guardrails step could leave `.claude/hookify/` empty: the agent looped over `scaffold.py guardrails` in the shell, a carriage return (`\r`) on each path failed every render unseen, and doctor said ok. `scaffold.py guardrails --render` now writes them all in one call (keeping ones you edited or declined), setup uses it, and `/sdlc:doctor` warns when a finished setup's guardrails were never written.
+- **The brainstorm companion is branded sdlc.** The browser page `sdlc:brainstorming` opens showed "Superpowers Brainstorming" and a Superpowers header; it now says sdlc, with sdlc's version, and credits Superpowers (MIT), whose code it is.
+
 ### Added
 - **An opt-in domain model** (spec 13, ADR 0028). With `"objects": true` in `.sdlc/config.json`, `<docs>/objects.md` (from `templates/objects-template.md`) says what the product's things are: each object's UI name, code name, states, actions and how it's shown, the rules it obeys (`DR-001` onward) and the names to avoid. `brief.py` prints it for Define, which uses its names and states and asks you before adding or renaming an object or changing a rule. `scripts/objects.py check [FEATURE]` runs in Define's gate: it fails on a missing file, an undeclared state, a duplicate or avoided object name or a bad `DR` id, warns on a long file or missing UI fields, and on an avoided name in the ACs warns on M and fails on L. Review checks each `DR` rule like a must-never-break line; doctor gets an `objects` row that also warns about an object whose code name is in no tracked file. Off by default; a spec-backed repo's brief points at rspec's `domain.md` instead. `/sdlc:setup objects` drafts the file with you from the PRD or the code's schema, types and routes, in approved batches, and turns it on (`scaffold.py objects --enable`, which refuses until the file passes the check, and in a spec-backed repo); eject keeps the file. With the model on, UI work maps each object to its `Shown as` component and actions, and the UI review rates a wrong component, an unlisted action or another name Medium. Measured before the UI layer and setup step were built: over five changes to one product, objects on used 0.84x the tokens of off and kept one name per object where off drifted to two (spec 13).
 

@@ -40,3 +40,4 @@
 - 2026-11-13 update knowledge/gotchas/hooks-read-command-text.md — a text guard needs a state backstop; guarded state out of the agent's reach; backslash paths read both ways (from 3.8.0 release distill)
 - 2026-11-15 add knowledge/gotchas/windows-file-writes.md — ACL write probe, what atomic replace loses, no OS lock across WSL (from 3.9.0 release distill)
 - 2026-11-17 update knowledge/gotchas/hooks-read-command-text.md — sdlc-force-push-main reads quoted text; kept, since scrubbing quotes lets bash -c through (from 3.11.0 release distill)
+- 2026-11-17 add knowledge/gotchas/reviewers-are-read-only.md — review instructions told the read-only code reviewer to run scaffold.py (from 3.12.0 release distill)
