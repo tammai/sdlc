@@ -100,6 +100,18 @@ A five-change sequence on one product touching the same three or four objects, w
 | Distinct names per object in UI copy and identifiers after change 5 | Fewer than with the switch off |
 | Review findings on naming, states or a broken earlier rule; questions asked in Define | Reported per run |
 
+**Run 1, 2026-11-17, `b03a992`** (`eval-the-sdlc` task `seq-objects`, headless sonnet, one run per arm; its `results/2026-11-17-seq-objects-b03a992/summary.md`):
+
+| Metric | Result |
+|---|---|
+| Switch off | As 3.11.0 by construction: `brief.py` and `doctor.py` print the same bytes; the instruction files grew about 1.9 KB |
+| Switch on, tokens | +0.3% on the one low-risk M both arms ran as M; 0.89x over the three steps sized alike; 0.84x over all five |
+| Names after change 5 | Off named the credit object two ways (credit, refund), on one; both one name for the rest |
+| Questions | Same count (one each at changes 2 and 4): on asked D2's owner question for Payment and Credit, off asked plan approvals |
+| Hidden tests | All 14 pass in both arms |
+
+All four pass, on one run: step ratios spread from 0.49 to 1.23, and on sized changes 1 and 3 S where off chose M. Whether B3 and B4 go ahead is the owner's call.
+
 ## Known gaps
 
 - **B3, the UI layer** (`ui-work.md`'s `## UI mapping` naming each object's `Shown as` and actions, `ui-reviewer` reading the file, the impeccable note) and **B4, `/sdlc:setup objects`** (greenfield draft from the PRD, brownfield from schema, types, enums and routes): built only if the measurement passes.

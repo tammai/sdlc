@@ -109,6 +109,8 @@ Measured so far (the eval harness `eval-the-sdlc`, outside this repo, one run pe
 
 M held at 3.9–4.1x time, at the 4x bar, and 2.2–2.3x tokens, inside the 3x bar, until 3.5; S was inside its time bar once; the one L round was inside its time bar and over its token bar. Nothing was measured on 3.6 to 3.9. On 2026-11-16, M's tokens were over the 3x bar: the plugin's M round grew from 1.4–1.5M tokens (`83de649`, `7c9b385`) to 3.16M at 3.10.0, nearly all in the main session, so the growth came in between 3.5 and 3.10. The commits after 3.10.0 brought it down to 2.42M (3.21x), still over. Every round held the hidden tests level, and the blind review rated the plugin's M work higher (tests). The extra tokens are mostly cache reads: M cost 2.10x in USD at list prices, S 0.96x. One run each: a direction, not a size.
 
+The domain model (spec 13) was measured against itself, not plain Claude: `b03a992`, five cumulative changes to one ledger (`eval-the-sdlc` task `seq-objects`, headless, one run per arm), `objects` off vs on. On used 0.84x the tokens of off over all five, 0.89x over the three steps both arms sized alike, and +0.3% on the one low-risk M both ran as M; after the fifth change off named the credit object two ways (credit, refund) and on one. Hidden tests passed in both. Off matches 3.11.0 by construction (`brief.py` and doctor print the same bytes). One run: the step ratios spread from 0.49 to 1.23, and on sized two steps S where off chose M.
+
 For a team rollout, from repo artifacts: reviews chosen and their findings (the change file's `## Review`), deviations per feature, `CLAUDE.md` under 60 lines, a shrinking baseline, and repos on the current scaffold (`/sdlc:status`).
 
 ## 9. Constraints and dependencies
