@@ -2390,6 +2390,118 @@ def cmd_deploy(p, a):
     return out
 
 
+OBJECT_INPUTS_MAX = 40
+
+
+OBJECT_SOURCE = {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", ".go", ".rb", ".java", ".kt", ".cs", ".php",
+                 ".rs", ".swift", ".dart", ".ex", ".exs", ".scala", ".prisma", ".sql", ".graphql", ".gql", ".proto"}
+OBJECT_SKIP_DIRS = {"test", "tests", "__tests__", "spec", "specs", "fixtures", "__fixtures__", "e2e", "docs", "doc",
+                    "examples", "vendor", "node_modules", "dist", "build", "generated", "__generated__"}
+OBJECT_KINDS = (  # rank, then a test on (folder names, lower-case base name): schema first, migrations last
+    (0, lambda d, b: b.endswith((".prisma", ".proto")) or b.startswith(("schema.", "schemas.")) and not b.endswith(".py")),
+    (1, lambda d, b: b.startswith(("models.", "schemas.", "schema.")) or ".entity." in b or ".model." in b
+        or {"models", "model", "entities", "entity", "schemas"} & d),
+    (2, lambda d, b: b.startswith(("types.", "enums.", "enum.")) or b.endswith(".d.ts") or {"types", "enums"} & d),
+    (3, lambda d, b: b.startswith(("routes.", "router.", "urls.")) or {"routes", "api", "controllers"} & d),
+)
+
+
+def object_kind(path):
+    """The rank of a tracked file as a drafting input (lower first), or None when it isn't one: source code only, no
+    tests, docs, vendored or generated folders; a migration ranks last."""
+    parts = path.lower().split("/")
+    base, dirs = parts[-1], set(parts[:-1])
+    if os.path.splitext(base)[1] not in OBJECT_SOURCE or dirs & OBJECT_SKIP_DIRS:
+        return None
+    if re.search(r"(^test_|[._-](test|spec)\.)", base) or re.search(r"(^|[._-])(seeds?|dump|fixtures?)([._-]|$)", base):
+        return None
+    if "migration" in path.lower() or "migrate" in dirs:
+        return 4 if base.endswith(".sql") or {"migrations", "migrate"} & dirs else None
+    for rank, test in OBJECT_KINDS:
+        if test(dirs, base):
+            return rank
+    return 3 if base.endswith((".sql", ".graphql", ".gql")) else None
+
+
+def tracked_regular_files(p):
+    """Tracked paths that are regular files git stores in the repo: from the raw index (`-s -z`, so no name is quoted),
+    without links (mode 120000), without a name holding a control or format character, and without any whose real
+    path leaves the repo. [] when it isn't a git repo."""
+    import objects
+    import spec_lock
+    try:
+        raw = git_out(p, "ls-files", "-s", "-z")
+    except (OSError, ValueError):
+        return []
+    out = []
+    for entry in raw.split("\0"):
+        meta, _, path = entry.partition("\t")
+        if not path or meta.startswith("120000") or objects._odd(path) or spec_lock.inside(p.root, path) is None:
+            continue
+        out.append(path)
+    return list(dict.fromkeys(out))  # an unmerged path is in the index once per stage
+
+
+def object_inputs(p):
+    """What `/sdlc:setup objects` drafts from: the PRD and impeccable's PRODUCT.md (each only when it is a regular file
+    inside the repo), and the tracked source files that look like schema, models, types, enums or routes, ranked in
+    that order with migrations last, at most OBJECT_INPUTS_MAX; `more` counts the ones left out."""
+    import spec_lock
+
+    def own_file(rel):
+        full = spec_lock.inside(p.root, rel)
+        return rel if full and os.path.isfile(full) and not os.path.islink(p.path(rel)) else None
+
+    ranked = sorted((r, f) for f in tracked_regular_files(p) for r in [object_kind(f)] if r is not None)
+    out = {"prd": own_file(sdlc_layout.prd(p.root)), "product": own_file("PRODUCT.md"),
+           "files": [f for _, f in ranked[:OBJECT_INPUTS_MAX]]}
+    if len(ranked) > OBJECT_INPUTS_MAX:
+        out["more"] = len(ranked) - OBJECT_INPUTS_MAX
+    return out
+
+
+def cmd_objects(p, a):
+    """The domain model (spec 13): the objects file's path, whether it exists and is on, and what to draft it from.
+    With --enable, turns `objects` on in config, only in a set-up repo that isn't spec-backed (rspec's domain.md is the
+    model there), and only once the file exists and `objects.py check` finds no error."""
+    import objects  # the scripts' own check: one path rule and one file check for setup, Define and doctor
+    import spec_lock
+    if a.enable:
+        if p.lock is None:
+            raise ValueError("this repo isn't set up for sdlc yet: run /sdlc:setup first")
+        if not (p.lock.get("setup") or {}).get("complete"):
+            raise Refused("setup isn't finished yet: finish /sdlc:setup first, then /sdlc:setup objects")
+    spec_backed = spec_lock.spec_backed_repo(p.root)
+    value = (p.config or {}).get("objects")
+    off = value is None or value is False  # exactly as objects.path() reads it: 0 and "" are values to judge
+    rel, invalid = None, None
+    try:  # the same rule Define's check uses, whether or not the switch is on yet
+        rel = objects.target(p.root, True if off else value)
+    except ValueError as e:
+        invalid = str(e) if off else f"objects {value!r}: {e}"
+    out = {"path": rel, "exists": bool(rel) and os.path.isfile(p.path(rel)),
+           "on": not off and invalid is None and not spec_backed, "spec_backed": spec_backed}
+    if invalid:
+        out["invalid"] = invalid
+    if not a.enable:
+        out["inputs"] = object_inputs(p)
+        return out
+    if spec_backed:
+        raise Refused("this repo is spec-backed: rspec's <spec>/domain.md is its domain model, and sdlc never writes it")
+    if invalid:
+        raise Refused(invalid)
+    if not out["exists"]:
+        raise Refused(f"no {rel} yet: draft it with the user first (/sdlc:setup objects)")
+    errors = [x for x in objects.check_file(p.root, rel) if x.severity == "error"]
+    if errors:
+        raise Refused(f"{rel} fails objects.py check: " + "; ".join(f"{x.code}: {x}" for x in errors))
+    p.config = p.config or {}
+    p.config["objects"] = value if isinstance(value, str) else True
+    p.save()
+    out["on"] = True
+    return out
+
+
 def cmd_set_version(p, a):
     lock = p.require_lock()
     if parse_version(a.version)[0] >= 2 and old_features(p):
@@ -2474,9 +2586,17 @@ def eject_plan(p):
     layout = sdlc_layout.paths(p.root)
     keep = [CONFIG, sdlc_layout.prd(p.root), layout["constitution"], layout["design_system"], ".sdlc/baseline.md",
             "knowledge/", layout["docs_dir"] + "/capabilities/",  # the living spec (#73), when it's on
+            layout["docs_dir"] + "/objects.md",  # the domain model (spec 13), user-owned
             layout["state_root"] + ("<feature>.md" if layout["layout"] == "new" else "<feature>/"),
             layout["changes_root"] + ("<feature>.md" if layout["layout"] == "new" else "<feature>/change.md"),
             layout["intents_root"] + "<feature>/"]
+    try:  # a path config's `objects` names, when the rules accept it (eject never deletes it either way: it's not locked)
+        import objects
+        named = objects.path(p.root)
+        if named:
+            keep.append(named)
+    except ValueError:
+        pass
     # Only what is there: the report reads this list, and a repo may have no baseline, design system or features
     keep = [k for k in dict.fromkeys(keep) if os.path.exists(p.path(k.split("<feature>")[0]))]
     plan = {"delete": [], "ask": [], "already_gone": [], "outside": [], "unmerge": lock.get("merged", {}),
@@ -2727,6 +2847,10 @@ def build_parser():
                    help="an environment, routine when it deploys without a go-ahead; repeat for each (replaces the list)")
     s.add_argument("--runbook", help=f"the deploy runbook's path (default {DEFAULT_RUNBOOK})")
     s.set_defaults(fn=cmd_deploy)
+    s = sub.add_parser("objects", help="the domain model's file, switch and drafting inputs; --enable turns it on")
+    s.add_argument("--enable", action="store_true",
+                   help="turn config's objects on, once the file exists and passes objects.py check")
+    s.set_defaults(fn=cmd_objects)
     s = sub.add_parser("design", help="who does UI design work (builtin or impeccable); with a mode, record it")
     s.add_argument("mode", nargs="?")
     s.add_argument("--enable", action="store_true",

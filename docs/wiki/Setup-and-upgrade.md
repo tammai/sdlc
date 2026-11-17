@@ -13,6 +13,8 @@
 
 Interrupted? Run `/sdlc:setup` again; it resumes from the last finished step.
 
+Want one name per thing across changes? Once setup is done, `/sdlc:setup objects` drafts the domain model's `objects.md` with you, a few objects at a time, from your schema, models, types and routes (or the PRD in a new repo), and turns it on ([How it works](How-it-works.md)). It's off by default, and a repo built from an rspec spec uses that spec's `domain.md` instead.
+
 ## 15. Start a new project
 
 1. Create an empty repo (README and LICENSE are fine) and run `/sdlc:setup what you're building`.

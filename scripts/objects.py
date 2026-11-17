@@ -59,6 +59,13 @@ def path(root):
     value = setting(root)
     if value is None or value is False or spec_lock.spec_backed_repo(root):
         return None
+    return target(root, value)
+
+
+def target(root, value):
+    """The repo-relative path config's `objects` value names (True: the default place), judged by the rules `path()`
+    describes, whether or not the switch is on: setup asks it before it turns the switch on. A ValueError says why
+    it can't be the objects file."""
     barred = {".git", ".claude", ".sdlc"}
     if value is True:
         try:
@@ -79,7 +86,7 @@ def path(root):
         raise ValueError(f"{rel!r} leads outside the repo (a link?)")
     resolved = os.path.relpath(full, os.path.realpath(root)).replace("\\", "/")
     for shown, how in ((rel, "is"), (resolved, "leads to")):  # one rule set, on the path written and where it leads
-        why = _refused(shown, barred, own is not None and _parts(shown) == _parts(own))
+        why = _refused(shown, barred, own is not None and _parts(rel) == _parts(own) == _parts(shown))
         if why:
             raise ValueError(f"{rel!r} {how} {why}" + ("; with the old layout, set objects to true"
                                                         if _parts(rel)[:1] == [".sdlc"] and own is None else ""))
@@ -264,11 +271,17 @@ def check(root, feature=None):
         return [P.problem("objects_path_invalid", f"objects: {e}", target=".sdlc/config.json")]
     if rel is None:
         return []
+    return check_file(root, rel, feature)
+
+
+def check_file(root, rel, feature=None):
+    """The file rules on the objects file at `rel` (a path `path()` gave), whether or not the switch is on yet:
+    setup checks a draft before it turns the switch on."""
     try:
         with open(os.path.join(root, rel), encoding="utf-8") as f:
             text = f.read().replace("\r\n", "\n")
     except FileNotFoundError:
-        return [P.problem("objects_missing", f"the objects switch is on, but there's no {rel}", target=rel,
+        return [P.problem("objects_missing", f"there's no {rel}", target=rel,
                           fix=f"write {rel} from the plugin's templates/objects-template.md, or turn the switch off")]
     except (OSError, UnicodeDecodeError) as e:
         return [P.problem("objects_unreadable", f"{rel} can't be read as UTF-8 text ({type(e).__name__})", target=rel)]

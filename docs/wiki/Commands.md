@@ -3,7 +3,7 @@
 | Command | Does |
 |---|---|
 | `/sdlc:start [request]` | Start a feature, or resume the active one if the request is empty (`B<n>`: a named part) |
-| `/sdlc:setup [what you're building]` | Set the repo up once (greenfield or brownfield); resumes if interrupted. `/sdlc:setup deploy` records or changes how the project deploys |
+| `/sdlc:setup [what you're building]` | Set the repo up once (greenfield or brownfield); resumes if interrupted. `/sdlc:setup deploy` records or changes how the project deploys; `/sdlc:setup objects` drafts the domain model's `objects.md` with you and turns it on |
 | `/sdlc:upgrade [--dry-run] [--revisit]` | Bring the repo's scaffold up to the installed plugin version |
 | `/sdlc:eject` | Remove the plugin's files from the repo, keeping your work |
 | `/sdlc:doctor` | Health check of the machine, the plugin and the repo, with a fix for each problem. Changes nothing |

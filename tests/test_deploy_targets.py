@@ -51,7 +51,7 @@ class DeployTargetsTest(unittest.TestCase):
             self.assertIn("`invalid`", text)
         # /sdlc:setup deploy reaches the step in a set-up repo (review r2 M1)
         command = read("commands/setup.md")
-        self.assertRegex(command, r'argument-hint: ".*\| deploy"')
+        self.assertRegex(command, r'argument-hint: ".*\| deploy\b')
         self.assertIn("Arguments are `deploy`", command)
 
     def test_deploy_command_follows_config_and_runbook(self):
