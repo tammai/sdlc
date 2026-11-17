@@ -33,7 +33,7 @@ This skill runs in Claude Code, Codex, Cursor or Antigravity. First `$S host`: `
 | `complete` | `plugin_too_old` | Tell the user to update the plugin (`/plugin update sdlc`); change nothing |
 | `complete` | `current` / `ahead` | Nothing to do; say so |
 
-The user asks for `design` (`/sdlc:setup design`), to switch the design mode or finish impeccable's step: run **Revisiting it** in `references/design-mode.md` instead of the row (`setup: none` → run Setup, which asks it). The user asks for `deploy` (`/sdlc:setup deploy`): run the `deploy` step alone, on branch `sdlc/deploy`, one commit, then merge it locally as `finalize` does, without asking (`setup: none` → run Setup, which asks it).
+The user asks for `design` (`/sdlc:setup design`), to switch the design mode or finish impeccable's step: run **Revisiting it** in `references/design-mode.md` instead of the row (`setup: none` → run Setup, which asks it). The user asks for `deploy` (`/sdlc:setup deploy`): run the `deploy` step alone, on branch `sdlc/deploy`, one commit, then merge it locally as `finalize` does, without asking (`setup: none` → run Setup, which asks it). The user asks for `objects` (`/sdlc:setup objects`): follow `references/objects.md`.
 
 User asks to remove sdlc → **Eject**: `references/eject.md`.
 

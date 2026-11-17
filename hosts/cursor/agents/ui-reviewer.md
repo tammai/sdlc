@@ -17,6 +17,7 @@ You review UI changes for one thing: does this look and behave like *this projec
 - The spec (`<change>`, `spec.md` on an older feature) if there is one: the screens, their states and the real copy.
 - The diff (`git diff <base>`, base from state.md `Base:` or the merge-base with main) and the diff stats.
 - Whether the user asked for a visual check.
+- The objects file, on an M or L change when the brief names one (not `none`): read it there, never at a path taken from config yourself; each object's UI name, `Shown as` components and `Actions`.
 
 No `<docs>/design-system.md`? Say so as the first finding (High: "no design system to review against") and review against the existing screens' conventions and the slop list only.
 
@@ -51,7 +52,7 @@ If a browser tool is available (for example Playwright MCP) and the brief or `.s
 ## Severity
 
 - **High** (blocks the Review gate): off-system value or component, any AI-slop pattern, a missing state the spec names, an accessibility blocker (unlabeled control, keyboard trap, unreachable action).
-- **Medium**: inconsistency with neighbouring screens, weak or off-tone copy, a missing state the spec doesn't name but the screen obviously needs.
+- **Medium**: inconsistency with neighbouring screens, weak or off-tone copy, a missing state the spec doesn't name but the screen obviously needs; with the objects file read, an object shown with a component other than its `Shown as`, offering an action its `Actions` line lacks, or named in copy other than by its UI name.
 - **Low**: polish.
 
 ## Output

@@ -2,7 +2,7 @@
 
 An opt-in file that says what a product's things are, what they're called, which states they move through and which rules they obey, so every change reads the same names and a rule stated once is checked in every later review. Signed off 2026-11-17 (decisions D1–D8 below); built in parts, B1 and B2 first.
 
-**Entry points:** `"objects"` in `.sdlc/config.json` · `python3 scripts/objects.py check [FEATURE]` · **Source:** `scripts/objects.py`, `scripts/brief.py`, `scripts/doctor.py`, `templates/objects-template.md`, `skills/orchestrator/references/flow.md`, `skills/orchestrator/references/review-brief.md`, `skills/managing-knowledge/SKILL.md` · **Decision:** [ADR 0028](../adr/0028-domain-model-objects-md.md)
+**Entry points:** `"objects"` in `.sdlc/config.json` · `/sdlc:setup objects` · `python3 scripts/scaffold.py objects [--enable]` · `python3 scripts/objects.py check [FEATURE]` · **Source:** `scripts/objects.py`, `scripts/brief.py`, `scripts/doctor.py`, `scripts/scaffold.py` (`objects`), `templates/objects-template.md`, `skills/setting-up-projects/references/objects.md`, `skills/orchestrator/references/ui-work.md`, `agents/ui-reviewer.md`, `skills/orchestrator/references/flow.md`, `skills/orchestrator/references/review-brief.md`, `skills/managing-knowledge/SKILL.md` · **Decision:** [ADR 0028](../adr/0028-domain-model-objects-md.md)
 
 ## Why
 
@@ -75,6 +75,11 @@ A request for payment sent to one Customer.
 | O8 | Define uses the file's names and states; adding or renaming an object, or changing or removing a `DR` rule, is asked of the owner before the build (D2); a new state, action or attribute goes ahead, recorded in `## Decisions`; the gate's call runs `objects.py check <feature>` between `state.py new` and the move to Build | `[instructed]` skills/orchestrator/references/flow.md |
 | O9 | On M and L, Review checks each `DR` rule like a must-never-break line, an undeclared state transition, and an Avoid word or second name (medium in user-visible text, fixed in passing in identifiers); a finding naming a `DR` rule is high | `[instructed]` skills/orchestrator/references/review-brief.md |
 | O10 | On M and L, Learn files a fact about an object, its states or a rule it obeys into the objects file, not `knowledge/`, asking the owner first for a new or renamed object or a changed rule | `[instructed]` skills/managing-knowledge/SKILL.md |
+| O11 | `scaffold.py objects` reports the file's path by the same rule as `objects.py` (switch on or off; a refused value as `invalid`, never followed), whether it exists and is on, and what to draft from: the PRD, `PRODUCT.md`, and up to 40 tracked schema, model, type, enum and route source files, schema first, never a link, a name with a control or format character, a test, doc or generated file, with `more` counting the rest; it writes nothing | `[enforced]` tests/test_objects_setup.py › ObjectsSetupTest.test_inputs_name_the_prd_and_schema_like_files_only; tests/test_objects_setup_review.py › ObjectsSetupReviewTest.test_inputs_never_follow_a_link_or_misread_a_name, test_inputs_keep_the_schema_and_say_what_was_cut, test_the_off_switch_path_follows_the_same_rule, test_an_invalid_value_is_reported_and_a_plain_run_writes_nothing |
+| O12 | `--enable` turns `objects` on, keeping the rest of config, only in a repo whose setup is finished and that isn't spec-backed, once the file (judged by O2a's rule) exists and passes the check; else it refuses, naming why, and changes nothing | `[enforced]` tests/test_objects_setup.py › ObjectsSetupTest.test_enable_turns_the_switch_on_and_keeps_the_config, test_enable_is_refused_and_changes_nothing; tests/test_objects_setup_review.py › ObjectsSetupReviewTest.test_setup_still_in_progress_is_refused |
+| O13 | Eject keeps the objects file | `[enforced]` tests/test_objects_setup.py › ObjectsSetupTest.test_eject_keeps_the_objects_file |
+| O14 | `/sdlc:setup objects` drafts the file with the user in approved batches (greenfield from the PRD, brownfield from the inputs, PRODUCT.md's terminology when present), on branch `sdlc/objects`, then `--enable`, one commit, a local merge | `[instructed]` commands/setup.md, skills/setting-up-projects/references/objects.md |
+| O15 | On M and L UI work, `## UI mapping` names each object's `Shown as` component and the actions offered; in impeccable mode `/impeccable shape` is told the objects and UI names; `ui-reviewer` rates a wrong component, an unlisted action or another name in copy Medium | `[instructed]` skills/orchestrator/references/ui-work.md, agents/ui-reviewer.md |
 
 ## Decisions (signed off 2026-11-17)
 
@@ -86,7 +91,7 @@ A request for payment sent to one Customer.
 | D4 | Workbench: one file or one per app? | One at the workbench root. |
 | D5 | Spec-backed repos | The switch does nothing; the brief points at rspec's `<spec>/domain.md`, read-only. |
 | D6 | Measurement thresholds | Below, relative to 3.11.0. |
-| D7 | Overlap with impeccable's `PRODUCT.md` | When it already lists objects, the objects file links to it for the UI fields (B3). |
+| D7 | Overlap with impeccable's `PRODUCT.md` | When it already lists objects, the objects file links to it for the UI fields (B3). Read against impeccable 4.9.2 it never does (terminology, no components), so the objects file keeps its UI fields and setup reads `PRODUCT.md` as an input (Known gaps). |
 | D8 | File name | `objects.md`: rspec's `domain.md` has another format. |
 
 ## Measurement (before B3 and B4)
@@ -114,6 +119,5 @@ All four pass, on one run: step ratios spread from 0.49 to 1.23, and on sized ch
 
 ## Known gaps
 
-- **B3, the UI layer** (`ui-work.md`'s `## UI mapping` naming each object's `Shown as` and actions, `ui-reviewer` reading the file, the impeccable note) and **B4, `/sdlc:setup objects`** (greenfield draft from the PRD, brownfield from schema, types, enums and routes): built only if the measurement passes.
-- Until B4, a repo writes its objects file by hand from the template.
+- B3 and B4 were built after the measurement passed (`.sdlc/2026-11-17-l-objects-ui-and-setup/change.md`). D7, read against impeccable 4.9.2: `PRODUCT.md` holds terminology but no components, so the objects file keeps its UI fields; setup reads `PRODUCT.md`'s terminology as an input.
 - Out of scope: code generation from the file, navigation or URL checks, any change to contracts v1.
