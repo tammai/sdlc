@@ -4,6 +4,10 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
+## 3.11.0 — 2026-11-17
+
+No migration: `living_spec` and `rules` are optional config keys, and `.sdlc/ci/invariants.py` is generated, so `/sdlc:upgrade` offers the new one.
+
 ### Added
 - **Uses a graphify code graph when the repo has one.** When `graphify-out/graph.json` exists, `brief.py` adds a section telling Define to run `graphify query "<the request>" --budget 1500` alongside its reads (or to read `graphify-out/GRAPH_REPORT.md` when the `graphify` command isn't installed), with the graph's build date and a reminder that the code wins over a stale graph. Without a graph nothing changes, and sdlc never builds or installs one. Files under `graphify-out/` no longer count as drift in `verify.py` or as code changes in the freshness hook, so a graph rebuilt by `graphify --watch` doesn't stop a build.
 - **A living spec, opt-in** (#73, from OpenSpec's delta specs). With `"living_spec": true` in `.sdlc/config.json`, the repo keeps what the system does now, one file per capability in `<docs>/capabilities/`: a purpose and its requirements (`R-001` onward), each with its test and the change it came from. A change's `## Capabilities` section says what it does to them (`add`, `replace`, `remove`, `retire`, or `none: <why>`); M and L need the section, S may skip it. `ship.py` checks it before anything moves and writes the files after verify, into Ship's commit (`scripts/capabilities.py check|merge` does the same by hand). A removed requirement's id is never reused; deleting a capability needs a `retire` line. `brief.py` lists the capabilities so Define reuses names. Off by default, and does nothing in a spec-backed repo. Its time cost hasn't been measured yet: run an eval before turning it on by default.

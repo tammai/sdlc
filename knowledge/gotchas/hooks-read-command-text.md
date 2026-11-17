@@ -1,15 +1,17 @@
 ---
 type: gotcha
 title: Hooks that judge a Bash command by its text
-description: Commit review needs `git commit` in the visible command; parsing agent-written chains for the budget breaks on ordinary spellings.
+description: Commit review needs `git commit` in the visible command; parsing agent-written chains for the budget breaks on ordinary spellings; a hookify regex also reads quoted text.
 tags: [hooks, claude-code]
-updated: 2026-11-13
+updated: 2026-11-17
 ---
 
 # Hooks that judge a Bash command by its text
 
 ## Symptom
 - Moving Ship's commit into `scripts/ship.py` would have skipped the commit security review entirely: the commit happens, but no review runs.
+- `sdlc-force-push-main` blocked `python3 -c "…'git push -q origin main
+rm -f a'…"`: no push ran, the text was a string literal (2026-11-17, from a product-rebuild session).
 - Review's budget hook refused the documented one-call Ship (`ship.py … && git commit -F …`) in the 2.0 evals, costing a turn each time.
 
 ## Cause
@@ -29,3 +31,8 @@ updated: 2026-11-13
   the user's own prompt (UserPromptSubmit). A path escaped with `\` must be read both ways, as a Windows separator and
   as a shell escape; reading it only one way let `manifest\.json` or `C:\…\specs` through.
 - Don't widen a command parser to fit what agents type: move the work out of the guarded state instead (a reviewed change advances to Stage 4 when it writes `## Review`, so Ship runs outside Review's budget), and take free text out of the command (`ship.py` reads the commit subject from the change file).
+- A hookify rule is one regex over the whole `command`, quotes included. `sdlc-force-push-main` reads one segment at a time (it
+  stops at `;`, `&`, `|` and a newline), but a `
+` typed inside quotes is a backslash and an `n`, not a newline. Don't
+  scrub quoted text to fix that: `bash -c "git push -f origin main"` is a real force push. A false block costs a
+  reworded command (or the code in a file instead of `-c`); a missed one rewrites `main`.

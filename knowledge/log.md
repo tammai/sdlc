@@ -39,3 +39,4 @@
 - 2026-11-12 update knowledge/gotchas/question-tool-answer-is-not-a-prompt.md — the gates now take a dialog answer via user_answer.py's PreToolUse record (from 3.7.0 release distill)
 - 2026-11-13 update knowledge/gotchas/hooks-read-command-text.md — a text guard needs a state backstop; guarded state out of the agent's reach; backslash paths read both ways (from 3.8.0 release distill)
 - 2026-11-15 add knowledge/gotchas/windows-file-writes.md — ACL write probe, what atomic replace loses, no OS lock across WSL (from 3.9.0 release distill)
+- 2026-11-17 update knowledge/gotchas/hooks-read-command-text.md — sdlc-force-push-main reads quoted text; kept, since scrubbing quotes lets bash -c through (from 3.11.0 release distill)
