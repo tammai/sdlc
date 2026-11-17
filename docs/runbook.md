@@ -76,6 +76,7 @@ A part that checks something the release changed also gets that check written in
 **B. Doctor in an empty repo (must)**
 1. `mkdir /tmp/sdlc-smoke-green && cd $_ && git init`, start `claude`.
 2. `/sdlc:doctor`: no ❌; the repo check says "not set up"; the security reviewer environment is ✅ (or ⚠️ only if no API credentials).
+3. `python3 <checkout>/scripts/doctor.py` prints JSON: every check has a `code`, and the "not set up" warning is listed again under `problems` with its `fix`.
 
 **C. Greenfield setup (must)**
 1. `/sdlc:setup a tiny TypeScript library that adds two numbers`. It asks a few stack questions and **waits for your approval** before generating anything.
@@ -98,7 +99,9 @@ A part that checks something the release changed also gets that check written in
 4. S has no Review phase: with no trigger firing (no `Risk: high`, no sensitive, migration or UI path, no Public Surface) it goes from Build straight to Ship, and the change file's `## Review` says no review ran and why. A trigger that fires runs its review **without stopping**; any review agent in `.sdlc/.work/dispatches.jsonl` has `model: opus`.
 5. Freshness in Review: in that repo, `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/state.py" advance <feature> 3` on a feature still active (or start an M change whose Public Surface isn't `- none`, so a review fires), then ask Claude to change a source file **with a shell command** (e.g. `sed -i`) and end the turn: it's **blocked**, and the message names the test command. Run it; the turn then ends normally.
 6. Ship runs the verified-tree check and Learn, makes the final commit on a feature branch and, with a remote, pushes and opens a PR, then stops; without a remote it stops with the branch ready. It never merges. Its security review is skipped (not security-touched): it is recorded as reviewed with no model call. `git status` never shows `.sdlc/state/*.json`.
-7. Trust anchor (should): in a new S feature, ask Claude to run `state.py set <feature> Risk high`: a "Stricter process" message, no block. Then `Risk low`: the stop is blocked once, Claude asks in a `Trust anchor` dialog, and your answer clears it.
+7. Output tools and project rules (must): before the red run, `verify.py --json` prints one document whose `problems` hold `red_not_recorded` with a `fix` naming `verify.py red AC-001`; `ship.py --json` prints one document too. With `"rules": {"plan": ["Every task names its test file."]}` in `.sdlc/config.json`, `brief.py`'s output has a rules section and the plan's tasks follow it.
+8. Living spec and code graph (should): in a repo with `"living_spec": true`, an M change's `## Capabilities` (`- add <name>: AC-001 — <purpose>`) ends up as `<docs>/capabilities/<name>.md` in Ship's commit. With a `graphify-out/graph.json` committed, `brief.py` has the graphify section, and editing a file under `graphify-out/` during Build is neither drift nor a code change.
+9. Trust anchor (should): in a new S feature, ask Claude to run `state.py set <feature> Risk high`: a "Stricter process" message, no block. Then `Risk low`: the stop is blocked once, Claude asks in a `Trust anchor` dialog, and your answer clears it.
 
 **F. Security hooks (should)**
 1. Ask Claude to add `eval(input)` to a file: a security warning appears in Claude's context.
@@ -115,7 +118,8 @@ A part that checks something the release changed also gets that check written in
 2. `/sdlc:status` reports the repo as behind and suggests `/sdlc:upgrade`.
 3. `/sdlc:upgrade --dry-run` shows the plan and changes nothing (`git status` clean).
 4. `/sdlc:upgrade` works on its own branch, asks about the guardrail you edited (apply / skip / keep mine), and ends by merging locally on its own.
-5. `/sdlc:eject` shows a dry run first; applied on a branch, it removes the plugin's files, keeps `.sdlc/config.json`, the PRD, the constitution, knowledge and specs.
+5. `/sdlc:eject` shows a dry run first; applied on a branch, it removes the plugin's files, keeps `.sdlc/config.json`, the PRD, the constitution, knowledge, specs and `<docs>/capabilities/`.
+6. From an older scaffold, `/sdlc:upgrade` offers the regenerated `.sdlc/ci/invariants.py`, and after it `python3 .sdlc/ci/invariants.py --json` prints one JSON document.
 
 **K. Workbench (must when in scope)**
 1. Make a workbench by hand in a throwaway folder: `git init`, `.sdlc/config.json` `{"workbench": true}`, then `python3 "<checkout>/scripts/scaffold.py" workbench add <a local repo> --name api --role app --write` and `workbench add <another local repo> --name specs --role specs --owner @org/ba`. `workbench.json` lists both, `.gitignore` has `/api/` and `/specs/`, and `git -C specs remote get-url --push origin` doesn't point at the real URL.

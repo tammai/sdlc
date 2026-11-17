@@ -22,7 +22,7 @@ One line per doc: path — what it answers (≤12 words). Keep this file under ~
 - [gotchas/hook-inputs.md](gotchas/hook-inputs.md) — failed Bash is PostToolUseFailure; agent_type; CLAUDE_PROJECT_DIR isn't the repo
 - [gotchas/repo-config-is-untrusted.md](gotchas/repo-config-is-untrusted.md) — no-question actions take inputs from the plugin, never repo config
 - [gotchas/subagents-cant-run-skill-commands.md](gotchas/subagents-cant-run-skill-commands.md) — a subagent skips "run /<skill> <command>"; give it a script or the reference file
-- [gotchas/hooks-read-command-text.md](gotchas/hooks-read-command-text.md) — commit review needs `git commit` visible; don't widen command parsers
+- [gotchas/hooks-read-command-text.md](gotchas/hooks-read-command-text.md) — commit review needs `git commit` visible; don't widen command parsers; hookify regexes read quoted text
 - [gotchas/host-hook-answers.md](gotchas/host-hook-answers.md) — Antigravity denies on `{}`; Cursor allow skips approval
 - [gotchas/rendering-svg-diagrams.md](gotchas/rendering-svg-diagrams.md) — how to render and check a hand-edited docs diagram
 - [gotchas/frontmatter-colon-breaks-yaml.md](gotchas/frontmatter-colon-breaks-yaml.md) — why a colon in a description drops agent metadata
