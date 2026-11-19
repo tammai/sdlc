@@ -8,6 +8,14 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 No migration: the new hook ships with the plugin and needs nothing in projects.
 
+Checked on 2026-11-19 at commit 5a84c5f: the full suite (675 tests, 4 skipped, Python 3.10), `claude plugin validate` and `hosts.py check`. The smoke test ran in real sessions on Windows in Claude Code 2.1.328, loading the plugin with `--plugin-dir`, in two groups: A+B, and E (after `/sdlc:setup` in E's repo). Every must item passed, including the new E11: after the third identical failure, the stuck-turn note reached Claude, which then loaded `sdlc:systematic-debugging`. E8–E10 passed too. One E6 clause wasn't observable: the machine had no API credentials, so the commit security review exits before the skip-and-record path; that code is unchanged since 3.12.0. Parts C, D, F, G, H and K didn't run, since the release touches none of what they cover. J didn't run, since no new agent was added.
+
+Known issues (should):
+- After an M change with a committed `graphify-out/graph.json`, the session's `graphify-out/cache/` was left untracked, so `git status` wasn't clean after Ship.
+- When Claude Code adds its attribution trailer, the agent's first `git commit -F .sdlc/.work/commit-msg.txt -m …` fails ("options '-m' and '-F' cannot be used together"), and it recovers with a second message file.
+- With `--plugin-dir`, setup skips sdlc itself but turns on the installed `sdlc-extras` and `sdlc-stepper` in `.claude/settings.local.json`.
+- On Windows, every session prints "Language server plugin:sdlc:typescript couldn't start" (seen before this release).
+
 ### Added
 - **A Build turn that keeps failing the same way gets one nudge.** The new stuck-turn hook watches failed shell calls in Build: the same command failing the same way three times in one turn adds one note telling the agent to stop retrying and use `sdlc:systematic-debugging`. It never blocks, and stays silent outside Build, under the review round cap and in subagents. Claude Code only. The idea comes from microsoft/TokenEconomizer's failure-loop guard.
 
