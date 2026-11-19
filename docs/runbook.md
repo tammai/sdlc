@@ -104,6 +104,7 @@ A part that checks something the release changed also gets that check written in
 8. Domain model (should): with `"objects": true` and `docs/sdlc/objects.md` copied from `templates/objects-template.md`, `brief.py` has an `objects:` section; an L change whose ACs use a name the file's `## Avoid` lists stops at Define's gate, `objects.py check <f>` naming it; `/sdlc:doctor` has an `objects` row.
 9. Living spec and code graph (should): in a repo with `"living_spec": true`, an M change's `## Capabilities` (`- add <name>: AC-001 — <purpose>`) ends up as `<docs>/capabilities/<name>.md` in Ship's commit. With a `graphify-out/graph.json` committed, `brief.py` has the graphify section, and editing a file under `graphify-out/` during Build is neither drift nor a code change.
 10. Trust anchor (should): in a new S feature, ask Claude to run `state.py set <feature> Risk high`: a "Stricter process" message, no block. Then `Risk low`: the stop is blocked once, Claude asks in a `Trust anchor` dialog, and your answer clears it.
+11. Stuck turn (should): with a feature in Build, ask Claude, in one prompt, to run `node -e "process.exit(1)"` four times, one call each, and then say what it saw. After the third failure the stuck-turn note reaches Claude: its reply mentions `sdlc:systematic-debugging`, and `.sdlc/.work/stuck-turn.json` shows that turn as nudged.
 
 **F. Security hooks (should)**
 1. Ask Claude to add `eval(input)` to a file: a security warning appears in Claude's context.

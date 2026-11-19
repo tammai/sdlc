@@ -4,7 +4,14 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
+## 3.13.0 — 2026-11-19
+
+No migration: the new hook ships with the plugin and needs nothing in projects.
+
+### Added
 - **A Build turn that keeps failing the same way gets one nudge.** The new stuck-turn hook watches failed shell calls in Build: the same command failing the same way three times in one turn adds one note telling the agent to stop retrying and use `sdlc:systematic-debugging`. It never blocks, and stays silent outside Build, under the review round cap and in subagents. Claude Code only. The idea comes from microsoft/TokenEconomizer's failure-loop guard.
+
+### Docs
 - The host gotchas list what TokenEconomizer reports about Codex, Cursor and Antigravity hooks, and the wiki's Limitations page has a tested-versions table.
 
 ## 3.12.0 — 2026-11-17
