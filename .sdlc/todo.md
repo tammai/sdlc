@@ -20,6 +20,8 @@
 - [ ] `ship.py --waive-baseline` waives any `test: exit` failure without checking that `.sdlc/baseline.md` lists it (a new failing test, or a new `(root) test` failure, ships with the waiver); match the failures against the baseline's rows — 3.8.0 smoke test G (2026-11-13)
 - [ ] Undoing a read-only change the user already accepted counts as a new change (the accepted baseline holds the change); consider accepting a return to the first look silently — 3.8.0 smoke test K (2026-11-13)
 - [ ] After `/sdlc:upgrade` applies a merge to an edited guardrail, `/sdlc:eject` deletes it; the eject dialog offered to keep it but the report said it wasn't kept — 3.8.0 smoke test H (2026-11-13)
+- [ ] Codex started inside a Claude Code session inherits its `CLAUDE_PROJECT_DIR` (reported by TokenEconomizer); `hooks/pretooluse.py` treats Codex as having none, so it may resolve the wrong repo: check live, and have `hosts/hook.py` drop `CLAUDE_*` for Codex if so (2026-11-19)
+- [ ] Check whether Cursor fires `beforeSubmitPrompt` and `stop` (TokenEconomizer saw neither in `cursor-agent --trust -p` 2026.11.05); if not, the review-cap lift, freshness and trust-anchor turn-end checks don't run there: document it in Limitations or move them to events Cursor sends (2026-11-19)
 
 ## Done
 
