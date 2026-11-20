@@ -55,8 +55,10 @@ async function findRepos($: EngineInterface): Promise<string[]> {
   return found
 }
 
-/** The active feature across those repos, the most recently touched when there are several; null with none. */
-async function load($: EngineInterface, repos: string[]): Promise<View | null> {
+/** The active feature across those repos, the most recently touched when there are several; null with none. A
+ *  feature done at Ship counts only when it is `shown`, the one the bar already showed (usually because this session
+ *  is shipping it; in a workbench, another session's ship of the shown feature looks the same). */
+async function load($: EngineInterface, repos: string[], shown: View | null): Promise<View | null> {
   const candidates: { repo: string; name: string; state: string; backlog: string; mtime: number }[] = []
   for (const repo of repos) {
     const at = repo ? `${repo}/` : ''
@@ -78,8 +80,9 @@ async function load($: EngineInterface, repos: string[]): Promise<View | null> {
     const s = await text($, c.state)
     const parsed = s ? parseState(c.name, s) : null
     if (!parsed) continue
+    if (parsed.shipped && !(shown && shown.repo === c.repo && shown.feature === parsed.feature)) continue
     const b = await text($, c.backlog)
-    best = { v: makeView(c.repo, parsed.feature, parsed.phase, b ? parseBacklog(b) : []), mtime: c.mtime }
+    best = { v: makeView(c.repo, parsed.feature, parsed.phase, b ? parseBacklog(b) : [], parsed.shipped), mtime: c.mtime }
   }
   return best ? best.v : null
 }
@@ -94,7 +97,7 @@ async function refresh($: EngineInterface, rescan = false): Promise<View | null>
   let next: View | null = null
   try {
     if (rescan || repos === null) repos = await findRepos($)
-    next = repos.length ? await load($, repos) : null
+    next = repos.length ? await load($, repos, await read($, view)) : null
   } catch {
     next = null
   }
@@ -103,12 +106,21 @@ async function refresh($: EngineInterface, rescan = false): Promise<View | null>
   return next
 }
 
+/** The shipped feature on the bar gives way: the bar reads the disk again without it and shows what is active there,
+ *  else nothing (the caller then decides whether a feature is being defined). */
+async function dropShipped($: EngineInterface): Promise<View | null> {
+  await update($, view, () => null)
+  return refresh($)
+}
+
 /** `/sdlc:start` was submitted: with no feature on disk yet, one is being defined, so the bar shows Define at
  *  once, without waiting for the agent's first line or for the state file. (A start the model makes itself, by loading
  *  sdlc's skill for a request, shows from its first `Define · …` line: a `skill.prompt` hook is sent past by a module
  *  that runs first, and the engine says so in the transcript.) */
 async function beginDraft($: EngineInterface): Promise<void> {
-  if (await read($, view)) return  // a feature exists: this resumes it
+  let v = await read($, view)
+  if (v?.shipped) v = await dropShipped($)
+  if (v) return  // a feature exists: this resumes it
   if (repos === null || repos.length === 0) return
   await update($, draft, () => ({ repo: '', feature: '', phase: 'Define', parts: [], current: null }) satisfies View)
 }
@@ -124,7 +136,10 @@ async function endTurn($: EngineInterface): Promise<void> {
 async function noteUpdate($: EngineInterface, answer: string): Promise<void> {
   const found = updateLine(answer)
   if (!found) return
-  const v = await read($, view)
+  let v = await read($, view)
+  // Only the next feature's Define moves the bar off a ship: a Build line while fixing CI is still part of Ship, and a
+  // resumed feature shows from its own state file, which `/sdlc:start` or its next write makes the latest
+  if (v?.shipped && found.phase === 'Define') v = await dropShipped($)
   if (!v) {
     // No feature on disk: a `Define · …` line in an sdlc repo is one being defined; a line for another phase is not
     if (found.phase === 'Define' && repos !== null && repos.length > 0) {
@@ -145,6 +160,17 @@ export const register: Register = on => {
     const out = await next(e)
     await refresh($, true)
     return out
+  })
+
+  // `/clear` ends the conversation but not the process, and no session.start follows: a shipped feature
+  // belongs to the conversation that shipped it, so it isn't carried into the next one
+  on('session.end', async ($, e, next) => {
+    try {
+      if ((await read($, view))?.shipped) await update($, view, () => null)
+    } catch {
+      // a stale band is better than a slow exit
+    }
+    return next(e)
   })
 
   // The band only reads: a failure here must never hold a prompt or a tool call

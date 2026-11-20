@@ -9,15 +9,19 @@ const BY_NUMBER: Record<string, Record<string, Phase>> = {
   '3': { '1': 'Define', '2': 'Build', '3': 'Review', '4': 'Ship' },
 }
 
-/** The feature a state file describes, or null when it isn't an active sdlc 2.x or 3.x feature. */
-export function parseState(name: string, text: string): { feature: string; phase: Phase } | null {
+/** The feature a state file describes, or null when it isn't an active sdlc 2.x or 3.x feature. A done one at Ship is
+ *  returned too, marked `shipped`: ship.py advances to Ship and marks the record done in the same run, so a feature
+ *  is never active at Ship, and the caller decides whether a shipped one is still the session's. */
+export function parseState(name: string, text: string): { feature: string; phase: Phase; shipped: boolean } | null {
   const process = /^Process:\s*([23])\b/m.exec(text)?.[1]
-  if (!/^Status:\s*active\b/m.test(text) || !process) return null
+  const status = /^Status:\s*(active|done)\b/m.exec(text)?.[1]
+  if (!status || !process) return null
   const m = /^Current:\s*Stage\s*(\d+)\s*[–-]?\s*(\w+)?/m.exec(text)
   if (!m) return null
   const named = PHASES.find(p => p.toLowerCase() === (m[2] ?? '').toLowerCase())
   const phase = named ?? BY_NUMBER[process]?.[m[1] ?? '']
-  return phase ? { feature: name, phase } : null
+  if (!phase || (status === 'done' && phase !== 'Ship')) return null
+  return { feature: name, phase, shipped: status === 'done' }
 }
 
 function cells(line: string): string[] {
@@ -55,8 +59,9 @@ export function currentPart(parts: Part[]): Part | null {
   return parts.find(p => p.status.startsWith('in progress')) ?? parts.find(p => !p.status.startsWith('done')) ?? null
 }
 
-export function makeView(repo: string, feature: string, phase: Phase, parts: Part[]): View {
-  return { repo, feature, phase, parts, current: phase === 'Build' ? currentPart(parts) : null }
+export function makeView(repo: string, feature: string, phase: Phase, parts: Part[], shipped = false): View {
+  const v: View = { repo, feature, phase, parts, current: phase === 'Build' ? currentPart(parts) : null }
+  return shipped ? { ...v, shipped: true } : v
 }
 
 /** The step a tool call shows the session on, or null when it says nothing new. */

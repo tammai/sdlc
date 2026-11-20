@@ -230,6 +230,160 @@ test("a feature still being defined shows from the agent's own lines, then hands
   expect((await look()).marks).toEqual([])
 })
 
+// ship.py advances to Stage 4 and sets `Status: done` in the same run, so a feature is never active at Ship
+const SHIPPED = STATE.replace('Status: active', 'Status: done').replace('Stage 2 – Build', 'Stage 4 – Ship')
+
+test('the feature this session ships stays on the bar at Ship, though Ship marks it done', async ($, on) => {
+  const files: Record<string, string> = {
+    '.sdlc/config.json': '{}',
+    '.sdlc/state/f.md': STATE.replace('Stage 2 – Build', 'Stage 3 – Review'),
+  }
+  repo(on, files)
+  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+  files['.sdlc/state/f.md'] = SHIPPED
+  await $.tool.call({ tool: 'Bash', command: 'python3 "/p/scripts/ship.py" f && git commit -F msg.txt' })
+  await $.tool.call({ tool: 'Bash', command: 'gh pr create --fill' })
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect(await marks(ui)).toEqual(['✓', '✓', '✓', '●'])
+  expect((await ui.find({ type: 'Text', text: /^Ship/ }))?.text).toBe('Ship · PR')
+  expect((await ui.find({ type: 'Text', text: 'f' }))?.text).toBe('f')
+  await ui.unmount()
+})
+
+test("the agent's update lines during Ship keep the shipped feature on the bar, a Build line for a CI fix too", async ($, on) => {
+  const files: Record<string, string> = {
+    '.sdlc/config.json': '{}',
+    '.sdlc/state/f.md': STATE.replace('Stage 2 – Build', 'Stage 3 – Review'),
+  }
+  repo(on, files)
+  let said = ''
+  on('turn.step', async function* (_, e) {
+    return { turnId: e.turnId, index: e.index, answer: said, toolUses: [], stopReason: 'end_turn', usage: null }
+  })
+  const say = async (answer: string) => {
+    said = answer
+    for await (const _ of $.turn.step({ turnId: 't2', index: 0, model: 'sonnet', messageCount: 1 })) void _
+  }
+  const look = async () => {
+    const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+    const out = { marks: await marks(ui), words: (await ui.find({ type: 'Text', text: /^Ship/ }))?.text, feature: (await ui.find({ type: 'Text', text: /^f$/ }))?.text }
+    await ui.unmount()
+    return out
+  }
+  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+  files['.sdlc/state/f.md'] = SHIPPED
+  await $.tool.call({ tool: 'Bash', command: 'gh pr create --fill' })
+  await say('Ship · PR · opened')
+  expect(await look()).toEqual({ marks: ['✓', '✓', '✓', '●'], words: 'Ship · PR · opened', feature: 'f' })
+  await say('Build · fixing the red CI run')
+  await $.tool.call({ tool: 'Bash', command: 'ls' })
+  expect((await look()).marks).toEqual(['✓', '✓', '✓', '●'])
+})
+
+test('a feature shipped before this session is not shown', async ($, on) => {
+  repo(on, {
+    '.sdlc/config.json': '{}',
+    '.sdlc/state/f.md': SHIPPED,
+  })
+  on('ui.render', ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return <Text>engine</Text>
+  })
+  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+  await $.tool.call({ tool: 'Bash', command: 'ls' })
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect((await ui.find({ type: 'Text' }))?.text).toBe('engine')
+  await ui.unmount()
+})
+
+test('starting the next feature after a ship shows Define, not the shipped one', async ($, on) => {
+  const files: Record<string, string> = {
+    '.sdlc/config.json': '{}',
+    '.sdlc/state/f.md': STATE.replace('Stage 2 – Build', 'Stage 3 – Review'),
+  }
+  repo(on, files)
+  on('prompt.submit', (_, e) => ({ text: e.text }))
+  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+  files['.sdlc/state/f.md'] = SHIPPED
+  await $.tool.call({ tool: 'Bash', command: 'gh pr checks --watch' })
+  await $.prompt.submit({ text: '/sdlc:start add CSV export' })
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect(await marks(ui)).toEqual(['●', '○', '○', '○'])
+  expect(await ui.find({ type: 'Text', text: /^f$/ })).toBeUndefined()
+  await ui.unmount()
+})
+
+test("the next feature's first Define line replaces the shipped one", async ($, on) => {
+  const files: Record<string, string> = {
+    '.sdlc/config.json': '{}',
+    '.sdlc/state/f.md': STATE.replace('Stage 2 – Build', 'Stage 3 – Review'),
+  }
+  repo(on, files)
+  let said = ''
+  on('turn.step', async function* (_, e) {
+    return { turnId: e.turnId, index: e.index, answer: said, toolUses: [], stopReason: 'end_turn', usage: null }
+  })
+  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+  files['.sdlc/state/f.md'] = SHIPPED
+  await $.tool.call({ tool: 'Bash', command: 'gh pr checks --watch' })
+  said = 'Define · reading · the brief'
+  for await (const _ of $.turn.step({ turnId: 't2', index: 0, model: 'sonnet', messageCount: 1 })) void _
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect(await marks(ui)).toEqual(['●', '○', '○', '○'])
+  expect((await ui.find({ type: 'Text', text: /^Define/ }))?.text).toBe('Define · reading · the brief')
+  expect(await ui.find({ type: 'Text', text: /^f$/ })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('resuming an older active feature after a ship shows that feature, not a Define band', async ($, on) => {
+  const files: Record<string, string> = {
+    '.sdlc/config.json': '{}',
+    '.sdlc/state/a.md': STATE.replace('Stage 2 – Build', 'Stage 3 – Review'),
+    '.sdlc/state/b.md': STATE,  // still in Build, touched before a
+  }
+  repo(on, files, { '.sdlc/state/a.md': 5 })
+  on('prompt.submit', (_, e) => ({ text: e.text }))
+  let said = ''
+  on('turn.step', async function* (_, e) {
+    return { turnId: e.turnId, index: e.index, answer: said, toolUses: [], stopReason: 'end_turn', usage: null }
+  })
+  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+  files['.sdlc/state/a.md'] = SHIPPED
+  await $.tool.call({ tool: 'Bash', command: 'gh pr checks --watch' })
+  await $.prompt.submit({ text: '/sdlc:start' })
+  const look = async () => {
+    const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+    const out = { marks: await marks(ui), feature: (await ui.find({ type: 'Text', text: /^[ab]$/ }))?.text }
+    await ui.unmount()
+    return out
+  }
+  expect(await look()).toEqual({ marks: ['✓', '●', '○', '○'], feature: 'b' })
+  said = 'Build · resuming'
+  for await (const _ of $.turn.step({ turnId: 't2', index: 0, model: 'sonnet', messageCount: 1 })) void _
+  expect(await look()).toEqual({ marks: ['✓', '●', '○', '○'], feature: 'b' })
+})
+
+test('after /clear the shipped feature is not carried into the new conversation', async ($, on) => {
+  const files: Record<string, string> = {
+    '.sdlc/config.json': '{}',
+    '.sdlc/state/f.md': STATE.replace('Stage 2 – Build', 'Stage 3 – Review'),
+  }
+  repo(on, files)
+  on('session.end', (_, e) => ({ sessionId: e.sessionId }))
+  on('ui.render', ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return <Text>engine</Text>
+  })
+  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+  files['.sdlc/state/f.md'] = SHIPPED
+  await $.tool.call({ tool: 'Bash', command: 'gh pr create --fill' })
+  await $.session.end({ reason: 'clear', sessionId: 's1', resume: { id: 's1' } } as never)
+  await $.tool.call({ tool: 'Bash', command: 'ls' })
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect((await ui.find({ type: 'Text' }))?.text).toBe('engine')
+  await ui.unmount()
+})
+
 test('starting sdlc shows the stepper at once, and a start that goes another way leaves nothing', async ($, on) => {
   const files: Record<string, string> = {
     '.sdlc/config.json': '{}',

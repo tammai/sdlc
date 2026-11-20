@@ -10,6 +10,8 @@ export type View = {
   parts: Part[]
   /** The part in progress, else the next one not done. */
   current: Part | null
+  /** Done at Ship: shown only while it is the feature the bar already showed, and the next start replaces it. */
+  shipped?: true
 }
 
 /** The step the session was last seen on, and the phase it belongs to: `name` from the tool it last ran, and `line`
