@@ -99,7 +99,7 @@ Learn, before the final commit, files a lesson in the right tier only when the f
 | The living spec, when `living_spec` is on (committed): what the system does now, one file per capability | `docs/sdlc/capabilities/<name>.md` (old layout: `.sdlc/capabilities/`), written by Ship |
 | The domain model, when `objects` is on (committed, yours): objects, their names, states and rules | `docs/sdlc/objects.md` (old layout: `.sdlc/objects.md`), written by you from the plugin's template |
 | Feature working files (committed) | `.sdlc/state/<feature>/`: `backlog.md` and `plan-B<n>.md` for work split into parts, `qa-report.md` from a QA round, `release.md` from `/sdlc:deploy`, committed only if you ask |
-| Scratch (git-ignored) | `.sdlc/.work/`: `verify.json` (written by `scripts/verify.py`), `verify-freshness.json` (the freshness hook's copy of verify runs, written by the hook and by `verify.py` itself), `trust-anchor.json`, `dispatches.jsonl`, `findings/<feature>/` (each review's report, ending in its `VERDICT:` line) |
+| Scratch (git-ignored) | `.sdlc/.work/`: `verify.json` (written by `scripts/verify.py`), `verify-freshness.json` (the freshness hook's copy of verify runs, written by the hook and by `verify.py` itself), `trust-anchor.json`, `review-rounds.json` (the review cap: per feature the round reached, the last round your answers allow, and the cap's ceiling), `stuck-turn.json`, `dispatches.jsonl`, `findings/<feature>/` (each review's report, ending in its `VERDICT:` line) |
 | Ralph loop state (`sdlc-extras`) | `.claude/ralph-loop.local.md` |
 | Personal hookify rules | `.claude/hookify.<name>.local.md` (git-ignored) |
 | Team hookify rules | `.claude/hookify/<name>.md` (committed) |

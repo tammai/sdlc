@@ -143,3 +143,11 @@ The state, the change file, baseline and config the hooks trust are writable by 
 1. **Stricter changes** (Track up, Risk low → high) only add checks: "Stricter process: …", no block. Only current features (`Process: 3`) are anchored.
 2. **Every other change** blocks the stop once. Claude must tell you what changed and why, without undoing it on its own. Your answer to its `Trust anchor` question, or your next message, accepts it: the current values become the anchor, and the notice doesn't block again. Autopilot stops at a notice you haven't seen.
 3. If the change was wrong, say so in that message and have it reverted (`state.py set`, or restore the file from git); moving a value back is itself a notice.
+
+## R20. Every edit and command is denied after a review
+
+The review-rounds hook holds a feature whose last allowed review round still ends `VERDICT: FAIL` (round 2 unless config's `review_rounds` allows more). Everything but the project's tests, `verify.py` and a reviewer's report is denied until you decide.
+
+1. Claude should already be asking you in a `Review cap` dialog: one more fix round, a waiver (`waived round <N>`) or stop. Answer it, or send any message: either allows one more round.
+2. To allow more rounds for this and later features, type `/sdlc:setup review-rounds <n>` (2 to 5) yourself. The hook reads the number from your prompt and writes it into `.sdlc/config.json`; commit that change so later features start from it. That prompt sets the cap and isn't also a grant, so a number at or below the round reached keeps the hold.
+3. A number the agent writes into config can only lower the cap: a feature's ceiling follows config down and goes up only on your typed command. If a value you committed doesn't take, check `.sdlc/.work/review-rounds.json` for the feature's `ceiling`.

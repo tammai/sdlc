@@ -66,6 +66,7 @@ A project with UI can hand its design work to the [impeccable](https://github.co
 │
 ├─ knowledge
 ├─ deploy                         HARD STOP: target and environments; seeds the runbook
+├─ review-rounds                  HARD STOP: review rounds before you're asked (2 to 5)
 └─ finalize                       local merge (no question, no push)
 ```
 
