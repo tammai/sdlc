@@ -39,6 +39,9 @@ updated: 2026-11-03
 - For a shape the props can't give (pill, 2px border, exact padding), draw it as one SVG; a layer over another needs both layers `absolute`, the later one on top, with a 1px in-flow spacer for the height.
 - To read the model's words, hook `turn.step` as an async generator (`const r = yield* next(e)`), only read `r.answer`, and call `$` from a top-level helper.
 - Before the state file exists, show a draft: `/sdlc:start` on `prompt.submit` (`e.command?.name`) makes it, the agent's `Define · …` lines keep it, the state file replaces it, and a turn with no Define line drops it, so a trivial start leaves nothing. Don't hook `skill.prompt` for this.
+- `ship.py` sets `Status: done` as it enters Stage 4, so a feature is never active at Ship. The bar keeps a done-at-Ship feature only while it is the view already shown, and drops it on `/sdlc:start`, a `Define · …` line or `session.end`.
+- `/clear` fires `session.end` (reason `clear`) and no `session.start`, and the process (and its atoms) goes on. Clear per-conversation state on `session.end`.
+- In a test, every `on(...)` stub must be registered before the first `$` call, or the kit throws ("after the test first called $"). `$.session.end` needs an `on('session.end', …)` answer.
 - `tsconfig.json` in the stepper folder is ignored in `.gitignore`.
 - A live preview of a plugin edit: a local marketplace under another name (`claude plugin marketplace add <dir>`) holding a real copy of the plugin (rsync it after each edit), the marketplace one disabled so only one band draws, and a restarted session (plugins load at start).
 

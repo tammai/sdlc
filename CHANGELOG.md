@@ -4,6 +4,9 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
+### Fixed
+- **sdlc-stepper shows the Ship stage.** `ship.py` advances a feature to Stage 4 and sets `Status: done` in the same run, and the bar only read active features, so it disappeared just as Ship began and never showed Ship. Now the feature the bar was showing stays on it at Ship, through the commit, the PR and CI. A feature shipped before the session started still isn't shown, and neither is one after `/clear`. `/sdlc:start` or a `Define · …` line replaces it with the next feature's Define, or with an older active feature being resumed.
+
 ## 3.13.0 — 2026-11-19
 
 No migration: the new hook ships with the plugin and needs nothing in projects.
