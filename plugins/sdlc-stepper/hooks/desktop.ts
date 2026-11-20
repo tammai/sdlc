@@ -42,9 +42,9 @@ export function phaseAlt(phase: Phase, state: IconState): string {
   return `${phase}: ${state === 'done' ? 'done' : state === 'current' ? 'in progress' : 'not started'}`
 }
 
-/** The mini stepper for a feature at `phase`, with its width and alt text. */
-export function miniSvg(phase: Phase): { source: string; alt: string; width: number } {
-  const at = PHASES.indexOf(phase)
+/** The mini stepper for a feature at `phase`, with its width and alt text; `done` checks every stage (a merged ship). */
+export function miniSvg(phase: Phase, done = false): { source: string; alt: string; width: number } {
+  const at = done ? PHASES.length : PHASES.indexOf(phase)
   const width = PHASES.length * MINI_ICON + (PHASES.length - 1) * MINI_LINE
   const body: string[] = []
   const alts: string[] = []

@@ -280,6 +280,56 @@ test("the agent's update lines during Ship keep the shipped feature on the bar, 
   expect((await look()).marks).toEqual(['✓', '✓', '✓', '●'])
 })
 
+test('merging the PR marks the shipped feature done, and the next prompt clears it', async ($, on) => {
+  const files: Record<string, string> = {
+    '.sdlc/config.json': '{}',
+    '.sdlc/state/f.md': STATE.replace('Stage 2 – Build', 'Stage 3 – Review'),
+  }
+  repo(on, files)
+  let said = ''
+  on('turn.step', async function* (_, e) {
+    return { turnId: e.turnId, index: e.index, answer: said, toolUses: [], stopReason: 'end_turn', usage: null }
+  })
+  on('prompt.submit', (_, e) => ({ text: e.text }))
+  on('ui.render', ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return <Text>engine</Text>
+  })
+  const look = async () => {
+    const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+    const out = { marks: await marks(ui), words: (await ui.find({ type: 'Text', text: /^(Ship|engine)/ }))?.text }
+    await ui.unmount()
+    return out
+  }
+  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+  files['.sdlc/state/f.md'] = SHIPPED
+  await $.tool.call({ tool: 'Bash', command: 'gh pr checks 8 --watch' })
+  await $.tool.call({ tool: 'Bash', command: 'gh pr merge 8 --squash --delete-branch' })
+  expect(await look()).toEqual({ marks: ['✓', '✓', '✓', '✓'], words: 'Ship · done' })
+  // The agent's closing words after the merge keep it done
+  said = 'Ship · merged PR #8'
+  for await (const _ of $.turn.step({ turnId: 't2', index: 0, model: 'sonnet', messageCount: 1 })) void _
+  expect(await look()).toEqual({ marks: ['✓', '✓', '✓', '✓'], words: 'Ship · merged PR #8' })
+  await $.prompt.submit({ text: 'done?' })
+  expect(await look()).toEqual({ marks: [], words: 'engine' })
+})
+
+test('the desktop stepper shows every stage done once the PR is merged', async ($, on) => {
+  const files: Record<string, string> = {
+    '.sdlc/config.json': '{}',
+    '.sdlc/state/f.md': STATE.replace('Stage 2 – Build', 'Stage 3 – Review'),
+  }
+  repo(on, files)
+  await $.session.start({ cwd: '/repo', surface: 'desktop', isInteractive: true })
+  files['.sdlc/state/f.md'] = SHIPPED
+  await $.tool.call({ tool: 'Bash', command: 'gh pr merge --squash' })
+  const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const svg = (await ui.find({ type: 'Svg' })) as any
+  expect(svg?.props?.alt ?? svg?.alt).toBe('Define: done, Build: done, Review: done, Ship: done')
+  await ui.unmount()
+})
+
 test('a feature shipped before this session is not shown', async ($, on) => {
   repo(on, {
     '.sdlc/config.json': '{}',

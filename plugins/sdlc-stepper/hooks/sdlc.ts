@@ -83,6 +83,8 @@ export function stepFor(phase: Phase, tool: string, input: Record<string, unknow
   if (tool === 'Bash') {
     if (/verify\.py["']?\s+(--\S+\s+\S+\s+)*red\b/.test(command)) return 'failing tests'
     if (/ship\.py/.test(command)) return 'checks'
+    // The PR merged: the shipped feature is done, every stage of it
+    if (/gh pr merge\b/.test(command)) return phase === 'Ship' ? 'done' : null
     if (/gh pr create/.test(command)) return 'PR'
     if (/gh pr checks/.test(command)) return 'CI'
     if (/git commit\b/.test(command)) return phase === 'Define' ? null : 'commit'
