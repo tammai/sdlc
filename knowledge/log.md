@@ -44,3 +44,4 @@
 - 2026-11-19 update knowledge/gotchas/host-hook-answers.md — Codex, Cursor and Antigravity hook facts reported by microsoft/TokenEconomizer, not re-checked (from 3.13.0 release distill)
 - 2026-11-19 update knowledge/gotchas/hook-inputs.md — Codex started inside a Claude Code session inherits its CLAUDE_* variables (from 3.13.0 release distill)
 - 2026-11-19 update .claude/rules/tests.md — a test helper named after a TestCase method (fail) swallows every assertion (from 3.13.0 release distill)
+- 2026-11-20 update knowledge/gotchas/hooks-module-validator-and-test-kit.md — done-at-Ship feature on the bar, /clear fires session.end and no session.start, test stubs before the first $ call (from 3.13.1 release distill)

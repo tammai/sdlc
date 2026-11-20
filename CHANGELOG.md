@@ -4,6 +4,10 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
+## 3.13.1 — 2026-11-20
+
+No migration: the fix is in sdlc-stepper, which updates with the plugin.
+
 ### Fixed
 - **sdlc-stepper shows the Ship stage.** `ship.py` advances a feature to Stage 4 and sets `Status: done` in the same run, and the bar only read active features, so it disappeared just as Ship began and never showed Ship. Now the feature the bar was showing stays on it at Ship, through the commit, the PR and CI. A feature shipped before the session started still isn't shown, and neither is one after `/clear`. `/sdlc:start` or a `Define · …` line replaces it with the next feature's Define, or with an older active feature being resumed.
 
@@ -29,7 +33,8 @@ Known issues (should):
 
 No migration: `objects` is an optional config key, off by default; `/sdlc:setup objects` turns it on.
 
-Smoke test passed on 2026-11-17 against 94f1605, with part C rerun on the fix for C3 (`dac9743`'s first round). Parts A, B, C, E, G and H ran in three groups (A+B; C then E and H in C's repo; G). D and F didn't run: the release touches no guardrail template or security hook. K didn't run: no workbench code changed. J didn't run: no new agent. A ran with `--plugin-dir`. C3 failed at 94f1605: on Windows the setup session's shell loop over `scaffold.py guardrails` picked up a `` on each path, every render failed unseen, and `.claude/hookify/` stayed empty while setup and doctor said ok; fixed under Fixed below, and the rerun wrote all 15 guardrails through `guardrails --render` with doctor's new row ok. The new checks passed: `/sdlc:setup objects` showed objects and wrote nothing before approval, then a file that passes the check, `"objects": true` with the other keys, one commit and a local merge, and `--enable` was refused in a repo whose setup wasn't finished (C8); the brief's `objects:` section, `objects.py check <f>` stopping an L change on an avoided name, and doctor's `objects` row (E8); eject kept `objects.md` (H5); in a brownfield repo `scaffold.py objects` listed the sample's model and type files and no tests (G). C6, C7 and E9 (should) didn't run; E7 ran its `--json` half.
+Smoke test passed on 2026-11-17 against 94f1605, with part C rerun on the fix for C3 (`dac9743`'s first round). Parts A, B, C, E, G and H ran in three groups (A+B; C then E and H in C's repo; G). D and F didn't run: the release touches no guardrail template or security hook. K didn't run: no workbench code changed. J didn't run: no new agent. A ran with `--plugin-dir`. C3 failed at 94f1605: on Windows the setup session's shell loop over `scaffold.py guardrails` picked up a `
+` on each path, every render failed unseen, and `.claude/hookify/` stayed empty while setup and doctor said ok; fixed under Fixed below, and the rerun wrote all 15 guardrails through `guardrails --render` with doctor's new row ok. The new checks passed: `/sdlc:setup objects` showed objects and wrote nothing before approval, then a file that passes the check, `"objects": true` with the other keys, one commit and a local merge, and `--enable` was refused in a repo whose setup wasn't finished (C8); the brief's `objects:` section, `objects.py check <f>` stopping an L change on an avoided name, and doctor's `objects` row (E8); eject kept `objects.md` (H5); in a brownfield repo `scaffold.py objects` listed the sample's model and type files and no tests (G). C6, C7 and E9 (should) didn't run; E7 ran its `--json` half.
 
 Known issues (should):
 - In a live headless L session, the agent edited the user's `objects.md` (dropped an Avoid line, added an object) to get past Define's gate rather than asking; D2 makes a new object the owner's call, but the Avoid list isn't named in it.
