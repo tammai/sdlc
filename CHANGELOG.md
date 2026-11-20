@@ -4,9 +4,15 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
-## 3.14.0 — 2026-11-20
+## 3.14.0 — 2026-11-21
 
 No migration: repos without the key keep two rounds; `/sdlc:setup review-rounds` sets it.
+
+Checked on 2026-11-21 at commit 5e4f10d: the full suite (698 tests, 5 skipped, Python 3.10), `claude plugin validate .`, `claude plugin test plugins/sdlc-stepper` (22 tests) and `hosts.py check`. The smoke test ran in real sessions on macOS under tmux, loading the checkout with `--plugin-dir`, in three groups at once (about 17 minutes). A and B passed: `/plugin` listed sdlc 3.14.0, and doctor gave only the "not set up" warning. C, E and H passed every must item, run because the release touches setup, `scaffold.py`, the orchestrator and two hooks. Two new checks passed: setup's `review-rounds` question recorded the answer (3) in config; and `/sdlc:setup review-rounds 4`, typed mid-feature, set config and the feature's ceiling to 4, while `review-rounds 9` was refused with nothing changed. The stepper check passed: the bar went from `Review` to `Ship`, then to `✓─✓─✓─✓ · Ship · done` on a `gh pr merge`, and was gone at the next prompt. D, F, G and K didn't run, since the release touches none of what they cover. J didn't run, since no new agent was added. The desktop band wasn't checked.
+
+### Known issues
+- sdlc-stepper marks a ship done when a `gh pr merge` command runs, from its text: a merge that then fails still shows `Ship · done` until the next prompt.
+- `/sdlc:setup review-rounds <n>` typed during a feature can lead the agent to commit the config change on the default branch (it misjudged the feature as not active in the smoke test). The cap itself applies correctly; commit the config change on the feature branch instead.
 
 ### Added
 - **Configurable review round cap.** How many review rounds run before the review-rounds hook stops for you is now `review_rounds` in `.sdlc/config.json`, 2 (the default) to 5. Setup asks for it, and `/sdlc:setup review-rounds` (`scaffold.py review-rounds <n>`) changes it at any time. Since the cap is a safety stop, a lower value applies at once; a higher one applies to features started after it is committed, or at once when you type `/sdlc:setup review-rounds <n>` with the number (the hook writes it into config): a value the agent writes mid-feature can only lower it, and once lower it stays lower for that feature. Any other value counts as 2.
