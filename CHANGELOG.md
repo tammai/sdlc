@@ -8,6 +8,8 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 No migration: the fix is in sdlc-stepper, which updates with the plugin.
 
+Checked on 2026-11-20 at commit e5361eb: `claude plugin validate .`, `claude plugin test plugins/sdlc-stepper` (20 tests), the marketplace and hosts tests and `hosts.py check`. The full suite last ran on the fix's branch (675 tests, 5 skipped, Python 3.10). The smoke test ran in real sessions on macOS in Claude Code 2.1.329 under tmux, loading the checkout with `--plugin-dir`. A and B passed: `/plugin` listed sdlc 3.13.1, and `/sdlc:doctor` and `doctor.py` gave no failure, with the "not set up" warning and its fix. A new check for this release passed too: in a session showing a feature at Review, the bar read `✓─✓─✓─● · Ship · PR` once its state file went to done at Stage 4, it was gone after `/clear`, and a fresh session showed nothing for that feature. Parts C–H and K didn't run, since the release touches only `plugins/sdlc-stepper/`. J didn't run, since no new agent was added. The desktop band wasn't checked.
+
 ### Fixed
 - **sdlc-stepper shows the Ship stage.** `ship.py` advances a feature to Stage 4 and sets `Status: done` in the same run, and the bar only read active features, so it disappeared just as Ship began and never showed Ship. Now the feature the bar was showing stays on it at Ship, through the commit, the PR and CI. A feature shipped before the session started still isn't shown, and neither is one after `/clear`. `/sdlc:start` or a `Define · …` line replaces it with the next feature's Define, or with an older active feature being resumed.
 
