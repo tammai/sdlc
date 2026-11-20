@@ -553,6 +553,15 @@ class ScaffoldTest(ProjectTestCase):
         self.assertIn("builtin", self.sc("design", "figma", expect=2)["refused"])
         self.assertEqual(self.sc("design")["design"], "impeccable")  # the refused value changed nothing
 
+    def test_review_rounds_records_and_refuses_out_of_range(self):
+        self.init()
+        self.assertEqual(self.sc("review-rounds")["review_rounds"], 2)  # no key: today's cap
+        self.assertEqual(self.sc("review-rounds", "3")["review_rounds"], 3)
+        self.assertEqual(json.loads(self.read(".sdlc/config.json"))["review_rounds"], 3)
+        for bad in ("1", "6", "x", "2.5"):
+            self.assertIn("2 to 5", self.sc("review-rounds", bad, expect=2)["refused"])
+        self.assertEqual(self.sc("review-rounds")["review_rounds"], 3)  # the refused values changed nothing
+
     def test_deploy_records_target_environments_and_runbook(self):
         self.init()
         self.assertIsNone(self.sc("deploy")["deploy"]["target"])  # nothing recorded yet

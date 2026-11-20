@@ -32,7 +32,7 @@ sdlc/
 │   ├── prove_budget.py      kills non-project shell commands at 120 s in Review (Stage 3), no background runs (original)
 │   ├── session_status.py    SessionStart: the sdlc setup, paths and active features in one line (original)
 │   ├── trust_anchor.py      shows the user changes to what verification trusts (original)
-│   ├── review_rounds.py     when round 2 (the closing check of the fixes) still fails on a high, holds every edit and command until the user replies (original)
+│   ├── review_rounds.py     when the last review round (config's `review_rounds`, default 2) still fails on a high, holds every edit and command until the user replies (original)
 │   ├── stuck_turn.py        the same shell failure three times in one Build turn: one nudge to systematic-debugging (original, idea from TokenEconomizer)
 │   ├── user_answer.py       lets the user's AskUserQuestion answer lift those two gates; denies pre-filled answers (original)
 │   ├── pretooluse.py, stop.py, userpromptsubmit.py   hookify entry points (vendored)

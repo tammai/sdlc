@@ -743,6 +743,26 @@ def cmd_design(p, a):
     return out
 
 
+def cmd_review_rounds(p, a):
+    """The last review round before the user decides (config's `review_rounds`); with a number, records it. The hook
+    applies a lower value at once; a higher one only as hooks/review_rounds.py allows."""
+    import review_rounds  # beside the hooks (sys.path above): one range check for both
+    if a.rounds is not None:
+        try:
+            n = review_rounds.configured(int(a.rounds)) if re.fullmatch(r"[0-9]{1,3}", a.rounds.strip()) else None
+        except ValueError:
+            n = None
+        if n is None:
+            raise Refused(f"review_rounds is a whole number from {review_rounds.CAP} to {review_rounds.MOST}, "
+                          f"not {a.rounds!r}")
+        p.config = p.config or {}
+        p.config["review_rounds"] = n
+        p.save()
+    rounds = review_rounds.configured((p.config or {}).get("review_rounds")) or review_rounds.CAP
+    return {"review_rounds": rounds, "applies": ("a lower cap at once; a higher one from the next feature on once committed, or at once when "
+                        "the user typed /sdlc:setup review-rounds <n> themselves")}
+
+
 def swap_ui_guardrail(p, loads_later=False):
     """Make the installed UI guardrail match the mode, whenever the mode is set (setup renders guardrails before it
     asks the mode). impeccable: removed only once impeccable's detector hook runs here, so nothing goes unchecked in
@@ -2903,6 +2923,10 @@ def build_parser():
     s.add_argument("--enable", action="store_true",
                    help="turn an installed but disabled impeccable plugin on for this repo, on this machine")
     s.set_defaults(fn=cmd_design)
+    s = sub.add_parser("review-rounds", help="the last review round before the user decides (2 to 5); with a number, "
+                                             "record it")
+    s.add_argument("rounds", nargs="?")
+    s.set_defaults(fn=cmd_review_rounds)
     s = sub.add_parser("guardrails", help="the guardrails setup renders for this repo's design mode")
     s.add_argument("--render", action="store_true",
                    help="write every one (seeded), leaving edited, foreign and declined ones as they are")
