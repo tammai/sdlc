@@ -4,6 +4,9 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
+### Changed
+- **sdlc-stepper marks a merged ship done.** When the session merges the shipped feature's PR (`gh pr merge`), the bar checks all four stages and reads `Ship · done`, and the next prompt clears it. Before, it stayed at `Ship` with Ship in progress until `/clear`, a restart or the next `/sdlc:start`, though the work was finished. A PR merged on GitHub isn't seen, so that case is unchanged.
+
 ## 3.13.1 — 2026-11-20
 
 No migration: the fix is in sdlc-stepper, which updates with the plugin.

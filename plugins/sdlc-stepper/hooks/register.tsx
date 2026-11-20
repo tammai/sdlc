@@ -175,6 +175,11 @@ export const register: Register = on => {
 
   // The band only reads: a failure here must never hold a prompt or a tool call
   on('prompt.submit', async ($, e, next) => {
+    // A feature whose PR merged was shown done through the turn that merged it; the next prompt moves on from it
+    if ((await read($, view))?.shipped && (await read($, step))?.name === 'done') {
+      await update($, view, () => null)
+      await update($, step, () => null)
+    }
     await refresh($, true)
     // Starting sdlc shows the stepper at once: Define, from the moment the command is submitted
     if (e.command?.name === 'sdlc:start' || /^\s*\/sdlc:start\b/.test(e.text)) await beginDraft($)
@@ -221,6 +226,8 @@ export const register: Register = on => {
     if (e.props.hasSurvey || !v) return next(e)
     const s = await read($, step)
     const stepName = s && s.phase === v.phase ? s.name : null
+    // Shipped and merged: every stage done, nothing current
+    const finished = Boolean(v.shipped) && stepName === 'done'
     const said = s && s.phase === v.phase ? s.line : undefined  // the agent's own latest update, when it has made one
 
     if (e.surface === 'desktop') {
@@ -228,7 +235,7 @@ export const register: Register = on => {
       // icons joined by short lines, one drawing), a dot, where the session is now (phase, part, step), and
       // the feature at the right. Only the current stage's icon pulses.
       const { Box, Text, Svg } = $.ui.resolve(e)
-      const mini = miniSvg(v.phase)
+      const mini = miniSvg(v.phase, finished)
       // After the stepper: the phase, then the part and the step when there are any, so it is never bare
       const here = said ?? [v.phase, v.current ? `${v.current.id}  ${v.current.title}` : null, stepName].filter(Boolean).join(' · ')
       return (
@@ -258,7 +265,7 @@ export const register: Register = on => {
     // mini stepper (the four stages as marks joined by short lines, green once passed), then where the session is now (phase, part, step), with
     // the feature at the right. Done and current are both green, told apart by the mark (✓ and ●). Nothing pulses.
     const { Box, Text } = $.ui.resolve(e)
-    const at = PHASES.indexOf(v.phase)
+    const at = finished ? PHASES.length : PHASES.indexOf(v.phase)
     const width = e.props.bodyColumns ?? 80
     const narrow = width < 60
     const framed = (e.props.maxRows ?? 3) >= 3
