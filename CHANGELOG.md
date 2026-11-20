@@ -4,6 +4,8 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
+## 3.14.0 — 2026-11-20
+
 No migration: repos without the key keep two rounds; `/sdlc:setup review-rounds` sets it.
 
 ### Added
