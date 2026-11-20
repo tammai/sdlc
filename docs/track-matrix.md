@@ -81,7 +81,7 @@ The step numbers are for talking about the matrix; they aren't in the flow files
 | 3.6 | the diff touches `areas.ui`; it runs on S, and on M and L you can decline it |
 | 3.7 | an open judgement call the reviews can't settle, and only on an agent that has an advisor |
 | 3.8 (L) | you doubt the table's answer; otherwise L runs what fires and records it |
-| 3.9 | a review finds a high, or a bug in code the change touched; one fix round (the whole class, test first), then one closing check that fails only on a high; its medium or low bugs are fixed without another round |
+| 3.9 | a review finds a high, or a bug in code the change touched; one fix round (the whole class, test first), then one closing check that fails only on a high (config's `review_rounds` may allow up to 5 rounds before the user is asked); its medium or low bugs are fixed without another round |
 | 4.1 | the change taught something not obvious from the code or the commit |
 | 4.2 | a high finding fixed in Review that a reviewer could check next time |
 | 4.6 | there is a remote and CI reports checks; one fix if red because of the code |
