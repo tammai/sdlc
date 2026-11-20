@@ -18,7 +18,7 @@ Round 1 missed some findings, but most rounds were added by the fixes.
 1. **One code depth, the full one.** The built-in `code-review` runs as `high --max-findings all`; the plugin's reviewer runs the brief's one checklist.
 2. **Round 1 reports everything:** no confidence-80 cut-off, no length limit, no limit to the diff's own files. A finding at 50–79 is `unconfirmed` and never fails the round. Each finding names its root cause, every instance, the structural fix when the class is open-ended, and what its fix must keep working.
 3. **The fix pass fixes the class**, with a test that covers its variants, written first. An `unconfirmed` finding gets a test, and the test decides whether it's fixed or dropped. A finding whose fix is a design choice is decided once in `## Decisions`.
-4. **Round 2 is the closing check:** full depth on the fixes and the code around them. It fails only on a high. Its medium and low bugs are fixed test first and closed by `verify.py`, with no round 3. `review_report.py` writes that verdict. The round-cap hook is unchanged: it stops for the user when round 2 fails, which now means a high.
+4. **Round 2 is the closing check:** full depth on the fixes and the code around them. It fails only on a high. Its medium and low bugs are fixed test first and closed by `verify.py`, with no round 3. `review_report.py` writes that verdict. The round-cap hook is unchanged: it stops for the user when round 2 fails, which now means a high. (A repo can allow up to 5 rounds since [0029](0029-configurable-review-round-cap.md).)
 
 ## Consequences
 

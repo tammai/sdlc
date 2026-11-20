@@ -4,6 +4,11 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
+No migration: repos without the key keep two rounds; `/sdlc:setup review-rounds` sets it.
+
+### Added
+- **Configurable review round cap.** How many review rounds run before the review-rounds hook stops for you is now `review_rounds` in `.sdlc/config.json`, 2 (the default) to 5. Setup asks for it, and `/sdlc:setup review-rounds` (`scaffold.py review-rounds <n>`) changes it at any time. Since the cap is a safety stop, a lower value applies at once; a higher one applies to features started after it is committed, or at once when you type `/sdlc:setup review-rounds <n>` with the number (the hook writes it into config): a value the agent writes mid-feature can only lower it, and once lower it stays lower for that feature. Any other value counts as 2.
+
 ### Changed
 - **sdlc-stepper marks a merged ship done.** When the session merges the shipped feature's PR (`gh pr merge`), the bar checks all four stages and reads `Ship · done`, and the next prompt clears it. Before, it stayed at `Ship` with Ship in progress until `/clear`, a restart or the next `/sdlc:start`, though the work was finished. A PR merged on GitHub isn't seen, so that case is unchanged.
 

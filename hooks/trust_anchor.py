@@ -97,14 +97,14 @@ def check(root, name, text, anchor, shown):
             notices.append(f"{f}: {first} → {now}")
     base = vf.feature_base(root, name)
     if base:
-        at_base = vf.git(root, "show", f"{base}:.sdlc/baseline.md")
+        at_base = vf.git(root, "show", f"{base}:./.sdlc/baseline.md")
         now = baseline_failures(read(os.path.join(root, ".sdlc", "baseline.md")))
         if at_base is not None:
             added = sorted(set(now) - set(anchor.get("baseline_ok", baseline_failures(at_base))))
             if added:
                 notices.append(f"baseline.md lists failing tests it didn't at Base: {', '.join(added[:5])}")
         anchor["baseline_seen"] = now
-        cmds_base = commands(vf.git(root, "show", f"{base}:.sdlc/config.json"))
+        cmds_base = commands(vf.git(root, "show", f"{base}:./.sdlc/config.json"))
         cmds_now = commands(read(os.path.join(root, ".sdlc", "config.json")))
         if cmds_base and cmds_now != anchor.get("commands_ok", cmds_base):
             notices.append("the commands or docs_dir in .sdlc/config.json differ from Base")
