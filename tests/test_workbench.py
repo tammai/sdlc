@@ -334,12 +334,18 @@ class WorkbenchGuards(WorkbenchGuardsCase):
 
     def test_a_monitor_command_cannot_commit_or_push(self):
         # end-of-push review r1 SH-H5: the commit and push reviews run after a Bash call; a Monitor one would skip them
+        # Denied exactly where a Bash call would get a commit or push review: the review hook's own patterns decide
         for command in ("git commit -am x", "cd api && git commit -m y && git push", "git -C api push origin HEAD",
-                        "gt submit"):
+                        "gt submit", "git -c user.name=x commit -m y", "git -C api commit -m y",
+                        "git --no-pager -c core.editor=true commit -m y", "make && git commit -m y",
+                        "git --git-dir=.git push", "gt create -m x", "gt modify",
+                        "git -c 'alias.x=!a;b' commit -m y"):
             reason = self.pre("Monitor", command=command, description="d")
             self.assertIsNotNone(reason, command)
             self.assertIn("Bash", reason)
-        for command in ("tail -f log", "until grep -q done log; do sleep 2; done", "git log --oneline"):
+        for command in ("tail -f log", "until grep -q done log; do sleep 2; done", "git log --oneline",
+                        "git log --grep=push", "git stash push -m x", "git log -S commit", "gt log",
+                        "git merge --no-commit main", "git commit-graph write"):
             self.assertIsNone(self.pre("Monitor", command=command, description="d"), command)
 
     def test_hooks_json_sends_monitor_to_the_read_only_guard(self):
