@@ -1143,6 +1143,27 @@ class ScaffoldTest(ProjectTestCase):
         self.write(".impeccable/config.local.json", json.dumps({"hook": {"enabled": True}}))  # this machine's on
         self.assertEqual(self.sc("design", "impeccable", env=home)["guardrail"], {"removed": dest})
 
+    def test_impeccable_config_linked_out_of_the_repo_or_into_git_reads_as_absent(self):
+        # a committed .impeccable/config.json is read through sdlc_scopes.read_repo_text (doctor and scaffold both
+        # ask impeccable_hook_off), never through a link out of the repo or into .git
+        sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
+        import scaffold
+        off = json.dumps({"hook": {"enabled": False}})
+        self.write(".impeccable/config.json", off)
+        self.assertTrue(scaffold.impeccable_hook_off(self.root))  # a plain file still reads
+        outside = os.path.realpath(tempfile.mkdtemp(prefix="sdlc-outside-"))
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        with open(os.path.join(outside, "config.json"), "w", encoding="utf-8") as f:
+            f.write(off)
+        self.write(".git/config.json", off)
+        for target in (os.path.join(outside, "config.json"), os.path.join("..", ".git", "config.json")):
+            os.remove(self.path(".impeccable/config.json"))
+            try:  # Windows without the symlink privilege can't make one
+                os.symlink(target, self.path(".impeccable/config.json"))
+            except (OSError, NotImplementedError):
+                self.skipTest("symlinks unavailable")
+            self.assertFalse(scaffold.impeccable_hook_off(self.root), target)
+
     def test_a_skill_folder_impeccable_needs_its_hook_manifest(self):
         self.init()
         home = {"HOME": self.path("home"), "USERPROFILE": self.path("home")}
