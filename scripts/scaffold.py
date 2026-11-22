@@ -1499,10 +1499,14 @@ def template_problem(template):
     return None if inside else f"template {template!r} resolves outside the plugin's templates/"
 
 
+# The code points HFS+ ignores in a name (git's is_hfs_dotgit), so `.g\u200cit` opens `.git` there
+HFS_IGNORED = dict.fromkeys([0x200C, 0x200D, 0x200E, 0x200F, *range(0x202A, 0x202F), *range(0x206A, 0x2070), 0xFEFF])
+
+
 def _git_segment(seg):
     """A path segment a filesystem opens as a git dir: `.git` in any case, with the trailing dots or spaces and the
-    NTFS stream suffix Windows ignores, or its 8.3 short name."""
-    seg = seg.split(":", 1)[0].rstrip(". ").lower()
+    NTFS stream suffix Windows ignores, the code points HFS+ ignores, or its 8.3 short name."""
+    seg = seg.translate(HFS_IGNORED).split(":", 1)[0].rstrip(". ").lower()
     return seg in (".git", "git~1")
 
 

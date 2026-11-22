@@ -74,7 +74,10 @@ def _inside(base, rel):
         inside = os.path.commonpath([real_base, real]) == real_base
     except ValueError:  # another drive
         inside = False
-    if not inside or ".git" in [x.rstrip(". ") for x in os.path.relpath(real, real_base).split(os.sep)]:
+    ignored = dict.fromkeys([0x200C, 0x200D, 0x200E, 0x200F, *range(0x202A, 0x202F), *range(0x206A, 0x2070), 0xFEFF])
+    segments = [x.translate(ignored).split(":", 1)[0].rstrip(". ").lower()  # macOS and Windows ignore case
+                for x in os.path.relpath(real, real_base).split(os.sep)]
+    if not inside or any(x in (".git", "git~1") for x in segments):
         raise OSError(f"{rel} is a link out of the repo or into .git: not read")
     return full
 

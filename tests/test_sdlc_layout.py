@@ -83,6 +83,12 @@ class LinkedConfigTest(ProjectTestCase):
         self.write(".git/config.json", json.dumps({"docs_dir": "docs/sdlc"}))
         os.symlink(os.path.join("..", ".git", "config.json"), self.path(".sdlc/config.json"))
         self.assertIsNone(sdlc_layout.docs_dir(self.root))
+        for name in (".GIT", ".g\u200cit"):  # case and the code points HFS+ ignores (git's is_hfs_dotgit)
+            os.remove(self.path(".sdlc/config.json"))
+            os.makedirs(self.path(name), exist_ok=True)
+            self.write(f"{name}/config.json", json.dumps({"docs_dir": "docs/sdlc"}))
+            os.symlink(os.path.join("..", name, "config.json"), self.path(".sdlc/config.json"))
+            self.assertIsNone(sdlc_layout.docs_dir(self.root), name)
         os.remove(self.path(".sdlc/config.json"))
         self.write(".sdlc/config.json", json.dumps({"docs_dir": "docs/sdlc"}))  # a plain file still reads
         self.assertEqual(sdlc_layout.docs_dir(self.root), "docs/sdlc")

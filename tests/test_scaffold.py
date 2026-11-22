@@ -569,7 +569,8 @@ class ScaffoldTest(ProjectTestCase):
         os.makedirs(self.path(".git/hooks"), exist_ok=True)
         os.makedirs(self.path("sub/.git/hooks"), exist_ok=True)
         dests = [".git/hooks/post-commit", ".GIT/config", "./.git/x", ".git./x", ".git /x", "GIT~1/x",
-                 ".git::$INDEX_ALLOCATION/x", "sub/.git/hooks/pre-commit"]
+                 ".git::$INDEX_ALLOCATION/x", "sub/.git/hooks/pre-commit",
+                 ".g\u200cit/hooks/x", "\ufeff.git/x", ".gi\u206at/x"]  # HFS+ ignores these code points (git's is_hfs_dotgit)
         try:  # a committed link into .git; Windows without the symlink privilege can't make one
             os.symlink(".git", self.path("x"), target_is_directory=True)
             dests.append("x/hooks/post-commit")
