@@ -10,7 +10,8 @@ role_guard denies the writes it can read in a command's text; this sees a change
   PostToolUse(Failure)       after a call that can write: a new difference is said once, naming what changed
   Stop                       any difference blocks Stop once (never a loop); never seeded yet: the first look
   UserPromptSubmit           the user's prompt `accept read-only [REPO…]` takes the repos as they are now (the guard
-                             denies a call that runs this script itself)
+                             denies a call that runs this script itself); a repo back to its first look after an
+                             accept is taken again silently
 
 The baseline lives outside the repo, in the plugin's data folder (CLAUDE_PLUGIN_DATA, else ~/.cache/sdlc), one file
 per workbench; a marker in the workbench (.sdlc/.work/read-only-seeded) remembers that it was seeded and names the
@@ -161,6 +162,8 @@ def seed(root, listed, names=None):
             continue
         try:
             data["repos"][name] = first_look(folder)
+            # the first look of all is kept beside any accepted one: a return to it is no change (look)
+            data.setdefault("first", {}).setdefault(name, data["repos"][name])
             done.append(name)
         except (RuntimeError, ValueError, OSError, subprocess.SubprocessError):
             continue  # unreadable now: reported at the next look
@@ -197,6 +200,7 @@ def look(root, listed):
             if name not in base:  # cloned since the first look: a fresh clone holds no change of its own
                 now = first_look(folder)
                 base[name] = {"status": [], "unpushed": [], "push": now["push"], "refs": now["refs"]}
+                data.setdefault("first", {}).setdefault(name, base[name])
                 grown = True
             elif not entry_ok(base[name]):
                 report.append(f"{name}/ (its baseline entry is damaged)")
@@ -207,7 +211,11 @@ def look(root, listed):
             report.append(f"{name}/ (can't be read: {e})")
             continue
         lines = changes(base[name], now, folder)
-        if lines:
+        first = (data.get("first") or {}).get(name)
+        if lines and entry_ok(first) and not changes(first, now, folder):
+            base[name] = now  # an accepted change undone, back to how sdlc first saw it: taken silently
+            grown = True
+        elif lines:
             report.append(f"{name}/ ({'; '.join(lines)})")
     if grown:
         save(path, data)

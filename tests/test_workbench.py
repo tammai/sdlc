@@ -1268,6 +1268,19 @@ class ReadOnlyBackstop(WorkbenchFeatureCase):
         [name] = [f for f in os.listdir(self.data) if f.startswith("read-only-baseline-")]
         return os.path.join(self.data, name)
 
+    def test_undoing_an_accepted_change_back_to_the_first_look_is_silent(self):
+        # .sdlc/2026-11-22-s-watch-undo-accepted AC-001 (3.8.0 smoke test K)
+        self.assertEqual(self.watch("SessionStart"), {})
+        self.write("specs/b.md", "x")
+        self.assertEqual(self.watch("PostToolUse").get("decision"), "block")
+        self.accept()
+        self.assertEqual(self.watch("PostToolUse"), {})
+        os.remove(self.path("specs/b.md"))  # back to how sdlc first saw it
+        self.assertEqual(self.watch("PostToolUse"), {})
+        self.assertEqual(self.watch("Stop"), {})
+        self.write("specs/c.md", "y")  # a new change after that is still seen
+        self.assertEqual(self.watch("PostToolUse").get("decision"), "block")
+
     def test_a_monitor_call_that_writes_a_read_only_repo_is_seen_at_once(self):
         # .sdlc/2026-11-22-s-monitor-other-hooks AC-002: the per-call check covers Monitor, not only the turn end
         self.assertEqual(self.watch("SessionStart"), {})
