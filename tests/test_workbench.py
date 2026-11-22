@@ -1345,6 +1345,22 @@ class ReadOnlyBackstop(WorkbenchFeatureCase):
                         "git -C specs config user.name"):
             self.assertIsNone(pre_hook(self, "Bash", command=command), command)
 
+    def test_a_write_or_run_that_names_the_watch_is_still_denied(self):
+        self.watch("SessionStart")
+        for command in ("grep x > .sdlc/.work/read-only-seeded", "cat x | tee .sdlc/.work/read-only-seeded",
+                        "find ~/.cache/sdlc -delete", "find ~/.cache/sdlc -exec rm {} +",
+                        "cat $(python3 hooks/read_only_watch.py)", "git checkout -- .sdlc/.work/read-only-seeded",
+                        "sed -i s/a/b/ .sdlc/.work/read-only-seeded", "bash -c \"cat read-only-seeded\"",
+                        "grep x <<EOF | sh\nrm read-only-seeded\nEOF", "git -c x=y log read_only_watch",
+                        "git commit -F .sdlc/.work/read-only-seeded", "unknown-tool read-only-seeded",
+                        "ls ~/.cache/sdlc | xargs rm", "$(echo rm) .sdlc/.work/read-only-seeded",
+                        "cat <<EOF\nplain\nEOF\nrm .sdlc/.work/read-only-seeded",
+                        "git log --output=.sdlc/.work/read-only-seeded", "rg --pre sh read_only_watch",
+                        "git grep -Osh read_only_watch", "sudo cat read-only-seeded"):
+            self.assertIsNotNone(pre_hook(self, "Bash", command=command), command)
+        self.assertIsNotNone(pre_hook(self, "PowerShell", command="Remove-Item .sdlc/.work/read-only-seeded"))
+        self.assertIsNotNone(pre_hook(self, "PowerShell", command="Get-Content x | Out-File read-only-seeded"))
+
     def test_silent_outside_a_workbench(self):
         self.write_json(".sdlc/config.json", {})
         self.write("specs/b.md", "x")
