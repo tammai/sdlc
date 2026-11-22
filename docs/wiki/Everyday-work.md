@@ -104,6 +104,7 @@ flowchart LR
     R2 -->|"still a high"| U{{"You: one more round,<br/>waive, or stop"}}
 ```
 
+- **Round cap:** after round 2 (or the last round `/sdlc:setup review-rounds` allows, 2 to 5) still fails on a high, the agent asks you, and a hook holds every edit and command until you reply. Each reply allows one more round.
 - **You or the agent disagree with a high finding?** The agent brings you its case. Only you can waive one; the waiver is recorded as a deviation.
 - **A failure that existed before your change:** if only the test step fails and every failure is listed in `.sdlc/baseline.md`, it's logged and passes. A new failure is reported to you; baselining it is your call ([R16](Troubleshooting.md#r16-verifypy-blames-the-feature-for-an-old-failure-or-the-baseline-looks-wrong)).
 - **`verify.py` keeps failing in Build:** the agent debugs it (`systematic-debugging`). A test that passes before its code exists is refused by `verify.py red`: make it assert the new behaviour. Don't ask the agent to rerun until green.

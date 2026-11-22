@@ -4,6 +4,31 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
+## 3.14.0 — 2026-11-21
+
+No migration: repos without the key keep two rounds; `/sdlc:setup review-rounds` sets it.
+
+Checked on 2026-11-21 at commit 5e4f10d: the full suite (698 tests, 5 skipped, Python 3.10), `claude plugin validate .`, `claude plugin test plugins/sdlc-stepper` (22 tests) and `hosts.py check`. The smoke test ran in real sessions on macOS under tmux, loading the checkout with `--plugin-dir`, in three groups at once (about 17 minutes). A and B passed: `/plugin` listed sdlc 3.14.0, and doctor gave only the "not set up" warning. C, E and H passed every must item, run because the release touches setup, `scaffold.py`, the orchestrator and two hooks. Two new checks passed: setup's `review-rounds` question recorded the answer (3) in config; and `/sdlc:setup review-rounds 4`, typed mid-feature, set config and the feature's ceiling to 4, while `review-rounds 9` was refused with nothing changed. The stepper check passed: the bar went from `Review` to `Ship`, then to `✓─✓─✓─✓ · Ship · done` on a `gh pr merge`, and was gone at the next prompt. D, F, G and K didn't run, since the release touches none of what they cover. J didn't run, since no new agent was added. The desktop band wasn't checked.
+
+### Known issues
+- sdlc-stepper marks a ship done when a `gh pr merge` command runs, from its text: a merge that then fails still shows `Ship · done` until the next prompt.
+- `/sdlc:setup review-rounds <n>` typed during a feature can lead the agent to commit the config change on the default branch (it misjudged the feature as not active in the smoke test). The cap itself applies correctly; commit the config change on the feature branch instead.
+
+### Added
+- **Configurable review round cap.** How many review rounds run before the review-rounds hook stops for you is now `review_rounds` in `.sdlc/config.json`, 2 (the default) to 5. Setup asks for it, and `/sdlc:setup review-rounds` (`scaffold.py review-rounds <n>`) changes it at any time. Since the cap is a safety stop, a lower value applies at once; a higher one applies to features started after it is committed, or at once when you type `/sdlc:setup review-rounds <n>` with the number (the hook writes it into config): a value the agent writes mid-feature can only lower it, and once lower it stays lower for that feature. Any other value counts as 2.
+
+### Changed
+- **sdlc-stepper marks a merged ship done.** When the session merges the shipped feature's PR (`gh pr merge`), the bar checks all four stages and reads `Ship · done`, and the next prompt clears it. Before, it stayed at `Ship` with Ship in progress until `/clear`, a restart or the next `/sdlc:start`, though the work was finished. A PR merged on GitHub isn't seen, so that case is unchanged.
+
+## 3.13.1 — 2026-11-20
+
+No migration: the fix is in sdlc-stepper, which updates with the plugin.
+
+Checked on 2026-11-20 at commit e5361eb: `claude plugin validate .`, `claude plugin test plugins/sdlc-stepper` (20 tests), the marketplace and hosts tests and `hosts.py check`. The full suite last ran on the fix's branch (675 tests, 5 skipped, Python 3.10). The smoke test ran in real sessions on macOS in Claude Code 2.1.329 under tmux, loading the checkout with `--plugin-dir`. A and B passed: `/plugin` listed sdlc 3.13.1, and `/sdlc:doctor` and `doctor.py` gave no failure, with the "not set up" warning and its fix. A new check for this release passed too: in a session showing a feature at Review, the bar read `✓─✓─✓─● · Ship · PR` once its state file went to done at Stage 4, it was gone after `/clear`, and a fresh session showed nothing for that feature. Parts C–H and K didn't run, since the release touches only `plugins/sdlc-stepper/`. J didn't run, since no new agent was added. The desktop band wasn't checked.
+
+### Fixed
+- **sdlc-stepper shows the Ship stage.** `ship.py` advances a feature to Stage 4 and sets `Status: done` in the same run, and the bar only read active features, so it disappeared just as Ship began and never showed Ship. Now the feature the bar was showing stays on it at Ship, through the commit, the PR and CI. A feature shipped before the session started still isn't shown, and neither is one after `/clear`. `/sdlc:start` or a `Define · …` line replaces it with the next feature's Define, or with an older active feature being resumed.
+
 ## 3.13.0 — 2026-11-19
 
 No migration: the new hook ships with the plugin and needs nothing in projects.
@@ -26,7 +51,8 @@ Known issues (should):
 
 No migration: `objects` is an optional config key, off by default; `/sdlc:setup objects` turns it on.
 
-Smoke test passed on 2026-11-17 against 94f1605, with part C rerun on the fix for C3 (`dac9743`'s first round). Parts A, B, C, E, G and H ran in three groups (A+B; C then E and H in C's repo; G). D and F didn't run: the release touches no guardrail template or security hook. K didn't run: no workbench code changed. J didn't run: no new agent. A ran with `--plugin-dir`. C3 failed at 94f1605: on Windows the setup session's shell loop over `scaffold.py guardrails` picked up a `` on each path, every render failed unseen, and `.claude/hookify/` stayed empty while setup and doctor said ok; fixed under Fixed below, and the rerun wrote all 15 guardrails through `guardrails --render` with doctor's new row ok. The new checks passed: `/sdlc:setup objects` showed objects and wrote nothing before approval, then a file that passes the check, `"objects": true` with the other keys, one commit and a local merge, and `--enable` was refused in a repo whose setup wasn't finished (C8); the brief's `objects:` section, `objects.py check <f>` stopping an L change on an avoided name, and doctor's `objects` row (E8); eject kept `objects.md` (H5); in a brownfield repo `scaffold.py objects` listed the sample's model and type files and no tests (G). C6, C7 and E9 (should) didn't run; E7 ran its `--json` half.
+Smoke test passed on 2026-11-17 against 94f1605, with part C rerun on the fix for C3 (`dac9743`'s first round). Parts A, B, C, E, G and H ran in three groups (A+B; C then E and H in C's repo; G). D and F didn't run: the release touches no guardrail template or security hook. K didn't run: no workbench code changed. J didn't run: no new agent. A ran with `--plugin-dir`. C3 failed at 94f1605: on Windows the setup session's shell loop over `scaffold.py guardrails` picked up a `
+` on each path, every render failed unseen, and `.claude/hookify/` stayed empty while setup and doctor said ok; fixed under Fixed below, and the rerun wrote all 15 guardrails through `guardrails --render` with doctor's new row ok. The new checks passed: `/sdlc:setup objects` showed objects and wrote nothing before approval, then a file that passes the check, `"objects": true` with the other keys, one commit and a local merge, and `--enable` was refused in a repo whose setup wasn't finished (C8); the brief's `objects:` section, `objects.py check <f>` stopping an L change on an avoided name, and doctor's `objects` row (E8); eject kept `objects.md` (H5); in a brownfield repo `scaffold.py objects` listed the sample's model and type files and no tests (G). C6, C7 and E9 (should) didn't run; E7 ran its `--json` half.
 
 Known issues (should):
 - In a live headless L session, the agent edited the user's `objects.md` (dropped an Avoid line, added an object) to get past Define's gate rather than asking; D2 makes a new object the owner's call, but the Avoid list isn't named in it.

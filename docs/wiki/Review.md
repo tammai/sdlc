@@ -14,7 +14,7 @@ flowchart TD
     E -->|"FAIL: highs or bugs"| F["3. Build: failing test for the whole class, fix, verify.py"]
     F --> R2["Round 2: same review re-checks the fixes"]
     R2 -->|PASS| G
-    R2 -->|"still a high"| CAP{{"You: one more round, waive, or stop<br/>(hook holds all edits until you answer)"}}
+    R2 -->|"still a high at the last round<br/>(2 by default, up to 5)"| CAP{{"You: one more round, waive, or stop<br/>(hook holds all edits until you answer)"}}
 ```
 
 ## 1. Recommend
@@ -57,7 +57,7 @@ Round 1 reports **every** finding, with no length limit: its root cause, every p
 
 **Round 2** is meant to be the last. The failed review runs again at full depth on the fixes and the code around them, to confirm each finding is gone everywhere and that no fix added a bug. From round 2 on, **only a high fails**. A medium or low bug it finds is fixed test-first and closed by `verify.py`, without another round.
 
-**Round cap.** If round 2 still fails on a high, you decide: one more round, a waiver, or stop. The `review-rounds` hook holds every edit and command until you answer, and each answer allows one more round. If the agent thinks a high is wrong, it brings you its case. **Only you can waive.**
+**Round cap.** If round 2 (or the last round `review_rounds` allows, 2 to 5) still fails on a high, you decide: one more round, a waiver, or stop. The `review-rounds` hook holds every edit and command until you answer, and each answer allows one more round. To allow more rounds, type `/sdlc:setup review-rounds <n>` ([R20](Troubleshooting.md#r20-every-edit-and-command-is-denied-after-a-review)). If the agent thinks a high is wrong, it brings you its case. **Only you can waive.**
 
 ## 4. Record
 

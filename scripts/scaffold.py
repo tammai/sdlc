@@ -213,8 +213,8 @@ def check_lock(lock):
     for path, e in lock["files"].items():
         if not isinstance(e, dict) or not isinstance(e.get("class"), str):
             raise bad(f"'files' entry {path!r} must be an object with a string 'class'")
-        if not isinstance(e.get("sha256"), (str, type(None))) or not isinstance(e.get("template"), (str, type(None))):
-            raise bad(f"'files' entry {path!r}: 'sha256' and 'template' must be strings")
+        if not all(isinstance(e.get(k), (str, type(None))) for k in ("sha256", "template", "render_sha256")):
+            raise bad(f"'files' entry {path!r}: 'sha256', 'template' and 'render_sha256' must be strings")
     strings = [("declined", lock["declined"]), ("hosts", lock.get("hosts", [])),
                ("setup.completed_steps", lock.get("setup", {}).get("completed_steps", [])),
                ("migrations.applied", lock.get("migrations", {}).get("applied", []))]
@@ -377,6 +377,11 @@ class Project:
         if disk != base:
             merge_into(base, ours, disk, top=top)
 
+    @staticmethod
+    def merged(entry):
+        """The recorded text isn't the template's own render: the user's edits merged in (upgrade's "apply merge")."""
+        return bool(entry.get("render_sha256")) and entry.get("render_sha256") != entry.get("sha256")
+
     def file_state(self, path, entry):
         if not inside_repo(self.root, path):  # through a link out of the repo: never read (a device, a huge file)
             return "outside"
@@ -524,7 +529,11 @@ def cmd_record(p, a):
         entry = files.get(r, {})
         entry.update({"class": a.cls, "sha256": h})
         if a.template:
+            if not template_exists(a.template):
+                raise Refused(f"no template {a.template!r} in the plugin; not recorded")
             entry["template"] = a.template
+            # what the plugin would have written: a text that differs holds the user's edits (Project.merged)
+            entry["render_sha256"] = hashlib.sha256(render_source(a.template, p).encode("utf-8")).hexdigest()
         files[r] = entry
         recorded[r] = entry
     p.save()
@@ -743,6 +752,26 @@ def cmd_design(p, a):
     return out
 
 
+def cmd_review_rounds(p, a):
+    """The last review round before the user decides (config's `review_rounds`); with a number, records it. The hook
+    applies a lower value at once; a higher one only as hooks/review_rounds.py allows."""
+    import review_rounds  # beside the hooks (sys.path above): one range check for both
+    if a.rounds is not None:
+        try:
+            n = review_rounds.configured(int(a.rounds)) if re.fullmatch(r"[0-9]{1,3}", a.rounds.strip()) else None
+        except ValueError:
+            n = None
+        if n is None:
+            raise Refused(f"review_rounds is a whole number from {review_rounds.CAP} to {review_rounds.MOST}, "
+                          f"not {a.rounds!r}")
+        p.config = p.config or {}
+        p.config["review_rounds"] = n
+        p.save()
+    rounds = review_rounds.configured((p.config or {}).get("review_rounds")) or review_rounds.CAP
+    return {"review_rounds": rounds, "applies": ("a lower cap at once; a higher one from the next feature on once committed, or at once when "
+                        "the user typed /sdlc:setup review-rounds <n> themselves")}
+
+
 def swap_ui_guardrail(p, loads_later=False):
     """Make the installed UI guardrail match the mode, whenever the mode is set (setup renders guardrails before it
     asks the mode). impeccable: removed only once impeccable's detector hook runs here, so nothing goes unchecked in
@@ -826,7 +855,7 @@ def cmd_render(p, a):
     if not inside_repo(p.root, dest):
         raise Refused(f"{dest} resolves outside the project through a link; nothing written")
     entry = lock["files"].get(dest)
-    if a.if_unchanged and entry and p.file_state(dest, entry) == "modified":
+    if a.if_unchanged and entry and (p.file_state(dest, entry) == "modified" or p.merged(entry)):
         raise Refused(f"{dest} was edited since the plugin wrote it; review the diff instead of overwriting")
     if a.if_unchanged and not entry and os.path.exists(p.path(dest)):
         raise Refused(f"{dest} exists but the plugin never wrote it; review the diff instead of overwriting")
@@ -2611,8 +2640,11 @@ def cmd_upgrade_plan(p, a):
         elif e["class"] == "generated":
             plan["regenerate"].append(item)
         elif state == "unchanged":
-            new = render_source(tpl, p)
-            if hashlib.sha256(new.encode("utf-8")).hexdigest() != e.get("sha256"):
+            new = hashlib.sha256(render_source(tpl, p).encode("utf-8")).hexdigest()
+            if p.merged(e):  # the user's merge: offered again only when the template moved on since
+                if new != e.get("render_sha256"):
+                    plan["review"].append(item)
+            elif new != e.get("sha256"):
                 plan["replace"].append(item)
         elif state == "modified":
             plan["review"].append(item)
@@ -2655,7 +2687,7 @@ def eject_plan(p):
             continue
         if state == "missing":
             plan["already_gone"].append(path)
-        elif e["class"] == "generated" or state == "unchanged":
+        elif e["class"] == "generated" or (state == "unchanged" and not p.merged(e)):
             plan["delete"].append(path)
         else:
             plan["ask"].append(path)
@@ -2903,6 +2935,10 @@ def build_parser():
     s.add_argument("--enable", action="store_true",
                    help="turn an installed but disabled impeccable plugin on for this repo, on this machine")
     s.set_defaults(fn=cmd_design)
+    s = sub.add_parser("review-rounds", help="the last review round before the user decides (2 to 5); with a number, "
+                                             "record it")
+    s.add_argument("rounds", nargs="?")
+    s.set_defaults(fn=cmd_review_rounds)
     s = sub.add_parser("guardrails", help="the guardrails setup renders for this repo's design mode")
     s.add_argument("--render", action="store_true",
                    help="write every one (seeded), leaving edited, foreign and declined ones as they are")

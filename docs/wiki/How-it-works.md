@@ -50,7 +50,9 @@ A later session, a reviewer or a teammate can pick up the work from these two fi
 - **Security-touched** = `Risk: high`, or the diff hits `areas.sensitive` / `areas.migrations` in `.sdlc/config.json`. It triggers a security review and a model review on commit.
 - **Models:** the build runs on your session's model. Every review runs on `opus` (the model router enforces it). Other subagents run on `sonnet` with `effort: high`. `haiku` is never used. Fable is used only if you ask for it (`Top model: fable`).
 
-Full step-by-track matrix: [track-matrix.md](../track-matrix.md).
+![Tracks and their phases: sizing picks S, M or L; each runs Define, Build, Review, Ship](../diagrams/sdlc_tracks_full_stage_tree.svg)
+
+Which step runs on which track (also as text: [track-matrix.md](../track-matrix.md)):
 
 ![Which steps run on which track](../diagrams/sdlc_track_matrix.svg)
 
@@ -62,6 +64,10 @@ Full step-by-track matrix: [track-matrix.md](../track-matrix.md).
 | **Build** (2) | Code, tests, red records, a passing `verify.py` | Every task done; every AC test recorded red then passing; drift recorded as deviations |
 | **Review** (3) | `## Review` in the change file | `verify.py` passes on current code; every chosen review's verdict is `PASS` or its highs are fixed or waived. If security-touched: no critical/high finding, no secrets |
 | **Ship** (4) | Learn notes, commit, push, PR | Learn done, green locally and on CI, PR open. **Never merged without you** |
+
+Each track phase by phase, with its skills, subagents, hooks and gates:
+
+![Each track phase by phase](../diagrams/sdlc_full_flow.svg)
 
 Stage numbers matter because the hooks read them (`Current: Stage 3 â€“ Review`). Deploy is not a phase. It runs only when you ask: [`/sdlc:deploy`](Shipping-and-gates.md#10-merge-and-deploy).
 
@@ -91,6 +97,10 @@ The agent **always** asks you, using a question dialog (never a line you might s
 - CI still red after one fix
 - Merge, production deploy, DB migration, or anything irreversible
 
+The whole loop, with its hard stops:
+
+![Orchestrator decision tree: resume, size, loop through the phases, hard stops](../diagrams/sdlc_orchestrator_decision_tree.svg)
+
 Everything else runs on its own; interrupt anytime. Say "skip" or "just ship it" and it names the skipped steps, records them as deviations, then complies ([9](Shipping-and-gates.md#9-skip-a-gate-deliberately)). Who owns each decision: [Who decides what](Shipping-and-gates.md#who-decides-what).
 
 ## Big work: parts and autopilot
@@ -106,9 +116,3 @@ M or L work too big for one session gets a `backlog.md` of **parts** (B1, B2, â€
 | **Code graph** | have `graphify-out/graph.json` | Define queries it for the files a request touches. Rebuilding it never counts as a code change |
 
 A spec-backed repo (built from an rspec spec) uses the spec instead of the living spec, and its `domain.md` instead of `objects.md`.
-
-## Diagrams
-
-- [Orchestrator decision tree](../diagrams/sdlc_orchestrator_decision_tree.svg): resume, size, loop, hard stops
-- [Each track phase by phase](../diagrams/sdlc_full_flow.svg): skills, subagents, hooks and gates
-- [Tracks and their phases](../diagrams/sdlc_tracks_full_stage_tree.svg)

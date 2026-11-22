@@ -16,7 +16,7 @@ flowchart LR
     subgraph Review["Stage 3 · Review"]
       H6["verify-freshness: no turn end on stale tests"]
       H7["prove-budget: 120 s limit per command"]
-      H8["review-rounds: holds after 2 failed rounds"]
+      H8["review-rounds: holds after the last failed round"]
     end
 ```
 
@@ -30,7 +30,7 @@ flowchart LR
 | **session-status** | SessionStart | In a repo with `.sdlc/`: one context line with setup state, drift, the feature's file paths, the remote, team rules and active features, so no `scaffold.py status` call is needed. Claude Code only |
 | **model-router** | PreToolUse (Agent, Task) | While a feature is active: denies a dispatch with no model, with `haiku`, with Fable without `Top model: fable`, or a review agent below Opus. Logs each dispatch to `.sdlc/.work/dispatches.jsonl` ([R18](Troubleshooting.md#r18-a-subagent-dispatch-is-denied-by-the-model-router)) |
 | **trust-anchor** | Stop, UserPromptSubmit, PostToolUse (AskUserQuestion) | Reports changes to what verification trusts, and blocks once until you accept ([what it reports](Shipping-and-gates.md#21-the-trust-anchor-stopped-me)). Changes that only add checks are shown without blocking |
-| **review-rounds** | PreToolUse, UserPromptSubmit, PostToolUse (AskUserQuestion) | After 2 rounds whose latest verdict still fails (and isn't waived), denies every edit, command, subagent and skill except a reviewer's report and a test run, until you answer the `Review cap` question. Each answer allows one more round. It keeps the highest round seen, so deleting a report doesn't reset it |
+| **review-rounds** | PreToolUse, UserPromptSubmit, PostToolUse (AskUserQuestion) | After the last allowed round (2 by default; config's `review_rounds`, 2 to 5) whose latest verdict still fails (and isn't waived), denies every edit, command, subagent and skill except a reviewer's report and a test run, until you answer the `Review cap` question. Each answer or message allows one more round, except `/sdlc:setup review-rounds <n>`, which sets the cap and writes it to config. A lower cap applies at once; a higher one applies to features started after it's committed, or at once when you type the command. It keeps the highest round seen, so deleting a report doesn't reset it ([R20](Troubleshooting.md#r20-every-edit-and-command-is-denied-after-a-review)) |
 | **stuck-turn** | PostToolUseFailure (Bash, PowerShell), UserPromptSubmit | Stage 2: when the same command fails the same way 3 times in one turn (digits ignored), adds one note telling the agent to stop retrying and use `sdlc:systematic-debugging`. Fires once per turn and never blocks. Silent outside Build, under the round cap, and for subagents. Claude Code only. The idea comes from microsoft/TokenEconomizer |
 | **user-answer** | PreToolUse (AskUserQuestion) | While a feature is active: denies a question dialog with pre-filled answers and records the rest, so trust-anchor and review-rounds accept only real answers |
 | **role-guard** | PreToolUse (file tools) | Reviewers (`sdlc-extras:` ones too) and code-explorer can't edit anything except their report under `.sdlc/.work/findings/`. qa-tester can't read or search code. Bash stays open. Above sdlc repos, each path is judged against its own repo |

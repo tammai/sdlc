@@ -8,7 +8,7 @@ flowchart TD
     BR --> K{"Source code?"}
     K -->|no| G["Greenfield: stack interview, proposal, you approve, generate skeleton"]
     K -->|yes| BF["Brownfield: record commands, baseline, audit, migrate AI configs"]
-    G --> C["Common steps: rules, guardrails, CI, PRD, constitution,<br/>design system, knowledge, deploy"]
+    G --> C["Common steps: rules, guardrails, CI, PRD, constitution,<br/>design system, knowledge, deploy, review rounds"]
     BF --> C
     C --> M["Merge locally, no push"]
 ```
@@ -62,6 +62,7 @@ Existing monorepos keep their layout.
 | Design system | UI projects only ([with impeccable](#setup-with-impeccable)) |
 | Knowledge folder | Greenfield: includes a scaling roadmap (growth steps and the trigger for each) |
 | Deploy | Asks for the target (for example GCP Cloud Run) and each environment, routine or not. Seeds `knowledge/runbooks/deploy.md` |
+| Review rounds | Asks how many review rounds (2 to 5) run before you're asked; stored as `review_rounds` |
 
 The steps that write `.claude/` run only under Claude Code.
 

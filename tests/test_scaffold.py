@@ -486,6 +486,39 @@ class ScaffoldTest(ProjectTestCase):
                                  "restore": ["deleted.yml"], "template_gone": ["orphan.yml"]})
         self.assertEqual((plan["from"], plan["to"]), ("1.3.0", "1.4.0"))
 
+    def merged(self):
+        """A seeded file the user edited, then merged with the template as upgrade's "apply merge" records it."""
+        self.init()
+        self.template("templates/project/guard.md", "guard v1\n")
+        self.sc("render", "templates/project/guard.md", "guard.md", "--class", "seeded")
+        self.write("guard.md", "guard v1\nmine\n")
+        self.sc("record", "seeded", "guard.md", "--template", "templates/project/guard.md")
+
+    def test_a_merged_file_is_reviewed_not_replaced(self):
+        self.merged()
+        plan = self.sc("upgrade-plan")
+        self.assertEqual([plan[k] for k in ("replace", "review")], [[], []])  # nothing new to merge
+        self.template("templates/project/guard.md", "guard v2\n")
+        plan = self.sc("upgrade-plan")
+        self.assertEqual(([i["path"] for i in plan["replace"]], [i["path"] for i in plan["review"]]), ([], ["guard.md"]))
+        self.assertIn("edited", self.sc("render", "templates/project/guard.md", "guard.md", "--class", "seeded",
+                                        "--if-unchanged", expect=2)["refused"])
+        self.assertEqual(self.read("guard.md"), "guard v1\nmine\n")
+
+    def test_eject_asks_about_a_merged_file(self):
+        self.merged()
+        plan = self.sc("eject")
+        self.assertIn("guard.md", plan["ask"])
+        self.assertNotIn("guard.md", plan["delete"])
+
+    def test_a_malformed_render_hash_is_refused(self):
+        self.merged()
+        lock = json.loads(self.read(".sdlc/scaffold.lock.json"))
+        lock["files"]["guard.md"]["render_sha256"] = 7
+        self.write(".sdlc/scaffold.lock.json", json.dumps(lock))
+        out = self.sc("upgrade-plan", expect=1)  # a damaged lock: the script's own exit, with a message
+        self.assertIn("'guard.md'", out["error"])
+
     # --- eject -------------------------------------------------------------------------------
 
     def setup_for_eject(self):
@@ -552,6 +585,15 @@ class ScaffoldTest(ProjectTestCase):
         self.assertEqual(json.loads(self.read(".sdlc/config.json"))["design"], "impeccable")
         self.assertIn("builtin", self.sc("design", "figma", expect=2)["refused"])
         self.assertEqual(self.sc("design")["design"], "impeccable")  # the refused value changed nothing
+
+    def test_review_rounds_records_and_refuses_out_of_range(self):
+        self.init()
+        self.assertEqual(self.sc("review-rounds")["review_rounds"], 2)  # no key: today's cap
+        self.assertEqual(self.sc("review-rounds", "3")["review_rounds"], 3)
+        self.assertEqual(json.loads(self.read(".sdlc/config.json"))["review_rounds"], 3)
+        for bad in ("1", "6", "x", "2.5"):
+            self.assertIn("2 to 5", self.sc("review-rounds", bad, expect=2)["refused"])
+        self.assertEqual(self.sc("review-rounds")["review_rounds"], 3)  # the refused values changed nothing
 
     def test_deploy_records_target_environments_and_runbook(self):
         self.init()

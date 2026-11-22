@@ -26,6 +26,7 @@ Below, `state.py` means `python3 <plugin>/scripts/state.py <command> <feature> â
 | Eject broke the build | [R17](#r17-eject-left-something-behind-or-broke-the-build) |
 | Subagent dispatch denied | [R18](#r18-a-subagent-dispatch-is-denied-by-the-model-router) |
 | "Verification anchors changed" | [R19](#r19-a-trust-anchor-notice-stops-the-turn) |
+| Everything denied after a review | [R20](#r20-every-edit-and-command-is-denied-after-a-review) |
 
 ## R1. Plugin won't load or components are missing
 
@@ -198,3 +199,11 @@ The files the hooks trust (state, change file, baseline, config) are writable by
 2. **Any other** change blocks the stop once. The agent must tell you what changed and why, without undoing it on its own. Your answer to its `Trust anchor` dialog, or your next message, accepts the change as the new anchor. Autopilot stops at a notice you haven't seen.
 3. **"verify records disagree":** rerun `verify.py` and say why the record changed.
 4. **Wrong change:** say so and have it reverted (`state.py set`, or restore the file from git). Reverting is itself a notice.
+
+## R20. Every edit and command is denied after a review
+
+**Cause:** the review-rounds hook holds a feature whose last allowed review round still ends `VERDICT: FAIL` (round 2, unless `review_rounds` in `.sdlc/config.json` allows more). Everything except the project's tests, `verify.py` and a reviewer's report is denied until you decide.
+
+1. Claude should already be asking in a `Review cap` dialog: one more fix round, a waiver (`waived round <N>`), or stop. Answer it, or send any message; either allows one more round.
+2. To allow more rounds for this and later features, type `/sdlc:setup review-rounds <n>` (2 to 5) yourself. The hook reads the number from your prompt and writes it to `.sdlc/config.json`; commit that so later features start from it. This prompt only sets the cap and doesn't also grant a round, so a number at or below the round already reached keeps the hold.
+3. A number the agent writes into config can only **lower** the cap: a feature's ceiling follows config down, and goes up only on your typed command. If a value you committed doesn't take effect, check the feature's `ceiling` in `.sdlc/.work/review-rounds.json`.

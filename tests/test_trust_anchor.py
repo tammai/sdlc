@@ -122,6 +122,26 @@ class TrustAnchorTest(ProjectTestCase):
         self.write(".sdlc/baseline.md", BASELINE.format(rows="| api | t › old | boom | abc |\n| api | t › new | x | def |\n"))
         self.assertIn("didn't at Base: api | t › new", self.stop()["systemMessage"])
 
+    def test_a_new_baseline_failure_is_a_notice_below_the_git_top_level(self):
+        web = os.path.join(self.root, "apps", "web")
+        os.makedirs(os.path.join(web, ".sdlc", "login"))
+        rows = "| api | t › old | boom | abc |\n| api | t › mid | boom | abc |\n"  # mid: only apps/web's Base has it
+        for rel, text in ((".sdlc/config.json", '{"commands": {"test": "npm test"}}'),
+                          (".sdlc/baseline.md", BASELINE.format(rows=rows))):
+            with open(os.path.join(web, rel), "w", encoding="utf-8") as f:
+                f.write(text)
+        subprocess.run(self.git + ["add", "-A"], check=True)
+        subprocess.run(self.git + ["commit", "-q", "-m", "web"], check=True)
+        base = subprocess.run(self.git + ["rev-parse", "--short", "HEAD"], capture_output=True,
+                              encoding="utf-8").stdout.strip()
+        with open(os.path.join(web, ".sdlc", "login", "state.md"), "w", encoding="utf-8") as f:
+            f.write(STATE.format(track="M", risk="high", base=base, stage=2))
+        stop = lambda: run_hook(HOOK, {"hook_event_name": "Stop", "cwd": web, "stop_hook_active": False}, web)[1]
+        stop()
+        with open(os.path.join(web, ".sdlc", "baseline.md"), "w", encoding="utf-8") as f:
+            f.write(BASELINE.format(rows=rows + "| api | t › new | x | def |\n"))
+        self.assertIn("didn't at Base: api | t › new", (stop() or {}).get("systemMessage", ""))  # Base read from apps/web
+
     def test_leaving_stage_3_with_code_changed_since_the_last_full_run(self):
         self.state(stage=3)
         self.stop()
