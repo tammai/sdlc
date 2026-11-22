@@ -1301,6 +1301,26 @@ class ReadOnlyBackstop(WorkbenchFeatureCase):
         [name] = [f for f in os.listdir(self.data) if f.startswith("read-only-baseline-")]
         return os.path.join(self.data, name)
 
+    def test_only_a_repo_the_watch_has_held_is_an_unlisted_member(self):
+        # end-of-push review R2-L3: a scratch clone in a seeded workbench isn't a member; a repo dropped from the
+        # manifest (one the watch's `members` held) still is, and unsure ownership reviews it
+        import sdlc_review_gate as gate
+        import sdlc_scopes
+        self.assertEqual(self.watch("SessionStart"), {})
+        scratch = self.path("scratch")
+        git(self.root, "init", "-q", "-b", "main", "scratch")
+        self.write("scratch/a.py", "x = 1\n")
+        git(scratch, "add", "-A")
+        git(scratch, "commit", "-q", "-m", "x")
+        self.assertEqual(gate._workbench_feature(scratch), (False, None))
+        self.assertTrue(gate.decide(scratch, [git_out(scratch, "rev-parse", "HEAD")], set()).get("off"))
+        manifest = sdlc_scopes.read_repo_json(self.root, "workbench.json")
+        self.write_json("workbench.json", {"repos": [r for r in manifest["repos"] if r["name"] != "api"]})
+        self.assertEqual(gate._workbench_feature(self.path("api")), (True, ""))
+        # a baseline it can't read: unsure again, so the scratch clone is reviewed
+        os.remove(self.baseline_file())
+        self.assertEqual(gate._workbench_feature(scratch), (True, ""))
+
     def test_a_write_true_round_trip_is_reported_until_accepted(self):
         # end-of-push review r2 R2-H3: from a clean first look, writable, a commit made to look pushed, read-only
         # again: still reported, until the user accepts
@@ -1626,9 +1646,9 @@ class PluginReviewWorkbench(WorkbenchFeatureCase):
         # .sdlc/2026-11-22-s-done-feature-owns-its-branch AC-001: a recorded PR (real or not) doesn't end it (SR7-M4)
         self.assertEqual(self.state("pr", "feat", "api", "https://example.com/api/pull/1")[0], 0)
         self.assertFalse(gate.decide(api, [sha], set()).get("off"))
-        # AC-002: off the feature's branch, the done feature no longer owns the repo's commits, PR or not (SR7-L2)
+        # Off the feature's branch it still owns them, PR or not, until the branch is merged (SR7-L2, SH-M3)
         git(api, "switch", "-q", "-c", "next-thing")
-        self.assertTrue(gate.decide(api, [sha], set()).get("off"))
+        self.assertFalse(gate.decide(api, [sha], set()).get("off"))
 
     def test_the_turn_end_review_sees_an_app_repos_uncommitted_change(self):
         # .sdlc/2026-11-22-s-stop-review-app-repos AC-001: the Stop review asks the workbench's feature, as decide does
@@ -1645,20 +1665,82 @@ class PluginReviewWorkbench(WorkbenchFeatureCase):
         self.assertEqual(self.state("set", "feat", "Status", "done")[0], 0)
         self.assertEqual(self.state("pr", "feat", "api", "12")[0], 0)
         git(api, "switch", "-q", "-c", "next-thing")
+        self.assertTrue(gate.review_wanted(api))  # the done feature's branch isn't merged: still its change
+        origin = self.path("origin-api.git")
+        git(self.root, "init", "-q", "--bare", origin)
+        git(api, "add", "-A")
+        git(api, "commit", "-q", "-m", "x")
+        git(api, "remote", "add", "origin", origin)
+        git(api, "push", "-q", "origin", "next-thing:main")  # merged: feat-x's tip is in origin's main
+        git(api, "fetch", "-q", "origin")
+        git(api, "branch", "-f", "feat-x", "next-thing")
+        self.write("api/auth/more.py", "x = 1\n")
         self.assertFalse(gate.review_wanted(api))  # nothing owns it now
 
-    def test_a_done_feature_keeps_a_detached_repo_until_its_pr_is_recorded(self):
-        # .sdlc/2026-11-22-s-done-feature-detached AC-001: off the branch but no PR recorded yet, still owned
+    def test_a_done_feature_keeps_a_detached_repo_until_its_branch_is_merged(self):
+        # .sdlc/2026-11-22-s-done-feature-detached AC-001, widened (SR7-L2): off the branch, a recorded PR or not,
+        # still owned while the feature's branch isn't merged
         import sdlc_review_gate as gate
         api = self.path("api")
         self.assertEqual(self.state("repo", "feat", "api")[0], 0)
         self.assertEqual(self.state("set", "feat", "Status", "done")[0], 0)
+        self.assertEqual(self.state("pr", "feat", "api", "https://example.com/api/pull/1")[0], 0)
         git(api, "checkout", "-q", "--detach")
         self.write("api/a.py", "x = 1\n")
         git(api, "add", "-A")
         git(api, "commit", "-q", "-m", "x")
         sha = git_out(api, "rev-parse", "HEAD")
         self.assertFalse(gate.decide(api, [sha], set()).get("off"))
+
+    def test_a_done_feature_owns_its_app_repo_until_its_branch_is_merged(self):
+        # SR7-L2, SH-M3: neither a recorded PR nor a branch switch (state-file writes and checkouts) ends ownership;
+        # the feature's branch merged into the remote's default branch does
+        import sdlc_review_gate as gate
+        api = self.path("api")
+        origin = self.path("origin-api.git")
+        git(self.root, "init", "-q", "--bare", origin)
+        git(api, "remote", "add", "origin", origin)
+        git(api, "push", "-q", "origin", "main")
+        git(api, "fetch", "-q", "origin")
+
+        def commit(name):
+            self.write(f"api/{name}.py", "x = 1\n")
+            git(api, "add", "-A")
+            git(api, "commit", "-q", "-m", name)
+            return git_out(api, "rev-parse", "HEAD")
+
+        def owned(sha):
+            return not gate.decide(api, [sha], set()).get("off")
+
+        self.assertEqual(self.state("repo", "feat", "api")[0], 0)
+        self.assertEqual(self.state("set", "feat", "Status", "done")[0], 0)
+        # the branch still at its base is trivially in origin's main: not merged work, so still owned
+        git(api, "checkout", "-q", "--detach")
+        self.assertTrue(owned(commit("a")))
+        git(api, "switch", "-q", "feat-x")
+        work = commit("b")
+        self.assertEqual(self.state("pr", "feat", "api", "https://example.com/api/pull/1")[0], 0)
+        git(api, "switch", "-q", "-c", "next-thing")
+        self.assertTrue(owned(commit("c")))  # a recorded PR plus a branch switch (SH-M3)
+        git(api, "switch", "-q", "main")
+        git(api, "merge", "-q", "--ff-only", "feat-x")
+        self.assertTrue(owned(commit("d")))  # merged only locally: no remote has it
+        git(api, "push", "-q", "origin", f"{work}:refs/heads/main")
+        git(api, "fetch", "-q", "origin")
+        self.assertFalse(owned(commit("e")))  # merged into origin's main: the feature is over here
+
+    def test_an_active_feature_takes_an_app_repo_from_an_unmerged_done_one(self):
+        # A squash-merged or never-merged done feature lingers; the next active feature on the repo still decides
+        import sdlc_review_gate as gate
+        api = self.path("api")
+        self.assertEqual(self.state("repo", "feat", "api")[0], 0)
+        self.assertEqual(self.state("set", "feat", "Status", "done")[0], 0)
+        code, out = self.state("new", "feat2", "--track", "M", "--risk", "low", "--task", "y | AC-001 | api/b.py")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(self.state("repo", "feat2", "api")[0], 0)
+        member, owner = gate._workbench_feature(api)
+        self.assertTrue(member)
+        self.assertIn("feat2", owner or "")
 
     def test_the_app_repos_own_config_never_turns_its_review_off(self):
         import sdlc_review_gate as gate
