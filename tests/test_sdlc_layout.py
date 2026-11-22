@@ -110,7 +110,10 @@ class LinkedConfigReadersTest(ProjectTestCase):
         code = ("import sys; sys.path[:0] = [sys.argv[1] + '/hooks', sys.argv[1] + '/scripts']; r = sys.argv[2]\n"
                 "import review_rounds, sdlc_review_gate, verify_freshness, capabilities, state, brief, spec_lock\n"
                 "review_rounds.read_config(r); sdlc_review_gate._security_areas(r); verify_freshness.load_scopes(r, '')\n"
-                "capabilities.config(r); state.test_command(r); brief.config_text(r); spec_lock.lock_paths(r)\n")
+                "capabilities.config(r); state.test_command(r); brief.config_text(r); spec_lock.lock_paths(r)\n"
+                "brief.read(r, '.sdlc/config.json'); assert review_rounds.record_in_config(r, 3) is False\n"
+                "import verify; rec, _ = verify.full(r, 'x', timeout=5); assert rec['result'] == 'fail', rec\n"
+                "assert verify.accept_target(r)[0] is None\n")
         try:
             p = subprocess.run([sys.executable, "-c", code, PLUGIN_ROOT, self.root], capture_output=True, timeout=20,
                                encoding="utf-8", errors="replace")

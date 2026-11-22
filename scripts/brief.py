@@ -50,7 +50,11 @@ def section(title, text, limit=LIMIT):
 
 
 def read(root, rel):
+    """A committed repo file's text, "" when missing or a link out of the repo or into .git (never read through it:
+    the brief reaches the agent's context, and a FIFO would hang it)."""
+    import sdlc_scopes  # noqa: PLC0415
     try:
+        sdlc_scopes._inside(root, rel)
         with open(os.path.join(root, rel), encoding="utf-8", errors="replace") as f:
             return f.read()
     except OSError:

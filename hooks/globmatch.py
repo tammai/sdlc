@@ -1,108 +1,116 @@
 """Matching a committed glob (`**`, `*`, `?`, `{a,b}`; `[` is literal) against a repo-relative path, in time that a
-hostile glob can't blow up: the commit review's security areas and doctor's rule paths come from files anyone can commit.
+hostile glob can't blow up: the commit review's security areas and doctor's rule paths come from files anyone can
+commit.
 
-The path and the glob are compared segment by segment (`/`), each segment with fnmatch, whose translation needs no
-backtracking across a `*`; `**` as a whole segment takes any number of segments, and one inside a segment crosses `/`
-as it always did. Braces are expanded, up to
-MAX_EXPANSIONS patterns: past that, or past MAX_LENGTH characters, the glob isn't judged and `match` says True (the
-caller then errs on its safe side: a security area that matches is reviewed, a rule that matches isn't called dead).
+The language is exactly the one the commit review's old regex had (sdlc_review_gate._glob_re before c9e318b):
+`**/` is an optional `.*/`, any other `**` is `.*`, `*` is `[^/]*`, `?` is `[^/]`, `{a,b}` (up to the first `}`) is
+an alternation of literals, anything else is literal; anchored at both ends. But instead of a backtracking regex, the
+glob is compiled into a small automaton and run over the path with a set of states (Thompson's construction), so the
+time is linear in the path for any glob: no glob can stall it, and none is left unjudged.
 """
-import fnmatch
 import functools
-import re
 
-MAX_EXPANSIONS = 64
-MAX_LENGTH = 300
+ANY, NOSLASH = object(), object()  # the two character classes; anything else on an edge is a literal character
 
 
-def expand_braces(pattern, limit=MAX_EXPANSIONS):
-    """Every brace alternative of `pattern` (innermost first), or None when there would be more than `limit`."""
-    out, todo = [], [pattern]
-    while todo:
-        p = todo.pop()
-        m = re.search(r"\{([^{}]*)\}", p)
-        if not m:
-            out.append(p)
-        else:
-            todo.extend(p[:m.start()] + alt + p[m.end():] for alt in m.group(1).split(","))
-        if len(out) + len(todo) > limit:
-            return None
-    return out
-
-
-def _segment(glob):
-    """One segment for fnmatch: a run of `*` is one, and `[` is literal (as in `app/[id].ts`), never a class."""
-    return re.sub(r"\*+", "*", glob.replace("[", "[[]"))
-
-
-def _segments_match(globs, parts):
-    """Whether the segment lists match, bottom-up in O(len(globs) x len(parts)): a `**` either ends here or takes one
-    more segment, so neither many `**` nor a deep path can blow it up (and no recursion to run out of)."""
-    n, m = len(globs), len(parts)
-    nxt = [False] * m + [True]  # row n: only the end of the path matches the end of the glob
-    for g in reversed(globs):
-        row = [False] * (m + 1)
-        if g == "**":
-            row[m] = nxt[m]
-            for k in range(m - 1, -1, -1):
-                row[k] = nxt[k] or row[k + 1]
-        else:
-            seg = _segment(g)
-            for k in range(m - 1, -1, -1):
-                row[k] = nxt[k + 1] and fnmatch.fnmatchcase(parts[k], seg)
-        nxt = row
-    return nxt[0]
-
-
-def _deep(pattern, limit=MAX_EXPANSIONS):
-    """`pattern` with each `**` inside a segment (`**.pem`, `secrets**`, `a**/b`) made whole: `A**B` is `A*B` or
-    `A*/**/*B`, so it still crosses `/` as it always did. None past `limit` patterns."""
-    out, todo = [], [pattern]
-    while todo:
-        p = todo.pop()
-        segs = p.split("/")
-        k = next((n for n, g in enumerate(segs) if "**" in g and g != "**"), None)
-        if k is None:
-            out.append(p)
-        else:
-            a, b = segs[k].split("**", 1)
-            for seg in (f"{a}*{b}", f"{a}*/**/*{b}"):
-                todo.append("/".join(segs[:k] + [seg] + segs[k + 1:]))
-        if len(out) + len(todo) > limit:
-            return None
+def _tokens(pattern):
+    """The old regex's reading of a glob, as tokens: ("lit", c), ("star",), ("qm",), ("any",), ("optdir",),
+    ("alt", [str, ...])."""
+    out, i = [], 0
+    while i < len(pattern):
+        c = pattern[i]
+        if pattern.startswith("**/", i):
+            out.append(("optdir",))
+            i += 3
+            continue
+        if pattern.startswith("**", i):
+            out.append(("any",))
+            i += 2
+            continue
+        if c == "{":
+            end = pattern.find("}", i)
+            if end > i:
+                out.append(("alt", pattern[i + 1:end].split(",")))
+                i = end + 1
+                continue
+        out.append(("star",) if c == "*" else ("qm",) if c == "?" else ("lit", c))
+        i += 1
     return out
 
 
 @functools.lru_cache(maxsize=256)
-def _globs(pattern):
-    """The segment lists `pattern` stands for, or None when it's too big to judge (or its braces don't balance)."""
-    if len(pattern) > MAX_LENGTH or pattern.count("{") != pattern.count("}"):
-        return None
-    braced = expand_braces(pattern)
-    if braced is None or any("{" in p or "}" in p for p in braced):
-        return None
-    out = []
-    for p in braced:
-        deep = _deep(re.sub(r"(?:\*\*/)+", "**/", re.sub(r"\*{3,}", "**", p)))  # a run of `*` crosses `/` once
-        if deep is None or len(out) + len(deep) > MAX_EXPANSIONS:
-            return None
-        out += [d.split("/") for d in deep]
-    return tuple(tuple(g) for g in out)
+def _compile(pattern):
+    """(edges, eps, accept): edges[n] = [(label, m)], eps[n] = [m]; node 0 starts."""
+    edges, eps = [[]], [[]]
+
+    def node():
+        edges.append([])
+        eps.append([])
+        return len(edges) - 1
+
+    cur = 0
+    for tok in _tokens(pattern):
+        kind = tok[0]
+        nxt = node()
+        if kind == "lit":
+            edges[cur].append((tok[1], nxt))
+        elif kind == "qm":
+            edges[cur].append((NOSLASH, nxt))
+        elif kind in ("star", "any"):
+            loop = node()
+            eps[cur].append(loop)
+            edges[loop].append((NOSLASH if kind == "star" else ANY, loop))
+            eps[loop].append(nxt)
+        elif kind == "optdir":  # (?:.*/)?
+            eps[cur].append(nxt)
+            loop = node()
+            eps[cur].append(loop)
+            edges[loop].append((ANY, loop))
+            edges[loop].append(("/", nxt))
+        else:  # alt: each literal as its own chain to nxt
+            for word in tok[1]:
+                at = cur
+                for ch in word[:-1]:
+                    step = node()
+                    edges[at].append((ch, step))
+                    at = step
+                if word:
+                    edges[at].append((word[-1], nxt))
+                else:
+                    eps[at].append(nxt)
+        cur = nxt
+    return edges, eps, cur
 
 
-def judgeable(pattern):
-    """Whether `pattern` is small enough to judge (glob_match says True for one that isn't)."""
-    return _globs(pattern) is not None
+def _closure(states, eps):
+    todo, seen = list(states), set(states)
+    while todo:
+        for m in eps[todo.pop()]:
+            if m not in seen:
+                seen.add(m)
+                todo.append(m)
+    return seen
 
 
 def glob_match(pattern, path):
-    """Whether the repo-relative `path` matches the glob `pattern` (anchored at the repo root); True when the glob is
-    too big to judge (see the module's docstring)."""
-    globs = _globs(pattern)
-    if globs is None:
-        return True
-    parts = path.split("/")
-    return any(_segments_match(g, parts) for g in globs)
+    """Whether the repo-relative `path` matches the glob `pattern`, anchored at both ends."""
+    edges, eps, accept = _compile(pattern)
+    states = _closure({0}, eps)
+    for ch in path:
+        step = set()
+        for n in states:
+            for label, m in edges[n]:
+                if label is ANY or (label is NOSLASH and ch != "/") or label == ch:
+                    step.add(m)
+        if not step:
+            return False
+        states = _closure(step, eps)
+    return accept in states
+
+
+def judgeable(pattern):
+    """Every glob is judged (kept for callers): True."""
+    return True
 
 
 class Glob:

@@ -9,7 +9,7 @@ import unittest
 from helpers import PLUGIN_ROOT
 
 sys.path.insert(0, os.path.join(PLUGIN_ROOT, "hooks"))
-from sdlc_review_gate import _glob_re  # noqa: E402  (the review gate's own glob matcher, braces included)
+from globmatch import Glob as _glob_re  # noqa: E402  (the review gate's own glob matcher, braces included)
 
 
 def read(rel):

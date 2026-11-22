@@ -856,6 +856,10 @@ class ScaffoldTest(ProjectTestCase):
         lock["files"][".github/workflows/x.yml"]["sha256"] = ""
         self.write(".sdlc/scaffold.lock.json", json.dumps(lock))
         self.assertIn(".github/workflows/x.yml", self.sc("upgrade-plan")["outside"])
+        # round 2 R2-M2: render (with --if-unchanged too) refuses a folder at a recorded path, exit 2, folder kept
+        self.assertIn("readable", self.sc("render", "templates/project/ci.yml", ".github/workflows/x.yml",
+                                          "--if-unchanged", expect=2)["refused"])
+        self.assertTrue(os.path.isdir(self.path(".github/workflows/x.yml")))
         eject = self.sc("eject")
         self.assertIn(".github/workflows/x.yml", eject["outside"])
         self.assertNotIn(".github/workflows/x.yml", eject["delete"])

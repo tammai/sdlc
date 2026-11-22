@@ -78,13 +78,13 @@ def user_set(prompt):
 
 def record_in_config(root, n):
     """Write the cap the user typed into config, so it lasts past this feature, with scaffold.py's writer (atomic, since
-    sibling hooks read config on the same event; through a link; mode kept; retried on Windows; its temp under
+    sibling hooks read config on the same event; never through a link out of the repo; mode kept; retried on Windows; its temp under
     .sdlc/.work/). False when it couldn't: config is left alone, and the ceiling then follows config's own value (held
     at 2 while config isn't a JSON object)."""
+    import sdlc_scopes
     path = os.path.join(root, ".sdlc", "config.json")
     try:
-        with open(path, encoding="utf-8") as f:
-            cfg = json.load(f)
+        cfg = sdlc_scopes.read_repo_json(root, ".sdlc/config.json")  # refuses a link out of the repo: never written
         if not isinstance(cfg, dict):
             return False
         if configured(cfg.get("review_rounds")) == n:

@@ -176,11 +176,12 @@ def seed(root, listed, names=None, members=None):
         except (RuntimeError, ValueError, OSError, subprocess.SubprocessError):
             continue  # unreadable now: reported at the next look
     # the repos that must stay read-only: those listed now, and any that stopped being read-only but weren't accepted
-    kept = [n for n in data.get("read_only") or [] if n not in listed and not covered(n)]
+    kept = [n for n in _names(data.get("read_only")) or [] if n not in listed and not covered(n)]
     data["read_only"] = sorted(set(listed) | set(kept))
     members = set(members or listed)
-    gone = [n for n in data.get("members") or [] if n not in members and not covered(n)]
+    gone = [n for n in _names(data.get("members")) or [] if n not in members and not covered(n)]
     data["members"] = sorted(members | set(gone))  # every listed repo: one dropped from the manifest is reported
+    data["flipped"] = sorted(n for n in _names(data.get("flipped")) or [] if not covered(n))
     data.pop("reported", None)
     save(path, data)
     marker = os.path.join(root, MARKER)
@@ -188,6 +189,11 @@ def seed(root, listed, names=None, members=None):
     with open(marker, "w", encoding="utf-8") as f:
         f.write(f"the read-only watch's baseline for this workbench:\n{path}\n")
     return done
+
+
+def _names(value):
+    """A baseline list of repo names, or None when it isn't one (missing, or damaged)."""
+    return value if isinstance(value, list) and all(isinstance(n, str) for n in value) else None
 
 
 def look(root, listed, members=None):
@@ -204,13 +210,23 @@ def look(root, listed, members=None):
     if not isinstance(first_all, dict):
         report.append("the baseline's first look is damaged")
         first_all = {}
-    if not isinstance(data.get("read_only"), list):  # a baseline from before the list: the repos it watched, too
+    for key in ("read_only", "members", "flipped"):
+        if key in data and _names(data[key]) is None:  # damaged: reported, and the accept writes it anew
+            report.append(f"the baseline's {key} list is damaged")
+            data[key] = []
+    if "read_only" not in data:  # a baseline from before the list: the repos it watched, too
         data["read_only"], grown = sorted(set(listed) | set(base)), True
-    if not isinstance(data.get("members"), list) and members is not None:
+    if "members" not in data and members is not None:
         data["members"], grown = sorted(members | set(data["read_only"])), True
+    flipped = set(data.get("flipped") or [])
     for name in data["read_only"]:
-        if name not in listed:  # workbench.json made it writable or dropped it: a change of the control file
-            report.append(f"{name}/ (no longer read-only in workbench.json: made writable or removed)")
+        if name not in listed and name not in flipped:  # a control-file flip stays said until the user accepts it
+            flipped.add(name)
+            grown = True
+    if flipped != set(data.get("flipped") or []):
+        data["flipped"] = sorted(flipped)
+    for name in sorted(flipped):
+        report.append(f"{name}/ (made writable or removed in workbench.json since the last accept)")
     for name in data.get("members") or []:
         if members is not None and name not in members and name not in data["read_only"]:
             report.append(f"{name}/ (removed from workbench.json)")

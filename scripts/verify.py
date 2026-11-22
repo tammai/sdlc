@@ -430,8 +430,12 @@ def full(root, feature, timeout=1800, whole=False):
     if rec.get("feature") != feature:
         rec = {"feature": feature}
     failures, notes = [], []
-    import sdlc_scopes  # noqa: PLC0415  (a config linked out of the repo reads as absent: no commands run from it)
-    config = json.loads(sdlc_scopes.read_repo_text(root, ".sdlc/config.json") or "{}")
+    import sdlc_scopes  # noqa: PLC0415  (a config linked out of the repo is never read: verify fails instead)
+    text = sdlc_scopes.read_repo_text(root, ".sdlc/config.json")
+    if text is None and os.path.lexists(os.path.join(root, ".sdlc", "config.json")):
+        failures.append(P.problem("config_unreadable", ".sdlc/config.json is a link out of the repo, or can't be read "
+                                  "as UTF-8: fix it before verify can run its commands", target="config"))
+    config = json.loads(text or "{}")
     test_output = {}
     for step in scaffold.verify_plan(config)["verify"]:
         name = f"{step['scope'] or scaffold.ROOT_SCOPE} {step['step']}"
@@ -805,7 +809,10 @@ def accept_target(root):
     start), or (None, the reason it can't start)."""
     try:
         import sdlc_scopes  # noqa: PLC0415
-        config = json.loads(sdlc_scopes.read_repo_text(root, ".sdlc/config.json") or "{}")
+        text = sdlc_scopes.read_repo_text(root, ".sdlc/config.json")
+        if text is None and os.path.lexists(os.path.join(root, ".sdlc", "config.json")):
+            return None, "not run: .sdlc/config.json is a link out of the repo, or can't be read"
+        config = json.loads(text or "{}")
     except ValueError as e:
         return None, f"not run: .sdlc/config.json isn't valid JSON ({e})"
     if not isinstance(config, dict):

@@ -898,6 +898,8 @@ def cmd_render(p, a):
     if not inside_repo(p.root, dest):
         raise Refused(f"{dest} resolves outside the project through a link; nothing written")
     entry = lock["files"].get(dest)
+    if os.path.lexists(p.path(dest)) and sha256(p.path(dest)) == UNREADABLE:
+        raise Refused(f"{dest} isn't a readable file (a folder or a looping link); nothing written")
     if a.if_unchanged and entry and (p.file_state(dest, entry) == "modified" or p.merged(entry)):
         raise Refused(f"{dest} was edited since the plugin wrote it; review the diff instead of overwriting")
     if a.if_unchanged and not entry and os.path.exists(p.path(dest)):
@@ -908,6 +910,8 @@ def cmd_render(p, a):
     with open(full, "w", encoding="utf-8", newline="\n") as f:  # LF on Windows too: upgrade-plan hashes the LF render
         f.write(text)
     after = sha256(full)
+    if after == UNREADABLE:  # written but can't be read back (write-only): never recorded as a hash
+        raise Refused(f"{dest} was written but can't be read back; not recorded")
     lock["files"][dest] = {"class": a.cls, "sha256": after, "template": template}
     p.save()
     return {"rendered": dest, "class": a.cls, "changed": before != after}

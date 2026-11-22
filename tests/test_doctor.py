@@ -373,7 +373,7 @@ class DoctorTest(ProjectTestCase):
         c = {(x["group"], x["check"]): x for x in json.loads(p.stdout)["checks"]}[("repo", "rules paths")]
         self.assertIn("db.md", c["detail"])  # a plain dead rule is still reported
         self.assertNotIn("api.md", c["detail"])  # braces with ** still match
-        self.assertNotIn("braces.md", c["detail"])  # too complex to judge: never called dead
+        self.assertIn("braces.md", c["detail"])  # judged exactly, in linear time: it matches no file
         self.assertIn("stars.md", c["detail"])  # a run of stars is one star: judged, and it matches nothing
 
     def test_hookify_rules_parse(self):

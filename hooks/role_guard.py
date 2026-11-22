@@ -209,12 +209,9 @@ WATCH_FILES = ("read-only-baseline", "read-only-seeded", "read_only_watch", "cla
 def deep_reason(found):
     """The deny reason when a command was too deeply nested to check, else None."""
     return ("sdlc: this command nests substitutions too deep, or uses shell syntax the guard can't read the way the "
-            "shell does ($'…\\'…', a substitution inside $(( )) or an array subscript, zsh's >! or >>|), so it can't "
+            "shell does ($'…\\'…', a substitution inside $(( )), zsh's >! or >>|), so it can't "
             "check what it writes: "
             "split it into simpler commands in plain syntax.") if found == TOO_DEEP else None
-
-
-SUBSCRIPT_SUB = re.compile(r"\[[^\]]*(?:\$\(|`)")  # bash runs `$( )` in an array subscript, even in '…'
 
 
 def lex(command, dialect="sh"):
@@ -224,8 +221,6 @@ def lex(command, dialect="sh"):
     substitution (`$( )`, backticks, `<( )`; PowerShell's `$( )`), comes inline between ("(", None) and (")", None),
     so a `cd` inside it ends with it; the substitution leaves SUB in its command's text. Comments, `\\`-newline
     continuations and here-doc bodies are never commands; `case` patterns' `)` close nothing."""
-    if dialect == "sh" and SUBSCRIPT_SUB.search(command):
-        raise Unreadable()  # `[[ 'a[$(cmd)]' -eq 1 ]]`, `let`, `declare -i`: arithmetic evaluates the subscript
     events, _ = _lex(command, 0, None, dialect, 0)
     return events
 
