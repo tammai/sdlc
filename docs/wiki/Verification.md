@@ -1,30 +1,83 @@
 # Scope and verification
 
+Two questions, checked by machine where possible: **did it build only what was asked?** (scope) and **is it proven to work?** (verification).
+
 ## Scope tracing
 
-Every phase ties additions back to a request:
+Every addition must trace back to the request.
 
-- **Proposals are dropped by default.** Define adds no hardening, options, config or tooling that neither the request nor an applicable failure mode calls for. Anything else it would add is listed under the change file's proposals not asked for and dropped unless you keep it.
-- **The change file** has acceptance criteria a test can prove, each with its test, and an out-of-scope section.
-- **The state file's plan sections** name each task's files and declare a **Public Surface** (every new export, endpoint, command, config key, env var, dependency). `verify.py` reports a changed file no task names as drift until it has a deviation line.
-- **Review** runs `scripts/diff_stats.py --plan` to flag exports and dependencies missing from the Public Surface; unrequested public surface is high severity. Every reviewer also checks the spec's failure modes and the recurring-defects list (the plugin's seed plus the project's own). The builder gets the same list in the brief and writes against it.
+| Where | Check |
+|---|---|
+| **Define** | Adds no hardening, options, config or tooling that the request or a failure mode doesn't call for. Anything extra is listed as a proposal and dropped unless you keep it |
+| **Change file** | Every AC has a test that can prove it, and there's an out-of-scope section |
+| **State file** | Each task names its files. **Public Surface** declares every new export, endpoint, command, config key, env var and dependency |
+| **`verify.py`** | A changed file that no task names is **drift** until a deviation line covers it |
+| **Review** | `scripts/diff_stats.py --plan` flags exports and dependencies missing from Public Surface. Undeclared public surface is a **high** finding. Every reviewer also checks the failure modes and the recurring-defects list |
 
 ## Verification
 
-**`verify.py`.** Build's one command. `verify.py red AC-001 AC-002 …` records acceptance tests failing before their code; a test that passes, can't be found or can't run is refused, and then none of the batch is recorded. A passing full run prints the head and tree `state.py verified` takes. An AC whose Run command exits 0 after running no tests (`Ran 0 tests`, `no tests ran`) fails as not run. **The test lock:** on an M or L feature (and on every track in a spec-backed repo), `verify.py red` locks each test file it ran (`## Test lock`), and a run fails on a locked test that changed or was deleted unless a `test-change <file> What: … Why: …` deviation names it and `verify.py red --at <Base> <ACs>` showed it still fails on Base. S locks nothing. The full run (`verify.py` with no arguments) runs the project's verify plan (lint, typecheck, build, the full suite), each AC's test (from the change file's `## Acceptance tests`), and the drift check against the state file's tasks, Public Surface and deviations (a 1.x feature: `spec.md` and `plan.md`). `verify.py status` prints short JSON: Review and Ship reuse the last run only when it passed, both records agree and the code hasn't changed since (`reuse: true`). `verify.py trace` applies when the ACs cite a written spec (`AC-003 … prd.md §4.2`): it reports a cited section the spec lacks and any `FR-nnn` in it that no AC names or `## Out of scope` sets aside. L's plan self-approval runs it; a full run prints the same findings as advisory `trace:` notes. **Spec-backed mode** (3.5, for product-rebuild): only in a repo that holds an rspec `criteria.lock.json` (or names one as `spec_lock` in `.sdlc/config.json`) or `acceptance/manifest.json`. There an AC may cite criteria from the lock (`- **AC-003** → F-ISS-01.AC2`) and every run fails on an ID the lock doesn't hold, one `state.py cite` didn't record at Define, a slice criterion (`state.py new … --criteria`) no AC cites and `## Out of scope` doesn't set aside, and a `stale criterion` the spec changed since Define; an AC whose Test is an `open` recorded test runs it against the build `verify.py` starts from `accept.start` at `accept.base_url`, and the hookify PreToolUse hook keeps those files read-only; a recorded test that a decided departure (`docs/departures.yaml`) says can't pass is set aside by a row `| AC-003 | departure D-004 | <its path> |` beside a builder test row for the same AC, and every run checks that the departure is decided and covers that test's criterion; a question about a cited criterion is `state.py question`, which blocks the part until the lock shows it amended. Any other repo works as in 3.4.0.
+### `verify.py`
 
-**For tools: `--json`.** `verify.py --json`, `ship.py --json` and the CI check `.sdlc/ci/invariants.py --json` print one JSON document instead of lines: a `result` and each problem as `{severity, code, message, target, fix}`, where `code` is stable (`red_not_recorded`, `test_lock_changed`, …) and `fix` is the command to run. The plain output and exit codes don't change. `doctor`'s JSON gives each check a `code` too and lists the failing ones under `problems`.
+Build's single command. Three modes:
 
-**The freshness hook.** While `state.md` says `Current: Stage 3 – Review`, Review is the only phase with a hook that blocks you:
+| Command | Does |
+|---|---|
+| `verify.py red AC-001 AC-002 …` | Records each AC test **failing** before its code. If any test passes, can't be found or can't run, the whole batch is refused |
+| `verify.py` | Full run: the project's verify plan (lint, typecheck, build, full suite), every AC's test, and the drift check. Prints the head and tree that `state.py verified` takes |
+| `verify.py status` | Short JSON. `reuse: true` when the last run passed, both records agree and the code hasn't changed, so Review and Ship skip a rerun |
 
-- any code change (by any tool, in a git repo) marks test results **stale**;
-- a **full** test run, or a full `verify.py` run, marks them **fresh**. A run that names a test file, a pytest node id, a single Go package or a name filter doesn't count;
-- finishing a turn while stale is blocked with "re-run tests".
+```mermaid
+flowchart LR
+    W["Write AC test"] --> R["verify.py red<br/>must FAIL"] --> C["Write code"] --> F["verify.py<br/>must PASS"]
+    R -.->|"test passes already"| X["Refused: make it assert the new behaviour"]
+```
 
-The full run is the `test` command from `.sdlc/config.json`, with no extra arguments. In a monorepo freshness is per package: an edit under `services/api/` makes only `api` stale, and `cd services/api && <api's test command>` makes it fresh again; a file outside every package makes all of them stale. A root-level test command (e.g. `turbo run test`) counts for every package.
+- An AC whose command exits 0 after running no tests (`Ran 0 tests`, `no tests ran`) fails as **not run**.
+- **Test lock** (M, L, and every track in a spec-backed repo): `verify.py red` stores each test file's hash under `## Test lock`. A locked test that later changes or is deleted fails the run unless a `test-change <file> What: … Why: …` deviation names it and `verify.py red --at <Base> <ACs>` shows it still fails on Base. S locks nothing.
+- **`verify.py trace`**: when ACs cite a written spec (`AC-003 … prd.md §4.2`), it reports cited sections the spec lacks and any `FR-nnn` that no AC names and `## Out of scope` doesn't set aside. L's self-approval runs it, and a full run prints the same findings as advisory `trace:` notes.
+- **`--json`**: `verify.py`, `ship.py` and `.sdlc/ci/invariants.py` print one JSON document: a `result`, plus each problem as `{severity, code, message, target, fix}`. Codes are stable (`red_not_recorded`, `test_lock_changed`, …). The plain output and exit codes don't change.
 
-**Verify's records.** `verify.py` writes the freshness hook's copy of its own run (each AC's red record, a full run's tree and result) after every full or `red` run, beside its `.sdlc/.work/verify.json`, so a run counts whatever command spelling ran it. In Build and Review the hook also keeps the copy itself. It recognises the plugin's `verify.py` as the command itself, optionally after `cd <dir> &&`, with redirects ignored and followed only by `| tail`, `| head`, `| grep`, `| cat` or `; echo …`, and copies `verify.json`'s entry for that run only when its tree is the current code; when the exit code is verify.py's own (nothing piped or echoed after it), the entry must agree with it. A record that differs from the hook's copy is a trust-anchor notice. Codex, Cursor and Antigravity get the copy too (Codex and Antigravity commands arrive with `| cat` appended, which counts as a filter).
+<details><summary>Spec-backed mode (repos built with rspec / product-rebuild)</summary>
 
-**The baseline.** `.sdlc/baseline.md` lists failures recorded at brownfield setup. `verify.py` doesn't read it yet: when only the test step fails and every failure is listed there, Build logs it and passes the gate ([spec 04 Known gaps](../specs/04-verification.md#known-gaps)). At Ship, `ship.py --waive-baseline` checks it: it names the failing tests from the runner's report and waives them only when every one is listed. Accepting a new failure into the baseline is your decision, recorded as a Deviation.
+Applies only in a repo with an rspec `criteria.lock.json` (or `spec_lock` in `.sdlc/config.json`) or `acceptance/manifest.json`.
 
-**Bounded commands.** In Review (Stage 3) the prove-budget hook runs every shell command other than the project's own under `timeout 120` and kills it there (exit 124, "could not verify within budget"); background runs, Monitor and the PowerShell tool are refused for such commands, so nothing is polled. Reviewers are read-only: they read code and diffs and may run the project's test command, and a suspicion that needs a probe is a finding.
+- An AC may cite a locked criterion: `- **AC-003** → F-ISS-01.AC2`. Every run fails on:
+  - an ID the lock doesn't hold,
+  - an ID that `state.py cite` didn't record at Define,
+  - a slice criterion (`state.py new … --criteria`) that no AC cites and `## Out of scope` doesn't set aside,
+  - a `stale criterion` the spec changed since Define.
+- An AC whose test is an `open` recorded test runs against the build that `verify.py` starts from `accept.start` at `accept.base_url`. hookify keeps those test files read-only.
+- If a decided departure (`docs/departures.yaml`) says a recorded test can't pass, a row `| AC-003 | departure D-004 | <path> |` sets that test aside, next to a builder test row for the same AC. Every run checks that the departure is decided and covers that criterion.
+- A question about a cited criterion goes through `state.py question`, which blocks the part until the lock shows the criterion amended.
+</details>
+
+### The freshness hook
+
+While the state file says `Current: Stage 3 – Review`, this is the only hook that can block you:
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> Fresh: full test run / full verify.py
+    Fresh --> Stale: any code change (any tool)
+    Stale --> Fresh: full test run
+    Stale --> Blocked: end turn
+    Blocked --> Fresh: full test run
+```
+
+- **Full run** = the `test` command from `.sdlc/config.json` with no extra arguments. A run that names a test file, a pytest node id, a single Go package or a name filter doesn't count.
+- **Monorepo:** freshness is tracked per package. An edit under `services/api/` makes only `api` stale; `cd services/api && <api's test command>` makes it fresh again. A file outside every package makes all packages stale. A root test command (for example `turbo run test`) counts for every package.
+- Docs and anything under `.sdlc/`, `knowledge/`, `.claude/` or `docs/` never make results stale.
+
+<details><summary>How verify runs are recorded</summary>
+
+`verify.py` writes the hook's copy of each run (each AC's red record, a full run's tree and result) beside `.sdlc/.work/verify.json`, so the run counts however the command was spelled. In Build and Review the hook also keeps its own copy. It recognises `verify.py` as the command, optionally after `cd <dir> &&`, ignores redirects, and allows it to be followed only by `| tail`, `| head`, `| grep`, `| cat` or `; echo …`. It copies the matching `verify.json` entry only when its tree is the current code. When the exit code is verify.py's own, the entry must agree with it. A mismatch raises a trust-anchor notice ("verify records disagree"). Codex, Cursor and Antigravity get the copy too.
+</details>
+
+### The baseline
+
+`.sdlc/baseline.md` lists failures recorded at brownfield setup. `verify.py` doesn't read it yet: when only the test step fails and every failure is listed, Build logs it and passes the gate ([spec 04 Known gaps](../specs/04-verification.md#known-gaps)). At Ship, `ship.py --waive-baseline` waives the failing tests only when every one is listed. Adding a new failure to the baseline is **your** decision, recorded as a deviation.
+
+### Bounded commands
+
+In Review, the `prove-budget` hook runs every shell command other than the project's own under `timeout 120`, killing it with exit 124 ("could not verify within budget"). Background runs, Monitor and the PowerShell tool are refused for such commands. Reviewers are read-only: they read code and diffs and may run the project's tests. A suspicion that needs a probe becomes a finding.

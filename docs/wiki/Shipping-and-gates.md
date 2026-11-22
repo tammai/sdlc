@@ -2,85 +2,102 @@
 
 ## 9. Skip a gate deliberately
 
-Say `skip` or `just ship it`. The agent will:
+Say `skip` or `just ship it`. The agent names the gates it's skipping, records them as a deviation in the state file, then complies.
 
-1. name the gates being skipped,
-2. record them as a deviation in the state file,
-3. comply.
-
-Hard stops (merge, production deploy, migrations, anything irreversible) still wait for your explicit word. Skipping a gate is allowed; skipping silently is not.
+**Skipping is allowed; skipping silently is not.** Hard stops (merge, production deploy, migrations, anything irreversible) still wait for your explicit word.
 
 ## 10. Merge and deploy
 
-1. **Ship:** Learn, then one shell call with git and `gh` commits on a feature branch (code, tests, the change file and the state file), pushes and opens a PR that links the change file. The agent watches CI: red because of the code, it fixes it once (failing test first) and pushes again; still red, or red for a CI reason (a missing secret, a runner problem, a flaky test), it stops and tells you. Without a remote, it stops with the branch ready.
-2. **It stops at the PR:** `PR <url> open, local and CI green.` and a question dialog, **Merge now?** (merge, or leave the PR open). **The agent never merges without you saying so.** On merge, the `finishing-a-development-branch.md` reference merges and cleans up worktrees; `/sdlc:clean-gone` prunes merged local branches when asked.
+```mermaid
+flowchart LR
+    L["Learn"] --> C["Commit + push + PR<br/>(one shell call)"] --> CI{"CI"}
+    CI -->|green| Q{{"Merge now?"}}
+    CI -->|"red: code"| FX["One test-first fix"] --> CI2{"CI"}
+    CI2 -->|green| Q
+    CI2 -->|"still red"| YOU{{"Tells you"}}
+    CI -->|"red: secret, runner, flaky"| YOU
+    Q -->|merge| MG["Merge + clean worktrees"]
+    Q -->|leave open| OP["PR stays open"]
+    MG -.->|"separate request"| DEP["/sdlc:deploy"]
+```
+
+1. **Ship** commits code, tests and both record files on a feature branch, pushes, and opens a PR that links the change file. Without a remote, it stops with the branch ready.
+2. **It stops at the PR**, with `PR <url> open, local and CI green.` and a **Merge now?** dialog. **The agent never merges without you.** On merge, the `finishing-a-development-branch.md` reference merges and cleans up worktrees. `/sdlc:clean-gone` prunes merged local branches when you ask.
 3. **Deploy** is a separate request: `/sdlc:deploy [feature] [environment]`.
-   - It warns if the feature hasn't reached Ship, and continues only on your word.
-   - It uses the project's existing deploy path (scripts, a CI job, the platform CLI). None: it says so and stops.
-   - Before production or a migration it shows the environment, version, steps, migration and rollback command, and waits for your yes. A routine staging deploy doesn't.
-   - It runs a smoke test. A failure: it offers the rollback, and a production rollback needs another yes.
-   - It writes `release.md` in the feature's work folder (version, environment, steps, smoke result, rollback) and commits it only if you ask.
+
+| Deploy step | Behaviour |
+|---|---|
+| Feature not shipped yet | Warns; continues only on your word |
+| Deploy path | Uses the project's own (scripts, a CI job, the platform CLI). If there's none, it says so and stops |
+| Production or a migration | Shows the environment, version, steps, migration and rollback command, then **waits for your yes**. A routine staging deploy doesn't wait |
+| Smoke test | Always runs. On failure it offers rollback; a production rollback needs another yes |
+| Record | Writes `release.md` in the work folder (version, environment, steps, smoke result, rollback). Commits it only if you ask |
 
 ## 21. The trust anchor stopped me
 
-The trust anchor watches what verification relies on. When something weakens it, the turn stops once with `⚠ Verification anchors changed: … Your answer accepts it.` The agent tells you what changed and why, and asks you in a `Trust anchor` dialog; it doesn't undo the change on its own.
+The agent can write the files that verification trusts (state, change file, baseline, config), so the trust anchor **shows you** every change to them. The turn stops once with:
 
-It reports, per active feature:
+```
+⚠ Verification anchors changed: … Your answer accepts it.
+```
 
-- `Track:` down, `Risk:` high → low, `Top model:`, `Base:` or `Process:` changed;
-- a failing test added to `.sdlc/baseline.md`, or commands in `.sdlc/config.json` changed since `Base:`;
-- the change file edited above `## Review` (its criteria and tests) after Review started;
-- leaving Review without a passing full run of the current code, at every size, or with code changed since that run;
-- leaving Review while a review's latest report says `VERDICT: FAIL`, unless you waived it;
-- `verify records disagree`: `.sdlc/.work/verify.json` differs from the freshness hook's copy of the run, or is missing or damaged while the hook holds one;
-- a feature stopping being active other than by finishing (a pause, a deleted state file);
-- a damaged trust-anchor record.
+The agent explains what changed and why, then asks in a `Trust anchor` dialog. It doesn't undo anything on its own.
 
-Only current features (`Process: 3`) are watched.
+| Reported (per current feature, `Process: 3`) | Blocks? |
+|---|---|
+| `Track:` up, or `Risk:` low → high ("Stricter process: …") | No |
+| `Track:` down, `Risk:` high → low, or `Top model:`, `Base:`, `Process:` changed | Once |
+| A failing test added to `.sdlc/baseline.md`, or commands in `.sdlc/config.json` changed since `Base:` | Once |
+| Change file edited above `## Review` (criteria, tests) after Review started | Once |
+| Leaving Review without a passing full run of the current code, or with code changed since that run | Once |
+| Leaving Review while a review's latest report says `VERDICT: FAIL`, unless a `waived round <N>` deviation covers it | Once |
+| `verify records disagree`: `verify.json` differs from the hook's copy, or is missing/damaged | Once |
+| A feature stops being active other than by finishing (paused, state file deleted) | Once |
+| The trust anchor's own record is damaged | Once |
 
-**What to do:** read it. If the change is right, carry on: your next message accepts it. If not, say so and ask the agent to put it back.
+**What to do:** read it. If the change is right, carry on; your next message accepts it. If not, say so and have it put back ([R19](Troubleshooting.md#r19-a-trust-anchor-notice-stops-the-turn)).
 
-A change that only adds checks (Track up, Risk low → high) shows `Stricter process: …` and doesn't stop you.
-
-Autopilot won't start a session while a notice is open; its JSON `stopped` reason quotes the notice. Read it, send any message in a normal session to accept it, then run autopilot again.
+**Autopilot** won't start a session while a notice is open; its JSON `stopped` reason quotes the notice. Send any message in a normal session to accept it, then rerun.
 
 ## Who decides what
 
-**Hard stops.** The agent always stops and asks:
+```mermaid
+flowchart LR
+    subgraph You["You decide (always asked)"]
+      Y1["Approval before Build: high-risk M, L on doubt"]
+      Y2["Review choice: high-risk M, L on doubt"]
+      Y3["Added scope · disputed high finding · CI red after one fix"]
+      Y4["Merge · production deploy · DB migration · anything irreversible"]
+    end
+    subgraph Agent["The agent decides (you can override)"]
+      A1["Track and risk"]
+      A2["Whether to ask before writing the record"]
+      A3["How the build runs"]
+      A4["Fixing highs, one CI fix"]
+    end
+```
 
-| Decision | Owner |
-|---|---|
-| Define's approval on high-risk M (and L on doubt): the change file, the plan (and backlog), how the build runs | You |
-| Which reviews run after the build, on M and L | You |
-| Anything that adds scope | You |
-| A reviewer and the agent disagreeing on a high finding | You |
-| CI still red after one fix | You |
-| Merge (Ship stops with the PR open) | You |
-| Production deploy | You |
-| DB migration | You |
-| Anything irreversible | You |
+**Also yours** (not a stop, but only you can do it):
 
-**Also yours:**
-
-| Decision | Owner |
+| Decision | How |
 |---|---|
 | Running setup, the stack, the recorded commands | You approve |
-| Each audit batch, each AI-config migration | You approve, edit or drop |
-| Upgrade: edited plugin files, new workflows, migrations | You choose per file / per migration |
-| Adding a failure to the baseline | You, recorded as a deviation |
-| Waiving a high finding | You, recorded as a deviation |
-| Design-system changes a reviewer proposes | You |
-| Accepting a trust-anchor notice | You, with your answer to its dialog or your next message |
-| Skipping a gate | You, recorded as a deviation |
+| Each audit batch, each AI-config migration | Approve, edit or drop |
+| Upgrade: edited plugin files, new workflows, migrations | Per file / per migration |
+| Adding a failure to the baseline | Recorded as a deviation |
+| Waiving a high finding | Recorded as a deviation |
+| Skipping a gate | Recorded as a deviation |
+| Design-system changes a reviewer proposes | You decide |
+| Accepting a trust-anchor notice | Your answer to its dialog, or your next message |
 
 **The agent's calls:**
 
-| Decision | Owner |
+| Decision | Rule |
 |---|---|
-| Track and risk | The agent proposes; you can override |
-| Whether to ask before writing the record | The agent judges; it asks when what, why or how isn't clear |
-| How the build runs (inline, parts, parallel) | The agent, written in the state file; shown at the approval when there is one |
-| Which reviews to run on S | A fixed trigger list (`s-track.md` step 5); none unless one fires |
-| Which reviews to run on autopilot and headless runs | The agent's recommendation |
+| Track and risk | Proposed; you can override |
+| Ask before writing the record? | Asks when what, why or how is unclear |
+| How the build runs (inline, parts, parallel) | Written in the state file; shown at the approval when there is one |
+| Reviews on S | Fixed trigger list (`s-track.md` step 5); none unless one fires |
+| Reviews on low-risk M, L without doubt, autopilot, headless | The triggered reviews / the recommendation, logged |
 | Verify verdict | The latest `verify.py` run on the current code |
-| Fixing high findings, and one CI fix | The agent, without asking |
+| Fixing high findings, and one CI fix | Without asking |

@@ -1,68 +1,114 @@
 # How it works
 
-## The idea
+sdlc takes one piece of work from request to an open PR. The **orchestrator** skill sizes it, runs four phases, records progress in two files, and stops at **gates** for your decisions.
 
-`sdlc` is one Claude Code plugin that takes a piece of work from request to an open PR. An **orchestrator** skill runs it: it sizes the work, runs one phase at a time (Define, Build, Review, Ship), calls the bundled skills, subagents and commands for that phase, records progress in `.sdlc/state/<feature>.md`, and stops at **gates**. Nothing outside the plugin is needed for the core phases.
+```mermaid
+flowchart LR
+    R["Your request"] --> Z{"Size it"}
+    Z -->|trivial| T["Change, test, commit"]
+    Z -->|"S / M / L"| D["Define"] --> B["Build"] --> V["Review"] --> S["Ship + Learn"] --> PR(["PR open, CI green"])
+    PR -.->|"you say merge"| M(["Merged"])
+```
 
-Its goal is the process, not code quality above plain Claude: a trustworthy record of each change, the same steps across a team, and easier review, onboarding and trace-back. Four ideas carry the design ([ADR 0020](../adr/0020-sdlc-2-slim-process-core.md)):
+## Four ideas
 
-1. **Intent before code.** Before any code, what, why and how are agreed and written down. The agent judges whether the request already makes them clear; if not, at any size, it asks, one question at a time. A bug is proven first, then its root cause found.
-2. **The same record at every size.** Every change leaves two files: the change file for people (why, what must be true with each criterion's test, then what Review checked) and the feature's state file for the agent (where it stands, and how it's built: tasks, files, Public Surface, deviations). S fills each section in a few lines; M and L in full. A later session, a reviewer or a teammate months from now works from these two files alone.
-3. **A builder like plain Claude.** The builder writes the code and its tests with no review agents during the build. `verify.py` checks that each acceptance criterion's test failed before its code and passes after it.
-4. **Reviews the change needs, once.** After the build the agent recommends reviews from what actually changed. Each chosen review runs once, fresh: the code review on S and M is Claude Code's built-in `/code-review` (other agents, and L, use the plugin's reviewer), the rest on `opus`; its high findings go back to the builder.
+The goal is a trustworthy process (record, team consistency, easy review), not code better than plain Claude ([ADR 0020](../adr/0020-sdlc-2-slim-process-core.md)).
+
+| Idea | In practice |
+|---|---|
+| **Intent before code** | What, why and how are written down first. Unclear? It asks, one question at a time. A bug is proven (failing test) and its root cause found first. |
+| **Same record at every size** | Two files per change: the **change file** (for people) and the **state file** (for the agent). S writes a few lines; M and L write in full. |
+| **Builder like plain Claude** | No review agents during Build. `verify.py` proves each acceptance test failed before its code and passes after. |
+| **Reviews the change needs, once** | Picked from the actual diff, each run once by a fresh agent; high findings go back to Build. |
+
+## The record
+
+```mermaid
+flowchart LR
+    subgraph C["Change file · docs/sdlc/changes/&lt;feature&gt;.md · for people"]
+      direction TB
+      C1["Why · Decisions"] --> C2["Acceptance criteria AC-001…<br/>+ the test for each"] --> C3["Must never break · Failure modes · Out of scope"] --> C4["Review section (added last)"]
+    end
+    subgraph St["State file · .sdlc/state/&lt;feature&gt;.md · for the agent"]
+      direction TB
+      S1["Track · Risk · Current stage"] --> S2["How the build runs · Tasks · Public Surface"] --> S3["Gate log · Deviations"]
+    end
+```
+
+A later session, a reviewer or a teammate can pick up the work from these two files alone. Everything above `## Review` is frozen once Review starts. Field-by-field layout: [Where things live](Where-things-live.md#statemd).
 
 ## Tracks
 
-| Track | Use when | Before the build | After the build |
+| Track | Use when | Before Build | After Build |
 |---|---|---|---|
-| **S · fix** | a fix or tweak, 1–2 files, clear expected behaviour | the change file and the plan, a few lines each; no stop | the reviews a fixed trigger list names run (none by default), and it tells you |
-| **M · feature** | a few files to a few days, approach mostly clear | the change file and the plan in full; at high risk you read and approve the change file, at low risk the build starts | the reviews that fire run; at high risk you pick from the recommendation |
-| **L · project** | several distinct parts, or an approach still unclear | the same, with the interview run by `brainstorming`; you approve only when its own checks leave a doubt | the reviews that fire run; it asks you only on doubt |
+| **S · fix** | 1–2 files, clear expected behaviour | Record in a few lines; **no stop** | Fixed trigger list (usually no review); tells you what ran |
+| **M · feature** | A few files to a few days, approach mostly clear | Record in full. **High risk:** you approve. Low risk: builds straight on | Triggered reviews run. **High risk:** you pick them |
+| **L · project** | Several parts, or approach unclear | Same, interview via `brainstorming`. You approve **only if its own checks leave a doubt** | Triggered reviews run; asks only on doubt |
 
-Every track runs the same four phases and leaves the same record; the track sets only the record's depth and where it stops for you. Size is the footprint (how many files the change touches), recorded on the state file's `Track:` line; the orchestrator proposes the smallest fitting track and sizes up only for a named signal. You can override the size at any time.
+- **Size** = footprint (files touched). The agent proposes the smallest fitting track and sizes up only for a named signal. You can override anytime.
+- **Risk** is separate from size. `Risk: high` = auth, payments, secrets, PII, schema migrations, a breaking public-API change, or untrusted input reaching a shell, file path or database. Adding a command, flag or field is `low`.
+- **Security-touched** = `Risk: high`, or the diff hits `areas.sensitive` / `areas.migrations` in `.sdlc/config.json`. It triggers a security review and a model review on commit.
+- **Models:** the build runs on your session's model. Every review runs on `opus` (the model router enforces it). Other subagents run on `sonnet` with `effort: high`. `haiku` is never used. Fable is used only if you ask for it (`Top model: fable`).
 
-Which step runs on which track, as a matrix: [track-matrix.md](../track-matrix.md) ([diagram](../diagrams/sdlc_track_matrix.svg)).
+Full step-by-track matrix: [track-matrix.md](../track-matrix.md).
 
-**Risk** is recorded apart from size: `Risk: high` for auth, payments, secrets, PII, schema migrations, a breaking change to a public API (removing or changing an exported signature, an HTTP endpoint, a CLI flag, or output the docs say programs read; adding a command, flag or field is `low`), or untrusted input reaching a shell, file path or database. It doesn't change the track; it feeds the review recommendation. A change is **security-touched** when `Risk: high`, or the diff touches `areas.sensitive` or `areas.migrations` in `.sdlc/config.json`: then a security review is recommended and the commit gets a model review; any other change has only the always-on pattern hooks.
-
-**Models.** The build runs in your session on its model. Every review runs on `opus` at every size; the model router enforces it. Other dispatches use `sonnet` with `effort: high`; `haiku` is never used. Fable is used only if you ask ("use fable"), which sets `Top model: fable`. See [sdlc_tracks_full_stage_tree.svg](../diagrams/sdlc_tracks_full_stage_tree.svg).
-
-**Parts.** M or L work with several distinct parts that won't fit one session's context (never a 1–2-file change) gets a `backlog.md` of parts, approved with the other Define files; S never gets one. The state file's `## Tasks` outlines each part. Each part writes its `plan-B<n>.md`, is built, passes `verify.py` and is committed; parts run back to back without asking unless something adds scope or a hard stop comes up (per-part stops are opt-in: `Slice gates: plan, commit`). All parts land together: after the last one, **feature close** runs one Review over the whole branch, then Ship. When context runs low it stops at a part boundary and names the next one; `/clear` then `/sdlc:start` picks it up (`/sdlc:start B<n>` for a named part). **Autopilot** comes two ways. Ask for it in a session and that session runs every remaining part, then feature close, without asking or stopping for context, taking Review's recommendation; it never hands you a script to run instead. Or run `python3 <plugin>/scripts/autopilot.py <feature>` in a terminal yourself, which runs each part and then feature close in a fresh headless Claude Code session, taking Review's recommendation; it stops on a blocked part, a run that changed nothing, or a trust-anchor notice you haven't seen.
+![Which steps run on which track](../diagrams/sdlc_track_matrix.svg)
 
 ## The four phases
 
-| Phase | Produces | Gate |
+| Phase (stage) | Produces | Gate to leave |
 |---|---|---|
-| Define | the change file up to `## Review`, the state file's plan sections (and `backlog.md` for parts) | S: none, it says what it will do and goes on. M and L: **you approve once**. Every AC has a row in the change file's `## Acceptance tests`, out of scope is filled, the two files stand alone |
-| Build | code, tests; each acceptance test's red record and a passing `verify.py` run (`.sdlc/.work/verify.json`); deviations written into the state file with `state.py deviation` | Every task done, `verify.py` passes (every AC's test recorded red and now passing, every drift recorded with what, why and effect) |
-| Review | the change file's `## Review`: what was recommended and chosen, each review's verdict, the fixes, the tickets | `verify.py` passes on the current code; every chosen review's latest report ends `VERDICT: PASS`, or its highs are fixed (and re-verified) or waived by you; security-touched: no critical or high security finding, no secrets in the diff |
-| Ship, with Learn | knowledge and `recurring-defects.md` lines, the final commit, the PR | Verified-tree check clean, Learn done, green locally and on CI (or you told what's red), PR open. **Never merged without you saying so** |
+| **Define** (1) | Change file up to `## Review`, state file plan (+ `backlog.md` if split) | S: none. M/L: your approval where the track says. Every AC has a test row, out of scope is filled |
+| **Build** (2) | Code, tests, red records, a passing `verify.py` | Every task done; every AC test recorded red then passing; drift recorded as deviations |
+| **Review** (3) | `## Review` in the change file | `verify.py` passes on current code; every chosen review's verdict is `PASS` or its highs are fixed or waived. If security-touched: no critical/high finding, no secrets |
+| **Ship** (4) | Learn notes, commit, push, PR | Learn done, green locally and on CI, PR open. **Never merged without you** |
 
-**Define's two files.** Your project's own rules for them can go in `.sdlc/config.json` as `rules`: `{"rules": {"change": [...], "plan": [...], "review": [...]}}`, each a list of lines ("Every task touching file paths adds a Windows check"). The agent applies `change` and `plan` when it writes them, and every review checks `review` against the diff. The change file, `docs/sdlc/changes/<feature>.md` (from `templates/change-template.md`), answers "why?" and "what must be true?" for a reader months later. `## Why`: the request verbatim, what the change is for and who it serves, why now, your own words where they matter. `## Decisions`: what was chosen and ruled out and why (on L the design too; there is no `design.md`), a bug's proof and root cause, and any proposals nobody asked for (dropped unless you keep them). Then acceptance criteria with ids (`AC-001` onward), and `## Acceptance tests`, the test that proves each one and a command that runs only it (`manual` with a reason when no test can); must-never-break lines; the failure modes that apply; and what's out of scope. A low-risk M writes the short form: Why, the ACs with their tests and must-never-break, and Decisions, failure modes and out of scope only when there's something to say. Review adds `## Review` last; everything above it is fixed once Review starts. Define reads everything it needs before the code in one call (`scripts/brief.py`, run when the request is sized: config, baseline, knowledge index, recurring defects, constitution, PRD, README, manifest, tracked files and the change template). The state file is written by `state.py new` from Define's answers, in the same shell call as the move to Build. Its plan sections are the how, for the agent: how the build runs and why, the handoff, tasks naming their files, the Public Surface, and `## UI mapping` on UI work; `## Deviations` is written by `state.py deviation`. Each is written once, after the questions are settled.
+Stage numbers matter because the hooks read them (`Current: Stage 3 – Review`). Deploy is not a phase. It runs only when you ask: [`/sdlc:deploy`](Shipping-and-gates.md#10-merge-and-deploy).
 
-**The living spec (opt-in).** Change files say what each change did; to see what the system does now, set `"living_spec": true` in `.sdlc/config.json`. Each change then adds a `## Capabilities` section (`- add sessions: AC-001 — <purpose>`, `- replace sessions R-003: AC-004`, `- remove …`, `- retire …`, or `- none: <why>`), and Ship merges it into one file per capability under `docs/sdlc/capabilities/`, each requirement with its test and the change it came from. `ship.py` refuses a section it can't apply before anything moves. Two branches changing the same requirement conflict at merge like any file. A spec-backed repo doesn't use it: the rspec spec is its living spec.
+**Define.** One call (`scripts/brief.py`) reads config, baseline, knowledge, recurring defects, constitution and PRD. If the request, ticket, code and `knowledge/` already settle what, why and how, it writes the files and goes on. Otherwise it asks, one question at a time, until nothing that matters is a guess. Anything it would add that you didn't ask for is listed as a proposal and dropped unless you keep it. Your own rules for the record go in `.sdlc/config.json` → `rules` (`change`, `plan`, `review`).
 
-**The domain model (opt-in).** To keep one name per thing across changes, run `/sdlc:setup objects`, which drafts `docs/sdlc/objects.md` with you, object by object, from the PRD or the code's schema, types and routes, and sets `"objects": true`; you can also write it by hand from the plugin's `templates/objects-template.md`. The file lists each object with its UI name, code name, states, actions and how it's shown, the rules it obeys (`DR-001` onward) and the names to avoid. Define reads it in the brief and uses its names and states; adding or renaming an object, or changing a rule, is asked of you first. Its gate runs `objects.py check <feature>`, which fails on a broken file and, on L, on an avoided name in the acceptance criteria. Review checks each `DR` rule like a must-never-break line, and `/sdlc:doctor` warns about an object whose code name is nowhere in the code. A spec-backed repo uses rspec's `domain.md` instead.
+**Build.** It writes every AC test, records them failing in one call (`verify.py red AC-001 AC-002 …`), writes the code, then runs `verify.py` once. It writes against the spec's must-never-break lines, failure modes and the recurring-defects list. Going off-plan never stops the build: each change is one `state.py deviation` line ("What: … Why: … Effect: …"). How the build runs is decided in Define: **inline** (default), **parts in fresh sessions**, or **parallel subagents** for truly independent parts.
 
-**A code graph, if you have one.** sdlc doesn't need or install [graphify](https://github.com/Graphify-Labs/graphify), but when your repo has its graph (`graphify-out/graph.json`), Define queries it for the files a request touches, alongside its usual reads. Rebuilding the graph never counts as a code change.
+**Review.** See [Review](Review.md).
 
-**Asking.** If the request, a ticket, the code and `knowledge/` already say what, why and how, Define writes the files and goes on. If anything that would change what gets built is missing or ambiguous, it asks, one question at a time, each built on the last answer, and stops asking once it can write the files without guessing anything that matters. A bug gets a failing test (preferred) or exact steps first, then its root cause (`systematic-debugging`); the proving test becomes AC-001.
+**Ship.** First **Learn**: a lesson goes into knowledge only if it isn't obvious from the code or commit, and each fixed high finding gets a line in `recurring-defects.md`. Then a green `verify.py`, then one shell call that commits code, tests and both record files, pushes, and opens the PR. CI red because of the code gets one test-first fix. If it's still red, or red for a CI-only reason, the agent tells you. Without a remote it stops with the branch ready.
 
-**Build** works like plain Claude, from the change file and the state file's plan sections. It writes every acceptance criterion's test, records them failing in one call (`verify.py red AC-001 AC-002 …`), then writes the code in batches, running only nearby tests; at the end it runs `verify.py` once (the verify plan, every AC's test, and plan drift). It works from the spec's must-never-break lines and failure modes too: a crash window in a write is must-fix when the spec says a killed process must not leave the system unusable. It writes against what Review checks, as it goes: the recurring defects (the brief prints the plugin's list and the project's), errors as the spec's message never a traceback, loaded data checked like input, the other readers of anything it reshapes, and docs restating a changed rule. Drift never stops Build: each change from the plan is one `state.py deviation` line in the state file's `## Deviations`, "What: … Why: … Effect: …". How the build runs is Define's call, written in the state file: **inline** (default, this session), **parts in fresh sessions** (the work won't fit one context), or **parallel subagents** (only for truly independent parts).
-
-**Review** is described [below](Review.md). **Ship** first runs **Learn**: a lesson goes into the right knowledge tier only when it isn't obvious from the code or the commit, linked from the Lessons filed line of the change file's `## Review`; each high finding fixed in Review that a reviewer could check next time gets a line in `recurring-defects.md`; nothing to learn is said in one line. Then `verify.py` green on that exact code, and one shell call that commits (code, tests, the change file and the state file, naming the record's path so `git blame` leads from a line to its why), pushes and opens the PR with git and `gh` (it links the change file); watch CI. CI red because of the code gets one fix, test first; still red, or red for a CI-only reason (a secret, a runner, a flaky test), and it tells you. It stops with the PR open: `PR <url> open, local and CI green; say "merge" to merge.` Without a remote it stops with the branch ready.
-
-Internally each phase has a stage number, because the hooks read it: `Stage 1 – Define`, `Stage 2 – Build`, `Stage 3 – Review`, `Stage 4 – Ship`. A part rests at Stage 2 once committed. **Deploy** is not a phase: `/sdlc:deploy`, on request, uses the project's existing deploy path, asks your go-ahead before a production deploy or DB migration, runs a smoke test and writes `release.md`.
-
-Each phase starts with a header:
+Each phase opens with a header:
 
 ```
 ▶ <Phase>   (track M, risk low)
   Gate: <exit criterion>
 ```
 
-The whole loop, with hard stops, is in [sdlc_orchestrator_decision_tree.svg](../diagrams/sdlc_orchestrator_decision_tree.svg); each track phase by phase, with its skills, subagents, hooks and gates, is in [sdlc_full_flow.svg](../diagrams/sdlc_full_flow.svg).
+## Hard stops
 
-### Hard stops
+The agent **always** asks you, using a question dialog (never a line you might scroll past), before:
 
-The orchestrator always asks you before: the build on high-risk M (approving the change file and the plan), the reviews on high-risk M (choosing from the recommendation), the same two on L when the agent's own checks leave a doubt (it reasons through them first and records why it went on: every requirement maps to an AC, no open questions, every decision settled by the request, spec, code or knowledge, nothing extra or irreversible), anything that adds scope, a reviewer and the builder disagreeing on a high finding, CI still red after one fix, merges, production deploys, DB migrations, and anything irreversible. Everything else runs without asking: a low-risk M shows its plan and builds (its Gate log says it wasn't stopped), and runs the reviews that fire, or none; interrupt at any time. The advisor, where the agent has one, is called only when the review step recommends it and it was chosen. Every one of those stops asks with the agent's question tool (in Claude Code, an `AskUserQuestion` dialog with the recommendation first), never as a line in a progress update you might scroll past; two of them, the decision past the review round cap and a trust-anchor notice, lift a hook gate: the hook takes only your answer to that dialog (asked without a pre-filled answer, which a hook denies) or a message you send. Other agents still need a typed reply there. If you say "skip" or "just ship it", it names the steps being skipped, records them under Deviations in `state.md`, then complies.
+- Building a high-risk M (and L when in doubt): approving the record
+- Choosing reviews on a high-risk M (and L when in doubt)
+- Anything that adds scope
+- A reviewer and the builder disagreeing on a high finding
+- CI still red after one fix
+- Merge, production deploy, DB migration, or anything irreversible
+
+Everything else runs on its own; interrupt anytime. Say "skip" or "just ship it" and it names the skipped steps, records them as deviations, then complies ([9](Shipping-and-gates.md#9-skip-a-gate-deliberately)). Who owns each decision: [Who decides what](Shipping-and-gates.md#who-decides-what).
+
+## Big work: parts and autopilot
+
+M or L work too big for one session gets a `backlog.md` of **parts** (B1, B2, …), approved with Define. Each part is planned, built, verified and committed. After the last one, **feature close** runs one Review over the whole branch, then Ship. Autopilot runs the remaining parts without stopping. Details: [Big work and autopilot](Big-work-and-autopilot.md).
+
+## Optional features
+
+| Feature | Turn on | What it does |
+|---|---|---|
+| **Living spec** | `"living_spec": true` | Each change adds `## Capabilities` (`add`, `replace`, `remove`, `retire`, or `none: <why>`). Ship merges it into one file per capability under `docs/sdlc/capabilities/`, each requirement linked to its test and change. `ship.py` refuses a section it can't apply |
+| **Domain model** | `/sdlc:setup objects` (sets `"objects": true`) | `docs/sdlc/objects.md` lists each object's UI and code name, states, actions, rules (`DR-001`…) and names to avoid. Define uses its names. Adding or renaming an object asks you first. `objects.py check` gates it, and Review checks the `DR` rules |
+| **Code graph** | have `graphify-out/graph.json` | Define queries it for the files a request touches. Rebuilding it never counts as a code change |
+
+A spec-backed repo (built from an rspec spec) uses the spec instead of the living spec, and its `domain.md` instead of `objects.md`.
+
+## Diagrams
+
+- [Orchestrator decision tree](../diagrams/sdlc_orchestrator_decision_tree.svg): resume, size, loop, hard stops
+- [Each track phase by phase](../diagrams/sdlc_full_flow.svg): skills, subagents, hooks and gates
+- [Tracks and their phases](../diagrams/sdlc_tracks_full_stage_tree.svg)
