@@ -309,7 +309,7 @@ def is_code_file(root, file_path):
         return False
     rel = os.path.relpath(os.path.abspath(file_path), root).replace(os.sep, "/")
     docs = sdlc_layout.docs_dir(root)
-    if rel.startswith("..") or rel.startswith(NON_CODE_DIRS) or (docs and rel.startswith(docs + "/")):
+    if rel == ".." or rel.startswith("../") or rel.startswith(NON_CODE_DIRS) or (docs and rel.startswith(docs + "/")):
         return False
     return not rel.lower().endswith(NON_CODE_EXT)
 

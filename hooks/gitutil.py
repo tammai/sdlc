@@ -194,7 +194,7 @@ def _diff_pathspec(cwd, paths):
             r = os.path.relpath(os.path.realpath(p), cwd_abs)
         except ValueError:
             continue
-        if r.startswith(".."):
+        if r == ".." or r.startswith(".." + os.sep):  # the first segment, so a folder named `..x` stays in
             continue
         rel.append(r)
     return ["--"] + rel if rel else []

@@ -6,7 +6,6 @@
 - [ ] Add a Definition of Done to the setup step so the agent knows when a job is done — not built yet (2026-10-25)
 - [ ] Add a team mode to the orchestrator: when active, role-based agents drive the sdlc stages — not built yet (2026-10-25)
 - [ ] Add an advisory-only use case: the sdlc skills and agents as aids, with no hooks, gates or guardrails, for projects that already have a workflow that would conflict; setup asks which mode to use — not built yet; related to the configurable-stages item above (2026-10-26)
-- [ ] `hooks/gitutil.py` (path list) and `hooks/verify_freshness.py` (`is_code_file`) also test `rel.startswith("..")`, so a project path like `..hidden/` reads as outside the project; use the segment check role_guard now uses — left out of the role_guard fix (2026-11-05)
 
 - [ ] H2: upgrade overwrites a file the user merged (the merged file's hash is stored as if unedited; next upgrade lands it in replace); store the pure render's hash per entry and replace only when disk matches it — whole-plugin review (2026-11-13)
 - [ ] H3: the committed lock file's `template` field is trusted (absolute or `../` paths copy any local file into the repo on upgrade); allow only `builtin:*` or a path under templates/ with realpath inside the plugin, generated destinations limited to shipped files — whole-plugin review (2026-11-13)
@@ -26,8 +25,11 @@
 - [ ] sdlc-stepper: in a workbench with parallel sessions, a feature another session ships stays on this bar at Ship while it is the shown one, and it hides older active features until the next start; mark a feature shipped only when this session ran `ship.py` — UI review UI-M3 of 2026-11-20-s-stepper-ship-stage (2026-11-20)
 - [ ] sdlc-stepper: after CI passes, the Ship band keeps its last words (`Ship · CI`) and the desktop ring keeps pulsing until the next start or session end; consider showing Ship as done once `gh pr checks` passes — UI review UI-L1 (2026-11-20)
 - [ ] This repo has no `.sdlc/design-system.md`, so the UI review has nothing to check the sdlc-stepper band against; write a short one (theme colour keys, the four marks, the desktop green and gray, the one pulse animation) — UI review UI-H1 of 2026-11-20-s-stepper-ship-stage (2026-11-20)
+- [ ] sdlc-stepper marks a ship done when a `gh pr merge` command runs, from its text, so a merge that fails still shows `Ship · done` until the next prompt — 3.14.0 known issue; `plugins/sdlc-stepper/hooks/register.tsx` (2026-11-22)
+- [ ] `/sdlc:setup review-rounds <n>` typed during a feature can lead the agent to commit the config change on the default branch (in the smoke test it misjudged the feature as not active); the cap itself applies correctly — 3.14.0 known issue; `commands/setup.md`, `skills/setting-up-projects/SKILL.md` (2026-11-22)
 
 ## Done
+- [x] `hooks/gitutil.py` (path list) and `hooks/verify_freshness.py` (`is_code_file`) also test `rel.startswith("..")`, so a project path like `..hidden/` reads as outside the project; use the segment check role_guard now uses — left out of the role_guard fix (2026-11-05) — done 2026-11-22
 
 - [x] H1: `verify.py full()` passes an acceptance test that ran zero tests (`Ran 0 tests … OK`, `[no tests to run]`); treat NOT_RUNNABLE/NOT_FOUND output as did-not-run, as `red_one()` does — whole-plugin review, session sdlc-f2, left out of the workbench branch by the user's choice (2026-11-13) — done in 8d11fc0 (#56) (2026-11-20)
 - [x] `ship.py --waive-baseline` waives any `test: exit` failure without checking that `.sdlc/baseline.md` lists it (a new failing test, or a new `(root) test` failure, ships with the waiver); match the failures against the baseline's rows — 3.8.0 smoke test G (2026-11-13) — done in 8d11fc0 (#56) (2026-11-20)
