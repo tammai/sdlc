@@ -8,6 +8,7 @@ It reads .claude/hookify.*.local.md files and evaluates rules.
 import os
 import sys
 import json
+import re
 
 # Add plugin root to Python path for imports
 PLUGIN_ROOT = os.environ.get('CLAUDE_PLUGIN_ROOT')
@@ -63,12 +64,26 @@ def _read_only_write(input_data):
         return None
 
 
+MONITOR_COMMIT = re.compile(r"\bgit\b[^;&|\n]*\b(?:commit|push)\b|(?:^|[\s;&|(])gt\s+\w")
+
+
+def _monitor_commit(input_data):
+    """The deny reason when a Monitor command commits or pushes: the commit and push security reviews run after a
+    Bash or PowerShell call, and a Monitor call's end isn't its command's, so it would skip them."""
+    if input_data.get("tool_name") != "Monitor":
+        return None
+    if MONITOR_COMMIT.search(str((input_data.get("tool_input") or {}).get("command") or "")):
+        return ("sdlc: run git commit and git push with the Bash tool, not Monitor: they get their security review "
+                "there.")
+    return None
+
+
 def main():
     """Main entry point for PreToolUse hook."""
     try:
         # Read input from stdin
         input_data = json.load(sys.stdin)
-        reason = _read_only_write(input_data) or _recorded_test_write(input_data)
+        reason = _read_only_write(input_data) or _recorded_test_write(input_data) or _monitor_commit(input_data)
         if reason:
             print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
                                                      "permissionDecisionReason": reason}}))

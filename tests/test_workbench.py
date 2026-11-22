@@ -158,6 +158,36 @@ class WorkbenchManifest(WorkbenchTestCase):
             with self.assertRaisesRegex(ValueError, "^not run: workbench.json"):
                 sdlc_scopes.manifest(self.root)
 
+    def test_workbench_add_and_remove_refuse_a_linked_gitignore(self):
+        # R2-M2 of 2026-11-22-s-fixed-writers-refuse-links: the .gitignore rewrites and the clone's rollback
+        import tempfile
+        url = self.origin("api", {"commands": {"test": "true"}})
+        outside = os.path.realpath(tempfile.mkdtemp(prefix="sdlc-outside-"))
+        self.addCleanup(rmtree, outside)
+        target = os.path.join(outside, "gitignore")
+        with open(target, "w", encoding="utf-8") as f:
+            f.write("theirs\n")
+        if os.path.lexists(self.path(".gitignore")):
+            os.remove(self.path(".gitignore"))
+        try:
+            os.symlink(target, self.path(".gitignore"))
+        except (OSError, NotImplementedError):
+            self.skipTest("symlinks unavailable")
+        code, out, err = self.run_scaffold("workbench", "add", url, "--name", "api", "--role", "app", "--write")
+        self.assertEqual(code, 2, (out, err))
+        self.assertIn(".gitignore", out["refused"])
+        self.assertFalse(os.path.exists(self.path("api")))  # the clone is rolled back
+        os.remove(self.path(".gitignore"))
+        code, out, err = self.run_scaffold("workbench", "add", url, "--name", "api", "--role", "app", "--write")
+        self.assertEqual(code, 0, (out, err))
+        os.remove(self.path(".gitignore"))
+        os.symlink(target, self.path(".gitignore"))
+        rmtree(self.path("api"))
+        code, out, err = self.run_scaffold("workbench", "remove", "api")
+        self.assertEqual(code, 2, (out, err))
+        with open(target, encoding="utf-8") as f:
+            self.assertEqual(f.read(), "theirs\n")
+
     def test_workbench_add_and_remove(self):
         import sdlc_scopes
         url = self.origin("api", {"commands": {"test": "true"}})
@@ -300,6 +330,16 @@ class WorkbenchGuards(WorkbenchGuardsCase):
             self.assertIsNotNone(self.pre("Monitor", command=command, description="d"), command)
         self.assertIn("@org/ba", self.pre("Monitor", command="tail -f log > specs/a.md", description="d"))
         for command in ("tail -f specs/a.md", "until grep -q done api/log; do sleep 2; done"):
+            self.assertIsNone(self.pre("Monitor", command=command, description="d"), command)
+
+    def test_a_monitor_command_cannot_commit_or_push(self):
+        # end-of-push review r1 SH-H5: the commit and push reviews run after a Bash call; a Monitor one would skip them
+        for command in ("git commit -am x", "cd api && git commit -m y && git push", "git -C api push origin HEAD",
+                        "gt submit"):
+            reason = self.pre("Monitor", command=command, description="d")
+            self.assertIsNotNone(reason, command)
+            self.assertIn("Bash", reason)
+        for command in ("tail -f log", "until grep -q done log; do sleep 2; done", "git log --oneline"):
             self.assertIsNone(self.pre("Monitor", command=command, description="d"), command)
 
     def test_hooks_json_sends_monitor_to_the_read_only_guard(self):
@@ -1201,6 +1241,29 @@ class ReviewRound4Guards(WorkbenchGuardsCase):
         for command in ("rm specs\\a.md", "git -C .\\specs commit -am x"):
             self.assertIsNotNone(self.pre("Bash", command=command), command)
 
+    def test_shell_syntax_the_lexer_cant_read_is_denied(self):
+        # .sdlc/2026-11-22-s-lexer-denies-unreadable AC-001 (security review SR1-H1 of 2026-11-22-m-watch-guard-reads):
+        # each line hides a write the lexer reads differently from the shell; the guard denies rather than guess
+        hidden = ["echo $(( $(rm specs/a.md) + 1 ))", "echo $(( `rm specs/a.md` ))",
+                  "echo a\\ #; rm specs/a.md", "echo $'\\''; rm specs/a.md", "echo x >! specs/a.md",
+                  "echo x >| specs/a.md"]
+        for command in hidden:
+            reason = self.pre("Bash", command=command)
+            self.assertIsNotNone(reason, command)
+        # end-of-push review r1: SH-H1 (a `#` after an escaped delimiter or a continuation), SH-H2 (clobber after
+        # `>>` / `>&`), SH-H6 (a substitution in an array subscript)
+        hidden += ["echo a\\;#x; rm specs/a.md", "echo a\\|#x; rm specs/a.md", "echo a\\&#x; rm specs/a.md",
+                   "echo a\\(#x; rm specs/a.md", "echo a\\\n#x; rm specs/a.md", "echo x >>! specs/a.md",
+                   "echo x >>| specs/a.md", "echo x >&! specs/a.md", "echo x 2>>! specs/a.md"]
+        for command in hidden:
+            self.assertIsNotNone(self.pre("Bash", command=command), command)
+        # plain spellings of the same things still pass (SH-M4, SH-L4: no false denies)
+        for command in ("echo $(( 1 + 2 )) > out.txt", "echo 'a #b'", "echo x > out.txt", "printf '%s' x",
+                        "IFS=$'\\n' read -r x", "cut -d$'\\t' -f1 f", "echo $$'x'", "echo $(( $((1+2)) * 3 ))",
+                        "echo a\\\\ # a comment", "echo x 2>&1 >> out.txt", "echo x >|out.txt", "cmd >out | tee log",
+                        "echo x # ; rm nothing", "[ \"$(git status --porcelain)\" ] && echo dirty"):
+            self.assertIsNone(self.pre("Bash", command=command), command)
+
     def test_too_deep_is_denied_for_that_reason(self):
         reason = self.pre("Bash", command="echo " + "$(" * 30 + "x" + ")" * 30)
         self.assertIsNotNone(reason)
@@ -1237,6 +1300,139 @@ class ReadOnlyBackstop(WorkbenchFeatureCase):
     def baseline_file(self):
         [name] = [f for f in os.listdir(self.data) if f.startswith("read-only-baseline-")]
         return os.path.join(self.data, name)
+
+    def test_a_write_true_round_trip_is_reported_until_accepted(self):
+        # end-of-push review r2 R2-H3: from a clean first look, writable, a commit made to look pushed, read-only
+        # again: still reported, until the user accepts
+        import sdlc_scopes
+        self.assertEqual(self.watch("SessionStart"), {})
+        manifest = sdlc_scopes.read_repo_json(self.root, "workbench.json")
+        specs = self.path("specs")
+        self.write_json("workbench.json", {"repos": [dict(r, write=True) if r["name"] == "specs" else r
+                                                     for r in manifest["repos"]]})
+        self.watch("PostToolUse")
+        git(specs, "commit", "-q", "--allow-empty", "-m", "sneaky")
+        git(specs, "update-ref", "refs/remotes/origin/main", "HEAD")
+        self.write_json("workbench.json", manifest)
+        out = self.watch("Stop")
+        self.assertEqual(out.get("decision"), "block", out)
+        self.assertIn("specs", out["reason"])
+        self.accept()
+        self.assertEqual(self.watch("Stop"), {})
+        # R2-L1: a damaged list in the baseline is reported, not rebuilt silently
+        with open(self.baseline_file(), encoding="utf-8") as f:
+            data = json.load(f)
+        data["read_only"] = "specs"
+        with open(self.baseline_file(), "w", encoding="utf-8") as f:
+            json.dump(data, f)
+        self.assertEqual(self.watch("Stop").get("decision"), "block")
+
+    def test_control_file_round_trips_and_damage_are_still_seen(self):
+        # end-of-push review r1 of 2026-11-22-todo-fixes
+        import sdlc_scopes
+        import sdlc_review_gate as gate
+        self.write("specs/x.md", "first\n")  # dirty at the first look (SH-M1)
+        self.assertEqual(self.watch("SessionStart"), {})
+        manifest = sdlc_scopes.read_repo_json(self.root, "workbench.json")
+        specs = self.path("specs")
+        # SH-H3: writable, a local commit made to look pushed, read-only again: compared with the old baseline
+        self.write_json("workbench.json", {"repos": [dict(r, write=True) if r["name"] == "specs" else r
+                                                     for r in manifest["repos"]]})
+        self.watch("PostToolUse")
+        os.remove(self.path("specs/x.md"))
+        git(specs, "add", "-A")
+        git(specs, "commit", "-q", "--allow-empty", "-m", "sneaky")
+        git(specs, "update-ref", "refs/remotes/origin/main", "HEAD")
+        self.write_json("workbench.json", manifest)  # a clean tree at refs that look pushed
+        self.assertEqual(self.watch("Stop").get("decision"), "block")
+        self.accept()
+        self.assertEqual(self.watch("Stop"), {})
+        # SH-M1: back to a dirty first look by name, but with new bytes: reported, not taken silently
+        self.write("specs/x.md", "rewritten by the agent\n")
+        self.assertEqual(self.watch("PostToolUse").get("decision"), "block")
+        self.accept()
+        # SH-H4: a writable repo's entry removed, or the manifest deleted, is seen; membership holds for the review
+        self.write_json("workbench.json", {"repos": [r for r in manifest["repos"] if r["name"] != "api"]})
+        out = self.watch("PostToolUse")
+        self.assertEqual(out.get("decision"), "block", out)
+        self.assertIn("api", out["reason"])
+        self.assertTrue(gate._workbench_feature(self.path("api"))[0])
+        os.rename(self.path("workbench.json"), self.path("moved.json"))
+        self.assertTrue(sdlc_scopes.guarded_workbench(self.root))
+        self.assertEqual(self.watch("Stop").get("decision"), "block")
+        self.assertTrue(gate._workbench_feature(self.path("api"))[0])
+        os.rename(self.path("moved.json"), self.path("workbench.json"))
+        self.write_json("workbench.json", manifest)
+        self.accept()
+        # SH-L3: a damaged `first` is reported, never a silent crash
+        with open(self.baseline_file(), encoding="utf-8") as f:
+            data = json.load(f)
+        data["first"] = []
+        with open(self.baseline_file(), "w", encoding="utf-8") as f:
+            json.dump(data, f)
+        self.assertEqual(self.watch("Stop").get("decision"), "block")
+
+    def test_the_control_files_cannot_turn_the_watch_off(self):
+        # .sdlc/2026-11-22-s-workbench-control-files (security-r7 SR7-M3)
+        import sdlc_scopes
+        self.assertEqual(self.watch("SessionStart"), {})
+        manifest = sdlc_scopes.read_repo_json(self.root, "workbench.json")
+        # AC-001: a read-only repo made writable, or dropped from the manifest, is a reported difference until accepted
+        for repos in ([dict(r, write=True) if r["name"] == "specs" else r for r in manifest["repos"]],
+                      [r for r in manifest["repos"] if r["name"] != "specs"]):
+            self.write_json("workbench.json", {"repos": repos})
+            out = self.watch("PostToolUse")
+            self.assertEqual(out.get("decision"), "block", out)
+            self.assertIn("made writable or removed", out["reason"])
+            self.assertEqual(self.watch("Stop").get("decision"), "block")
+            self.accept()
+            self.assertEqual(self.watch("Stop"), {})
+            self.write_json("workbench.json", manifest)
+            self.watch("PostToolUse")
+            self.accept()
+        # AC-002: `"workbench": false` once the watch has seeded leaves the workbench guarded
+        config = sdlc_scopes.read_repo_json(self.root, ".sdlc/config.json")
+        self.write_json(".sdlc/config.json", dict(config, workbench=False))
+        self.assertTrue(sdlc_scopes.guarded_workbench(self.root))
+        from helpers import run_hook
+        import sdlc_review_gate as gate
+        # the write guard still denies a write into specs/
+        _, out, _, _ = run_hook(["python3", os.path.join(HOOKS, "pretooluse.py")], {
+            "hook_event_name": "PreToolUse", "tool_name": "Write", "cwd": self.root,
+            "tool_input": {"file_path": self.path("specs/b.md"), "content": "x"}}, self.root)
+        self.assertEqual((out or {}).get("hookSpecificOutput", {}).get("permissionDecision"), "deny")
+        self.assertTrue(gate._workbench_feature(self.path("api"))[0])  # the app review still sees a member repo
+        self.write("specs/b.md", "x")
+        self.assertEqual(self.watch("PostToolUse").get("decision"), "block")
+        # a host without CLAUDE_PROJECT_DIR (Codex), called from inside a repo, finds the workbench too
+        code, out, _, err = run_hook(["python3", os.path.join(HOOKS, "read_only_watch.py")], {
+            "hook_event_name": "Stop", "session_id": "s1", "cwd": self.path("api")}, self.path("api"),
+            {"CLAUDE_PLUGIN_DATA": self.data, "CLAUDE_PROJECT_DIR": ""})
+        self.assertEqual((out or {}).get("decision"), "block", (out, err))
+
+    def test_undoing_an_accepted_change_back_to_the_first_look_is_silent(self):
+        # .sdlc/2026-11-22-s-watch-undo-accepted AC-001 (3.8.0 smoke test K)
+        self.assertEqual(self.watch("SessionStart"), {})
+        self.write("specs/b.md", "x")
+        self.assertEqual(self.watch("PostToolUse").get("decision"), "block")
+        self.accept()
+        self.assertEqual(self.watch("PostToolUse"), {})
+        os.remove(self.path("specs/b.md"))  # back to how sdlc first saw it
+        self.assertEqual(self.watch("PostToolUse"), {})
+        self.assertEqual(self.watch("Stop"), {})
+        self.write("specs/c.md", "y")  # a new change after that is still seen
+        self.assertEqual(self.watch("PostToolUse").get("decision"), "block")
+
+    def test_a_monitor_call_that_writes_a_read_only_repo_is_seen_at_once(self):
+        # .sdlc/2026-11-22-s-monitor-other-hooks AC-002: the per-call check covers Monitor, not only the turn end
+        self.assertEqual(self.watch("SessionStart"), {})
+        self.write("specs/b.md", "x")
+        self.assertEqual(self.watch("PostToolUse", tool="Monitor").get("decision"), "block")
+        with open(os.path.join(HOOKS, "hooks.json"), encoding="utf-8") as f:
+            hooks = json.load(f)["hooks"]
+        for event in ("PreToolUse", "PostToolUse", "PostToolUseFailure"):
+            [matcher] = [e["matcher"] for e in hooks[event] if any("read_only_watch.py" in h["command"] for h in e["hooks"])]
+            self.assertIn("Monitor", matcher.split("|"), event)
 
     def test_any_change_in_a_read_only_repo_is_reported_and_blocks_stop(self):
         specs = self.path("specs")
@@ -1424,11 +1620,45 @@ class PluginReviewWorkbench(WorkbenchFeatureCase):
         self.assertEqual(self.state("set", "feat", "Risk", "high")[0], 0)
         d = gate.decide(api, [sha], set())
         self.assertFalse(d.get("skip") or d.get("off") or d["defer"], d)  # Risk: high is always reviewed
-        # Ship sets Status: done before the app repos commit: still reviewed until the repo's PR is recorded
+        # Ship sets Status: done before the app repos commit: still reviewed while the repo is on the feature's branch
         self.assertEqual(self.state("set", "feat", "Status", "done")[0], 0)
         self.assertFalse(gate.decide(api, [sha], set()).get("off"))
+        # .sdlc/2026-11-22-s-done-feature-owns-its-branch AC-001: a recorded PR (real or not) doesn't end it (SR7-M4)
         self.assertEqual(self.state("pr", "feat", "api", "https://example.com/api/pull/1")[0], 0)
-        self.assertTrue(gate.decide(api, [sha], set()).get("off"))  # shipped: nothing owns its commits now
+        self.assertFalse(gate.decide(api, [sha], set()).get("off"))
+        # AC-002: off the feature's branch, the done feature no longer owns the repo's commits, PR or not (SR7-L2)
+        git(api, "switch", "-q", "-c", "next-thing")
+        self.assertTrue(gate.decide(api, [sha], set()).get("off"))
+
+    def test_the_turn_end_review_sees_an_app_repos_uncommitted_change(self):
+        # .sdlc/2026-11-22-s-stop-review-app-repos AC-001: the Stop review asks the workbench's feature, as decide does
+        import sdlc_review_gate as gate
+        api = self.path("api")
+        self.assertEqual(self.state("repo", "feat", "api")[0], 0)
+        self.write("api/a.py", "x = 1\n")  # uncommitted
+        self.assertEqual(self.state("set", "feat", "Risk", "high")[0], 0)
+        self.assertTrue(gate.review_wanted(api))
+        self.assertEqual(self.state("set", "feat", "Risk", "low")[0], 0)
+        self.assertFalse(gate.review_wanted(api))  # low risk, no security area touched
+        self.write("api/auth/login.py", "x = 1\n")  # a default sensitive area
+        self.assertTrue(gate.review_wanted(api))
+        self.assertEqual(self.state("set", "feat", "Status", "done")[0], 0)
+        self.assertEqual(self.state("pr", "feat", "api", "12")[0], 0)
+        git(api, "switch", "-q", "-c", "next-thing")
+        self.assertFalse(gate.review_wanted(api))  # nothing owns it now
+
+    def test_a_done_feature_keeps_a_detached_repo_until_its_pr_is_recorded(self):
+        # .sdlc/2026-11-22-s-done-feature-detached AC-001: off the branch but no PR recorded yet, still owned
+        import sdlc_review_gate as gate
+        api = self.path("api")
+        self.assertEqual(self.state("repo", "feat", "api")[0], 0)
+        self.assertEqual(self.state("set", "feat", "Status", "done")[0], 0)
+        git(api, "checkout", "-q", "--detach")
+        self.write("api/a.py", "x = 1\n")
+        git(api, "add", "-A")
+        git(api, "commit", "-q", "-m", "x")
+        sha = git_out(api, "rev-parse", "HEAD")
+        self.assertFalse(gate.decide(api, [sha], set()).get("off"))
 
     def test_the_app_repos_own_config_never_turns_its_review_off(self):
         import sdlc_review_gate as gate

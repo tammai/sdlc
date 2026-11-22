@@ -63,9 +63,39 @@ _NAME_CHARS = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ012
 _CONTRACT_KEYS = ("provides", "consumes")
 
 
-def _read_json(path):
+def _inside(base, rel):
+    """The full path of `rel` under `base`, or OSError when, after links, it leaves `base` or lands in a git dir: the
+    file is committed, so a link to another file is never read (a FIFO or /dev/zero would hang the hook too)."""
+    import os
+    full = os.path.join(base, rel)
+    real_base = os.path.normcase(os.path.realpath(base))
+    real = os.path.normcase(os.path.realpath(full))
+    try:
+        inside = os.path.commonpath([real_base, real]) == real_base
+    except ValueError:  # another drive
+        inside = False
+    ignored = dict.fromkeys([0x200C, 0x200D, 0x200E, 0x200F, *range(0x202A, 0x202F), *range(0x206A, 0x2070), 0xFEFF])
+    segments = [x.translate(ignored).split(":", 1)[0].rstrip(". ").lower()  # macOS and Windows ignore case
+                for x in os.path.relpath(real, real_base).split(os.sep)]
+    if not inside or any(x in (".git", "git~1") for x in segments):
+        raise OSError(f"{rel} is a link out of the repo or into .git: not read")
+    return full
+
+
+def read_repo_text(base, rel):
+    """The text of the committed file `rel` under `base`, or None when it's missing, unreadable, or a link out of the
+    repo or into .git (_inside): read as absent, never through the link."""
+    try:
+        with open(_inside(base, rel), encoding="utf-8") as f:
+            return f.read()
+    except (OSError, ValueError):
+        return None
+
+
+def read_repo_json(base, rel):
+    """The JSON file `rel` under `base` (a repo root), read only when _inside allows it."""
     import json
-    with open(path, encoding="utf-8") as f:
+    with open(_inside(base, rel), encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -74,23 +104,30 @@ def is_workbench(root, need_manifest=True):
     writes the first entry) workbench.json exists beside it. Any read error: False (never a guess)."""
     import os
     try:
-        declared = _read_json(os.path.join(root, ".sdlc", "config.json")).get("workbench") is True
+        declared = read_repo_json(root, ".sdlc/config.json").get("workbench") is True
     except Exception:
         return False
     return declared and (not need_manifest or os.path.isfile(os.path.join(root, WORKBENCH_FILE)))
 
 
+SEEDED_MARKER = ".sdlc/.work/read-only-seeded"  # the read-only watch has taken this workbench's first look
+
+
 def guarded_workbench(root):
-    """For the write guards: a workbench (is_workbench), or a folder holding workbench.json whose .sdlc/config.json
-    exists but can't be read as an object (a merge-conflict marker, a bad edit). The guards fail closed there."""
+    """For the write guards: a workbench (is_workbench), a folder holding workbench.json whose .sdlc/config.json
+    exists but can't be read as an object (a merge-conflict marker, a bad edit), or one the read-only watch has
+    seeded (its marker), so `"workbench": false` in a config the agent can edit never turns them off. The guards fail
+    closed there."""
     import os
     if is_workbench(root):
+        return True
+    if os.path.isfile(os.path.join(root, SEEDED_MARKER)):  # whatever workbench.json and the config say now
         return True
     config = os.path.join(root, ".sdlc", "config.json")
     if not os.path.isfile(os.path.join(root, WORKBENCH_FILE)) or not os.path.exists(config):
         return False
     try:
-        return not isinstance(_read_json(config), dict)
+        return not isinstance(read_repo_json(root, ".sdlc/config.json"), dict)
     except Exception:
         return True
 
@@ -117,7 +154,7 @@ def workbench_of(root):
     """The workbench an app repo belongs to (its config's `"workbench": "<name>"`), else None; any read error: None."""
     import os
     try:
-        value = _read_json(os.path.join(root, ".sdlc", "config.json")).get("workbench")
+        value = read_repo_json(root, ".sdlc/config.json").get("workbench")
     except Exception:
         return None
     return value.strip() if isinstance(value, str) and value.strip() else None
@@ -225,7 +262,7 @@ def manifest(root):
     if not os.path.exists(path):
         return []
     try:
-        data = _read_json(path)
+        data = read_repo_json(root, WORKBENCH_FILE)
     except (OSError, ValueError) as e:
         raise ValueError(f"not run: {WORKBENCH_FILE} is not readable JSON ({e})")
     repos = data.get("repos") if isinstance(data, dict) else None
@@ -248,7 +285,7 @@ def workbench_scopes(root):
         except ValueError:
             continue  # links outside the workbench: never a scope sdlc reads or runs in
         try:
-            cfg = _read_json(os.path.join(folder, ".sdlc", "config.json"))
+            cfg = read_repo_json(folder, ".sdlc/config.json")
             cfg = cfg if isinstance(cfg, dict) else {}
             configured = True
         except (OSError, ValueError):
@@ -257,7 +294,7 @@ def workbench_scopes(root):
                     "commands": _dict(cfg.get("commands")), "accept": cfg.get("accept", {}), "named": True,
                     "repo": repo, "configured": configured})
     try:
-        own = _read_json(os.path.join(root, ".sdlc", "config.json"))
+        own = read_repo_json(root, ".sdlc/config.json")
     except (OSError, ValueError):
         own = {}
     out.append({"name": WORKBENCH_SCOPE, "path": ".", "stack": None, "commands": _dict(_dict(own).get("commands")),
@@ -330,13 +367,26 @@ def branched_repos(root, state_text):
     return kept, dropped
 
 
+def listed_names(root):
+    """Every repo name workbench.json lists (read entry by entry), or None when it can't be read as JSON with a
+    `repos` list. For the watch, which must see a writable repo's entry go too."""
+    try:
+        data = read_repo_json(root, WORKBENCH_FILE)
+    except (OSError, ValueError):
+        return None
+    repos = data.get("repos") if isinstance(data, dict) else None
+    if not isinstance(repos, list):
+        return None
+    return {r["name"] for r in repos if isinstance(r, dict) and isinstance(r.get("name"), str)}
+
+
 def read_only_names(root):
     """{name: owner} of every repo the manifest lists that isn't exactly `write: true`, read entry by entry so one
     malformed entry never unguards the others (the guard fails closed); None only when the file can't be read as
     JSON with a `repos` list."""
     import os
     try:
-        data = _read_json(os.path.join(root, WORKBENCH_FILE))
+        data = read_repo_json(root, WORKBENCH_FILE)
     except (OSError, ValueError):
         return None
     repos = data.get("repos") if isinstance(data, dict) else None
@@ -437,7 +487,7 @@ def command_sets(root):
     writable app repo's (from the app's own config). Unreadable config: what can be read ([] at worst)."""
     import os
     try:
-        config = _read_json(os.path.join(root, ".sdlc", "config.json"))
+        config = read_repo_json(root, ".sdlc/config.json")
     except (OSError, ValueError):
         config = {}
     config = config if isinstance(config, dict) else {}

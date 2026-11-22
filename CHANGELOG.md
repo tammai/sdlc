@@ -11,12 +11,27 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 - **A committed link can't make setup write into `.git` or outside the repo.** `AGENTS.md`, `.gitignore`, `.claude/settings.json` and `.claude/settings.local.json` are merged by their fixed names; a committed link (`AGENTS.md -> .git/config`, `.claude -> .git/info`) had sdlc append to the file it named, and read an outside file's text into the repo. Those files are now refused when they lead out of the repo or into a git dir, and read as absent wherever sdlc only reads them (doctor included); a `CLAUDE.md` or `.claude/rules/*.md` linked out of the repo is left out of AGENTS.md's block. A link inside the repo still works, and eject lists such a file under `outside` and leaves it.
 
+- **A committed link can't make sdlc read a file outside the repo.** Doctor, the scripts' config and lock (`scaffold.py` now refuses them, exit 1), the hooks' config and `workbench.json` readers, and the AGENTS.md block skip or name a committed file that links out of the repo or into `.git`, so it can't hang them (`CLAUDE.md -> /dev/zero`) or put its text in a report. A broken or looping link, or a folder, at such a name is a warning, not a traceback.
+- **A committed glob can't stall the commit review or doctor.** The security areas in `.sdlc/config.json` and a rule's `paths:` were turned into regexes that backtracked for minutes on `*a*a*a…` or a long brace list; the same globs are now run as a small automaton, in time linear in the path, with exactly the old meaning.
+- **The `.git` checks catch `.g\u200cit` and `.GIT`.** The code points HFS+ ignores, and case on macOS, no longer let a path through.
+- **A generated lock entry never overwrites or deletes a file git doesn't track.** An upgrade offers it for review and eject asks, when a local file such as `.env` differs from the lock.
+- **Workbench: editing `workbench.json` or the workbench config can't switch the guards off.** A read-only repo made writable or removed is reported until you accept it, and once sdlc has looked, `"workbench": false` leaves the guards, the watch and the app review on.
+- **Workbench: a recorded PR doesn't end the review of an app repo's commits** while the repo is on the feature's branch, and the turn-end security review now covers an app repo's uncommitted change.
+- **The read-only guard denies shell syntax it knows it reads differently from the shell** (ANSI-C quoting that ends apart from `'…'`, a substitution inside `$(( ))`, zsh's `>!` and `>>|`, a `#` after an escaped delimiter), instead of letting a write hide in it. It remains a seatbelt: other spellings can still get past it (docs/wiki/Limitations.md), and the read-only watch reports what changed.
+- **A Monitor command can't commit or push:** run those with Bash, where the commit and push security reviews run.
+- **A Monitor command meets the review-cap hold and the read-only watch's per-call check**, as Bash does.
+
 ### Fixed
 - **Upgrade and eject keep a file you merged.** After an upgrade's "apply merge", the next upgrade replaced the file with the template and eject deleted it without asking, since the merge was recorded like a plain render. A merged file is now reviewed only when the template changed since, asked about on eject, and never overwritten by `render --if-unchanged`.
 - **Commits and pushes through PowerShell get the commit security review.** On Windows, where Claude Code runs commands in its PowerShell tool, they were never reviewed.
 - **A folder named `..something` is inside the project.** The freshness hook and the turn's security-review diff treated `..hidden/` as outside it.
 - **`/sdlc:setup review-rounds <n>` during a feature no longer commits on the default branch** (3.14.0 known issue): the step reads the active feature from the session status line and leaves the change for the feature to ship.
+- **Eject names a linked file only when it has something to unmerge**, and a folder at a recorded file's path counts as edited instead of crashing `status` and `upgrade-plan`.
+- **The read-only watch takes back a change you accepted and then undid**, silently, when the repo is back to how sdlc first saw it.
 - **sdlc-stepper doesn't mark a failed merge done.** A `gh pr merge` that fails (a red check, a conflict) now leaves the bar at Ship; before, any `gh pr merge` command showed `Ship · done` until the next prompt.
+
+### Changed
+- **sdlc-stepper finishes Ship when CI passes.** Once `gh pr checks` passes at Ship the bar checks all four stages (`Ship · CI passed`; nothing pulses on the desktop), a failed merge reads `Ship · merge failed`, and in a workbench a feature another session ships gives way to the older active one.
 
 ## 3.14.0 — 2026-11-21
 

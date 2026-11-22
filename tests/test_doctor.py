@@ -1,8 +1,10 @@
 """scripts/doctor.py: read-only health check of environment, plugin and repo."""
 import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import unittest
 
 from helpers import PLUGIN_ROOT, ProjectTestCase
@@ -283,6 +285,30 @@ class DoctorTest(ProjectTestCase):
         self.write(".gitignore", "node_modules/\n")
         self.assertEqual(self.check(".gitignore")["status"], "warn")
 
+    def test_a_linked_gitignore_or_agents_md_is_read_as_absent(self):
+        # R2-M2 of 2026-11-22-s-fixed-writers-refuse-links: doctor's .gitignore reads and AGENTS.md warning
+        self.setup_repo()
+        outside = os.path.realpath(tempfile.mkdtemp(prefix="sdlc-outside-"))
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        with open(os.path.join(outside, "gitignore"), "w", encoding="utf-8") as f:
+            f.write(".sdlc/.work/\n.sdlc/state/*.json\n.sdlc/state/*.events.jsonl\n.sdlc/state/*.commands/\n")
+        with open(os.path.join(outside, "agents"), "w", encoding="utf-8") as f:
+            f.write("<!-- sdlc:begin -->\nsecret\n<!-- sdlc:end -->\n")
+        os.remove(self.path(".gitignore"))
+        try:
+            os.symlink(os.path.join(outside, "gitignore"), self.path(".gitignore"))
+            os.symlink(os.path.join(outside, "agents"), self.path("AGENTS.md"))
+        except (OSError, NotImplementedError):
+            self.skipTest("symlinks unavailable")
+        subprocess.run([sys.executable, SCAFFOLD, "--root", self.root, "add-host", "codex"], check=True,
+                       capture_output=True)
+        c, _ = self.doctor()
+        self.assertEqual(c[("repo", ".gitignore")]["status"], "warn")  # the outside lines don't count
+        agents = c[("repo", "AGENTS.md")]  # named, never read
+        self.assertEqual(agents["status"], "warn")
+        self.assertIn("link", agents["detail"])
+        self.assertNotIn("secret", json.dumps(agents))
+
     def test_gitignore_set_up_before_the_control_contract_warns(self):
         # Repos set up on 1.8.1 ignore only .sdlc/.work/; state.py's contract files would get committed
         self.setup_repo()
@@ -329,6 +355,26 @@ class DoctorTest(ProjectTestCase):
         c = self.check("rules paths")  # plugin policy rules waiting for files to exist aren't reported
         self.assertEqual(c["status"], "warn")
         self.assertEqual(c["detail"], "match no files (never load): db.md")
+
+    def test_hostile_rule_paths_finish_fast_and_braces_still_match(self):
+        # .sdlc/2026-11-22-s-rule-paths-stall AC-001 (review L3 of 2026-11-22-s-doctor-reads-no-links)
+        for i in range(300):
+            self.write(f"src/a{i}/b.ts", "")
+        self.write("src/api/x.tsx", "")
+        self.write(".claude/rules/braces.md", '---\npaths:\n  - "' + "{a,b}" * 30 + 'x"\n---\n# b\n')
+        self.write(".claude/rules/stars.md", '---\npaths:\n  - "' + "*" * 60 + 'z"\n  - "' + "**/*" * 12 + 'q"\n---\n# s\n')
+        self.write(".claude/rules/api.md", '---\npaths:\n  - "src/{api,web}/**/*.{ts,tsx}"\n---\n# a\n')
+        self.write(".claude/rules/db.md", '---\npaths:\n  - "db/{migrate,seed}/**"\n---\n# d\n')
+        try:  # a stall fails here, as an assertion, rather than hanging the run
+            p = subprocess.run([sys.executable, DOCTOR, "--root", self.root], capture_output=True, encoding="utf-8",
+                               errors="replace", env={**os.environ, "CLAUDE_PLUGIN_ROOT": PLUGIN_ROOT}, timeout=20)
+        except subprocess.TimeoutExpired:
+            self.fail("doctor stalled on the rule paths")
+        c = {(x["group"], x["check"]): x for x in json.loads(p.stdout)["checks"]}[("repo", "rules paths")]
+        self.assertIn("db.md", c["detail"])  # a plain dead rule is still reported
+        self.assertNotIn("api.md", c["detail"])  # braces with ** still match
+        self.assertIn("braces.md", c["detail"])  # judged exactly, in linear time: it matches no file
+        self.assertIn("stars.md", c["detail"])  # a run of stars is one star: judged, and it matches nothing
 
     def test_hookify_rules_parse(self):
         self.write(".claude/hookify/ok.md", "---\nname: ok\nenabled: true\nevent: bash\npattern: rm\\s+-rf\naction: warn\n---\nmsg\n")
@@ -391,6 +437,83 @@ class DoctorTest(ProjectTestCase):
         self.write("knowledge/index.md", "- [Gone](<gone file.md>)\n- [Also](also%20gone.md)\n")
         self.assertEqual(self.check("knowledge index")["detail"], "broken links: gone file.md, also%20gone.md")
 
+    def test_repo_files_linked_out_of_the_repo_are_named_not_read(self):
+        outside = os.path.realpath(tempfile.mkdtemp(prefix="sdlc-outside-"))
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        texts = {"claude": "secret\n" * 100, "index": "- [Secret](secret-gone.md)\n",
+                 "rule": '---\npaths:\n  - "nowhere/**"\n---\n# secret\n',
+                 "hookify": "---\nname: s\nenabled: true\nevent: bash\npattern: rm\naction: warn\n---\nsecret\n",
+                 "state": "Status: active\nProcess: 3\nCurrent: Stage 2 – Build\n",
+                 "fresh": json.dumps({"feature": "secret", "stale": True, "reason": "secret"}), "error": "secret\n"}
+        for name, text in texts.items():
+            with open(os.path.join(outside, name), "w", encoding="utf-8") as f:
+                f.write(text)
+        links = {"CLAUDE.md": "claude", "knowledge/index.md": "index", ".claude/rules/linked.md": "rule",
+                 ".claude/hookify/linked.md": "hookify", ".sdlc/linked/state.md": "state",
+                 ".sdlc/.work/verify-freshness.json": "fresh", ".sdlc/.work/verify-freshness.error": "error"}
+        try:  # Windows without the symlink privilege can't make one
+            for rel, name in links.items():
+                os.makedirs(os.path.dirname(self.path(rel)) or self.root, exist_ok=True)
+                os.symlink(os.path.join(outside, name), self.path(rel))
+        except (OSError, NotImplementedError):
+            self.skipTest("symlinks unavailable")
+        self.write(".claude/rules/plain.md", "# no paths: always loads\n")
+        c, _ = self.doctor()
+        for check, rel in (("CLAUDE.md size", "CLAUDE.md"), ("knowledge index", "knowledge/index.md"),
+                           ("rules paths", "linked.md"), ("hookify rules", "linked.md"), ("features", "linked"),
+                           ("verify freshness", "verify-freshness.json"),
+                           ("verify freshness hook", "verify-freshness.error")):
+            row = c[("repo", check)]
+            self.assertEqual(row["status"], "warn", (check, row))
+            self.assertIn(rel, row["detail"], check)
+            self.assertIn("not read", row["detail"], check)
+            self.assertNotIn("secret", row["detail"], check)
+        self.assertNotIn("100 lines", c[("repo", "CLAUDE.md size")]["detail"])
+        self.assertNotIn("active: linked", c[("repo", "features")]["detail"])
+
+    def test_folders_linked_out_of_the_repo_are_named_not_listed(self):
+        # AC-001 (review L1 of 2026-11-22-s-doctor-reads-no-links): the outside folder's file names stay out too
+        outside = os.path.realpath(tempfile.mkdtemp(prefix="sdlc-outside-"))
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        for name in ("rules/secretname.md", "hookify/secrethook.md"):
+            os.makedirs(os.path.dirname(os.path.join(outside, name)), exist_ok=True)
+            with open(os.path.join(outside, name), "w", encoding="utf-8") as f:
+                f.write("# x\n")
+        os.makedirs(self.path(".claude"))
+        try:  # Windows without the symlink privilege can't make one
+            os.symlink(os.path.join(outside, "rules"), self.path(".claude/rules"), target_is_directory=True)
+            os.symlink(os.path.join(outside, "hookify"), self.path(".claude/hookify"), target_is_directory=True)
+        except (OSError, NotImplementedError):
+            self.skipTest("symlinks unavailable")
+        report = json.dumps(self.doctor()[0][("repo", "rules paths")]) + json.dumps(self.doctor()[0][("repo", "hookify rules")])
+        self.assertIn(".claude/rules/ (linked", report)
+        self.assertIn(".claude/hookify/ (linked", report)
+        self.assertNotIn("secret", report)
+
+    def test_unreadable_repo_files_warn_instead_of_crashing(self):
+        os.makedirs(self.path(".claude/rules/dir.md"))  # a folder where a file should be
+        os.makedirs(self.path(".claude/hookify/dir.md"))  # read by scaffold.team_rules too (review r2 H1)
+        self.write("docs/rule.md", '---\npaths:\n  - "nowhere/**"\n---\n# inner\n')
+        try:  # Windows without the symlink privilege can't make one
+            os.symlink("missing.md", self.path("CLAUDE.md"))  # broken
+            os.makedirs(self.path("knowledge"))
+            os.symlink("index.md", self.path("knowledge/index.md"))  # loops
+            os.symlink(os.path.join("..", "..", "docs", "rule.md"), self.path(".claude/rules/inner.md"))
+            os.symlink(".git", self.path("gitlink"))
+            os.symlink(os.path.join("..", "..", ".git", "config"), self.path(".claude/hookify/git.md"))
+        except (OSError, NotImplementedError):
+            self.skipTest("symlinks unavailable")
+        os.makedirs(self.path(".git"), exist_ok=True)
+        self.write(".git/config", "---\nname: g\nenabled: true\nevent: bash\npattern: x\naction: warn\n---\nx\n")
+        c, _ = self.doctor()  # a report, not a traceback
+        for check, rel in (("CLAUDE.md size", "CLAUDE.md"), ("knowledge index", "knowledge/index.md"),
+                           ("rules paths", "dir.md"), ("hookify rules", "git.md"), ("hookify rules", "dir.md")):
+            row = c[("repo", check)]
+            self.assertEqual(row["status"], "warn", (check, row))
+            self.assertIn(rel, row["detail"], check)
+            self.assertIn("not read", row["detail"], check)
+        self.assertIn("match no files (never load): inner.md", c[("repo", "rules paths")]["detail"])  # followed
+
     def test_feature_state(self):
         self.write(".sdlc/a/state.md", "Status: active\nProcess: 3\nCurrent: Stage 2 – Build\n")
         self.assertEqual(self.check("features")["status"], "ok")
@@ -406,6 +529,9 @@ class DoctorTest(ProjectTestCase):
         self.assertEqual(self.check("verify freshness")["detail"], "a: stale: x edited")
         self.write(".sdlc/.work/verify-freshness.json", "{bad")
         self.assertEqual(self.check("verify freshness")["status"], "warn")
+        for shape in ("[]", '{"scopes": {"a": 1}}', '{"scopes": [1]}', '"x"', '{"stale": true, "reason": 1}'):
+            self.write(".sdlc/.work/verify-freshness.json", shape)  # review r2 M1: a warn row, not a traceback
+            self.assertEqual(self.check("verify freshness")["status"], "warn", shape)
 
     def test_freshness_hook_error_warns(self):
         self.write(".sdlc/.work/verify-freshness.error", "2026-10-23T00:00:00Z AttributeError: boom\n")

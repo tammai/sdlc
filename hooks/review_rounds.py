@@ -37,7 +37,7 @@ STATE = os.path.join(".sdlc", ".work", "review-rounds.json")
 # The user's own command, as typed: /sdlc:setup, /setup, or a Codex skill's $sdlc-setup
 SET = re.compile(r"\s*[/$](?:sdlc[:-])?setup\s+review-rounds\s+([0-9]{1,3})\s*$", re.I)
 HEADER = "Review cap"  # the AskUserQuestion header whose answer grants a round
-GUARDED = {"Edit", "Write", "MultiEdit", "NotebookEdit", "Bash", "PowerShell", "Agent", "Task", "Skill"}
+GUARDED = {"Edit", "Write", "MultiEdit", "NotebookEdit", "Bash", "PowerShell", "Monitor", "Agent", "Task", "Skill"}
 
 
 def load(root):
@@ -78,13 +78,13 @@ def user_set(prompt):
 
 def record_in_config(root, n):
     """Write the cap the user typed into config, so it lasts past this feature, with scaffold.py's writer (atomic, since
-    sibling hooks read config on the same event; through a link; mode kept; retried on Windows; its temp under
+    sibling hooks read config on the same event; never through a link out of the repo; mode kept; retried on Windows; its temp under
     .sdlc/.work/). False when it couldn't: config is left alone, and the ceiling then follows config's own value (held
     at 2 while config isn't a JSON object)."""
+    import sdlc_scopes
     path = os.path.join(root, ".sdlc", "config.json")
     try:
-        with open(path, encoding="utf-8") as f:
-            cfg = json.load(f)
+        cfg = sdlc_scopes.read_repo_json(root, ".sdlc/config.json")  # refuses a link out of the repo: never written
         if not isinstance(cfg, dict):
             return False
         if configured(cfg.get("review_rounds")) == n:
@@ -139,11 +139,8 @@ def runs_tests(root, command):
 
 
 def read_config(root):
-    try:
-        with open(os.path.join(root, ".sdlc", "config.json"), encoding="utf-8") as f:
-            return f.read()
-    except (OSError, ValueError):
-        return None
+    import sdlc_scopes  # a config linked out of the repo reads as absent
+    return sdlc_scopes.read_repo_text(root, ".sdlc/config.json")
 
 
 def config_cap(root):
@@ -222,7 +219,7 @@ def main():
     rel = os.path.relpath(os.path.abspath(os.path.join(data.get("cwd") or root, path)), root).replace(os.sep, "/")
     if path and rel.startswith(".sdlc/.work/findings/") and not any(c in rel for c in "~:"):
         return  # a reviewer finishing its report
-    if tool in ("Bash", "PowerShell") and runs_tests(root, (data.get("tool_input") or {}).get("command") or ""):
+    if tool in ("Bash", "PowerShell", "Monitor") and runs_tests(root, (data.get("tool_input") or {}).get("command") or ""):
         return
     rounds = ", ".join(f"{n} (round {r})" for n, r in over.items())
     reason = (f"sdlc: {rounds}: the last review round allowed before the user decides still fails, so the "

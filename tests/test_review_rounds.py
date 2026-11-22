@@ -45,6 +45,18 @@ class ReviewRoundsTest(ProjectTestCase):
         self.report(3, "FAIL — 1 high: H1")
         self.assertEqual(self.edit(), "deny")  # the granted round failed too: ask again
 
+    def test_a_monitor_command_is_held_at_the_cap_like_bash(self):
+        # .sdlc/2026-11-22-s-monitor-other-hooks AC-001: Monitor runs a shell command too
+        self.report(2, "FAIL — 1 high: H1")
+        _, out, _, _ = run_hook(HOOK, {"hook_event_name": "PreToolUse", "cwd": self.root, "tool_name": "Monitor",
+                                       "tool_input": {"command": "npm test && git commit -am x", "description": "d"}},
+                                self.root)
+        self.assertEqual((out or {}).get("hookSpecificOutput", {}).get("permissionDecision"), "deny")
+        with open(os.path.join(os.path.dirname(HOOK[-1]), "hooks.json"), encoding="utf-8") as f:
+            pre = json.load(f)["hooks"]["PreToolUse"]
+        [matcher] = [e["matcher"] for e in pre if any("review_rounds.py" in h["command"] for h in e["hooks"])]
+        self.assertIn("Monitor", matcher.split("|"))
+
     def answer(self, header="Review cap", forged=False, use_id="toolu_1"):
         q = {"question": "One more round?", "header": header, "options": [{"label": "One more round"}, {"label": "Stop"}]}
         given = {q["question"]: "One more round"}

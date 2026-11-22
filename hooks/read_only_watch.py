@@ -10,7 +10,8 @@ role_guard denies the writes it can read in a command's text; this sees a change
   PostToolUse(Failure)       after a call that can write: a new difference is said once, naming what changed
   Stop                       any difference blocks Stop once (never a loop); never seeded yet: the first look
   UserPromptSubmit           the user's prompt `accept read-only [REPO…]` takes the repos as they are now (the guard
-                             denies a call that runs this script itself)
+                             denies a call that runs this script itself); a repo back to its first look after an
+                             accept is taken again silently
 
 The baseline lives outside the repo, in the plugin's data folder (CLAUDE_PLUGIN_DATA, else ~/.cache/sdlc), one file
 per workbench; a marker in the workbench (.sdlc/.work/read-only-seeded) remembers that it was seeded and names the
@@ -31,9 +32,9 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import sdlc_scopes  # noqa: E402
 
-MARKER = ".sdlc/.work/read-only-seeded"
+MARKER = sdlc_scopes.SEEDED_MARKER
 BASELINE_NAME = "read-only-baseline"  # role_guard denies commands and writes naming it or the marker
-WRITERS = {"Edit", "Write", "MultiEdit", "NotebookEdit", "Bash", "PowerShell"}
+WRITERS = {"Edit", "Write", "MultiEdit", "NotebookEdit", "Bash", "PowerShell", "Monitor"}  # Monitor runs a command
 GIT_TIMEOUT = 4  # each git call; the hook has 10 s
 ACCEPT = re.compile(r"^\s*accept\s+read-only\b(?P<names>[\w.\- \t]*)$", re.I)
 KEYS = ("status", "unpushed", "push", "refs")
@@ -150,10 +151,18 @@ def first_look(folder):
     return snapshot(folder)
 
 
-def seed(root, listed, names=None):
-    """Take the named repos (default: every listed one) as they are now, and mark the workbench seeded."""
+def seed(root, listed, names=None, members=None):
+    """Take the named repos (default: every listed one) as they are now, and mark the workbench seeded. A repo no
+    longer listed that the accept covers is dropped (its baseline and first look); one it doesn't cover stays watched."""
     path = baseline_path(root)
     data = load(path) or {"repos": {}}
+    if not isinstance(data.get("first"), dict):
+        data["first"] = {}
+    covered = (lambda n: True) if names is None else (lambda n: n in names)
+    for name in list(data["repos"]):
+        if name not in listed and covered(name):
+            del data["repos"][name]
+            data["first"].pop(name, None)
     done = []
     for name in names if names is not None else list(listed):
         folder = repo_folder(root, name) if name in listed else None
@@ -161,9 +170,18 @@ def seed(root, listed, names=None):
             continue
         try:
             data["repos"][name] = first_look(folder)
+            # the first look of all is kept beside any accepted one: a return to it is no change (look)
+            data["first"].setdefault(name, data["repos"][name])
             done.append(name)
         except (RuntimeError, ValueError, OSError, subprocess.SubprocessError):
             continue  # unreadable now: reported at the next look
+    # the repos that must stay read-only: those listed now, and any that stopped being read-only but weren't accepted
+    kept = [n for n in _names(data.get("read_only")) or [] if n not in listed and not covered(n)]
+    data["read_only"] = sorted(set(listed) | set(kept))
+    members = set(members or listed)
+    gone = [n for n in _names(data.get("members")) or [] if n not in members and not covered(n)]
+    data["members"] = sorted(members | set(gone))  # every listed repo: one dropped from the manifest is reported
+    data["flipped"] = sorted(n for n in _names(data.get("flipped")) or [] if not covered(n))
     data.pop("reported", None)
     save(path, data)
     marker = os.path.join(root, MARKER)
@@ -173,7 +191,12 @@ def seed(root, listed, names=None):
     return done
 
 
-def look(root, listed):
+def _names(value):
+    """A baseline list of repo names, or None when it isn't one (missing, or damaged)."""
+    return value if isinstance(value, list) and all(isinstance(n, str) for n in value) else None
+
+
+def look(root, listed, members=None):
     """The differences in the workbench's read-only repos, as report lines ([] when none)."""
     path = baseline_path(root)
     data = load(path)
@@ -183,10 +206,31 @@ def look(root, listed):
         return [f"{what} is missing or unreadable, so changes can't be checked"]
     report, grown = [], False
     base = data["repos"]
-    for name in list(base):
-        if name not in listed:  # dropped from the manifest (scaffold.py workbench remove): no longer watched
-            del base[name]
+    first_all = data.get("first", {})
+    if not isinstance(first_all, dict):
+        report.append("the baseline's first look is damaged")
+        first_all = {}
+    for key in ("read_only", "members", "flipped"):
+        if key in data and _names(data[key]) is None:  # damaged: reported, and the accept writes it anew
+            report.append(f"the baseline's {key} list is damaged")
+            data[key] = []
+    if "read_only" not in data:  # a baseline from before the list: the repos it watched, too
+        data["read_only"], grown = sorted(set(listed) | set(base)), True
+    if "members" not in data and members is not None:
+        data["members"], grown = sorted(members | set(data["read_only"])), True
+    flipped = set(data.get("flipped") or [])
+    for name in data["read_only"]:
+        if name not in listed and name not in flipped:  # a control-file flip stays said until the user accepts it
+            flipped.add(name)
             grown = True
+    if flipped != set(data.get("flipped") or []):
+        data["flipped"] = sorted(flipped)
+    for name in sorted(flipped):
+        report.append(f"{name}/ (made writable or removed in workbench.json since the last accept)")
+    for name in data.get("members") or []:
+        if members is not None and name not in members and name not in data["read_only"]:
+            report.append(f"{name}/ (removed from workbench.json)")
+    # a repo no longer listed keeps its baseline until the user accepts: listed again, it's compared with it
     for name in listed:
         folder = repo_folder(root, name)
         if not folder:
@@ -197,6 +241,8 @@ def look(root, listed):
             if name not in base:  # cloned since the first look: a fresh clone holds no change of its own
                 now = first_look(folder)
                 base[name] = {"status": [], "unpushed": [], "push": now["push"], "refs": now["refs"]}
+                if isinstance(data.get("first"), dict):
+                    data["first"].setdefault(name, base[name])
                 grown = True
             elif not entry_ok(base[name]):
                 report.append(f"{name}/ (its baseline entry is damaged)")
@@ -207,7 +253,13 @@ def look(root, listed):
             report.append(f"{name}/ (can't be read: {e})")
             continue
         lines = changes(base[name], now, folder)
-        if lines:
+        first = first_all.get(name)
+        # silent only back to a first look with a clean tree: files are compared by name (commits by hash), so new
+        # bytes in a file that was dirty then would pass as it
+        if lines and entry_ok(first) and not first["status"] and not changes(first, now, folder):
+            base[name] = now  # an accepted change undone, back to how sdlc first saw it: taken silently
+            grown = True
+        elif lines:
             report.append(f"{name}/ ({'; '.join(lines)})")
     if grown:
         save(path, data)
@@ -222,8 +274,8 @@ def message(report):
 
 
 def project_root(cwd):
-    root = os.environ.get("CLAUDE_PROJECT_DIR") or sdlc_scopes.workbench_root(cwd)
-    return os.path.abspath(root) if root and sdlc_scopes.is_workbench(root) else None
+    root = os.environ.get("CLAUDE_PROJECT_DIR") or sdlc_scopes.workbench_root(cwd, guarded=True)
+    return os.path.abspath(root) if root and sdlc_scopes.guarded_workbench(root) else None
 
 
 def main():
@@ -235,26 +287,34 @@ def main():
     if not root:
         return
     listed = sdlc_scopes.read_only_names(root)
-    if listed is None:
-        return  # an unreadable manifest: the PreToolUse guard denies writes into every folder meanwhile
-    never = not os.path.exists(os.path.join(root, MARKER)) and load(baseline_path(root)) is None
+    members = sdlc_scopes.listed_names(root)
+    seeded = os.path.exists(os.path.join(root, MARKER))
+    if listed is None and not seeded:
+        return  # an unreadable manifest before any look: the PreToolUse guard denies writes everywhere meanwhile
+    never = not seeded and load(baseline_path(root)) is None
     if event == "UserPromptSubmit":
         m = ACCEPT.match(str(data.get("prompt") or ""))
         if not m:
             return
         names = m.group("names").split() or None
-        done = seed(root, listed, names)
+        if listed is None:  # nothing to take while the manifest is gone: said, never taken as empty
+            note = f"sdlc: {sdlc_scopes.WORKBENCH_FILE} is missing or unreadable; fix it, then accept again."
+            print(json.dumps({"systemMessage": note,
+                              "hookSpecificOutput": {"hookEventName": event, "additionalContext": note}}))
+            return
+        done = seed(root, listed, names, members)
         note = f"sdlc: accepted the read-only repos as they are now: {', '.join(done) or 'none found'}."
         print(json.dumps({"systemMessage": note,
                           "hookSpecificOutput": {"hookEventName": event, "additionalContext": note}}))
         return
     if event in ("SessionStart", "PreToolUse") or never:
-        if never:  # the first look of all; afterwards only the user's accept takes a new one
-            seed(root, listed)
+        if never and listed is not None:  # the first look of all; afterwards only the user's accept takes a new one
+            seed(root, listed, None, members)
         return
     if event not in ("PostToolUse", "PostToolUseFailure", "Stop"):
         return
-    report = look(root, listed)
+    report = (look(root, listed, members) if listed is not None else
+              [f"{sdlc_scopes.WORKBENCH_FILE} is missing or unreadable, so the read-only repos can't be checked"])
     path = baseline_path(root)
     state = load(path)
     signature = " | ".join(report)

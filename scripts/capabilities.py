@@ -53,9 +53,9 @@ LAST = re.compile(r"<!-- last id: R-(\d{3,}) -->\n?")  # a removed requirement's
 
 
 def config(root):
+    import sdlc_scopes  # a config linked out of the repo reads as absent
     try:
-        with open(os.path.join(root, ".sdlc", "config.json"), encoding="utf-8") as f:
-            cfg = json.load(f)
+        cfg = sdlc_scopes.read_repo_json(root, ".sdlc/config.json")
     except (OSError, ValueError):
         return None
     return cfg.get("living_spec") if isinstance(cfg, dict) else None

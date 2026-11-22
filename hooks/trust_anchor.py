@@ -105,7 +105,8 @@ def check(root, name, text, anchor, shown):
                 notices.append(f"baseline.md lists failing tests it didn't at Base: {', '.join(added[:5])}")
         anchor["baseline_seen"] = now
         cmds_base = commands(vf.git(root, "show", f"{base}:./.sdlc/config.json"))
-        cmds_now = commands(read(os.path.join(root, ".sdlc", "config.json")))
+        import sdlc_scopes  # noqa: PLC0415  (a config linked out of the repo reads as absent, as verify reads it)
+        cmds_now = commands(sdlc_scopes.read_repo_text(root, ".sdlc/config.json"))
         if cmds_base and cmds_now != anchor.get("commands_ok", cmds_base):
             notices.append("the commands or docs_dir in .sdlc/config.json differ from Base")
         anchor["commands_seen"] = cmds_now

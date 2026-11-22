@@ -38,9 +38,9 @@ FIELD = re.compile(r"^\s*[-*]\s+([A-Za-z][A-Za-z ]*?):\s*(.*)$")
 
 
 def setting(root):
+    import sdlc_scopes  # its reader refuses a config linked out of the repo or into .git
     try:
-        with open(os.path.join(root, ".sdlc", "config.json"), encoding="utf-8") as f:
-            cfg = json.load(f)
+        cfg = sdlc_scopes.read_repo_json(root, ".sdlc/config.json")
     except (OSError, ValueError):
         return None
     return cfg.get("objects") if isinstance(cfg, dict) else None
@@ -178,9 +178,9 @@ def ui_files(root):
     (not an object, not a list of strings) counts as none."""
     import doctor  # only here: doctor imports this module too
     import scaffold
+    import sdlc_scopes
     try:
-        with open(os.path.join(root, ".sdlc", "config.json"), encoding="utf-8") as f:
-            cfg = scaffold.effective_config(json.load(f))
+        cfg = scaffold.effective_config(sdlc_scopes.read_repo_json(root, ".sdlc/config.json"))
     except (OSError, ValueError, TypeError, AttributeError):
         return False
     areas = cfg.get("areas") if isinstance(cfg, dict) else None

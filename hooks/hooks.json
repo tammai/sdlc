@@ -164,7 +164,7 @@
         ]
       },
       {
-        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell",
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell|Monitor",
         "hooks": [
           {
             "type": "command",
@@ -201,7 +201,7 @@
         ]
       },
       {
-        "matcher": "Bash|PowerShell",
+        "matcher": "Bash|PowerShell|Monitor",
         "hooks": [
           {
             "type": "command",
@@ -312,7 +312,7 @@
         ]
       },
       {
-        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell|Agent|Task|Skill",
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell|Monitor|Agent|Task|Skill",
         "hooks": [
           {
             "type": "command",
@@ -332,7 +332,7 @@
         ]
       },
       {
-        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell",
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell|Monitor",
         "hooks": [
           {
             "type": "command",

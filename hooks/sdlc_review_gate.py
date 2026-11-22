@@ -27,6 +27,7 @@ import os
 import re
 import subprocess
 
+import globmatch  # sibling module: committed globs matched in bounded time
 import sdlc_layout  # sibling module: where feature state lives
 
 MAX_DEFER = 10
@@ -82,9 +83,10 @@ def _active_feature(root, shas=()):
 def _workbench_feature(repo_root):
     """(member, text) for a repo cloned in a workbench. member: the folder above it is a workbench (a broken workbench
     config counts) whose workbench.json lists it, whatever the repo's own config says; text: the state of the one
-    workbench feature that owns its commits (active, or done with this repo branched and its PR not recorded yet:
-    Ship sets `Status: done` before the app repos commit), "" when unsure (several, or a manifest it can't read),
-    None when none does. Not a member: (False, None)."""
+    workbench feature that owns its commits (active, or done while the repo is on the branch the feature made for it
+    or its PR isn't recorded yet: Ship sets `Status: done` before the app repos commit, and a CI fix commits there
+    after the PR; a recorded PR doesn't end it on that branch, since anyone can record one), "" when unsure (several, or a manifest it can't read), None when
+    none does. Not a member: (False, None)."""
     import sdlc_scopes  # noqa: PLC0415
     repo = os.path.abspath(repo_root)
     wb, name = os.path.dirname(repo), os.path.basename(repo)
@@ -95,8 +97,10 @@ def _workbench_feature(repo_root):
     except ValueError:
         listed = None
     if listed is not None and name not in listed:
-        return False, None
-    owners = []
+        if not os.path.isfile(os.path.join(wb, sdlc_scopes.SEEDED_MARKER)):
+            return False, None
+        return True, ""  # a seeded workbench's repo dropped from the manifest: unsure, so reviewed
+    owners, current = [], None
     for f in sdlc_layout.features(wb).values():
         try:
             with open(os.path.join(wb, f["state"]), encoding="utf-8") as fh:
@@ -106,8 +110,14 @@ def _workbench_feature(repo_root):
         if not sdlc_layout.PROCESS_RE.search(text):
             continue
         active = re.search(r"^Status:[ \t]*active[ \t]*(\(|$)", text, re.M | re.I)
-        shipping = (re.search(r"^Status:[ \t]*done", text, re.M | re.I) and name in sdlc_scopes.feature_repos(text)
-                    and name not in sdlc_scopes.feature_prs(text))
+        branch = (sdlc_scopes.feature_repos(text).get(name) or {}).get("branch")
+        shipping = False
+        if branch and re.search(r"^Status:[ \t]*done", text, re.M | re.I):
+            if current is None:
+                current = _git(repo, "branch", "--show-current") or ""
+            # on its branch (a recorded PR, which anyone can write, never ends that), or anywhere until a PR is
+            # recorded (a detached HEAD or another branch mid-Ship must not leave a commit unreviewed)
+            shipping = current == branch or name not in sdlc_scopes.feature_prs(text)
         if active or shipping:
             owners.append(text)
     if listed is None:
@@ -134,28 +144,6 @@ DEFAULT_AREAS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__f
                              "config.defaults.json")
 
 
-def _glob_re(pattern):
-    """A .gitignore-style glob (`**`, `*`, `?`, `{a,b}`) as a regex over a repo-relative path."""
-    out, i = "", 0
-    while i < len(pattern):
-        c = pattern[i]
-        if pattern.startswith("**/", i):
-            out, i = out + "(?:.*/)?", i + 3
-            continue
-        if pattern.startswith("**", i):
-            out, i = out + ".*", i + 2
-            continue
-        if c == "{":
-            end = pattern.find("}", i)
-            if end > i:
-                out += "(?:" + "|".join(re.escape(p) for p in pattern[i + 1:end].split(",")) + ")"
-                i = end + 1
-                continue
-        out += "[^/]*" if c == "*" else "[^/]" if c == "?" else re.escape(c)
-        i += 1
-    return re.compile(out + r"\Z")
-
-
 def _globs(text):
     try:
         areas = json.loads(text).get("areas") or {}
@@ -175,12 +163,10 @@ def _security_areas(root):
         return None
     if not globs:
         return None
-    try:
-        with open(os.path.join(root, ".sdlc", "config.json"), encoding="utf-8") as f:
-            globs += _globs(f.read()) or []
-    except OSError:
-        pass
-    return [_glob_re(g.lower()) for g in globs]  # case-folded both sides: folding only adds matches
+    import sdlc_scopes  # noqa: PLC0415  (a config linked out of the repo reads as absent)
+    globs += _globs(sdlc_scopes.read_repo_text(root, ".sdlc/config.json") or "{}") or []
+    # case-folded both sides: folding only adds matches; globmatch, so a committed glob can't stall the review
+    return [globmatch.Glob(g.lower()) for g in globs]
 
 
 def _names(root, *args):
@@ -223,11 +209,22 @@ def _branch_point(root):
 
 def review_wanted(repo_root):
     """For the Stop review: True only when SDLC_SECURITY_REVIEW=always, or the one active feature's change (committed
-    since Base:, uncommitted or untracked) is security-touched. No active feature: False. Several active features, a
+    since Base:, uncommitted or untracked) is security-touched; in a workbench's app repo, the workbench feature that
+    owns its commits, with the repo's own base. No active feature: False. Several active features, a
     state without Base:, or any error: True."""
     try:
         if _always():
             return True
+        member, owner = _workbench_feature(repo_root)
+        if member:  # a workbench's app repo: the workbench's feature decides, as for its commits (decide)
+            if owner is None:
+                return False
+            if not owner:
+                return True  # unsure which feature: review
+            import sdlc_scopes  # noqa: PLC0415
+            rec = sdlc_scopes.feature_repos(owner).get(os.path.basename(os.path.abspath(repo_root))) or {}
+            start = _git(repo_root, "rev-parse", "--verify", "-q", rec["base"]) if rec.get("base") else None
+            return not start or _security_touched(repo_root, owner, start, None, [], worktree=True)  # no base: review
         found = _active_features(repo_root)
         if not found:
             return False

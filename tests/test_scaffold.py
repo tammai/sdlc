@@ -569,7 +569,8 @@ class ScaffoldTest(ProjectTestCase):
         os.makedirs(self.path(".git/hooks"), exist_ok=True)
         os.makedirs(self.path("sub/.git/hooks"), exist_ok=True)
         dests = [".git/hooks/post-commit", ".GIT/config", "./.git/x", ".git./x", ".git /x", "GIT~1/x",
-                 ".git::$INDEX_ALLOCATION/x", "sub/.git/hooks/pre-commit"]
+                 ".git::$INDEX_ALLOCATION/x", "sub/.git/hooks/pre-commit",
+                 ".g\u200cit/hooks/x", "\ufeff.git/x", ".gi\u206at/x"]  # HFS+ ignores these code points (git's is_hfs_dotgit)
         try:  # a committed link into .git; Windows without the symlink privilege can't make one
             os.symlink(".git", self.path("x"), target_is_directory=True)
             dests.append("x/hooks/post-commit")
@@ -721,6 +722,20 @@ class ScaffoldTest(ProjectTestCase):
         with open(target, encoding="utf-8") as f:
             self.assertEqual(f.read(), ".sdlc/.work/\nmine/\n")
 
+    def test_eject_lists_only_linked_files_with_something_recorded(self):
+        # AC-001 (review R2-L2 of 2026-11-22-s-fixed-writers-refuse-links): nothing to unmerge, nothing to name
+        self.setup_for_eject()  # claude-code only: no AGENTS.md block recorded
+        outside = tempfile.mkdtemp(prefix="sdlc-outside-")
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        target = os.path.join(outside, "agents")
+        with open(target, "w", encoding="utf-8") as f:
+            f.write("theirs\n")
+        self.linked_out("AGENTS.md", target)
+        self.assertNotIn("AGENTS.md", self.sc("eject")["outside"])
+        self.assertNotIn("AGENTS.md", self.sc("eject", "--apply")["outside"])
+        with open(target, encoding="utf-8") as f:
+            self.assertEqual(f.read(), "theirs\n")
+
     def read_all(self, rel):
         """Every file's text under the folder `rel`, joined (empty when it's missing)."""
         out = []
@@ -793,6 +808,66 @@ class ScaffoldTest(ProjectTestCase):
         self.linked_out(".claude/rules/leak.md", secret)
         self.real("agents")
         self.assertNotIn("aws_secret", self.read("AGENTS.md"))
+
+    def test_agents_block_skips_unreadable_sources(self):
+        # AC-003 (review r2 H1): a folder or a broken link at CLAUDE.md or a rule is left out, not a traceback
+        self.hosted_project("claude-code", "codex")
+        os.makedirs(self.path(".claude/rules/dir.md"))
+        self.write(".claude/rules/plain.md", "# Plain rule\nkeep me\n")
+        if os.path.exists(self.path("CLAUDE.md")):
+            os.remove(self.path("CLAUDE.md"))
+        os.makedirs(self.path("CLAUDE.md"))
+        self.real("agents")
+        self.assertIn("keep me", self.read("AGENTS.md"))
+
+    def test_config_and_lock_linked_out_of_the_repo_are_refused(self):
+        # AC-001 (review M2 of 2026-11-22-s-doctor-reads-no-links): never read from, or written to, outside
+        outside = tempfile.mkdtemp(prefix="sdlc-outside-")
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        cfg = os.path.join(outside, "config.json")
+        with open(cfg, "w", encoding="utf-8") as f:
+            f.write('{"secret": 1}')
+        self.linked_out(".sdlc/config.json", cfg)
+        self.assertIn(".sdlc/config.json", self.sc("status", expect=1)["error"])
+        os.remove(self.path(".sdlc/config.json"))
+        os.makedirs(self.path(".git"), exist_ok=True)
+        self.write(".git/config", "[core]\n")
+        self.linked_out(".sdlc/scaffold.lock.json", os.path.join("..", ".git", "config"))
+        self.assertIn(".sdlc/scaffold.lock.json", self.sc("status", expect=1)["error"])
+        os.remove(self.path(".sdlc/scaffold.lock.json"))
+        self.linked_out(".sdlc", outside)  # the whole folder: init writes nothing there
+        self.sc("init", "--kind", "greenfield", expect=1)
+        self.assertEqual(sorted(os.listdir(outside)), ["config.json"])
+        with open(cfg, encoding="utf-8") as f:
+            self.assertEqual(f.read(), '{"secret": 1}')
+
+    def test_a_folder_at_a_recorded_path_counts_as_edited(self):
+        # AC-002 (review r2 of 2026-11-22-s-doctor-reads-no-links): sha256 on a folder was a traceback
+        self.init()
+        self.sc("render", "templates/project/ci.yml", ".github/workflows/x.yml", "--class", "seeded")
+        os.remove(self.path(".github/workflows/x.yml"))
+        os.makedirs(self.path(".github/workflows/x.yml"))
+        self.sc("status")
+        plan = self.sc("upgrade-plan")
+        self.assertNotIn(".github/workflows/x.yml", [i["path"] for i in plan.get("regenerate", [])])
+        self.assertTrue(os.path.isdir(self.path(".github/workflows/x.yml")))
+        # end-of-push review r1 H2: never "unchanged", even against a recorded "" hash; listed, never deleted
+        lock = json.loads(self.read(".sdlc/scaffold.lock.json"))
+        lock["files"][".github/workflows/x.yml"]["sha256"] = ""
+        self.write(".sdlc/scaffold.lock.json", json.dumps(lock))
+        self.assertIn(".github/workflows/x.yml", self.sc("upgrade-plan")["outside"])
+        # round 2 R2-M2: render (with --if-unchanged too) refuses a folder at a recorded path, exit 2, folder kept
+        self.assertIn("readable", self.sc("render", "templates/project/ci.yml", ".github/workflows/x.yml",
+                                          "--if-unchanged", expect=2)["refused"])
+        self.assertTrue(os.path.isdir(self.path(".github/workflows/x.yml")))
+        eject = self.sc("eject")
+        self.assertIn(".github/workflows/x.yml", eject["outside"])
+        self.assertNotIn(".github/workflows/x.yml", eject["delete"])
+        self.sc("eject", "--apply")
+        self.assertTrue(os.path.isdir(self.path(".github/workflows/x.yml")))
+        self.init()
+        os.makedirs(self.path("adir.md"))
+        self.assertIn("adir.md", self.sc("record", "seeded", "adir.md", expect=2)["refused"])  # nothing to hash
 
     def test_eject_plan_is_dry_by_default(self):
         self.setup_for_eject()
@@ -945,6 +1020,23 @@ class ScaffoldTest(ProjectTestCase):
         config["deploy"]["runbook"] = ".claude/settings.json"
         self.write(".sdlc/config.json", json.dumps(config))
         self.assertIn("runbook", self.sc("deploy")["invalid"])
+
+    def test_impeccable_enable_refuses_a_linked_local_settings_file(self):
+        # R2-M2 of 2026-11-22-s-fixed-writers-refuse-links: the enable goes through fixed_target
+        self.init()
+        self.installed()
+        outside = tempfile.mkdtemp(prefix="sdlc-outside-")
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        target = os.path.join(outside, "local.json")
+        with open(target, "w", encoding="utf-8") as f:
+            f.write("{}")
+        self.linked_out(".claude/settings.local.json", target)
+        self.write("claude-config/plugins/installed_plugins.json", json.dumps({"version": 2, "plugins": {
+            "impeccable@x": [{"scope": "user", "installPath": self.path("claude-config/impeccable")}]}}))
+        out = self.sc("design", "impeccable", "--enable", expect=2)
+        self.assertIn("settings.local.json", out["refused"])
+        with open(target, encoding="utf-8") as f:
+            self.assertEqual(f.read(), "{}")
 
     def test_impeccable_mode_drops_ui_guardrail(self):
         # impeccable's detector hook does this job; both would report the same value on every edit
@@ -1274,6 +1366,47 @@ class ScaffoldTest(ProjectTestCase):
     def git(self, *args):
         subprocess.run(["git", "-C", self.root, "-c", "user.email=t@t", "-c", "user.name=t", *args], check=True,
                        capture_output=True)
+
+    def test_a_generated_entry_never_overwrites_or_deletes_an_untracked_local_file(self):
+        # .sdlc/2026-11-22-s-generated-untracked AC-001 (security review S-2 of 2026-11-22-s-lock-template-trusted)
+        self.git("init", "-q", "-b", "main")
+        self.init()
+        self.sc("render", "templates/project/ci.yml", ".env")  # a committed lock can name any path as generated
+        self.sc("render", "templates/project/ci.yml", ".github/workflows/sdlc-x.yml")
+        self.git("add", ".github", ".sdlc")
+        self.git("commit", "-q", "-m", "x")
+        self.write(".env", "API_KEY=local\n")  # the user's local file, never committed
+        self.write(".github/workflows/sdlc-x.yml", "edited\n")  # tracked: regenerated as before
+        plan = self.sc("upgrade-plan")
+        regen = [i["path"] for i in plan["regenerate"]]
+        self.assertNotIn(".env", regen)
+        self.assertIn(".env", [i["path"] for i in plan["review"]])
+        self.assertIn(".github/workflows/sdlc-x.yml", regen)
+        eject = self.sc("eject")
+        self.assertNotIn(".env", eject["delete"])
+        self.assertIn(".env", eject["ask"])
+        self.assertIn(".github/workflows/sdlc-x.yml", eject["delete"])
+        self.sc("eject", "--apply")
+        self.assertEqual(self.read(".env"), "API_KEY=local\n")
+
+    def test_untracked_holds_when_git_refuses_the_repo_or_the_name_is_a_pathspec(self):
+        # end-of-push review r1 M2, L1
+        sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
+        import scaffold
+        self.git("init", "-q", "-b", "main")
+        self.write("[ab].txt", "x")
+        self.write("a.txt", "x")
+        self.git("add", "a.txt")
+        self.git("commit", "-q", "-m", "x")
+        p = scaffold.Project(self.root)
+        self.assertTrue(p.untracked("[ab].txt"))  # as a pathspec it would match the tracked a.txt
+        self.assertFalse(p.untracked("a.txt"))
+        old = os.environ.get("GIT_DIR")
+        os.environ["GIT_DIR"] = self.path("nowhere")
+        try:
+            self.assertTrue(p.untracked("a.txt"))  # git refuses: kept, never overwritten
+        finally:
+            os.environ.pop("GIT_DIR") if old is None else os.environ.__setitem__("GIT_DIR", old)
 
     def legacy_repo(self, files):
         self.git("init", "-q", "-b", "main")

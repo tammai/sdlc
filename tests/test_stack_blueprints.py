@@ -346,9 +346,10 @@ class Hardening(ProjectTestCase):
 
         import scaffold  # noqa: E402
         self.sc("init", "--kind", "greenfield")
+        p = scaffold.Project(self.root)  # before the patch: only the rules folder is on "another drive"
         with mock.patch.object(scaffold.os.path, "commonpath", side_effect=ValueError("Paths don't have the same drive")):
             with self.assertRaises(scaffold.Refused):
-                scaffold.cmd_conventions(scaffold.Project(self.root), argparse.Namespace(
+                scaffold.cmd_conventions(p, argparse.Namespace(
                     seen=None, stack="go", area="auth", package=None, one_deployable=False))
         self.assertFalse(os.path.exists(self.path(".claude/rules/go-auth.md")))
 

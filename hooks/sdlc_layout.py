@@ -8,7 +8,6 @@ New layout (the project's own .sdlc/config.json sets `docs_dir`): a feature's re
 working between a plugin update and the /sdlc:upgrade that moves it. Paths returned are repo-relative, with `/`.
 """
 import glob
-import json
 import os
 import posixpath
 import re
@@ -25,9 +24,9 @@ DEFINE, BUILD, REVIEW, SHIP = 1, 2, 3, 4
 def docs_dir(root):
     """The recorded docs location, or None for a legacy repo (also when config is missing, unreadable, or the value
     isn't a valid in-repo folder: hooks grant access by it, so a bad value must not widen anything)."""
+    import sdlc_scopes  # lazy, as below: its reader refuses a config linked out of the repo or into .git
     try:
-        with open(os.path.join(root, SDLC, "config.json"), encoding="utf-8") as f:
-            value = json.load(f).get("docs_dir")
+        value = sdlc_scopes.read_repo_json(root, SDLC + "/config.json").get("docs_dir")
     except (OSError, ValueError, AttributeError):
         return None
     try:
@@ -95,9 +94,9 @@ def _sdlc_repo_inside(project, start):
 def prd(root):
     """The project's product doc: the in-repo path setup recorded (`prd` in config, an existing PRD used as is), else
     <docs_dir>/prd.md."""
+    import sdlc_scopes
     try:
-        with open(os.path.join(root, SDLC, "config.json"), encoding="utf-8") as f:
-            value = json.load(f).get("prd")
+        value = sdlc_scopes.read_repo_json(root, SDLC + "/config.json").get("prd")
         if isinstance(value, str) and value:
             return validate_docs_dir(value)
     except (OSError, ValueError, AttributeError):

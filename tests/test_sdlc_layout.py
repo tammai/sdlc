@@ -49,3 +49,74 @@ class LayoutTest(ProjectTestCase):
         for bad in (".", "..", "../x", "/abs", ".git", ".git/x", ".GIT/x", "docs/.git. /x"):
             with self.assertRaises(ValueError, msg=bad):
                 sdlc_layout.validate_docs_dir(bad)
+
+
+class LinkedConfigTest(ProjectTestCase):
+    def test_config_and_manifest_linked_out_of_the_repo_read_as_absent(self):
+        # AC-002 (review M2 of 2026-11-22-s-doctor-reads-no-links): no value from a file outside the repo or in .git
+        import tempfile, shutil  # noqa: E401
+        sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
+        import objects
+        import sdlc_scopes
+        outside = tempfile.mkdtemp(prefix="sdlc-outside-")
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        cfg = os.path.join(outside, "config.json")
+        with open(cfg, "w", encoding="utf-8") as f:
+            json.dump({"docs_dir": "docs/sdlc", "prd": "secret.md", "workbench": True, "objects": True}, f)
+        man = os.path.join(outside, "workbench.json")
+        with open(man, "w", encoding="utf-8") as f:
+            json.dump({"repos": [{"name": "app", "url": "https://x/app.git", "role": "app"}]}, f)
+        os.makedirs(self.path(".sdlc"))
+        try:  # Windows without the symlink privilege can't make one
+            os.symlink(cfg, self.path(".sdlc/config.json"))
+            os.symlink(man, self.path("workbench.json"))
+        except (OSError, NotImplementedError):
+            self.skipTest("symlinks unavailable")
+        self.assertIsNone(sdlc_layout.docs_dir(self.root))
+        self.assertEqual(sdlc_layout.prd(self.root), ".sdlc/prd.md")
+        self.assertFalse(sdlc_scopes.is_workbench(self.root))
+        self.assertIsNone(sdlc_scopes.workbench_of(self.root))
+        self.assertIsNone(objects.setting(self.root))
+        self.assertRaises(ValueError, sdlc_scopes.manifest, self.root)
+        os.remove(self.path(".sdlc/config.json"))
+        os.makedirs(self.path(".git"))
+        self.write(".git/config.json", json.dumps({"docs_dir": "docs/sdlc"}))
+        os.symlink(os.path.join("..", ".git", "config.json"), self.path(".sdlc/config.json"))
+        self.assertIsNone(sdlc_layout.docs_dir(self.root))
+        for name in (".GIT", ".g\u200cit"):  # case and the code points HFS+ ignores (git's is_hfs_dotgit)
+            os.remove(self.path(".sdlc/config.json"))
+            os.makedirs(self.path(name), exist_ok=True)
+            self.write(f"{name}/config.json", json.dumps({"docs_dir": "docs/sdlc"}))
+            os.symlink(os.path.join("..", name, "config.json"), self.path(".sdlc/config.json"))
+            self.assertIsNone(sdlc_layout.docs_dir(self.root), name)
+        os.remove(self.path(".sdlc/config.json"))
+        self.write(".sdlc/config.json", json.dumps({"docs_dir": "docs/sdlc"}))  # a plain file still reads
+        self.assertEqual(sdlc_layout.docs_dir(self.root), "docs/sdlc")
+
+
+class LinkedConfigReadersTest(ProjectTestCase):
+    def test_no_config_reader_follows_a_link_to_a_fifo(self):
+        # end-of-push review r1 M1: every reader of .sdlc/config.json goes through sdlc_scopes' guarded reader
+        import subprocess
+        import tempfile, shutil  # noqa: E401
+        if not hasattr(os, "mkfifo"):
+            self.skipTest("no FIFOs here")
+        outside = tempfile.mkdtemp(prefix="sdlc-outside-")
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        fifo = os.path.join(outside, "config.json")
+        os.mkfifo(fifo)
+        os.makedirs(self.path(".sdlc"))
+        os.symlink(fifo, self.path(".sdlc/config.json"))
+        code = ("import sys; sys.path[:0] = [sys.argv[1] + '/hooks', sys.argv[1] + '/scripts']; r = sys.argv[2]\n"
+                "import review_rounds, sdlc_review_gate, verify_freshness, capabilities, state, brief, spec_lock\n"
+                "review_rounds.read_config(r); sdlc_review_gate._security_areas(r); verify_freshness.load_scopes(r, '')\n"
+                "capabilities.config(r); state.test_command(r); brief.config_text(r); spec_lock.lock_paths(r)\n"
+                "brief.read(r, '.sdlc/config.json'); assert review_rounds.record_in_config(r, 3) is False\n"
+                "import verify; rec, _ = verify.full(r, 'x', timeout=5); assert rec['result'] == 'fail', rec\n"
+                "assert verify.accept_target(r)[0] is None\n")
+        try:
+            p = subprocess.run([sys.executable, "-c", code, PLUGIN_ROOT, self.root], capture_output=True, timeout=20,
+                               encoding="utf-8", errors="replace")
+        except subprocess.TimeoutExpired:
+            self.fail("a config reader opened the linked FIFO")
+        self.assertEqual(p.returncode, 0, p.stderr)

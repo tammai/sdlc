@@ -402,7 +402,8 @@ def repo_failures(root, feature, timeout):
     for name, _ in kept:
         repo = os.path.join(root, name)
         try:
-            config = json.loads(read(os.path.join(repo, ".sdlc", "config.json")) or "null")
+            import sdlc_scopes  # noqa: PLC0415  (an app repo's config linked out of it reads as absent)
+            config = json.loads(sdlc_scopes.read_repo_text(repo, ".sdlc/config.json") or "null")
         except ValueError:
             config = None
         if not isinstance(config, dict):
@@ -429,7 +430,12 @@ def full(root, feature, timeout=1800, whole=False):
     if rec.get("feature") != feature:
         rec = {"feature": feature}
     failures, notes = [], []
-    config = json.loads(read(os.path.join(root, ".sdlc", "config.json")) or "{}")
+    import sdlc_scopes  # noqa: PLC0415  (a config linked out of the repo is never read: verify fails instead)
+    text = sdlc_scopes.read_repo_text(root, ".sdlc/config.json")
+    if text is None and os.path.lexists(os.path.join(root, ".sdlc", "config.json")):
+        failures.append(P.problem("config_unreadable", ".sdlc/config.json is a link out of the repo, or can't be read "
+                                  "as UTF-8: fix it before verify can run its commands", target="config"))
+    config = json.loads(text or "{}")
     test_output = {}
     for step in scaffold.verify_plan(config)["verify"]:
         name = f"{step['scope'] or scaffold.ROOT_SCOPE} {step['step']}"
@@ -802,7 +808,11 @@ def accept_target(root):
     """((start command, base URL, cwd), None) from config `accept` (the root's, else the one package that sets a
     start), or (None, the reason it can't start)."""
     try:
-        config = json.loads(read(os.path.join(root, ".sdlc", "config.json")) or "{}")
+        import sdlc_scopes  # noqa: PLC0415
+        text = sdlc_scopes.read_repo_text(root, ".sdlc/config.json")
+        if text is None and os.path.lexists(os.path.join(root, ".sdlc", "config.json")):
+            return None, "not run: .sdlc/config.json is a link out of the repo, or can't be read"
+        config = json.loads(text or "{}")
     except ValueError as e:
         return None, f"not run: .sdlc/config.json isn't valid JSON ({e})"
     if not isinstance(config, dict):

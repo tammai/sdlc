@@ -116,6 +116,9 @@ def write_json(path, data, scratch=None):
             time.sleep(0.05)
 
 
+UNREADABLE = "unreadable"  # sha256 of a path that exists but can't be read: never a hash, so it matches no record
+
+
 def sha256(path):
     try:
         with open(path, "rb") as f:
@@ -123,6 +126,8 @@ def sha256(path):
             return hashlib.sha256(f.read().replace(b"\r\n", b"\n")).hexdigest()
     except FileNotFoundError:
         return None
+    except OSError:  # a folder, a looping link: matches no recorded hash ("" included); file_state lists it outside
+        return UNREADABLE
 
 
 @functools.lru_cache(maxsize=64)
@@ -289,6 +294,10 @@ def merge_into(base, ours, theirs, whole=False, records=False, top=True):
 class Project:
     def __init__(self, root):
         self.root = os.path.abspath(root)
+        for rel in (CONFIG, LOCK):  # committed: a link out of the repo or into .git is never read or written
+            problem = link_problem(self.root, rel)
+            if problem:
+                raise ValueError(problem)
         self._config, self._config_checked = read_json(self.path(CONFIG)), False
         self._config_read = copy.deepcopy(self._config)  # save writes config.json only when this command changed it
         raw = read_json(self.path(LOCK), _ABSENT)
@@ -387,12 +396,29 @@ class Project:
         """The recorded text isn't the template's own render: the user's edits merged in (upgrade's "apply merge")."""
         return bool(entry.get("render_sha256")) and entry.get("render_sha256") != entry.get("sha256")
 
+    def untracked(self, path):
+        """Whether git doesn't track the repo file `path` (outside a git repo: False, nothing to tell apart). A
+        committed lock entry can name a local file git never saw (`.env`, a key): one that differs from the lock is the
+        user's, so it's offered, never rendered over or deleted."""
+        def git(*args):  # literal pathspecs: a `*` or `:!` in a recorded name is just a character
+            return subprocess.run(["git", "--literal-pathspecs", "-C", self.root, *args], capture_output=True,
+                                  encoding="utf-8", errors="replace")
+        repo = os.path.lexists(os.path.join(self.root, ".git"))
+        try:
+            if git("rev-parse", "--is-inside-work-tree").stdout.strip() != "true":
+                return repo  # a repo git refuses (safe.directory, a bad GIT_DIR): count it untracked, so it's kept
+            return git("ls-files", "--error-unmatch", "--", path).returncode != 0
+        except OSError:  # no git at all
+            return repo
+
     def file_state(self, path, entry):
         if not inside_repo(self.root, path):  # through a link out of the repo: never read (a device, a huge file)
             return "outside"
         actual = sha256(self.path(path))
         if actual is None:
             return "missing"
+        if actual == UNREADABLE:  # a folder or a looping link where the file was: listed, never read, written or deleted
+            return "outside"
         return "unchanged" if actual == entry.get("sha256") else "modified"
 
 
@@ -433,8 +459,9 @@ def team_rules(p):
         # A symlink could pull any local file into the model's context through this listing
         if name.startswith("sdlc-") or os.path.islink(path):
             continue
-        with open(path, encoding="utf-8", errors="replace") as f:
-            text = f.read(8192)
+        text, why = repo_text(p.root, f".claude/hookify/{name}", 8192)
+        if why:
+            continue  # doctor's hookify row names it
         front, _, body = text.partition("\n---")
         field = lambda k: (re.search(rf"^{k}:\s*(\S+)", front, re.M) or [None, None])[1]
         rules.append({"file": f".claude/hookify/{name}", "event": field("event"), "action": field("action") or "warn",
@@ -535,6 +562,8 @@ def cmd_record(p, a):
         h = sha256(p.path(r))
         if h is None:
             raise ValueError(f"cannot record {r}: file does not exist")
+        if h == UNREADABLE:
+            raise Refused(f"{r} isn't a readable file (a folder or a looping link); not recorded")
         entry = files.get(r, {})
         entry.update({"class": a.cls, "sha256": h})
         if template:
@@ -869,6 +898,8 @@ def cmd_render(p, a):
     if not inside_repo(p.root, dest):
         raise Refused(f"{dest} resolves outside the project through a link; nothing written")
     entry = lock["files"].get(dest)
+    if os.path.lexists(p.path(dest)) and sha256(p.path(dest)) == UNREADABLE:
+        raise Refused(f"{dest} isn't a readable file (a folder or a looping link); nothing written")
     if a.if_unchanged and entry and (p.file_state(dest, entry) == "modified" or p.merged(entry)):
         raise Refused(f"{dest} was edited since the plugin wrote it; review the diff instead of overwriting")
     if a.if_unchanged and not entry and os.path.exists(p.path(dest)):
@@ -879,6 +910,8 @@ def cmd_render(p, a):
     with open(full, "w", encoding="utf-8", newline="\n") as f:  # LF on Windows too: upgrade-plan hashes the LF render
         f.write(text)
     after = sha256(full)
+    if after == UNREADABLE:  # written but can't be read back (write-only): never recorded as a hash
+        raise Refused(f"{dest} was written but can't be read back; not recorded")
     lock["files"][dest] = {"class": a.cls, "sha256": after, "template": template}
     p.save()
     return {"rendered": dest, "class": a.cls, "changed": before != after}
@@ -1492,10 +1525,14 @@ def template_problem(template):
     return None if inside else f"template {template!r} resolves outside the plugin's templates/"
 
 
+# The code points HFS+ ignores in a name (git's is_hfs_dotgit), so `.g\u200cit` opens `.git` there
+HFS_IGNORED = dict.fromkeys([0x200C, 0x200D, 0x200E, 0x200F, *range(0x202A, 0x202F), *range(0x206A, 0x2070), 0xFEFF])
+
+
 def _git_segment(seg):
     """A path segment a filesystem opens as a git dir: `.git` in any case, with the trailing dots or spaces and the
-    NTFS stream suffix Windows ignores, or its 8.3 short name."""
-    seg = seg.split(":", 1)[0].rstrip(". ").lower()
+    NTFS stream suffix Windows ignores, the code points HFS+ ignores, or its 8.3 short name."""
+    seg = seg.translate(HFS_IGNORED).split(":", 1)[0].rstrip(". ").lower()
     return seg in (".git", "git~1")
 
 
@@ -1512,6 +1549,8 @@ def git_internal(path, root=None):
 
 
 FIXED_FILES = (AGENTS, GITIGNORE, SETTINGS, LOCAL_SETTINGS)
+UNMERGE_KEYS = {AGENTS: (AGENTS_MERGE,), GITIGNORE: (GITIGNORE,), SETTINGS: (SETTINGS, TEAM_PLUGIN_MERGE),
+                LOCAL_SETTINGS: (PLUGIN_MERGE,)}  # each fixed file's lock `merged` keys: what eject takes back
 
 
 def link_problem(root, rel):
@@ -1522,6 +1561,20 @@ def link_problem(root, rel):
         return (f"{rel} is a link (or under one) that leads out of the repo or into .git: not read or written; "
                 "replace the link with a plain file")
     return None
+
+
+def repo_text(root, rel, limit=-1):
+    """(text, None) for the repo file `rel` named by sdlc, or (None, why) when it isn't read: link_problem holds, or
+    it can't be opened (a broken or looping link, a folder). Every reader of such a file goes through it, so one bad
+    file is skipped or reported, never a traceback that hides the rest."""
+    rel = rel.replace(os.sep, "/")
+    if link_problem(root, rel):
+        return None, f"{rel} (linked out of the repo or into .git)"
+    try:
+        with open(os.path.join(root, rel), encoding="utf-8", errors="replace") as f:
+            return f.read(limit), None
+    except OSError as e:
+        return None, f"{rel} ({e.strerror or type(e).__name__})"
 
 
 def fixed_problem(p, rel):
@@ -2201,9 +2254,10 @@ def area_rules(p):
             with open(os.path.join(d, name), encoding="utf-8") as f:
                 rules.append((f"templates/project/rules/{name}", render_text(f.read(), p)))
     for path in sorted(glob.glob(p.path(".claude/rules/*.md"))):
-        if not os.path.basename(path).startswith("sdlc") and not link_problem(p.root, os.path.relpath(path, p.root)):
-            with open(path, encoding="utf-8") as f:
-                rules.append((f".claude/rules/{os.path.basename(path)}", f.read()))
+        if not os.path.basename(path).startswith("sdlc"):
+            text, why = repo_text(p.root, os.path.relpath(path, p.root))
+            if not why:
+                rules.append((f".claude/rules/{os.path.basename(path)}", text))
     return rules
 
 
@@ -2215,10 +2269,9 @@ def agents_block(p):
         parts = [f"<!-- sdlc:begin · generated by sdlc {plugin_version()} from CLAUDE.md, .claude/rules/ and the "
                  "plugin's policy rules; edit those, then rebuild it with the sdlc setup or upgrade -->",
                  "## Working in this repo (sdlc)", render_text(f.read(), p).strip()]
-    claude_md = p.path("CLAUDE.md")
-    if os.path.exists(claude_md) and not link_problem(p.root, "CLAUDE.md"):
-        with open(claude_md, encoding="utf-8") as f:
-            parts += ["## Project instructions (from CLAUDE.md)", for_other_tools(f.read(), "CLAUDE.md")]
+    text, why = repo_text(p.root, "CLAUDE.md") if os.path.lexists(p.path("CLAUDE.md")) else (None, "absent")
+    if not why:
+        parts += ["## Project instructions (from CLAUDE.md)", for_other_tools(text, "CLAUDE.md")]
     rules = area_rules(p)
     if rules:
         parts.append("## Area rules")
@@ -2755,7 +2808,7 @@ def cmd_upgrade_plan(p, a):
         item = {"path": path, "template": tpl}
         if state == "outside":  # through a link out of the repo: listed, never rendered over
             plan["outside"].append(path)
-        elif e["class"] == "generated":
+        elif e["class"] == "generated" and not (state == "modified" and p.untracked(path)):
             plan["regenerate"].append(item)
         elif state == "unchanged":
             new = hashlib.sha256(render_source(tpl, p).encode("utf-8")).hexdigest()
@@ -2805,12 +2858,16 @@ def eject_plan(p):
             continue
         if state == "missing":
             plan["already_gone"].append(path)
-        elif e["class"] == "generated" or (state == "unchanged" and not p.merged(e)):
+        elif (e["class"] == "generated" and not (state == "modified" and p.untracked(path))) or (
+                state == "unchanged" and not p.merged(e)):
             plan["delete"].append(path)
         else:
             plan["ask"].append(path)
-    # a fixed-name file through a link out of the repo or into .git: listed, never read or unmerged
-    plan["outside"] += [f for f in FIXED_FILES if fixed_problem(p, f) and f not in plan["outside"]]
+    # a fixed-name file through a link out of the repo or into .git, with something recorded to unmerge from it:
+    # listed (the user unmerges it by hand), never read or unmerged; one sdlc never merged into isn't named
+    merged = lock.get("merged", {})
+    recorded = {f: any(merged.get(k) for k in keys) for f, keys in UNMERGE_KEYS.items()}
+    plan["outside"] += [f for f in FIXED_FILES if recorded.get(f) and fixed_problem(p, f) and f not in plan["outside"]]
     return plan
 
 
@@ -3089,7 +3146,7 @@ def build_parser():
 def main(argv=None):
     a = build_parser().parse_args(argv)
     try:
-        result = a.fn(Project(a.root), a)
+        result = a.fn(Project(a.root), a)  # inside the try: Project refuses a linked config or lock
         code = 0
     except Refused as e:
         result, code = {"refused": str(e)}, 2
