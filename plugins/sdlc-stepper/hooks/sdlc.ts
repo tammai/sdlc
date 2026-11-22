@@ -77,6 +77,22 @@ export function updateLine(answer: string): { phase: Phase; line: string } | nul
   return found
 }
 
+/** The feature a `ship.py <feature>` command ships, or null: the first word after ship.py that isn't a flag (and
+ *  not a flag's value, as in `--root DIR`). */
+export function shipTarget(command: string): string | null {
+  const m = /ship\.py["']?((?:\s+\S+)+)/.exec(command)
+  if (!m) return null
+  const words = (m[1] as string).trim().split(/\s+/)
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i] as string
+    if (/^(&&|\|\||;|\|)$/.test(w)) return null
+    if (w === '--root') { i++; continue }
+    if (w.startsWith('-')) continue
+    return w.replace(/^["']|["']$/g, '')
+  }
+  return null
+}
+
 export function stepFor(phase: Phase, tool: string, input: Record<string, unknown>): string | null {
   const command = typeof input.command === 'string' ? input.command : ''
   const path = typeof input.file_path === 'string' ? input.file_path : ''

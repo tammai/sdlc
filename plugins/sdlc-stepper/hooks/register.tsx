@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { Phase, Step, View } from '../types'
-import { PHASES, makeView, parseBacklog, parseState, stepFor, updateLine } from './sdlc'
+import { PHASES, makeView, parseBacklog, parseState, shipTarget, stepFor, updateLine } from './sdlc'
 import type { IconState } from './desktop'
 import { MINI_H, miniSvg, phaseState } from './desktop'
 
@@ -80,7 +80,9 @@ async function load($: EngineInterface, repos: string[], shown: View | null): Pr
     const s = await text($, c.state)
     const parsed = s ? parseState(c.name, s) : null
     if (!parsed) continue
-    if (parsed.shipped && !(shown && shown.repo === c.repo && shown.feature === parsed.feature)) continue
+    // A shipped feature stays only while it is the one shown and this session shipped it: in a workbench another
+    // session's ship of it looks the same on disk, and must not keep it here or hide older active features
+    if (parsed.shipped && !(shown && shown.repo === c.repo && shown.feature === parsed.feature && shippedHere.has(parsed.feature))) continue
     const b = await text($, c.backlog)
     best = { v: makeView(c.repo, parsed.feature, parsed.phase, b ? parseBacklog(b) : [], parsed.shipped), mtime: c.mtime }
   }
@@ -89,6 +91,8 @@ async function load($: EngineInterface, repos: string[], shown: View | null): Pr
 
 // Found at session start and on each prompt, reused by every tool call between (a reload finds them again)
 let repos: string[] | null = null
+// The features this session ran ship.py for: only those stay on the bar once their record says done
+const shippedHere = new Set<string>()
 // Whether a `Define · …` line was said in the turn that is running: a draft survives the turn's end only if so, so a
 // start that turns out trivial (no state file, no Define line) leaves no Define band behind
 let sawDefine = false
@@ -189,12 +193,16 @@ export const register: Register = on => {
   on('tool.call', async ($, e, next) => {
     const out = await next(e)
     try {
+      const shipped = out.deny === undefined && e.tool === 'Bash' ? shipTarget(String((e as { command?: unknown }).command ?? '')) : null
+      if (shipped) shippedHere.add(shipped)
       const v = await refresh($)
       if (v && out.deny === undefined) {
-        const name = stepFor(v.phase, e.tool, e as unknown as Record<string, unknown>)
-        // a merge that failed (a red check, a conflict) leaves the feature at Ship; a failed run of any other step
-        // is still that step
-        if (name && !(name === 'done' && out.isError)) await update($, step, () => ({ phase: v.phase, name }) satisfies Step)
+        let name = stepFor(v.phase, e.tool, e as unknown as Record<string, unknown>)
+        // a merge that failed (a red check, a conflict) leaves the feature at Ship; checks that pass at Ship finish
+        // it on the bar (nothing left but the merge the user decides); a failed run of any other step is still that step
+        if (name === 'done' && out.isError) name = 'merge failed'
+        else if (name === 'CI' && v.phase === 'Ship' && !out.isError) name = 'CI passed'
+        if (name) await update($, step, () => ({ phase: v.phase, name: name as string }) satisfies Step)
       }
     } catch {
       // a stale band is better than a failed tool call
@@ -228,8 +236,8 @@ export const register: Register = on => {
     if (e.props.hasSurvey || !v) return next(e)
     const s = await read($, step)
     const stepName = s && s.phase === v.phase ? s.name : null
-    // Shipped and merged: every stage done, nothing current
-    const finished = Boolean(v.shipped) && stepName === 'done'
+    // Shipped and merged, or its checks passed at Ship: every stage done, nothing current (nothing pulses)
+    const finished = Boolean(v.shipped) && (stepName === 'done' || stepName === 'CI passed')
     const said = s && s.phase === v.phase ? s.line : undefined  // the agent's own latest update, when it has made one
 
     if (e.surface === 'desktop') {

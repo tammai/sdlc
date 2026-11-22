@@ -1,5 +1,6 @@
 import type { On } from 'claude-code'
 import { expect, test } from 'claude-code/testing'
+import { shipTarget } from '../hooks/sdlc'
 
 const STATE = `# 2026-11-03-m-github-look
 Status: active
@@ -276,6 +277,7 @@ test("the agent's update lines during Ship keep the shipped feature on the bar, 
   }
   await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
   files['.sdlc/state/f.md'] = SHIPPED
+  await $.tool.call({ tool: 'Bash', command: 'python3 "/p/scripts/ship.py" f' })
   await $.tool.call({ tool: 'Bash', command: 'gh pr create --fill' })
   await say('Ship · PR · opened')
   expect(await look()).toEqual({ marks: ['✓', '✓', '✓', '●'], words: 'Ship · PR · opened', feature: 'f' })
@@ -307,6 +309,7 @@ test('merging the PR marks the shipped feature done, and the next prompt clears 
   }
   await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
   files['.sdlc/state/f.md'] = SHIPPED
+  await $.tool.call({ tool: 'Bash', command: 'python3 "/p/scripts/ship.py" f' })
   await $.tool.call({ tool: 'Bash', command: 'gh pr checks 8 --watch' })
   await $.tool.call({ tool: 'Bash', command: 'gh pr merge 8 --squash --delete-branch' })
   expect(await look()).toEqual({ marks: ['✓', '✓', '✓', '✓'], words: 'Ship · done' })
@@ -330,11 +333,12 @@ test('a merge that failed leaves the feature at Ship', async ($, on) => {
   })
   await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
   files['.sdlc/state/f.md'] = SHIPPED
+  await $.tool.call({ tool: 'Bash', command: 'python3 "/p/scripts/ship.py" f' })
   await $.tool.call({ tool: 'Bash', command: 'gh pr checks 8 --watch' })
   await $.tool.call({ tool: 'Bash', command: 'gh pr merge 8 --squash --delete-branch' })
   const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
   expect({ marks: await marks(ui), words: (await ui.find({ type: 'Text', text: /^(Ship|engine)/ }))?.text })
-    .toEqual({ marks: ['✓', '✓', '✓', '●'], words: 'Ship · CI' })
+    .toEqual({ marks: ['✓', '✓', '✓', '●'], words: 'Ship · merge failed' })
   await ui.unmount()
 })
 
@@ -346,6 +350,7 @@ test('the desktop stepper shows every stage done once the PR is merged', async (
   repo(on, files)
   await $.session.start({ cwd: '/repo', surface: 'desktop', isInteractive: true })
   files['.sdlc/state/f.md'] = SHIPPED
+  await $.tool.call({ tool: 'Bash', command: 'python3 "/p/scripts/ship.py" f' })
   await $.tool.call({ tool: 'Bash', command: 'gh pr merge --squash' })
   const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -379,6 +384,7 @@ test('starting the next feature after a ship shows Define, not the shipped one',
   on('prompt.submit', (_, e) => ({ text: e.text }))
   await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
   files['.sdlc/state/f.md'] = SHIPPED
+  await $.tool.call({ tool: 'Bash', command: 'python3 "/p/scripts/ship.py" f' })
   await $.tool.call({ tool: 'Bash', command: 'gh pr checks --watch' })
   await $.prompt.submit({ text: '/sdlc:start add CSV export' })
   const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
@@ -399,6 +405,7 @@ test("the next feature's first Define line replaces the shipped one", async ($, 
   })
   await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
   files['.sdlc/state/f.md'] = SHIPPED
+  await $.tool.call({ tool: 'Bash', command: 'python3 "/p/scripts/ship.py" f' })
   await $.tool.call({ tool: 'Bash', command: 'gh pr checks --watch' })
   said = 'Define · reading · the brief'
   for await (const _ of $.turn.step({ turnId: 't2', index: 0, model: 'sonnet', messageCount: 1 })) void _
@@ -423,6 +430,7 @@ test('resuming an older active feature after a ship shows that feature, not a De
   })
   await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
   files['.sdlc/state/a.md'] = SHIPPED
+  await $.tool.call({ tool: 'Bash', command: 'python3 "/p/scripts/ship.py" a' })
   await $.tool.call({ tool: 'Bash', command: 'gh pr checks --watch' })
   await $.prompt.submit({ text: '/sdlc:start' })
   const look = async () => {
@@ -450,6 +458,7 @@ test('after /clear the shipped feature is not carried into the new conversation'
   })
   await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
   files['.sdlc/state/f.md'] = SHIPPED
+  await $.tool.call({ tool: 'Bash', command: 'python3 "/p/scripts/ship.py" f' })
   await $.tool.call({ tool: 'Bash', command: 'gh pr create --fill' })
   await $.session.end({ reason: 'clear', sessionId: 's1', resume: { id: 's1' } } as never)
   await $.tool.call({ tool: 'Bash', command: 'ls' })
@@ -593,4 +602,53 @@ test('a session started above the repos shows the one with the latest active fea
   expect(await marks(ui)).toEqual(['✓', '✓', '●', '○'])
   expect((await ui.find({ type: 'Text', text: /github-look/ }))?.text).toBe('worktrees/web · github-look')
   await ui.unmount()
+})
+
+test('checks that pass at Ship finish it on the bar; checks that fail leave Ship current', async ($, on) => {
+  const files: Record<string, string> = {
+    '.sdlc/config.json': '{}',
+    '.sdlc/state/f.md': STATE.replace('Stage 2 – Build', 'Stage 3 – Review'),
+  }
+  repo(on, files, {}, /gh pr checks 9/)
+  await $.session.start({ cwd: '/repo', surface: 'desktop', isInteractive: true })
+  files['.sdlc/state/f.md'] = SHIPPED
+  await $.tool.call({ tool: 'Bash', command: 'python3 "/p/scripts/ship.py" f && git commit -F msg.txt' })
+  const look = async (surface: 'terminal' | 'desktop') => {
+    const ui = await $.ui.mount({ ...BAND, surface })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const svg = (await ui.find({ type: 'Svg' })) as any
+    const out = surface === 'desktop'
+      ? { alt: svg?.props?.alt ?? svg?.alt, pulse: /animate/.test(svg?.props?.source ?? svg?.source ?? '') }
+      : { marks: await marks(ui), words: (await ui.find({ type: 'Text', text: /^Ship/ }))?.text }
+    await ui.unmount()
+    return out
+  }
+  await $.tool.call({ tool: 'Bash', command: 'gh pr checks 9 --watch' })  // red
+  expect(await look('terminal')).toEqual({ marks: ['✓', '✓', '✓', '●'], words: 'Ship · CI' })
+  await $.tool.call({ tool: 'Bash', command: 'gh pr checks 8 --watch' })  // green
+  expect(await look('terminal')).toEqual({ marks: ['✓', '✓', '✓', '✓'], words: 'Ship · CI passed' })
+  expect(await look('desktop')).toEqual({ alt: 'Define: done, Build: done, Review: done, Ship: done', pulse: false })
+})
+
+test('a feature another session ships gives way to the older active one here', async ($, on) => {
+  const files: Record<string, string> = {
+    '.sdlc/config.json': '{}',
+    '.sdlc/state/a.md': STATE.replace('Stage 2 – Build', 'Stage 3 – Review'),
+    '.sdlc/state/b.md': STATE,  // still in Build, touched before a
+  }
+  repo(on, files, { '.sdlc/state/a.md': 5 })
+  await $.session.start({ cwd: '/workbench', surface: 'terminal', isInteractive: true })
+  files['.sdlc/state/a.md'] = SHIPPED  // shipped by a parallel session: this one never ran ship.py
+  await $.tool.call({ tool: 'Bash', command: 'ls' })
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect(await marks(ui)).toEqual(['✓', '●', '○', '○'])
+  expect((await ui.find({ type: 'Text', text: /^[ab]$/ }))?.text).toBe('b')
+  await ui.unmount()
+})
+
+test('shipTarget reads the feature a ship.py call names', async () => {
+  expect(shipTarget('python3 "/p/scripts/ship.py" f && git commit -F m')).toBe('f')
+  expect(shipTarget('python3 ship.py --root /w 2026-11-22-s-x --note "a b"')).toBe('2026-11-22-s-x')
+  expect(shipTarget('python3 ship.py && x')).toBe(null)
+  expect(shipTarget('ls')).toBe(null)
 })
