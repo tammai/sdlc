@@ -332,6 +332,26 @@ class DoctorTest(ProjectTestCase):
         self.assertEqual(c["status"], "warn")
         self.assertEqual(c["detail"], "match no files (never load): db.md")
 
+    def test_hostile_rule_paths_finish_fast_and_braces_still_match(self):
+        # .sdlc/2026-11-22-s-rule-paths-stall AC-001 (review L3 of 2026-11-22-s-doctor-reads-no-links)
+        for i in range(300):
+            self.write(f"src/a{i}/b.ts", "")
+        self.write("src/api/x.tsx", "")
+        self.write(".claude/rules/braces.md", '---\npaths:\n  - "' + "{a,b}" * 30 + 'x"\n---\n# b\n')
+        self.write(".claude/rules/stars.md", '---\npaths:\n  - "' + "*" * 60 + 'z"\n  - "' + "**/*" * 12 + 'q"\n---\n# s\n')
+        self.write(".claude/rules/api.md", '---\npaths:\n  - "src/{api,web}/**/*.{ts,tsx}"\n---\n# a\n')
+        self.write(".claude/rules/db.md", '---\npaths:\n  - "db/{migrate,seed}/**"\n---\n# d\n')
+        try:  # a stall fails here, as an assertion, rather than hanging the run
+            p = subprocess.run([sys.executable, DOCTOR, "--root", self.root], capture_output=True, encoding="utf-8",
+                               errors="replace", env={**os.environ, "CLAUDE_PLUGIN_ROOT": PLUGIN_ROOT}, timeout=20)
+        except subprocess.TimeoutExpired:
+            self.fail("doctor stalled on the rule paths")
+        c = {(x["group"], x["check"]): x for x in json.loads(p.stdout)["checks"]}[("repo", "rules paths")]
+        self.assertIn("db.md", c["detail"])  # a plain dead rule is still reported
+        self.assertNotIn("api.md", c["detail"])  # braces with ** still match
+        self.assertNotIn("braces.md", c["detail"])  # too complex to judge: never called dead
+        self.assertIn("stars.md", c["detail"])  # a run of stars is one star: judged, and it matches nothing
+
     def test_hookify_rules_parse(self):
         self.write(".claude/hookify/ok.md", "---\nname: ok\nenabled: true\nevent: bash\npattern: rm\\s+-rf\naction: warn\n---\nmsg\n")
         self.assertEqual(self.check("hookify rules")["status"], "ok")

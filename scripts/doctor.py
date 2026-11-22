@@ -152,19 +152,55 @@ def check_plugin(r):
 
 # --- repo -------------------------------------------------------------------------------------
 
-def expand_braces(pattern):
-    m = re.search(r"\{([^{}]*)\}", pattern)
-    if not m:
-        return [pattern]
-    return [x for alt in m.group(1).split(",") for x in expand_braces(pattern[:m.start()] + alt + pattern[m.end():])]
+GLOB_LIMITS = {"length": 200, "stars": 6, "braces": 6}  # past these a rule's glob isn't judged (never called dead)
+
+
+def glob_regex(pattern):
+    """One compiled regex for a rule's glob (`**/`, `**`, `*`, `?`, `{a,b}` nested), or None when it's too complex to
+    judge quickly. Braces become an alternation, never an expansion (`{a,b}` thirty times is 2^30 patterns), and a run
+    of `*` or of `**/` is one, so a committed rule can't stall doctor."""
+    pattern = re.sub(r"(?:\*\*/)+", "**/", re.sub(r"\*{3,}", "**", pattern))
+    if (len(pattern) > GLOB_LIMITS["length"] or pattern.count("*") > GLOB_LIMITS["stars"]
+            or pattern.count("{") > GLOB_LIMITS["braces"]):
+        return None
+    out, depth, i = [], 0, 0
+    while i < len(pattern):
+        c = pattern[i]
+        if pattern.startswith("**/", i):
+            out.append("(?:.*/)?")
+            i += 3
+            continue
+        if pattern.startswith("**", i):
+            out.append(".*")
+            i += 2
+            continue
+        if c == "*":
+            out.append("[^/]*")
+        elif c == "?":
+            out.append("[^/]")
+        elif c == "{":
+            out.append("(?:")
+            depth += 1
+        elif c == "}" and depth:
+            out.append(")")
+            depth -= 1
+        elif c == "," and depth:
+            out.append("|")
+        else:
+            out.append(re.escape(c))
+        i += 1
+    if depth:
+        return None  # an unclosed brace: not a glob doctor can judge
+    try:
+        return re.compile("".join(out))
+    except re.error:
+        return None
 
 
 def glob_matches(pattern, files):
-    for p in expand_braces(pattern):
-        rx = re.escape(p).replace(r"\*\*/", "(?:.*/)?").replace(r"\*\*", ".*").replace(r"\*", "[^/]*").replace(r"\?", "[^/]")
-        if any(re.fullmatch(rx, f) for f in files):
-            return True
-    return False
+    """Whether a rule's glob matches any repo file; a glob too complex to judge counts as matching."""
+    rx = glob_regex(pattern)
+    return rx is None or any(rx.fullmatch(f) for f in files)
 
 
 def repo_files(root):
