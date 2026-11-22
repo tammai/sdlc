@@ -1378,6 +1378,32 @@ class ReadOnlyBackstop(WorkbenchFeatureCase):
             json.dump(data, f)
         self.assertEqual(self.watch("Stop").get("decision"), "block")
 
+    def test_an_accept_names_the_dropped_repos_it_clears(self):
+        # todo: `accept read-only` after `scaffold.py workbench remove specs` cleared the report but said "none found"
+        import sdlc_scopes
+        self.assertEqual(self.watch("SessionStart"), {})
+        manifest = sdlc_scopes.read_repo_json(self.root, "workbench.json")
+        note = self.accept()["systemMessage"]
+        self.assertIn("as they are now: specs", note)  # taken as it is
+        self.assertNotIn("stopped watching", note)
+        for repos, names, gone in (([r for r in manifest["repos"] if r["name"] != "specs"], (), "specs"),  # dropped
+                                   ([dict(r, write=True) if r["name"] == "specs" else r for r in manifest["repos"]],
+                                    ("specs",), "specs"),  # made writable, accepted by name
+                                   ([r for r in manifest["repos"] if r["name"] != "api"], ("api",), "api")):
+            # (a writable repo dropped from the manifest is reported too, and named when cleared)
+            self.write_json("workbench.json", {"repos": repos})
+            self.assertEqual(self.watch("PostToolUse").get("decision"), "block")
+            note = self.accept(*names)["systemMessage"]
+            self.assertNotIn("none found", note)
+            self.assertIn("stopped watching", note)
+            self.assertIn(gone, note.split("stopped watching", 1)[1])
+            self.assertEqual(self.watch("Stop"), {})
+            # a second accept has nothing left to clear
+            self.assertIn("none found", self.accept(*names)["systemMessage"])
+            self.write_json("workbench.json", manifest)
+            self.watch("PostToolUse")
+            self.accept()
+
     def test_the_control_files_cannot_turn_the_watch_off(self):
         # .sdlc/2026-11-22-s-workbench-control-files (security-r7 SR7-M3)
         import sdlc_scopes
