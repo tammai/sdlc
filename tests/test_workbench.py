@@ -293,6 +293,24 @@ class WorkbenchGuards(WorkbenchGuardsCase):
             self.assertIsNone(self.pre("Bash", command="cd api && echo forbidden"), config)
             self.assertIsNone(self.pre("Write", file_path=self.path("api/src/a.ts"), content="SECRET=1"), config)
 
+    def test_a_monitor_command_meets_the_read_only_guard(self):
+        # .sdlc/2026-11-22-s-monitor-read-only-guard AC-001: the Monitor tool runs a shell command, judged as sh
+        for command in ("echo hi > specs/a.md", "cd specs && rm a.md", "until false; do touch specs/x; done",
+                        "rm ~/.cache/sdlc/read-only-baseline.json"):
+            self.assertIsNotNone(self.pre("Monitor", command=command, description="d"), command)
+        self.assertIn("@org/ba", self.pre("Monitor", command="tail -f log > specs/a.md", description="d"))
+        for command in ("tail -f specs/a.md", "until grep -q done api/log; do sleep 2; done"):
+            self.assertIsNone(self.pre("Monitor", command=command, description="d"), command)
+
+    def test_hooks_json_sends_monitor_to_the_read_only_guard(self):
+        # AC-002: the PreToolUse entry that runs pretooluse.py matches the Monitor tool, and keeps the others
+        with open(os.path.join(HOOKS, "hooks.json"), encoding="utf-8") as f:
+            pre = json.load(f)["hooks"]["PreToolUse"]
+        matchers = [e["matcher"] for e in pre if any("pretooluse.py" in h.get("command", "") for h in e["hooks"])]
+        self.assertEqual(len(matchers), 1)
+        self.assertEqual(set(matchers[0].split("|")),
+                         {"Bash", "PowerShell", "Monitor", "Edit", "Write", "MultiEdit", "NotebookEdit"})
+
     def test_writes_into_a_read_only_repo_are_denied(self):
         specs = self.path("specs")
         denied = [("Write", {"file_path": self.path("specs/b.md"), "content": "x"}),

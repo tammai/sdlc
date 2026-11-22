@@ -7,6 +7,8 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 ### Security
 - **A committed lock can't make an upgrade copy a file from outside the plugin.** `.sdlc/scaffold.lock.json` names each file's template, and an upgrade renders it without asking: an absolute, `../` or linked template path read any local file (an SSH key, a token) into the repo. A template is now only one of the plugin's own (a known `builtin:`, or a path under its `templates/` that resolves inside it), checked on the lock and on `render`, `record` and `preview`; and nothing is recorded, rendered or deleted in a `.git` folder, written or reached through a link, Windows aliases included.
 
+- **A Monitor command meets the workbench's read-only guard.** The Monitor tool runs a shell command, but only Bash and PowerShell calls were checked, so in a workbench a Monitor command could write a read-only repo, an app repo no feature had branched, a recorded acceptance test, or the read-only watch's files. It is now judged as a Bash command.
+
 ### Fixed
 - **Upgrade and eject keep a file you merged.** After an upgrade's "apply merge", the next upgrade replaced the file with the template and eject deleted it without asking, since the merge was recorded like a plain render. A merged file is now reviewed only when the template changed since, asked about on eject, and never overwritten by `render --if-unchanged`.
 - **Commits and pushes through PowerShell get the commit security review.** On Windows, where Claude Code runs commands in its PowerShell tool, they were never reviewed.
