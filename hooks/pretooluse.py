@@ -8,7 +8,6 @@ It reads .claude/hookify.*.local.md files and evaluates rules.
 import os
 import sys
 import json
-import re
 
 # Add plugin root to Python path for imports
 PLUGIN_ROOT = os.environ.get('CLAUDE_PLUGIN_ROOT')
@@ -64,15 +63,20 @@ def _read_only_write(input_data):
         return None
 
 
-MONITOR_COMMIT = re.compile(r"\bgit\b[^;&|\n]*\b(?:commit|push)\b|(?:^|[\s;&|(])gt\s+\w")
-
-
 def _monitor_commit(input_data):
     """The deny reason when a Monitor command commits or pushes: the commit and push security reviews run after a
-    Bash or PowerShell call, and a Monitor call's end isn't its command's, so it would skip them."""
+    Bash or PowerShell call, and a Monitor call's end isn't its command's, so it would skip them. The review hook's
+    own patterns decide, so Monitor is denied exactly where Bash would get a commit or push review."""
     if input_data.get("tool_name") != "Monitor":
         return None
-    if MONITOR_COMMIT.search(str((input_data.get("tool_input") or {}).get("command") or "")):
+    command = str((input_data.get("tool_input") or {}).get("command") or "")
+    try:
+        import git_commands  # a leaf module: the review hook's own patterns, nothing else
+        reviewed = git_commands.GIT_COMMIT_RE.search(command) or git_commands.GIT_PUSH_RE.search(command)
+    except Exception:  # never off on an error: anything that looks like a commit or push is denied
+        import re
+        reviewed = re.search(r"\bg(?:i)?t\b.*\b(?:commit|push|submit|create|modify)\b", command)
+    if reviewed:
         return ("sdlc: run git commit and git push with the Bash tool, not Monitor: they get their security review "
                 "there.")
     return None

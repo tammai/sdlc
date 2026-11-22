@@ -10,7 +10,8 @@ role_guard denies the writes it can read in a command's text; this sees a change
   PostToolUse(Failure)       after a call that can write: a new difference is said once, naming what changed
   Stop                       any difference blocks Stop once (never a loop); never seeded yet: the first look
   UserPromptSubmit           the user's prompt `accept read-only [REPO…]` takes the repos as they are now (the guard
-                             denies a call that runs this script itself); a repo back to its first look after an
+                             denies a call that runs this script itself), and says which it took and which dropped
+                             ones (made writable or removed) it stopped watching; a repo back to its first look after an
                              accept is taken again silently
 
 The baseline lives outside the repo, in the plugin's data folder (CLAUDE_PLUGIN_DATA, else ~/.cache/sdlc), one file
@@ -54,6 +55,12 @@ def baseline_path(root):
             return named
     except (OSError, IndexError):
         pass
+    return default_baseline_path(root)
+
+
+def default_baseline_path(root):
+    """This host's own baseline file for the workbench, whatever the marker names (the review gate reads only this
+    one: the marker is in the workbench, so the agent can point it at a file it wrote)."""
     key = hashlib.sha256(os.path.normcase(os.path.realpath(root)).encode("utf-8")).hexdigest()[:16]
     return os.path.join(data_dir(), f"{BASELINE_NAME}-{key}.json")
 
@@ -153,12 +160,20 @@ def first_look(folder):
 
 def seed(root, listed, names=None, members=None):
     """Take the named repos (default: every listed one) as they are now, and mark the workbench seeded. A repo no
-    longer listed that the accept covers is dropped (its baseline and first look); one it doesn't cover stays watched."""
+    longer listed that the accept covers is dropped (its baseline and first look); one it doesn't cover stays watched.
+    Returns the repos taken and the dropped ones the accept stopped watching."""
     path = baseline_path(root)
     data = load(path) or {"repos": {}}
     if not isinstance(data.get("first"), dict):
         data["first"] = {}
     covered = (lambda n: True) if names is None else (lambda n: n in names)
+    members = set(members or listed)
+    # what the accept clears: a covered repo the baseline still watches that isn't read-only now, or one gone from
+    # the manifest
+    watched = set(data["repos"]) | set(_names(data.get("read_only")) or []) | set(_names(data.get("flipped")) or [])
+    cleared = sorted(n for n in watched if n not in listed and covered(n))
+    cleared += sorted(n for n in _names(data.get("members")) or []
+                      if n not in members and covered(n) and n not in cleared)
     for name in list(data["repos"]):
         if name not in listed and covered(name):
             del data["repos"][name]
@@ -178,7 +193,6 @@ def seed(root, listed, names=None, members=None):
     # the repos that must stay read-only: those listed now, and any that stopped being read-only but weren't accepted
     kept = [n for n in _names(data.get("read_only")) or [] if n not in listed and not covered(n)]
     data["read_only"] = sorted(set(listed) | set(kept))
-    members = set(members or listed)
     gone = [n for n in _names(data.get("members")) or [] if n not in members and not covered(n)]
     data["members"] = sorted(members | set(gone))  # every listed repo: one dropped from the manifest is reported
     data["flipped"] = sorted(n for n in _names(data.get("flipped")) or [] if not covered(n))
@@ -188,7 +202,7 @@ def seed(root, listed, names=None, members=None):
     os.makedirs(os.path.dirname(marker), exist_ok=True)
     with open(marker, "w", encoding="utf-8") as f:
         f.write(f"the read-only watch's baseline for this workbench:\n{path}\n")
-    return done
+    return done, cleared
 
 
 def _names(value):
@@ -216,8 +230,8 @@ def look(root, listed, members=None):
             data[key] = []
     if "read_only" not in data:  # a baseline from before the list: the repos it watched, too
         data["read_only"], grown = sorted(set(listed) | set(base)), True
-    if "members" not in data and members is not None:
-        data["members"], grown = sorted(members | set(data["read_only"])), True
+    if members is not None and not members <= set(data.get("members") or []):  # every name the manifest ever listed
+        data["members"], grown = sorted(set(data.get("members") or []) | members | set(data["read_only"])), True
     flipped = set(data.get("flipped") or [])
     for name in data["read_only"]:
         if name not in listed and name not in flipped:  # a control-file flip stays said until the user accepts it
@@ -302,8 +316,13 @@ def main():
             print(json.dumps({"systemMessage": note,
                               "hookSpecificOutput": {"hookEventName": event, "additionalContext": note}}))
             return
-        done = seed(root, listed, names, members)
-        note = f"sdlc: accepted the read-only repos as they are now: {', '.join(done) or 'none found'}."
+        done, cleared = seed(root, listed, names, members)
+        taken = ", ".join(done) or ("none" if cleared else "none found")
+        note = f"sdlc: accepted the read-only repos as they are now: {taken}"
+        if cleared:
+            note += (f"; stopped watching the repos made writable or removed in {sdlc_scopes.WORKBENCH_FILE}: "
+                     f"{', '.join(cleared)}")
+        note += "."
         print(json.dumps({"systemMessage": note,
                           "hookSpecificOutput": {"hookEventName": event, "additionalContext": note}}))
         return

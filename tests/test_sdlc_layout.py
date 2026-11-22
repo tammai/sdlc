@@ -120,3 +120,66 @@ class LinkedConfigReadersTest(ProjectTestCase):
         except subprocess.TimeoutExpired:
             self.fail("a config reader opened the linked FIFO")
         self.assertEqual(p.returncode, 0, p.stderr)
+
+
+class GitSegmentTest(ProjectTestCase):
+    """One `.git` segment rule (sdlc_scopes.git_segment) in every check: case, trailing dots and spaces, the NTFS
+    stream suffix, the code points HFS+ ignores and the 8.3 short name `git~1` all open a git dir somewhere."""
+    SPELLINGS = (".GIT", ".git. ", "GIT~1", "git~1", ".git::$INDEX_ALLOCATION", ".g‌it", "﻿.git", ".gi⁪t")
+
+    def test_the_shared_helper_names_every_spelling(self):
+        import sdlc_scopes
+        for seg in self.SPELLINGS + (".git",):
+            self.assertTrue(sdlc_scopes.git_segment(seg), seg)
+        for seg in (".github", ".gitignore", "git", "gitx~1", "x"):
+            self.assertFalse(sdlc_scopes.git_segment(seg), seg)
+
+    def test_no_check_keeps_its_own_copy(self):
+        # the HFS+ code point table lives once, so the checks can't drift apart
+        hits = []
+        for folder in ("hooks", "scripts"):
+            for name in sorted(os.listdir(os.path.join(PLUGIN_ROOT, folder))):
+                if name.endswith(".py"):
+                    with open(os.path.join(PLUGIN_ROOT, folder, name), encoding="utf-8") as f:
+                        if "0x200C" in f.read():
+                            hits.append(f"{folder}/{name}")
+        self.assertEqual(hits, ["hooks/sdlc_scopes.py"])
+
+    def test_validate_docs_dir_refuses_every_spelling(self):
+        for seg in self.SPELLINGS:
+            for value in (seg, f"{seg}/x", f"docs/{seg}/x"):
+                with self.assertRaises(ValueError, msg=value):
+                    sdlc_layout.validate_docs_dir(value)
+
+    def test_runbook_path_refuses_every_spelling_at_any_depth(self):
+        sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
+        import scaffold
+        self.assertEqual(scaffold.runbook_path(self.root, "knowledge/deploy.md"), "knowledge/deploy.md")
+        for seg in self.SPELLINGS + (".git",):
+            for value in (f"{seg}/x.md", f"sub/{seg}/x.md"):
+                self.assertIsNone(scaffold.runbook_path(self.root, value), value)
+
+    def test_objects_path_refuses_a_link_into_a_short_named_git_dir(self):
+        sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
+        import objects
+        for value in ("GIT~1/objects.md", ".git::$DATA/objects.md"):
+            with self.assertRaises(ValueError, msg=value):
+                objects.target(self.root, value)
+        os.makedirs(self.path("git~1"))
+        try:  # Windows without the symlink privilege can't make one
+            os.symlink("git~1", self.path("docs"), target_is_directory=True)
+        except (OSError, NotImplementedError):
+            self.skipTest("symlinks unavailable")
+        with self.assertRaises(ValueError):  # the path written is fine; where it leads isn't
+            objects.target(self.root, "docs/objects.md")
+
+
+class GitPrefixedNamesPassTest(ProjectTestCase):
+    def test_names_that_only_start_with_git_are_accepted(self):
+        # end review SP-L2: the shared .git rule must not widen to `.git*`
+        sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
+        import scaffold
+        for name in (".github/docs", ".gitignore-docs", "docs/.git-notes", "a.git/docs"):
+            self.assertEqual(sdlc_layout.validate_docs_dir(name), name)
+        self.write(".github/runbooks/deploy.md", "x")
+        self.assertIsNotNone(scaffold.runbook_path(self.root, ".github/runbooks/deploy.md"))

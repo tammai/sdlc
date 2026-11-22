@@ -80,13 +80,28 @@ def _active_feature(root, shas=()):
     return found[0] if len(found) == 1 else None
 
 
+def _merged(repo, branch, base):
+    """The feature's branch for this repo holds work past its base and is in the remote's default branch
+    (origin/HEAD, else origin/main, origin/master; never a local branch, which a plain `git merge` moves). No fetch:
+    a stale remote ref only keeps the feature longer. Anything it can't tell: False."""
+    tip = _git(repo, "rev-parse", "--verify", "-q", f"refs/heads/{branch}^{{commit}}")
+    start = base and _git(repo, "rev-parse", "--verify", "-q", f"{base}^{{commit}}")
+    if not tip or not start or tip == start or _git(repo, "merge-base", "--is-ancestor", start, tip) is None:
+        return False  # at its base, the branch is trivially in the default branch: nothing merged yet
+    for ref in ("refs/remotes/origin/HEAD", "refs/remotes/origin/main", "refs/remotes/origin/master"):
+        if _git(repo, "rev-parse", "--verify", "-q", f"{ref}^{{commit}}"):
+            return _git(repo, "merge-base", "--is-ancestor", tip, ref) is not None
+    return False
+
+
 def _workbench_feature(repo_root):
     """(member, text) for a repo cloned in a workbench. member: the folder above it is a workbench (a broken workbench
     config counts) whose workbench.json lists it, whatever the repo's own config says; text: the state of the one
-    workbench feature that owns its commits (active, or done while the repo is on the branch the feature made for it
-    or its PR isn't recorded yet: Ship sets `Status: done` before the app repos commit, and a CI fix commits there
-    after the PR; a recorded PR doesn't end it on that branch, since anyone can record one), "" when unsure (several, or a manifest it can't read), None when
-    none does. Not a member: (False, None)."""
+    workbench feature that owns its commits, "" when unsure (several, or a manifest it can't read), None when none
+    does. Not a member: (False, None). An active feature owns them, and one listing this repo wins over done ones; a
+    done feature owns them on any branch, detached HEAD included, until its branch for this repo is merged into the
+    remote's default branch (_merged): Ship sets `Status: done` before the app repos commit and a CI fix commits
+    after the PR, and the state file (a recorded PR) and a checkout are the agent's to change, so neither ends it."""
     import sdlc_scopes  # noqa: PLC0415
     repo = os.path.abspath(repo_root)
     wb, name = os.path.dirname(repo), os.path.basename(repo)
@@ -99,8 +114,10 @@ def _workbench_feature(repo_root):
     if listed is not None and name not in listed:
         if not os.path.isfile(os.path.join(wb, sdlc_scopes.SEEDED_MARKER)):
             return False, None
-        return True, ""  # a seeded workbench's repo dropped from the manifest: unsure, so reviewed
-    owners, current = [], None
+        # a seeded workbench's unlisted folder: unsure, so reviewed. A scratch clone pays a review; telling it from a
+        # repo dropped from the manifest needs a record the agent can't outrun (end review r2 of 2026-11-22-todo-lanes)
+        return True, ""
+    owners = []  # (text, active)
     for f in sdlc_layout.features(wb).values():
         try:
             with open(os.path.join(wb, f["state"]), encoding="utf-8") as fh:
@@ -109,23 +126,24 @@ def _workbench_feature(repo_root):
             continue
         if not sdlc_layout.PROCESS_RE.search(text):
             continue
-        active = re.search(r"^Status:[ \t]*active[ \t]*(\(|$)", text, re.M | re.I)
-        branch = (sdlc_scopes.feature_repos(text).get(name) or {}).get("branch")
-        shipping = False
-        if branch and re.search(r"^Status:[ \t]*done", text, re.M | re.I):
-            if current is None:
-                current = _git(repo, "branch", "--show-current") or ""
-            # on its branch (a recorded PR, which anyone can write, never ends that), or anywhere until a PR is
-            # recorded (a detached HEAD or another branch mid-Ship must not leave a commit unreviewed)
-            shipping = current == branch or name not in sdlc_scopes.feature_prs(text)
+        active = bool(re.search(r"^Status:[ \t]*active[ \t]*(\(|$)", text, re.M | re.I))
+        rec = sdlc_scopes.feature_repos(text).get(name) or {}
+        shipping = (not active and bool(rec.get("branch")) and bool(re.search(r"^Status:[ \t]*done", text, re.M | re.I))
+                    and not _merged(repo, rec["branch"], rec.get("base")))
         if active or shipping:
-            owners.append(text)
+            owners.append((text, active))
     if listed is None:
         return True, ""
-    mine = [t for t in owners if name in sdlc_scopes.feature_repos(t)]
+    mine = [o for o in owners if name in sdlc_scopes.feature_repos(o[0])]
+    current = [t for t, active in mine if active]
+    if len(current) == 1:
+        # a done owner whose commits may still come (a CI fix on its branch) keeps its own Risk: high in force
+        if any(re.search(r"^Risk:\s*high\b", t, re.M | re.I) for t, active in mine if not active):
+            return True, ""
+        return True, current[0]
     if len(mine) == 1:
-        return True, mine[0]
-    return True, ("" if mine or len(owners) > 1 else (owners[0] if owners else None))
+        return True, mine[0][0]
+    return True, ("" if mine or len(owners) > 1 else (owners[0][0] if owners else None))
 
 
 def _always():

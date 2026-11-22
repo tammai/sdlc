@@ -403,7 +403,15 @@ class Project:
         def git(*args):  # literal pathspecs: a `*` or `:!` in a recorded name is just a character
             return subprocess.run(["git", "--literal-pathspecs", "-C", self.root, *args], capture_output=True,
                                   encoding="utf-8", errors="replace")
-        repo = os.path.lexists(os.path.join(self.root, ".git"))
+        # In a repo, at its top or below it (a monorepo package): a `.git` here or in any parent, or GIT_DIR set. When
+        # git can't answer there, every file counts as untracked (fail closed), never as tracked
+        repo = bool(os.environ.get("GIT_DIR"))
+        for d in {os.path.abspath(self.root), os.path.realpath(self.root)}:  # the real parents too: git walks those
+            while not repo:
+                repo = os.path.lexists(os.path.join(d, ".git"))
+                if os.path.dirname(d) == d:
+                    break
+                d = os.path.dirname(d)
         try:
             if git("rev-parse", "--is-inside-work-tree").stdout.strip() != "true":
                 return repo  # a repo git refuses (safe.directory, a bad GIT_DIR): count it untracked, so it's kept
@@ -712,10 +720,19 @@ def plugin_enabled(root, plugin_id):
 
 def impeccable_hook_off(root):
     """impeccable's own off switch for its detector hook (`/impeccable hooks off`): `hook.enabled: false` in
-    `.impeccable/config.json` or the machine's `config.local.json`, the later winning."""
+    `.impeccable/config.json` or the machine's `config.local.json`, the later winning. The committed one is read
+    through sdlc_scopes.read_repo_text: a link out of the repo or into .git reads as absent."""
     off = False
     for name in ("config.json", "config.local.json"):
-        hook = read_json(os.path.join(root, ".impeccable", name), {}).get("hook")
+        if name == "config.json":
+            text = sdlc_scopes.read_repo_text(root, ".impeccable/config.json")
+            try:
+                data = json.loads(text) if text is not None else {}
+            except json.JSONDecodeError as e:
+                raise ValueError(f"{os.path.join(root, '.impeccable', name)} is not valid JSON: {e}")
+        else:
+            data = read_json(os.path.join(root, ".impeccable", name), {})
+        hook = data.get("hook") if isinstance(data, dict) else None
         if isinstance(hook, dict) and "enabled" in hook:
             off = hook["enabled"] is False
     return off
@@ -1525,15 +1542,7 @@ def template_problem(template):
     return None if inside else f"template {template!r} resolves outside the plugin's templates/"
 
 
-# The code points HFS+ ignores in a name (git's is_hfs_dotgit), so `.g\u200cit` opens `.git` there
-HFS_IGNORED = dict.fromkeys([0x200C, 0x200D, 0x200E, 0x200F, *range(0x202A, 0x202F), *range(0x206A, 0x2070), 0xFEFF])
-
-
-def _git_segment(seg):
-    """A path segment a filesystem opens as a git dir: `.git` in any case, with the trailing dots or spaces and the
-    NTFS stream suffix Windows ignores, the code points HFS+ ignores, or its 8.3 short name."""
-    seg = seg.translate(HFS_IGNORED).split(":", 1)[0].rstrip(". ").lower()
-    return seg in (".git", "git~1")
+_git_segment = sdlc_scopes.git_segment  # the one `.git` segment rule every check shares
 
 
 def git_internal(path, root=None):
@@ -2561,7 +2570,9 @@ def runbook_path(root, value):
     if not real.startswith(real_root + os.sep):
         return None
     for path in (norm, os.path.relpath(real, real_root).replace(os.sep, "/")):
-        if not path.lower().endswith(".md") or path.split("/")[0].lower() in RUNBOOK_EXCLUDED:
+        parts = path.split("/")
+        if not path.lower().endswith(".md") or parts[0].rstrip(". ").lower() in RUNBOOK_EXCLUDED or \
+                any(_git_segment(x) for x in parts):  # a git dir at any depth, in any spelling
             return None
     return norm
 
@@ -2871,6 +2882,15 @@ def eject_plan(p):
     return plan
 
 
+def _is_link(path):
+    """A symlink, or a Windows junction (which os.path.islink doesn't report before Python 3.12)."""
+    try:
+        st = os.lstat(path)
+    except OSError:
+        return False
+    return stat.S_ISLNK(st.st_mode) or getattr(st, "st_reparse_tag", 0) in (0xA0000003, 0xA000000C)  # junction, link
+
+
 def cmd_eject(p, a):
     plan = eject_plan(p)
     if not a.apply:
@@ -2901,7 +2921,13 @@ def cmd_eject(p, a):
     p.lock = None
     work = p.path(".sdlc/.work")  # scratch; its .gitignore line is gone, so don't leave it to be committed
     scratch_removed = os.path.isdir(work)
-    if scratch_removed:
+    if _is_link(work):  # a committed link: remove the link itself, never what it points to
+        try:
+            os.unlink(work)
+        except OSError:  # a Windows directory link or junction
+            os.rmdir(work)
+        scratch_removed = True
+    elif scratch_removed:
         shutil.rmtree(work)
     out = {"deleted": deleted, "kept_edited": [x for x in plan["ask"] if x not in extra], "scratch_removed": scratch_removed,
            "unmerged": {SETTINGS: allow + team_keys, LOCAL_SETTINGS: plugin_keys, GITIGNORE: ignore, AGENTS: ["sdlc block"] if agents else []},

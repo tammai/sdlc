@@ -105,7 +105,8 @@ def _refused(rel, barred, legacy):
         return "a name with a control or format character"
     if not rel.lower().endswith(".md"):
         return "a file that isn't .md"
-    hit = barred & set(_parts(rel))
+    import sdlc_scopes  # its one `.git` rule, which also catches GIT~1 and an NTFS stream suffix
+    hit = barred & set(_parts(rel)) | ({".git"} if any(sdlc_scopes.git_segment(p) for p in rel.split("/")) else set())
     if hit and not legacy:
         return f"a file in {', '.join(sorted(hit))}, where sdlc's own files live"
     return None

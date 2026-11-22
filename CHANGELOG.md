@@ -21,7 +21,15 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 - **A Monitor command can't commit or push:** run those with Bash, where the commit and push security reviews run.
 - **A Monitor command meets the review-cap hold and the read-only watch's per-call check**, as Bash does.
 
+- **Workbench: a done feature keeps the commit review on its app repos until its branch is merged upstream**, on any branch and whatever PR is recorded. A high-risk done feature stays reviewed beside a new one.
+- **Workbench: a turn run from the workbench root gets the turn-end review in the app repo it edited**; before, no app repo was reviewed. The root keeps it when its own edits lead or touch steering files.
+- **Every `.git` check shares one rule** (case, trailing dots and spaces, NTFS stream suffix, 8.3 name, HFS+ code points).
+- **The Monitor deny uses the commit and push reviews' own patterns**, and stays on if they can't load.
+
 ### Fixed
+- **Eject removes a linked `.sdlc/.work` as a link** instead of crashing after the lock was gone.
+- **`.impeccable/config.json` is never read through a committed link**, and an upgrade or eject never overwrites an untracked file in a project below the git toplevel or opened through a link.
+- **`accept read-only` names the repos it stopped watching.**
 - **Upgrade and eject keep a file you merged.** After an upgrade's "apply merge", the next upgrade replaced the file with the template and eject deleted it without asking, since the merge was recorded like a plain render. A merged file is now reviewed only when the template changed since, asked about on eject, and never overwritten by `render --if-unchanged`.
 - **Commits and pushes through PowerShell get the commit security review.** On Windows, where Claude Code runs commands in its PowerShell tool, they were never reviewed.
 - **A folder named `..something` is inside the project.** The freshness hook and the turn's security-review diff treated `..hidden/` as outside it.

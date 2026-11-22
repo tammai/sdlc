@@ -14,6 +14,8 @@ RES_COMMAND = 2
 RES_SHA_SCAN = 3
 RES_TOUCHED_PATHS = 4
 RES_HINT = 5
+# sdlc patch: a session at a workbench root that edited an app repo below it
+RES_WORKBENCH_APP = 6
 
 COMMIT_SUBCOMMANDS = {("git", "commit"), ("gt", "create"), ("gt", "modify")}
 PUSH_SUBCOMMANDS = {("git", "push"), ("gt", "submit")}
@@ -241,8 +243,8 @@ def repo_containing_commit(sha, roots, budget_s=None):
     return None
 
 
-def repos_from_paths(paths, cwd=None, limit=200):
-    counts = {}
+def repos_from_paths(paths, cwd=None, limit=200, counts=None):
+    counts = {} if counts is None else counts
     order = []
     cache = {}
     for p in list(paths or [])[:limit]:
@@ -303,6 +305,44 @@ def load_repo_hint(session_id):
 _UNSET = object()
 
 
+def _workbench_app_repo(root, touched_paths, cwd):
+    """sdlc patch: when `root` is a workbench, its .gitignore hides the app repos one level below it, so the
+    turn's edits there are not in its diff. The app repo with the most touched paths (a tie: the first by name),
+    or None: not a workbench, or no touched path in an app repo. Never raises."""
+    if not touched_paths:
+        return None
+    try:
+        import sdlc_scopes  # noqa: PLC0415
+        if not sdlc_scopes.guarded_workbench(root):
+            return None
+        counts = {}
+        repos_from_paths(touched_paths, cwd or root, counts=counts)
+        apps = [t for t in counts
+                if t != root and os.path.dirname(os.path.realpath(t)) == os.path.realpath(root)]
+        if not apps:
+            return None
+        best = min(apps, key=lambda t: (-counts[t], t))
+        # the root keeps the review when its own edits are as many (counted the same resolved way as the apps'), or
+        # steer the agent (CLAUDE.md, hooks, config), matched on the resolved path and in any case
+        if counts.get(root, 0) >= counts[best]:
+            return None
+        import sdlc_review_gate  # noqa: PLC0415
+        real_root, real_apps = os.path.realpath(root), [os.path.realpath(a) for a in apps]
+        for p in touched_paths:
+            try:
+                real = os.path.realpath(os.path.expanduser(p if os.path.isabs(p) else os.path.join(cwd or root, p)))
+                if any(real == a or real.startswith(a + os.sep) for a in real_apps):
+                    continue
+                rel = os.path.relpath(real, real_root).replace(os.sep, "/")
+            except (ValueError, OSError):
+                continue  # another drive: not the root's
+            if not rel.startswith("..") and re.match(sdlc_review_gate.NEVER_SKIP.pattern, rel, re.I):
+                return None
+        return best
+    except Exception:
+        return None
+
+
 def resolve_repo_root(cwd, command=None, subcommands=None, sha=None,
                       touched_paths=None, session_id=None, cwd_root=_UNSET):
     if cwd_root is _UNSET:
@@ -312,6 +352,9 @@ def resolve_repo_root(cwd, command=None, subcommands=None, sha=None,
         if top and top != cwd_root:
             return top, RES_COMMAND
     if cwd_root:
+        app = _workbench_app_repo(cwd_root, touched_paths, cwd)
+        if app:
+            return app, RES_WORKBENCH_APP
         return cwd_root, RES_CWD
     if touched_paths:
         tops = repos_from_paths(touched_paths, cwd)

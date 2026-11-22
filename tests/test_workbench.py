@@ -334,13 +334,28 @@ class WorkbenchGuards(WorkbenchGuardsCase):
 
     def test_a_monitor_command_cannot_commit_or_push(self):
         # end-of-push review r1 SH-H5: the commit and push reviews run after a Bash call; a Monitor one would skip them
+        # Denied exactly where a Bash call would get a commit or push review: the review hook's own patterns decide
         for command in ("git commit -am x", "cd api && git commit -m y && git push", "git -C api push origin HEAD",
-                        "gt submit"):
+                        "gt submit", "git -c user.name=x commit -m y", "git -C api commit -m y",
+                        "git --no-pager -c core.editor=true commit -m y", "make && git commit -m y",
+                        "git --git-dir=.git push", "gt create -m x", "gt modify",
+                        "git -c 'alias.x=!a;b' commit -m y"):
             reason = self.pre("Monitor", command=command, description="d")
             self.assertIsNotNone(reason, command)
             self.assertIn("Bash", reason)
-        for command in ("tail -f log", "until grep -q done log; do sleep 2; done", "git log --oneline"):
+        for command in ("tail -f log", "until grep -q done log; do sleep 2; done", "git log --oneline",
+                        "git log --grep=push", "git stash push -m x", "git log -S commit", "gt log",
+                        "git merge --no-commit main", "git commit-graph write"):
             self.assertIsNone(self.pre("Monitor", command=command, description="d"), command)
+
+    def test_the_monitor_deny_holds_when_the_review_hook_cannot_load(self):
+        # end review SP-M1: a bad env value broke the review hook's import, and the deny turned itself off
+        from helpers import run_hook
+        payload = {"hook_event_name": "PreToolUse", "tool_name": "Monitor", "cwd": self.root,
+                   "tool_input": {"command": "git -C api commit -m x", "description": "d"}}
+        _, out, _, _ = run_hook(["python3", os.path.join(HOOKS, "pretooluse.py")], payload, self.root,
+                                {"MAX_DIFF_FILES": "x", "MAX_COMMIT_REVIEWS_PER_HOUR": "x"})
+        self.assertEqual((out or {}).get("hookSpecificOutput", {}).get("permissionDecision"), "deny")
 
     def test_hooks_json_sends_monitor_to_the_read_only_guard(self):
         # AC-002: the PreToolUse entry that runs pretooluse.py matches the Monitor tool, and keeps the others
@@ -1301,6 +1316,57 @@ class ReadOnlyBackstop(WorkbenchFeatureCase):
         [name] = [f for f in os.listdir(self.data) if f.startswith("read-only-baseline-")]
         return os.path.join(self.data, name)
 
+    def test_an_unlisted_folder_of_a_seeded_workbench_is_reviewed(self):
+        # end-of-push review R2-L3: a scratch clone in a seeded workbench isn't a member; a repo dropped from the
+        # manifest (one the watch's `members` held) still is, and unsure ownership reviews it
+        import sdlc_review_gate as gate
+        import sdlc_scopes
+        from unittest import mock
+        env = mock.patch.dict(os.environ, {"CLAUDE_PLUGIN_DATA": self.data})  # the gate reads this host's own file
+        env.start()
+        self.addCleanup(env.stop)
+        self.assertEqual(self.watch("SessionStart"), {})
+        scratch = self.path("scratch")
+        git(self.root, "init", "-q", "-b", "main", "scratch")
+        self.write("scratch/a.py", "x = 1\n")
+        git(scratch, "add", "-A")
+        git(scratch, "commit", "-q", "-m", "x")
+        # end review r2: telling a scratch clone from a dropped repo can be outrun, so both are reviewed
+        self.assertEqual(gate._workbench_feature(scratch), (True, ""))
+        self.assertFalse(gate.decide(scratch, [git_out(scratch, "rev-parse", "HEAD")], set()).get("off"))
+        manifest = sdlc_scopes.read_repo_json(self.root, "workbench.json")
+        self.write_json("workbench.json", {"repos": [r for r in manifest["repos"] if r["name"] != "api"]})
+        self.assertEqual(gate._workbench_feature(self.path("api")), (True, ""))
+        # a baseline it can't read: unsure again, so the scratch clone is reviewed
+        os.remove(self.baseline_file())
+        self.assertEqual(gate._workbench_feature(scratch), (True, ""))
+
+    def test_the_gate_reads_only_its_own_baseline_and_members_only_grow(self):
+        # end review of 2026-11-22-todo-lanes: SG-H2 (a repo added after the first look, then dropped), SG-M2 (the
+        # marker pointing the gate at a forged baseline)
+        import sdlc_review_gate as gate
+        import sdlc_scopes
+        from unittest import mock
+        env = mock.patch.dict(os.environ, {"CLAUDE_PLUGIN_DATA": self.data})
+        env.start()
+        self.addCleanup(env.stop)
+        self.assertEqual(self.watch("SessionStart"), {})
+        manifest = sdlc_scopes.read_repo_json(self.root, "workbench.json")
+        git(self.root, "init", "-q", "-b", "main", "extra")
+        self.write_json("workbench.json", {"repos": manifest["repos"] + [
+            {"name": "extra", "url": "u9", "role": "app", "write": True}]})
+        self.watch("PostToolUse")  # the watch sees the new name
+        self.write_json("workbench.json", manifest)  # then it's dropped
+        self.assertEqual(gate._workbench_feature(self.path("extra")), (True, ""))
+        forged = os.path.join(self.data, "elsewhere")
+        os.makedirs(forged)
+        fake = os.path.join(forged, "read-only-baseline-0000000000000000.json")
+        with open(fake, "w", encoding="utf-8") as f:
+            json.dump({"repos": {}, "members": ["other"]}, f)
+        self.write(".sdlc/.work/read-only-seeded", "x\n" + fake + "\n")
+        self.write_json("workbench.json", {"repos": [r for r in manifest["repos"] if r["name"] != "api"]})
+        self.assertEqual(gate._workbench_feature(self.path("api")), (True, ""))  # the real baseline held api
+
     def test_a_write_true_round_trip_is_reported_until_accepted(self):
         # end-of-push review r2 R2-H3: from a clean first look, writable, a commit made to look pushed, read-only
         # again: still reported, until the user accepts
@@ -1371,6 +1437,32 @@ class ReadOnlyBackstop(WorkbenchFeatureCase):
         with open(self.baseline_file(), "w", encoding="utf-8") as f:
             json.dump(data, f)
         self.assertEqual(self.watch("Stop").get("decision"), "block")
+
+    def test_an_accept_names_the_dropped_repos_it_clears(self):
+        # todo: `accept read-only` after `scaffold.py workbench remove specs` cleared the report but said "none found"
+        import sdlc_scopes
+        self.assertEqual(self.watch("SessionStart"), {})
+        manifest = sdlc_scopes.read_repo_json(self.root, "workbench.json")
+        note = self.accept()["systemMessage"]
+        self.assertIn("as they are now: specs", note)  # taken as it is
+        self.assertNotIn("stopped watching", note)
+        for repos, names, gone in (([r for r in manifest["repos"] if r["name"] != "specs"], (), "specs"),  # dropped
+                                   ([dict(r, write=True) if r["name"] == "specs" else r for r in manifest["repos"]],
+                                    ("specs",), "specs"),  # made writable, accepted by name
+                                   ([r for r in manifest["repos"] if r["name"] != "api"], ("api",), "api")):
+            # (a writable repo dropped from the manifest is reported too, and named when cleared)
+            self.write_json("workbench.json", {"repos": repos})
+            self.assertEqual(self.watch("PostToolUse").get("decision"), "block")
+            note = self.accept(*names)["systemMessage"]
+            self.assertNotIn("none found", note)
+            self.assertIn("stopped watching", note)
+            self.assertIn(gone, note.split("stopped watching", 1)[1])
+            self.assertEqual(self.watch("Stop"), {})
+            # a second accept has nothing left to clear
+            self.assertIn("none found", self.accept(*names)["systemMessage"])
+            self.write_json("workbench.json", manifest)
+            self.watch("PostToolUse")
+            self.accept()
 
     def test_the_control_files_cannot_turn_the_watch_off(self):
         # .sdlc/2026-11-22-s-workbench-control-files (security-r7 SR7-M3)
@@ -1626,9 +1718,9 @@ class PluginReviewWorkbench(WorkbenchFeatureCase):
         # .sdlc/2026-11-22-s-done-feature-owns-its-branch AC-001: a recorded PR (real or not) doesn't end it (SR7-M4)
         self.assertEqual(self.state("pr", "feat", "api", "https://example.com/api/pull/1")[0], 0)
         self.assertFalse(gate.decide(api, [sha], set()).get("off"))
-        # AC-002: off the feature's branch, the done feature no longer owns the repo's commits, PR or not (SR7-L2)
+        # Off the feature's branch it still owns them, PR or not, until the branch is merged (SR7-L2, SH-M3)
         git(api, "switch", "-q", "-c", "next-thing")
-        self.assertTrue(gate.decide(api, [sha], set()).get("off"))
+        self.assertFalse(gate.decide(api, [sha], set()).get("off"))
 
     def test_the_turn_end_review_sees_an_app_repos_uncommitted_change(self):
         # .sdlc/2026-11-22-s-stop-review-app-repos AC-001: the Stop review asks the workbench's feature, as decide does
@@ -1645,20 +1737,93 @@ class PluginReviewWorkbench(WorkbenchFeatureCase):
         self.assertEqual(self.state("set", "feat", "Status", "done")[0], 0)
         self.assertEqual(self.state("pr", "feat", "api", "12")[0], 0)
         git(api, "switch", "-q", "-c", "next-thing")
+        self.assertTrue(gate.review_wanted(api))  # the done feature's branch isn't merged: still its change
+        origin = self.path("origin-api.git")
+        git(self.root, "init", "-q", "--bare", origin)
+        git(api, "add", "-A")
+        git(api, "commit", "-q", "-m", "x")
+        git(api, "remote", "add", "origin", origin)
+        git(api, "push", "-q", "origin", "next-thing:main")  # merged: feat-x's tip is in origin's main
+        git(api, "fetch", "-q", "origin")
+        git(api, "branch", "-f", "feat-x", "next-thing")
+        self.write("api/auth/more.py", "x = 1\n")
         self.assertFalse(gate.review_wanted(api))  # nothing owns it now
 
-    def test_a_done_feature_keeps_a_detached_repo_until_its_pr_is_recorded(self):
-        # .sdlc/2026-11-22-s-done-feature-detached AC-001: off the branch but no PR recorded yet, still owned
+    def test_a_done_feature_keeps_a_detached_repo_until_its_branch_is_merged(self):
+        # .sdlc/2026-11-22-s-done-feature-detached AC-001, widened (SR7-L2): off the branch, a recorded PR or not,
+        # still owned while the feature's branch isn't merged
         import sdlc_review_gate as gate
         api = self.path("api")
         self.assertEqual(self.state("repo", "feat", "api")[0], 0)
         self.assertEqual(self.state("set", "feat", "Status", "done")[0], 0)
+        self.assertEqual(self.state("pr", "feat", "api", "https://example.com/api/pull/1")[0], 0)
         git(api, "checkout", "-q", "--detach")
         self.write("api/a.py", "x = 1\n")
         git(api, "add", "-A")
         git(api, "commit", "-q", "-m", "x")
         sha = git_out(api, "rev-parse", "HEAD")
         self.assertFalse(gate.decide(api, [sha], set()).get("off"))
+
+    def test_a_done_feature_owns_its_app_repo_until_its_branch_is_merged(self):
+        # SR7-L2, SH-M3: neither a recorded PR nor a branch switch (state-file writes and checkouts) ends ownership;
+        # the feature's branch merged into the remote's default branch does
+        import sdlc_review_gate as gate
+        api = self.path("api")
+        origin = self.path("origin-api.git")
+        git(self.root, "init", "-q", "--bare", origin)
+        git(api, "remote", "add", "origin", origin)
+        git(api, "push", "-q", "origin", "main")
+        git(api, "fetch", "-q", "origin")
+
+        def commit(name):
+            self.write(f"api/{name}.py", "x = 1\n")
+            git(api, "add", "-A")
+            git(api, "commit", "-q", "-m", name)
+            return git_out(api, "rev-parse", "HEAD")
+
+        def owned(sha):
+            return not gate.decide(api, [sha], set()).get("off")
+
+        self.assertEqual(self.state("repo", "feat", "api")[0], 0)
+        self.assertEqual(self.state("set", "feat", "Status", "done")[0], 0)
+        # the branch still at its base is trivially in origin's main: not merged work, so still owned
+        git(api, "checkout", "-q", "--detach")
+        self.assertTrue(owned(commit("a")))
+        git(api, "switch", "-q", "feat-x")
+        work = commit("b")
+        self.assertEqual(self.state("pr", "feat", "api", "https://example.com/api/pull/1")[0], 0)
+        git(api, "switch", "-q", "-c", "next-thing")
+        self.assertTrue(owned(commit("c")))  # a recorded PR plus a branch switch (SH-M3)
+        git(api, "switch", "-q", "main")
+        git(api, "merge", "-q", "--ff-only", "feat-x")
+        self.assertTrue(owned(commit("d")))  # merged only locally: no remote has it
+        git(api, "push", "-q", "origin", f"{work}:refs/heads/main")
+        git(api, "fetch", "-q", "origin")
+        self.assertFalse(owned(commit("e")))  # merged into origin's main: the feature is over here
+
+    def test_a_high_risk_done_owner_keeps_its_repo_reviewed_beside_an_active_one(self):
+        # end review SG-M1: the new low-risk feature mustn't judge the done high-risk one's commits still to come
+        import sdlc_review_gate as gate
+        self.assertEqual(self.state("repo", "feat", "api")[0], 0)
+        self.assertEqual(self.state("set", "feat", "Risk", "high")[0], 0)
+        self.assertEqual(self.state("set", "feat", "Status", "done")[0], 0)
+        code, out = self.state("new", "feat2", "--track", "S", "--risk", "low", "--task", "y | AC-001 | api/b.py")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(self.state("repo", "feat2", "api")[0], 0)
+        self.assertEqual(gate._workbench_feature(self.path("api")), (True, ""))
+
+    def test_an_active_feature_takes_an_app_repo_from_an_unmerged_done_one(self):
+        # A squash-merged or never-merged done feature lingers; the next active feature on the repo still decides
+        import sdlc_review_gate as gate
+        api = self.path("api")
+        self.assertEqual(self.state("repo", "feat", "api")[0], 0)
+        self.assertEqual(self.state("set", "feat", "Status", "done")[0], 0)
+        code, out = self.state("new", "feat2", "--track", "M", "--risk", "low", "--task", "y | AC-001 | api/b.py")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(self.state("repo", "feat2", "api")[0], 0)
+        member, owner = gate._workbench_feature(api)
+        self.assertTrue(member)
+        self.assertIn("feat2", owner or "")
 
     def test_the_app_repos_own_config_never_turns_its_review_off(self):
         import sdlc_review_gate as gate
@@ -1776,6 +1941,62 @@ class PluginReviewGuards(WorkbenchGuardsCase):
         for needed in ("workbench", "$S repo <name>", "$S pr <name>", "git switch -c <name>"):
             self.assertIn(needed, s_track, needed)
         self.assertIn("git switch -c <f>", read_doc("skills", "orchestrator", "references", "flow.md"))
+
+
+class StopReviewRepo(WorkbenchFeatureCase):
+    """The turn-end review's repo: from the workbench root, the app repo the turn edited, not the root, whose
+    .gitignore hides every app file (todo: the Stop review resolves one repo per turn)."""
+
+    def test_a_turn_at_the_root_is_reviewed_in_the_app_repo_it_edited(self):
+        import reporesolve as rr
+        api, web = self.path("api"), self.path("web")
+        self.assertEqual(rr.resolve_repo_root(self.root, touched_paths=[self.path("api/a.py")]),
+                         (api, rr.RES_WORKBENCH_APP))
+        # paths in two app repos: the busier one; a tie goes to the first by name
+        busier = [self.path("web/a.py"), self.path("api/a.py"), self.path("web/b.py")]
+        self.assertEqual(rr.resolve_repo_root(self.root, touched_paths=busier), (web, rr.RES_WORKBENCH_APP))
+        tie = [self.path("web/a.py"), self.path("api/a.py")]
+        self.assertEqual(rr.resolve_repo_root(self.root, touched_paths=tie), (api, rr.RES_WORKBENCH_APP))
+        # only workbench files touched, or none: the root, as before
+        self.assertEqual(rr.resolve_repo_root(self.root, touched_paths=[self.path("notes.md")]),
+                         (self.root, rr.RES_CWD))
+        self.assertEqual(rr.resolve_repo_root(self.root, touched_paths=[]), (self.root, rr.RES_CWD))
+        # a session inside an app repo keeps its own repo
+        self.assertEqual(rr.resolve_repo_root(api, touched_paths=[self.path("web/a.py")]), (api, rr.RES_CWD))
+
+    def test_the_root_keeps_the_review_when_its_own_edits_lead_or_steer(self):
+        # end review SG-M3: one app file touched must not move the review away from the root's steering edits
+        import reporesolve as rr
+        steer = [self.path("CLAUDE.md"), self.path("api/a.py"), self.path("api/b.py")]
+        self.assertEqual(rr.resolve_repo_root(self.root, touched_paths=steer), (self.root, rr.RES_CWD))
+        more = [self.path("notes.md"), self.path("x.md"), self.path("api/a.py")]
+        self.assertEqual(rr.resolve_repo_root(self.root, touched_paths=more), (self.root, rr.RES_CWD))
+
+    def test_the_root_keeps_steering_edits_through_a_linked_path(self):
+        # end review r2 R2-M1: a path spelled through a link to the root, or in another case, still steers
+        import reporesolve as rr
+        import tempfile
+        away = os.path.realpath(tempfile.mkdtemp(prefix="sdlc-away-"))
+        self.addCleanup(rmtree, away)
+        link = os.path.join(away, "wb")
+        try:
+            os.symlink(self.root, link, target_is_directory=True)
+        except (OSError, NotImplementedError):
+            self.skipTest("symlinks unavailable")
+        touched = [os.path.join(link, "CLAUDE.md"), self.path("api/a.py"), self.path("api/b.py")]
+        self.assertEqual(rr.resolve_repo_root(self.root, touched_paths=touched), (self.root, rr.RES_CWD))
+        touched = [self.path("hooks/x.py").replace("hooks", "HOOKS"), self.path("api/a.py"), self.path("api/b.py")]
+        self.assertEqual(rr.resolve_repo_root(self.root, touched_paths=touched)[0], self.root)
+
+    def test_a_plain_repo_with_a_nested_repo_keeps_the_old_resolution(self):
+        import reporesolve as rr
+        import tempfile
+        lone = os.path.realpath(tempfile.mkdtemp(prefix="sdlc-lone-"))
+        self.addCleanup(rmtree, lone)
+        git(lone, "init", "-q")
+        git(lone, "init", "-q", "inner")
+        self.assertEqual(rr.resolve_repo_root(lone, touched_paths=[os.path.join(lone, "inner", "a.py")]),
+                         (lone, rr.RES_CWD))
 
 
 if __name__ == "__main__":

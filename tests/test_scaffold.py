@@ -883,6 +883,24 @@ class ScaffoldTest(ProjectTestCase):
         self.assertFalse(os.path.exists(self.path(".sdlc/.work")))
         self.assertTrue(os.path.exists(self.path(".sdlc/config.json")))
 
+    def test_eject_removes_a_linked_scratch_folder_but_not_its_target(self):
+        # a committed link at .sdlc/.work: eject removes the link itself, after the lock is gone, never what it
+        # points to, and finishes rather than crashing in rmtree
+        self.setup_for_eject()
+        outside = os.path.realpath(tempfile.mkdtemp(prefix="sdlc-outside-"))
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        with open(os.path.join(outside, "keep.txt"), "w", encoding="utf-8") as f:
+            f.write("mine")
+        shutil.rmtree(self.path(".sdlc/.work"), ignore_errors=True)
+        try:  # Windows without the symlink privilege can't make one
+            os.symlink(outside, self.path(".sdlc/.work"), target_is_directory=True)
+        except (OSError, NotImplementedError):
+            self.skipTest("symlinks unavailable")
+        self.assertTrue(self.sc("eject", "--apply")["scratch_removed"])
+        self.assertFalse(os.path.lexists(self.path(".sdlc/.work")))
+        self.assertFalse(os.path.exists(self.path(".sdlc/scaffold.lock.json")))
+        self.assertEqual(os.listdir(outside), ["keep.txt"])
+
     def test_eject_apply_keeps_user_work(self):
         self.setup_for_eject()
         out = self.sc("eject", "--apply")
@@ -1124,6 +1142,27 @@ class ScaffoldTest(ProjectTestCase):
         self.assertEqual(self.sc("design", "impeccable", env=home)["guardrail"]["kept"], dest)
         self.write(".impeccable/config.local.json", json.dumps({"hook": {"enabled": True}}))  # this machine's on
         self.assertEqual(self.sc("design", "impeccable", env=home)["guardrail"], {"removed": dest})
+
+    def test_impeccable_config_linked_out_of_the_repo_or_into_git_reads_as_absent(self):
+        # a committed .impeccable/config.json is read through sdlc_scopes.read_repo_text (doctor and scaffold both
+        # ask impeccable_hook_off), never through a link out of the repo or into .git
+        sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
+        import scaffold
+        off = json.dumps({"hook": {"enabled": False}})
+        self.write(".impeccable/config.json", off)
+        self.assertTrue(scaffold.impeccable_hook_off(self.root))  # a plain file still reads
+        outside = os.path.realpath(tempfile.mkdtemp(prefix="sdlc-outside-"))
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        with open(os.path.join(outside, "config.json"), "w", encoding="utf-8") as f:
+            f.write(off)
+        self.write(".git/config.json", off)
+        for target in (os.path.join(outside, "config.json"), os.path.join("..", ".git", "config.json")):
+            os.remove(self.path(".impeccable/config.json"))
+            try:  # Windows without the symlink privilege can't make one
+                os.symlink(target, self.path(".impeccable/config.json"))
+            except (OSError, NotImplementedError):
+                self.skipTest("symlinks unavailable")
+            self.assertFalse(scaffold.impeccable_hook_off(self.root), target)
 
     def test_a_skill_folder_impeccable_needs_its_hook_manifest(self):
         self.init()
@@ -1407,6 +1446,39 @@ class ScaffoldTest(ProjectTestCase):
             self.assertTrue(p.untracked("a.txt"))  # git refuses: kept, never overwritten
         finally:
             os.environ.pop("GIT_DIR") if old is None else os.environ.__setitem__("GIT_DIR", old)
+
+    def test_untracked_fails_closed_when_the_project_is_below_the_git_toplevel(self):
+        # a monorepo package: its root holds no .git of its own, so a repo git refuses was read as "no repo", every
+        # file as tracked, and a local file that differs from the lock was rendered over or deleted
+        sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
+        import scaffold
+        self.git("init", "-q", "-b", "main")
+        self.write("pkg/a.txt", "x")
+        self.git("add", "pkg/a.txt")
+        self.git("commit", "-q", "-m", "x")
+        p = scaffold.Project(self.path("pkg"))
+        self.assertFalse(p.untracked("a.txt"))
+        self.assertTrue(p.untracked("b.txt"))
+        old = os.environ.get("GIT_DIR")
+        os.environ["GIT_DIR"] = self.path("nowhere")
+        try:
+            self.assertTrue(p.untracked("a.txt"))  # git refuses: kept, never overwritten
+        finally:
+            os.environ.pop("GIT_DIR") if old is None else os.environ.__setitem__("GIT_DIR", old)
+        shutil.rmtree(self.path(".git"))
+        self.write(".git", "gitdir: nowhere\n")  # a broken worktree link above the project
+        self.assertTrue(p.untracked("a.txt"))
+        # end review SP-H1: the project opened through a link from outside the repo still finds the real parents
+        away = tempfile.mkdtemp(prefix="sdlc-away-")
+        self.addCleanup(shutil.rmtree, away, ignore_errors=True)
+        try:
+            os.symlink(self.path("pkg"), os.path.join(away, "pkg"), target_is_directory=True)
+        except (OSError, NotImplementedError):
+            self.skipTest("symlinks unavailable")
+        self.assertTrue(scaffold.Project(os.path.join(away, "pkg")).untracked("a.txt"))
+        outside = os.path.realpath(tempfile.mkdtemp(prefix="sdlc-norepo-"))
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        self.assertFalse(scaffold.Project(outside).untracked("a.txt"))  # no repo at all: nothing to tell apart
 
     def legacy_repo(self, files):
         self.git("init", "-q", "-b", "main")
