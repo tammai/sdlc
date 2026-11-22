@@ -1,93 +1,117 @@
 # Project setup
 
-Before the first feature, `/sdlc:setup` prepares the repo once; `/sdlc:start` offers it when a repo isn't set up. See [sdlc_setup_phase.svg](../diagrams/sdlc_setup_phase.svg).
+`/sdlc:setup` prepares a repo once, before the first feature. `/sdlc:start` offers it if the repo isn't set up. Step-by-step plays: [Setup and upgrade](Setup-and-upgrade.md).
 
-**The project's commands.** Setup records the repo's own `install`, `test`, `lint`, `typecheck` and `build` commands in `.sdlc/config.json`, exactly as the team runs them (`pnpm test`, `go test ./...`, `make lint`, …); a step the repo doesn't have is `null`. Everything that runs them reads them from there, so nothing in the plugin is stack-specific. A monorepo lists `packages`, each with a path, a stack and its own commands, run from its directory; a polyglot repo is several packages with different stacks.
+```mermaid
+flowchart TD
+    S["/sdlc:setup"] --> BR["Branch sdlc/setup<br/>(one commit per step, resumable)"]
+    BR --> K{"Source code?"}
+    K -->|no| G["Greenfield: stack interview, proposal, you approve, generate skeleton"]
+    K -->|yes| BF["Brownfield: record commands, baseline, audit, migrate AI configs"]
+    G --> C["Common steps: rules, guardrails, CI, PRD, constitution,<br/>design system, knowledge, deploy, review rounds"]
+    BF --> C
+    C --> M["Merge locally, no push"]
+```
 
-**It adds no tooling you didn't ask for.** Setup never changes the product's manifest or dependencies: no new fields (`bin`, `engines`, `packageManager`, scripts), no new linter, formatter or devDependency, and no tool installed without asking.
+![Setup phase in detail](../diagrams/sdlc_setup_phase.svg)
 
-- **Greenfield** (no source yet): a short stack interview, then a proposal you approve, starting from the preferred stacks (Nuxt, Vue, React, Next.js, Flutter, native iOS and Android, Node with Hono, Go with Gin, Python with FastAPI; `skills/setting-up-projects/references/stacks.md`). Its **Choosing a stack** table picks the web and mobile apps, the backend language and the shape (one deployable, or a standalone API with clients) from three extra answers: whether anything outside the product calls the API, the heaviest workload and the first-year scale; each pick comes with its reason and any warning ([ADR 0026](../adr/0026-stack-blueprints-in-setup.md)). The ecosystem's own generator builds the skeleton, plus the test runner and one passing smoke test. A linter, toolchain pinning and extra manifest fields are separate choices in the proposal, off unless you say yes. The stack's conventions (`.claude/rules/<stack>-<area>.md`) aren't written at setup: the first feature that touches an area adds that one, and it's yours to edit.
-- **Two or more apps** (greenfield): setup asks which layout, and both are fully supported. **One repo** holding every app (the monorepo, [ADR 0005](../adr/0005-greenfield-monorepo-layout.md)) suits one team shipping every app together. A **workbench** of one repo per app suits apps with separate owners or release cycles, or a project that reads other teams' repos. In a workbench, the folder you start in becomes `<project>-workbench`, a repo holding `workbench.json` (each repo's folder, URL, role, owner, whether sdlc may write to it, and its contract role), the API contract (`contract/v1/openapi.yaml`), shared docs and every sdlc feature record. Each app is its own repo cloned inside it (gitignored there) with a small sdlc setup of its own: its commands, CI and guardrails, never feature records. Other teams' repos (specs, test cases, designs) are cloned read-only: sdlc denies any write into them, naming the owner. One feature drives a branch and a PR per repo it touches; `ship.py` lists them in merge order (workbench, provider, consumers) and `ship.py <feature> --status` warns when one merges out of order. A consuming app's CI checks out the workbench branch named like its PR's (else `main`); a private workbench needs a `WORKBENCH_TOKEN` secret in each consuming app. Add or drop a repo later with `scaffold.py workbench add <url>` / `remove <name>`. Existing monorepos keep their layout. Why: [ADR 0025](../adr/0025-workbench-for-multi-app-projects.md).
-- **Brownfield** (existing code): the commands the repo already uses, shown to you before they're written; a **baseline** of what already fails; an audit (conventions, git-history gotchas, decisions, area rules) drafted by explorer agents and written only as you approve each batch; existing AI configs (long CLAUDE.md, AGENTS.md, Cursor rules, ADRs) migrated into the three knowledge tiers, one diff per source.
-- **Common steps, both modes:** policy rules (`.claude/rules/sdlc*.md`); hookify guardrails; sdlc lint snippets, only for a linter the project already has; a permission allowlist for the project's commands; sdlc and its companion plugins turned on, asked where: `.claude/settings.local.json`, this machine's file, never committed, or the committed `.claude/settings.json`, so teammates get them too (cloud sessions don't: see [Cloud sessions](Cloud-sessions.md)) (the companion plugins `sdlc-extras` and `sdlc-stepper` are on by default; setup lists them in one line, and the companion skill Cloudflare's `security-audit` with its install command when it isn't installed, which sdlc never runs for you; a conflicting plugin such as superpowers is turned off for this repo only, with a warning, and spec-kit's files are reported, with removal asked); with your approval, a context diet (`/sdlc:context-diet`) for this project; a CI workflow from the recorded commands (asked first if the repo already has CI); the sdlc block in `AGENTS.md` when another agent (Codex, Cursor, Antigravity) uses the repo; `.gitignore` entries; a product doc (PRD: an existing one used as is, else drafted from a short interview or from the code with every guess marked "inferred, confirm", approved before it's written to `docs/sdlc/prd.md`); a constitution (with the default Simplicity principle, plus architecture principles proposed for your stack); a design system (projects with UI); the knowledge folder (greenfield: with a scaling roadmap, the growth steps your stack takes and the trigger for each); and how the project deploys (asked: the target, such as GCP Cloud Run, and each environment, routine or not), with a deploy runbook seeded in `knowledge/runbooks/`. The steps that write `.claude/` run only under Claude Code.
+## Principles
 
-Setup runs on an `sdlc/setup` branch with one commit per step, resumes where it stopped, and ends by merging the branch locally, without asking; nothing is pushed.
+- **Your commands, not ours.** Setup records the repo's own `install`, `test`, `lint`, `typecheck` and `build` commands in `.sdlc/config.json`, exactly as the team runs them (`pnpm test`, `go test ./...`, `make lint`). A missing step is `null`. Nothing in the plugin is stack-specific. A monorepo lists `packages`, each with its own path, stack and commands.
+- **No tooling you didn't ask for.** Setup never changes your manifest or dependencies: no new fields (`bin`, `engines`, `packageManager`, scripts), no new linter, formatter or devDependency, and no install without asking.
 
-**Who owns which file.** Everything the plugin puts in a repo is tracked in `.sdlc/scaffold.lock.json` with a class that decides what an upgrade may do:
+## Greenfield, brownfield, multi-app
+
+| Mode | What setup does |
+|---|---|
+| **Greenfield** (no source) | Short stack interview, then a proposal you approve. Starts from preferred stacks (Nuxt, Vue, React, Next.js, Flutter, native iOS/Android, Node + Hono, Go + Gin, Python + FastAPI; `skills/setting-up-projects/references/stacks.md`). Three extra answers pick the shape: does anything outside call the API, the heaviest workload, and first-year scale ([ADR 0026](../adr/0026-stack-blueprints-in-setup.md)). The ecosystem's own generator builds the skeleton, a test runner and one passing smoke test. A linter and toolchain pinning are opt-in. Stack rules (`.claude/rules/<stack>-<area>.md`) are written later, by the first feature that touches each area |
+| **Brownfield** (existing code) | Shows the detected commands before writing them. Records a **baseline** of what already fails. Explorer agents draft an audit (conventions, git-history gotchas, decisions, area rules), and each batch is written only after you approve it. Existing AI configs (CLAUDE.md, AGENTS.md, Cursor rules, ADRs) are migrated into the [three knowledge tiers](Where-things-live.md#three-tier-knowledge), one diff per source |
+| **Two or more apps** (greenfield) | Setup asks which layout. See below |
+
+### Monorepo or workbench
+
+```mermaid
+flowchart LR
+    Q{"Two or more apps"} -->|"one team, ships together"| MR["Monorepo<br/>apps/&lt;name&gt;/, packages/, docs/"]
+    Q -->|"separate owners or release cycles,<br/>or reads other teams' repos"| WB["Workbench<br/>&lt;project&gt;-workbench repo + one repo per app"]
+```
+
+| | Monorepo ([ADR 0005](../adr/0005-greenfield-monorepo-layout.md)) | Workbench ([ADR 0025](../adr/0025-workbench-for-multi-app-projects.md)) |
+|---|---|---|
+| Holds | Every app in one repo | `workbench.json`, the API contract (`contract/v1/openapi.yaml`), shared docs, and **all feature records**. Each app is its own repo cloned inside (gitignored), with its own commands, CI and guardrails |
+| Other teams' repos | n/a | Cloned **read-only**: sdlc denies writes and names the owner |
+| A feature | One branch, one PR | One branch and PR per repo touched. `ship.py` lists them in merge order (workbench → provider → consumers), and `ship.py <feature> --status` warns about out-of-order merges |
+| CI | Per app if roles differ | A consumer's CI checks out the workbench branch named like its PR's (else `main`). A private workbench needs a `WORKBENCH_TOKEN` secret |
+| Change later | n/a | `scaffold.py workbench add <url>` / `remove <name>` |
+
+Existing monorepos keep their layout.
+
+## Common steps (both modes)
+
+| Step | Notes |
+|---|---|
+| Policy rules, hookify guardrails | `.claude/rules/sdlc*.md`, `.claude/hookify/sdlc-*.md` |
+| Lint snippets | Only for a linter the project already has |
+| Permission allowlist | For the project's commands |
+| Turn plugins on | Asks where: `.claude/settings.local.json` (this machine only) or `.claude/settings.json` (committed, teammates get it; [cloud sessions](Cloud-sessions.md) don't). Companions `sdlc-extras` and `sdlc-stepper` are on by default. It names the optional `security-audit` skill with its install command but never runs it. Conflicting plugins (such as superpowers) are turned off for this repo only, with a warning; spec-kit files are reported, and removal is asked |
+| Context diet | With your approval ([13](Rules-and-context.md#13-keep-always-loaded-context-small)) |
+| CI workflow | Generated from the recorded commands. Asks first if CI already exists |
+| `AGENTS.md` block | When Codex, Cursor or Antigravity uses the repo |
+| PRD | Your existing one, or drafted from an interview or the code. Guesses are marked "inferred, confirm". You approve before it's written to `docs/sdlc/prd.md` |
+| Constitution | The default Simplicity principle plus architecture principles for your stack |
+| Design system | UI projects only ([with impeccable](#setup-with-impeccable)) |
+| Knowledge folder | Greenfield: includes a scaling roadmap (growth steps and the trigger for each) |
+| Deploy | Asks for the target (for example GCP Cloud Run) and each environment, routine or not. Seeds `knowledge/runbooks/deploy.md` |
+| Review rounds | Asks how many review rounds (2 to 5) run before you're asked; stored as `review_rounds` |
+
+The steps that write `.claude/` run only under Claude Code.
+
+## Who owns which file
+
+Everything the plugin places is tracked in `.sdlc/scaffold.lock.json`. The class decides what an upgrade may do:
 
 | Class | Examples | On upgrade |
 |---|---|---|
-| Generated | `.claude/rules/sdlc*.md` | regenerated |
-| Seeded | `.claude/hookify/sdlc-*.md`, `.github/workflows/sdlc-verify.yml`, `sdlc-invariants.yml`, `.sdlc/ci/invariants.py`, `.sdlc/lint/*` | replaced only if you haven't edited it; otherwise you choose: merge, skip, or keep yours for good |
-| Keyed merge | allowlist in `.claude/settings.json`, plugin-enablement keys in `.claude/settings.local.json` (or `.claude/settings.json` when the team's), `.gitignore` lines, the `<!-- sdlc:begin -->` block in `AGENTS.md` | only the entries the plugin added; your text around the block is never touched |
-| Yours | the commands in `.sdlc/config.json`, `CLAUDE.md`, PRD, constitution, design system, `knowledge/`, baseline, your own rules | changed only by migrations you approve (a stack convention rule is also offered as a diff when its template changes) |
+| **Generated** | `.claude/rules/sdlc*.md` | Regenerated |
+| **Seeded** | `.claude/hookify/sdlc-*.md`, `.github/workflows/sdlc-verify.yml`, `sdlc-invariants.yml`, `.sdlc/ci/invariants.py`, `.sdlc/lint/*` | Replaced only if unedited. Edited: you choose merge, skip, or keep yours for good |
+| **Keyed merge** | Allowlist and plugin keys in `.claude/settings*.json`, `.gitignore` lines, the `<!-- sdlc:begin -->` block in `AGENTS.md` | Only the plugin's own entries; your surrounding text is never touched |
+| **Yours** | Commands in `.sdlc/config.json`, `CLAUDE.md`, PRD, constitution, design system, `knowledge/`, baseline, your rules | Changed only by migrations you approve |
 
-Files named `sdlc-*` belong to the plugin; everything else is yours.
+**Rule of thumb:** files named `sdlc-*` belong to the plugin; everything else is yours.
 
-**Upgrades.** When the plugin is newer than the repo's scaffold, `/sdlc:start` and `/sdlc:status` suggest `/sdlc:upgrade`, which never blocks your work. It runs on its own branch: regenerate, replace untouched files, walk you through edited ones, then apply versioned migrations one diff at a time (declined ones are asked again only with `--revisit`). The repo pins a minimum plugin version, so teammates on an older plugin get a warning. `/sdlc:eject` removes what the plugin owns and keeps your work.
+**Upgrades.** When the plugin is newer than the scaffold, `/sdlc:start` and `/sdlc:status` suggest `/sdlc:upgrade`. It never blocks your work. See [16](Setup-and-upgrade.md#16-upgrade-after-a-plugin-update). `/sdlc:eject` removes what the plugin owns and keeps your work.
 
 ## Setup with impeccable
 
-A project with UI can hand its design work to the [impeccable](https://github.com/pbakaus/impeccable) skill, while sdlc keeps the record, the gates and the review verdict ([ADR 0021](../adr/0021-impeccable-for-ui-design.md)). The choice is made in setup's `design-system` step and recorded as `design` in `.sdlc/config.json` (`builtin` or `impeccable`; no key means `builtin`).
+A UI project can hand design work to the [impeccable](https://github.com/pbakaus/impeccable) skill, while sdlc keeps the record, the gates and the review verdict ([ADR 0021](../adr/0021-impeccable-for-ui-design.md)). The choice is made in setup's `design-system` step and stored as `"design": "builtin" | "impeccable"` (no key means builtin).
 
-```
-/sdlc:setup
-│
-├─ detect … gitignore            (unchanged: commands, CI, rules, guardrails …)
-│    └─ guardrails renders all sdlc-* guardrails, incl. sdlc-ui-hardcoded-values
-│       (the mode isn't known yet)
-│
-├─ prd                            HARD STOP: approve the PRD
-├─ constitution                   HARD STOP: approve it
-│
-├─ design-system                  (only if the project has UI)
-│   ├─ 1. Recommend a mode from the PRD           HARD STOP: you choose,
-│   │      impeccable ← user-facing, no design system yet    every time
-│   │      builtin    ← internal tool on a stock library, a design team's
-│   │                   system, or offline / no third-party calls
-│   │      + where impeccable stands here: missing, disabled or enabled
-│   │      + names impeccable.style's network call and the telemetry opt-outs
-│   ├─ 2. scaffold.py design impeccable
-│   │      ├─ records "design": "impeccable" (your reason goes in the commit)
-│   │      └─ removes sdlc-ui-hardcoded-values once impeccable's detector
-│   │         hook runs here (unchanged → deleted; edited → asks first)
-│   ├─ 3. Missing → prints the install command, records builtin;
-│   │      /sdlc:setup design reruns the step once it is (sdlc never installs it)
-│   │   Disabled → asks to turn it on for this repo (--enable, local file);
-│   │      it loads next session, so the step stays pending: restart, then
-│   │      /sdlc:setup resumes it
-│   ├─ 4. /impeccable init, told to read the PRD
-│   │      └─ one round of product questions → PRODUCT.md, whose first line
-│   │         links to the PRD (the PRD wins where they differ)
-│   ├─ 5. Existing styles worth recording → /impeccable document → DESIGN.md
-│   │      (a system you must stay on → documented as pinned, restyling
-│   │      commands off limits); none yet → DESIGN.md comes later
-│   └─ 6. docs/sdlc/design-system.md = a short pointer to DESIGN.md
-│
-├─ knowledge
-├─ deploy                         HARD STOP: target and environments; seeds the runbook
-├─ review-rounds                  HARD STOP: review rounds before you're asked (2 to 5)
-└─ finalize                       local merge (no question, no push)
+```mermaid
+flowchart TD
+    P["PRD approved"] --> R{"Recommend a mode<br/>(you always choose)"}
+    R -->|"user-facing, no design system yet"| I["impeccable"]
+    R -->|"internal tool on a stock library,<br/>a design team's system, or offline"| B["builtin"]
+    I --> ST{"impeccable here?"}
+    ST -->|missing| MI["Prints install command, records builtin.<br/>Rerun: /sdlc:setup design"]
+    ST -->|disabled| DI["Asks to enable for this repo.<br/>Restart, then /sdlc:setup resumes"]
+    ST -->|enabled| EN["/impeccable init, reads PRD, writes PRODUCT.md<br/>Existing styles: /impeccable document writes DESIGN.md<br/>design-system.md becomes a pointer to DESIGN.md"]
+    EN --> GR["Removes sdlc-ui-hardcoded-values guardrail<br/>(impeccable's detector does that job)"]
 ```
 
-What you end up with:
+The recommendation also notes impeccable.style's network call and the telemetry opt-outs. sdlc never installs impeccable for you.
 
 | File | Owner | Holds |
 |---|---|---|
-| `docs/sdlc/prd.md` | you | the product's source of truth |
-| `PRODUCT.md` | impeccable | the design-relevant part, linking back to the PRD |
-| `DESIGN.md` | impeccable | the design system, once a visual world exists |
-| `docs/sdlc/design-system.md` | you | a pointer to `DESIGN.md` |
-| `.sdlc/config.json` | you | `"design": "impeccable"` |
-| `.claude/hookify/` | sdlc | every guardrail except `sdlc-ui-hardcoded-values`, whose job impeccable's detector hook does |
+| `docs/sdlc/prd.md` | you | Product source of truth (wins over PRODUCT.md) |
+| `PRODUCT.md` | impeccable | Design-relevant part, linking back to the PRD |
+| `DESIGN.md` | impeccable | The design system, once a visual world exists (a system you must stay on is documented as pinned) |
+| `docs/sdlc/design-system.md` | you | Pointer to `DESIGN.md` |
 
-Each UI change afterwards:
+**Each UI change in impeccable mode:**
 
-| Phase | In impeccable mode |
+| Phase | What happens |
 |---|---|
-| Define | `/impeccable shape`; you confirm the brief, which is copied into the state file's `## UI mapping` and its copy into the ACs |
-| Build | built through impeccable; its detector hook reports after UI edits |
-| Review | `sdlc:ui-reviewer` (opus) runs impeccable's `detect` and applies its `audit` checks (read from `reference/audit.md`) as evidence and writes the verdict; a missing `DESIGN.md` is Medium, not High |
-| Ship | as usual |
+| Define | `/impeccable shape`; you confirm the brief, which is copied into `## UI mapping` and the ACs |
+| Build | Built through impeccable; its detector hook reports after UI edits |
+| Review | `ui-reviewer` (opus) runs impeccable's `detect`, applies its `audit` checks as evidence, and writes the verdict. A missing `DESIGN.md` is Medium, not High |
 
-impeccable missing or turned off for the repo when a step runs: the step says so in one line and runs builtin; `/sdlc:doctor` warns. Switch later, or finish turning impeccable on, with `/sdlc:setup design`: it asks the question again on its own branch, and the mode change puts the UI guardrail back or takes it away.
+If impeccable is missing or turned off when a step runs, the step says so and runs builtin, and `/sdlc:doctor` warns. To switch modes later, run `/sdlc:setup design`. Switching adds or removes the UI guardrail.

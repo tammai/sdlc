@@ -1,104 +1,131 @@
 # Everyday work
 
+What to type, what happens, and where you decide. Tracks and phases are explained in [How it works](How-it-works.md).
+
+```mermaid
+flowchart LR
+    S["S · fix"] --> SD["Define<br/>(prove bug, no stop)"] --> SB["Build"] --> SR["Review<br/>(fixed list, tells you)"] --> SS["Ship"] --> SM{{"You: merge"}}
+    M["M · feature"] --> MD["Define"] --> MG{{"High risk:<br/>you approve"}} --> MB["Build"] --> MR{{"High risk:<br/>you pick reviews"}} --> MS["Ship"] --> MM{{"You: merge"}}
+    L["L · project"] --> LD["Define<br/>(brainstorming)"] --> LG{{"On doubt:<br/>you approve"}} --> LB["Build"] --> LR{{"On doubt:<br/>you pick reviews"}} --> LS["Ship"] --> LM{{"You: merge"}}
+```
+
 ## 1. Fix a bug (S track)
 
-**Type:** `/sdlc:start fix: export button 500s when the report is empty` (or paste a GitHub issue, Linear or Jira link).
+```
+/sdlc:start fix: export button 500s when the report is empty
+```
 
-1. **Define:** the agent sizes it S (a fix or tweak, 1–2 files, clear expected behaviour). If what, why or how isn't clear, it asks first, one question at a time. It proves the bug before proposing a fix (a failing test, or exact steps and what they show), then finds the root cause. It writes the change file (the proof and the cause; the proving test is AC-001) and the state file's tasks and Public Surface, a few lines each, with the tests in the same turn. No stop: it says in a line or two what it will do and why.
-2. **Build:** in the session, like plain Claude. One call moves it to Build and records the proving test failing (`state.py sync && state.py advance 2 && verify.py red AC-001`), then the fix, then `verify.py` once at the end.
-3. **Review:** the agent recommends the reviews the change needs (often none for a small, covered fix) and runs them without stopping, telling you what ran and why ([6](#6-choose-the-reviews-and-act-on-findings)).
-4. **Ship:** Learn files a lesson only if it isn't obvious from the code or the commit, and a decision later features must follow in `knowledge/decisions/`, then the final commit on a feature branch, push, PR and CI. It stops with the PR open.
+You can also paste a GitHub issue, Linear or Jira link.
 
-**You decide:** the merge. Anything that adds scope also stops it.
+1. **Define:** it proves the bug first (a failing test, or exact steps), then finds the root cause. The proving test becomes **AC-001**. It writes the change file and the state file in a few lines each, says in a line or two what it will do, and **doesn't stop**. If what, why or how is unclear, it asks first.
+2. **Build:** one call records AC-001 failing (`state.py sync && state.py advance 2 && verify.py red AC-001`), then it fixes the bug and runs `verify.py`.
+3. **Review:** runs the fixed trigger list (often nothing for a small, covered fix) and tells you what ran ([Review](Review.md)).
+4. **Ship:** Learn, commit on a feature branch, push, PR, CI. **Stops with the PR open.**
 
-**If the bug is bigger:** when the fix needs more files than expected or the approach is unclear, the agent says so and sizes up to M, which asks for your approval before the build when it's high-risk.
+**You decide:** the merge. If the fix turns out bigger than expected, it sizes up to M and says so.
 
 ## 2. Add a feature (M track)
 
-**Type:** `/sdlc:start add CSV export to the reports page`
+```
+/sdlc:start add CSV export to the reports page
+```
 
-1. **Define:** if anything that would change what gets built is unclear, the agent asks first, one question at a time, each built on your last answer. Then it writes the record, once: the change file (what it's for, why now, the decisions with what was ruled out and why; about 10 or fewer acceptance criteria numbered `AC-001` onward, each with its test in `## Acceptance tests`; out of scope; must-never-break lines and failure modes) and the state file's plan sections (how the build runs, the tasks with their files, the Public Surface listing everything new others can see).
-2. **You read and approve.** One message with the path to the change file, the approach and what was ruled out, each acceptance criterion with its test (`manual` ones apart, with their reasons), how the build runs (inline, parts in fresh sessions, or parallel subagents) and any extras the agent would drop unless you keep them. It ends with what to check, in an order that lets you stop at the first wrong answer: the why matches what you asked; nothing is in scope you didn't ask for; each criterion is something a tester could check without the code; the case you'd most hate to see broken has a criterion (what's missing is the most useful catch: the agent writes down only what was said); each task maps to a criterion. It asks in a question dialog: approve, or change something.
-3. **Build:** from the files, in the session by default. Every criterion's test, then one `verify.py red AC-001 AC-002 …` to record them failing, then the code. `verify.py` once at the end runs the checks, every criterion's test and the drift check. Changes from the plan go in the state file's `## Deviations` (`state.py deviation`, "What: … Why: … Effect: …"); they never stop the build.
-4. **Review:** the agent recommends reviews from what actually changed (security, code, UI, advisor, or none), each with a reason, and **stops for you to choose**. Each chosen review runs once, fresh: in Claude Code the code review on S and M is the built-in `/code-review`, every other review (and every review in other agents) on `opus` ([6](#6-choose-the-reviews-and-act-on-findings)).
-5. **Ship:** Learn, then the final commit, push, PR and CI. It stops with the PR open; the merge waits for your word.
+1. **Define:** it asks anything unclear that would change what gets built, one question at a time. Then it writes the change file (why, decisions with what was ruled out, about 10 or fewer ACs each with its test, out of scope, must-never-break, failure modes) and the state file's plan (how the build runs, tasks with their files, Public Surface). **Low risk** writes the short form.
+2. **Approval, high risk only.** One message: the change file path, the decisions table, each AC with its test (`manual` ones apart), how the build runs, and proposals it would drop unless you keep them. Then a dialog: **Approve** or **Change something**. **Low risk** doesn't stop: it says "Building now; interrupt to change anything."
 
-**Good habits:** state what's out of scope up front; answer the questions briefly; challenge any addition you didn't ask for at the approval, not after the code exists. Too big for one session? See [19](Big-work-and-autopilot.md#19-a-big-feature-becomes-a-backlog).
+   <details><summary>What to check, in order (stop at the first wrong answer)</summary>
+
+   1. The why matches what you asked.
+   2. Nothing is in scope that you didn't ask for.
+   3. Each AC is something a tester could check without reading the code.
+   4. The case you'd most hate to see broken has an AC. Missing cases are the most useful catch, because the agent records only what was said.
+   5. Each task maps to an AC.
+   </details>
+
+3. **Build:** writes every AC test, runs `verify.py red AC-001 AC-002 …`, writes the code, then runs `verify.py` once. Off-plan changes become deviations; they never stop the build.
+4. **Review:** triggered reviews run. **High risk:** it stops and you pick (the recommendation, fewer, or none). ([6](#6-choose-the-reviews-and-act-on-findings))
+5. **Ship:** Learn, commit, push, PR, CI. **The merge waits for your word.**
+
+**Good habits:** say what's out of scope up front, answer questions briefly, and challenge anything you didn't ask for at the approval, before the code exists. Too big for one session? See [19](Big-work-and-autopilot.md#19-a-big-feature-becomes-a-backlog).
 
 ## 3. Build a new service or module (L track)
 
-**Type:** `/sdlc:start build an invoicing service with PDF output`
+```
+/sdlc:start build an invoicing service with PDF output
+```
 
-1. **Define:** `brainstorming` runs the interview, one question at a time, and its design becomes the change file's Why and Decisions. It may offer a browser visual companion (needs Node). There is no separate design document. The criteria, their tests and the state file's plan sections follow, full.
-2. **You read and approve** the change file (and `backlog.md` if the work is split into parts, [19](Big-work-and-autopilot.md#19-a-big-feature-becomes-a-backlog)), with how the build runs.
-3. **Build:** as the state file's `## How the build runs` says: inline, one part per fresh session, or parallel subagents for truly independent parts. No review agents during the build.
-4. **Review:** the recommendation, then your choice; each chosen review runs once on `opus`; high findings go back to Build, each fixed with a failing test first.
-5. **Ship:** Learn, the final commit, push, PR and CI. Deploy only when you ask ([10](Shipping-and-gates.md#10-merge-and-deploy)).
-
-**You decide:** Define's approval, the reviews, merge, deploy, migrations.
+1. **Define:** `brainstorming` runs the interview. It may offer a browser visual companion (needs Node). The design goes into the change file's Why and Decisions; there's no separate design doc. The record is written in full, plus `backlog.md` if the work is split into parts.
+2. **Self-check, then approval only on doubt:** every requirement maps to an AC, there are no open questions, every decision is settled, and nothing extra or irreversible is planned. If all of that holds, it records why and builds. Otherwise it asks you.
+3. **Build:** as the state file's `## How the build runs` says (inline, one part per fresh session, or parallel subagents). No review agents during Build.
+4. **Review:** triggered reviews run on `opus`, and it asks only on doubt. High findings go back to Build, each fixed test-first.
+5. **Ship:** Learn, commit, push, PR, CI. Deploy only when you ask ([10](Shipping-and-gates.md#10-merge-and-deploy)).
 
 ## 4. Change something risky
 
-Auth, payments, secrets, PII, schema migrations, a breaking change to a public API: the work gets `Risk: high`. Adding a command, flag or field, or an optional field to stored data, isn't breaking: that's `low`. Risk doesn't change the track; it feeds the review recommendation. A change is **security-touched** when `Risk: high`, or the diff touches `areas.sensitive` or `areas.migrations` in `.sdlc/config.json`. Keep those lists right: a sensitive path they miss gets no security review. Every review runs on `opus`, at every size; the model-router hook denies a cheaper one.
+Auth, payments, secrets, PII, schema migrations, or a breaking public API change → `Risk: high`. Risk doesn't change the track; it changes which reviews fire and, on M, adds the two stops.
 
-1. While you build, the security hooks warn on risky edits and review the diff at turn end. The commit review runs after `git commit`: on a feature branch, build commits wait and are reviewed together with the next review-ready commit. A feature's change that isn't security-touched gets no model review; it is recorded as reviewed. Address each finding, or acknowledge it with a reason.
-2. After the build, the agent recommends a **security review** for a security-touched change: a `code-reviewer` with the security-only brief (injection, authz, secrets, SSRF, XSS, unsafe deserialization, dependency risk), plus the dependency audit. On M and L you can still decline it; on S it runs. On a backlog it runs once, at feature close.
-3. Gate: no critical or high finding open, no secrets in the diff; recorded in the change file's `## Review`.
-4. DB migrations and production deploys are hard stops. Say go explicitly.
+- **Keep `areas.sensitive` and `areas.migrations` right** in `.sdlc/config.json`. A sensitive path they miss gets no security review.
+- **While you build:** security hooks warn on risky edits. On a security-touched feature they also review the diff at turn end and after a commit. Build commits on a feature branch are batched and reviewed with the next review-ready commit. Address each finding, or acknowledge it with a reason.
+- **After the build:** a **security review** runs (a `code-reviewer` with the security-only brief plus a dependency audit). On S it always runs. On M and L, where you pick, you can decline it. On a backlog it runs once, at feature close.
+- **Gate:** no critical or high finding open and no secrets in the diff, recorded in `## Review`.
+- **DB migrations and production deploys are hard stops.** Say go explicitly.
 
-Deeper scanners (Claude Security, Semgrep and others, not bundled): `skills/orchestrator/references/integrations.md`.
+For deeper scanners (Claude Security, Semgrep, and others, not bundled), see `skills/orchestrator/references/integrations.md`.
 
 ## 5. Resume or check status
 
-- `/sdlc:status`: one line per feature (track · phase · last gate), open questions and deviations, and whether the repo's scaffold is behind the plugin. Changes nothing.
-- `/sdlc:start` with no argument resumes the one feature with `Status: active`, in its phase. Several active: it asks which.
+| Want | Do |
+|---|---|
+| See everything | `/sdlc:status`: one line per feature (track · phase · last gate), open questions, deviations, scaffold drift. Changes nothing |
+| Resume | `/sdlc:start` with no argument. One active feature: resumes it in its phase. Several: asks which |
+| Pause | Ask the agent. It runs `state.py set <feature> Status paused`, which raises one trust-anchor notice ([21](Shipping-and-gates.md#21-the-trust-anchor-stopped-me)). Ask again to set it `active` |
+| Take over someone else's | The state file names `Owner:` and `Tool:`. The agent asks first, then records the handover as a deviation |
 
-A new session needs no re-explaining: the state file and the change file carry everything.
-
-**Someone else's feature:** the state file names its `Owner:` and `Tool:`. Before advancing a feature you don't own, the agent asks, then records the handover as a deviation.
-
-**Pause a feature:** tell the agent to pause it. It runs `state.py set <feature> Status paused`, so `/sdlc:start` stops picking it up. The trust anchor reports the change once ([21](Shipping-and-gates.md#21-the-trust-anchor-stopped-me)). Ask it to set `active` again to resume. Don't edit the state file by hand.
+A new session needs no re-explaining: the two record files carry everything.
 
 ## 6. Choose the reviews and act on findings
 
-After Build's passing `verify.py`, the agent looks at what actually changed and recommends, each with a one-line reason:
+After Build's passing `verify.py`, the agent recommends reviews from what actually changed, each with a one-line reason. The trigger table and the round rules are in [Review](Review.md).
 
-| Review | Recommended when |
+| Who picks | When |
 |---|---|
-| Security | `Risk: high`, or the diff touches `areas.sensitive` or `areas.migrations`, or untrusted input reaches a shell, file path or database |
-| Code | a public interface changed, the diff is large, L, `Risk: high`, or the spec names a crash mid-write or concurrent use (one depth, the full one) |
-| UI | the diff touches `areas.ui`: always recommended |
-| Advisor | only where the agent has one, for a real open judgment call |
-| None | a small, contained, fully tested change touching nothing above |
+| A fixed list, then it tells you | S |
+| Runs what fires, no stop | Low-risk M, and L with no doubt |
+| **You** (take, add, drop) | High-risk M, and L on doubt |
+| The recommendation, logged | Autopilot or headless |
 
-**S:** it runs the recommendation and tells you. **M and L:** it stops and you pick (take it, add, drop). **Autopilot or headless:** it takes the recommendation and logs that it did.
+**Acting on findings:**
 
-Each chosen review runs **once**, as a fresh agent on `opus`, and ends its report with `VERDICT: PASS` or `VERDICT: FAIL — <ids>`.
+```mermaid
+flowchart LR
+    F["Finding"] --> H{"High, or a bug<br/>in touched code?"}
+    H -->|yes| T["Back to Build:<br/>failing test for the whole class, then fix"] --> V["verify.py"] --> R2["Round 2 re-checks the fixes"]
+    H -->|no| K["Ticket in the Review section"]
+    R2 -->|"still a high"| U{{"You: one more round,<br/>waive, or stop"}}
+```
 
-- **High findings and bugs** go back to Build, each fixed with a failing test first that covers the finding's whole class, not just the reported instance, then `verify.py` again. Then round 2, the closing check: the review that failed runs again at full depth on the fixes and the code around them, confirming each finding is gone everywhere and no fix added a bug. Only a high fails it; a medium or low bug it lists is fixed test first without another round. **When round 2 still fails on a high** (or the last round `/sdlc:setup review-rounds` allows, 2 to 5), the agent stops and asks you (one more fix round, a waiver, or stop), and a hook holds every edit and command until you reply. Each reply allows one more round.
-- **You disagree, or the agent does:** a high finding the agent thinks is wrong comes to you with its case. Only you can waive one, recorded as a deviation.
-- **Medium and low** findings that are bugs in code the change touched (wrong behaviour, a crash, an unhandled error, a missing test) are fixed too, test first, without asking you. The rest (improvements, code the change didn't touch) are ticketed in the change file's `## Review`.
-
-**A failure that existed before your change:** `verify.py` doesn't read `.sdlc/baseline.md`. When only the test step fails and every failure is listed there, the agent logs it and passes the gate. A new failure is reported; baselining it is your call, recorded as a deviation.
-
-**`verify.py` keeps failing in Build:** the agent debugs it (`systematic-debugging`) and fixes the code or the test. A test that passes before its code exists is refused by `verify.py red`; make it assert the new behaviour, and the change goes in the state file's `## Deviations`. Don't ask it to rerun until green.
-
-**A QA round** (`qa-tester`, runs the feature as a user would, without reading the code) is available on request; its report is `qa-report.md` in the feature's work folder, `.sdlc/state/<feature>/`.
+- **Round cap:** after round 2 (or the last round `/sdlc:setup review-rounds` allows, 2 to 5) still fails on a high, the agent asks you, and a hook holds every edit and command until you reply. Each reply allows one more round.
+- **You or the agent disagree with a high finding?** The agent brings you its case. Only you can waive one; the waiver is recorded as a deviation.
+- **A failure that existed before your change:** if only the test step fails and every failure is listed in `.sdlc/baseline.md`, it's logged and passes. A new failure is reported to you; baselining it is your call ([R16](Troubleshooting.md#r16-verifypy-blames-the-feature-for-an-old-failure-or-the-baseline-looks-wrong)).
+- **`verify.py` keeps failing in Build:** the agent debugs it (`systematic-debugging`). A test that passes before its code exists is refused by `verify.py red`: make it assert the new behaviour. Don't ask the agent to rerun until green.
+- **QA round:** on request, `qa-tester` runs the feature as a user would, without reading the code. It writes `qa-report.md` in `.sdlc/state/<feature>/`.
 
 ## 7. The stop hook says "re-run tests"
 
-Cause: you are in Review (`Current: Stage 3`) and code changed after the last full test run, or there hasn't been one. Fix: run the **full** suite: the `test` command from `.sdlc/config.json` (in a monorepo, the stale package's own, from its directory; the message names it), or the `test:` command in the state file. A filtered run, a single file or a single package doesn't count.
+**Cause:** you're in Review (`Current: Stage 3`) and code changed after the last full test run.
 
-Changes under `.sdlc/`, `knowledge/`, `.claude/`, `docs/` or the sdlc docs folder, and `.md`, `.mdx`, `.txt` or `.rst` files, don't make results stale. A misbehaving hook: [runbook R4](Troubleshooting.md#r4-blocked-at-stop-with-re-run-tests).
+**Fix:** run the **full** suite: the `test` command in `.sdlc/config.json` (monorepo: the stale package's own, from its directory; the message names it) or the `test:` in the state file. A filtered run, a single file or a single package doesn't count.
+
+Changes to docs (`.md`, `.mdx`, `.txt`, `.rst`) and under `.sdlc/`, `knowledge/`, `.claude/` or `docs/` never make results stale. If the hook misbehaves, see [R4](Troubleshooting.md#r4-blocked-at-stop-with-re-run-tests).
 
 ## 8. Handle review feedback
 
-Use `sdlc:receiving-code-review`: check each comment against the code before agreeing, push back with evidence when it's wrong, fix the rest.
+Use the `receiving-code-review` reference: check each comment against the code before agreeing, push back with evidence when it's wrong, and fix the rest.
 
 | Source | Command |
 |---|---|
-| Local, before the PR | `/sdlc:review-pr` (picks agents for the diff; the comment, type and simplifier agents need the `sdlc-extras` plugin) |
-| Spec versus implementation | Review's code review, from the change file and the state file's plan sections |
-| On the GitHub PR | `/sdlc:code-review` |
+| Local, before the PR | `/sdlc:review-pr` (picks agents for the diff; comment, type and simplifier agents need `sdlc-extras`) |
+| Spec vs implementation | Review's code review, from the change file and the state file's plan |
+| A GitHub PR | `/sdlc:code-review` |
 
-Severity rules: unrequested public surface (an export, file, endpoint, option, config key or dependency not in the state file's Public Surface, with no stated reason) is **high**. Code-style issues (comments, naming, formatting) are fixed in passing, never high. Other medium and low findings are fixed when they're bugs in the change, else go to the change file's `## Review` as tickets.
+**Severity:** public surface nobody asked for (an export, file, endpoint, option, config key or dependency missing from the state file's Public Surface, with no stated reason) is **high**. Style issues (comments, naming, formatting) are fixed in passing and are never high.

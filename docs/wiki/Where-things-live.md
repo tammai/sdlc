@@ -1,43 +1,40 @@
 # Where things live
 
 ```
-.sdlc/
-  config.json              the project's commands (per package in a monorepo) and overrides on the plugin's defaults (yours)
-  scaffold.lock.json       what the plugin placed, versions, migrations (machine-only)
-  baseline.md              known failures from before setup (yours)
-  state/<feature>.md       the agent's record: track, phase, the plan (tasks, Public Surface), gate log, deviations, open questions, and the path of the feature's change file
-  state/<feature>/         the feature's work folder:
-    backlog.md  plan-B<n>.md                          work split into parts (/sdlc:prune may delete the plans once merged)
-    qa-report.md                                      when a QA round ran
-    release.md                                        /sdlc:deploy
-  state/<feature>.json, <feature>.events.jsonl   control contract for a runner or control app (git-ignored)
-  lint/                    sdlc lint snippets your ESLint/Ruff config imports (seeded)
-  ci/invariants.py         checks test reports, the baseline, active features' change files and the test lock in CI (seeded)
-  ci/contract-check.sh     the API contract check CI runs (multi-app repos that chose it; seeded)
-  .work/                   scratch, git-ignored (verify record, freshness, dispatch log, trust anchor, QA runs)
-docs/sdlc/                 docs_dir: the documents people read (default; setup asks when the repo publishes docs/)
-  prd.md                   the product doc: problem, audience, goals, capabilities (yours)
-  constitution.md          project principles (yours)
-  design-system.md         the design system UI work follows (UI projects; yours)
-  recurring-defects.md     defects Review found and Build fixed, one line each: Learn adds, Define and reviewers read
-  changes/<feature>.md     the change file, the record for people: Define writes it, Review adds ## Review; kept
-knowledge/                 tier 3, on-demand docs (index.md links everything)
-.claude/rules/<area>.md    tier 2, loads when matching paths are touched (yours)
-.claude/rules/<stack>-<area>.md   a stack's conventions, written by the first feature touching the area (yours)
-.claude/rules/sdlc*.md     plugin policy rules: workflow, code style, tests, migrations, sensitive areas, CI, UI (generated)
-.claude/hookify/*.md       team hookify rules; sdlc-*.md are the plugin's guardrails (seeded)
-.github/workflows/sdlc-verify.yml       CI generated from the commands in config (seeded)
-.github/workflows/sdlc-invariants.yml   runs .sdlc/ci/invariants.py on pull requests and pushes (seeded)
-CLAUDE.md                  tier 1, at most 60 lines (never touched by the plugin)
+.sdlc/                         MACHINERY
+  config.json                  your commands and overrides on plugin defaults (yours)
+  scaffold.lock.json           what the plugin placed, versions, migrations (never edit)
+  baseline.md                  failures from before setup (yours)
+  state/<feature>.md           the agent's record: track, phase, plan, gate log, deviations
+  state/<feature>/             work folder: backlog.md, plan-B<n>.md, qa-report.md, release.md
+  state/<feature>.json         control contract + <feature>.events.jsonl (git-ignored)
+  lint/                        lint snippets your ESLint/Ruff config imports (seeded)
+  ci/invariants.py             CI check of reports, baseline, change files, test lock (seeded)
+  ci/contract-check.sh         API contract check (multi-app repos that chose it; seeded)
+  .work/                       scratch, git-ignored: verify record, freshness, dispatch log, findings
+docs/sdlc/                     DOCUMENTS PEOPLE READ (docs_dir; setup asks if docs/ is a site)
+  prd.md                       product doc: problem, audience, goals, capabilities (yours)
+  constitution.md              project principles (yours)
+  design-system.md             what UI work follows (UI projects; yours)
+  recurring-defects.md         one line per defect Review found: Learn adds, Define and reviewers read
+  changes/<feature>.md         the change file, the record for people (kept)
+knowledge/                     tier 3: on-demand docs, linked from index.md
+.claude/rules/<area>.md        tier 2: loads when matching paths are touched (yours)
+.claude/rules/<stack>-<area>.md   stack conventions, written by the first feature in that area (yours)
+.claude/rules/sdlc*.md         plugin policy rules (generated)
+.claude/hookify/*.md           team hookify rules; sdlc-*.md are plugin guardrails (seeded)
+.github/workflows/sdlc-verify.yml       CI from your commands (seeded)
+.github/workflows/sdlc-invariants.yml   runs invariants.py on PRs and pushes (seeded)
+CLAUDE.md                      tier 1, at most 60 lines (never touched by the plugin)
 ```
 
-**A workbench** (two or more apps, [ADR 0025](../adr/0025-workbench-for-multi-app-projects.md)) has the same files plus `workbench.json` at its root (the repos cloned inside it: folder, URL, role, owner, `write`, contract role), `contract/v<N>/openapi.yaml`, and one folder per cloned repo, each gitignored. An app repo has its own `.sdlc/config.json` (commands, `"workbench": "<name>"`), lock, CI and guardrails, and no feature records: those stay in the workbench.
+**Feature names:** `<yyyy-mm-dd>-<s|m|l>-<slug>`, or with a ticket `2026-10-22-m-PROJ-123-month-filter`. The letter is the starting track; sizing up later doesn't rename it. The branch uses the same name. Commit the state file, the change file and the work folder (`release.md` only if you want it).
 
-Each feature is named `<yyyy-mm-dd>-<s|m|l>-<slug>`, or `<yyyy-mm-dd>-<s|m|l>-<ticket>-<slug>` with a ticket (e.g. `2026-10-22-m-PROJ-123-month-filter`). The letter is the track it started on; a later size-up doesn't rename it. The branch uses the same name. Commit the state file, the change file `docs/sdlc/changes/<feature>.md` and the working files in `.sdlc/state/<feature>/` (`release.md` only if you want it).
+**A workbench** ([ADR 0025](../adr/0025-workbench-for-multi-app-projects.md)) adds `workbench.json` at its root (each repo's folder, URL, role, owner, `write`, contract role), `contract/v<N>/openapi.yaml`, and one gitignored folder per cloned repo. App repos have their own config (`"workbench": "<name>"`), lock, CI and guardrails, but **no feature records**.
 
 ## `state.md`
 
-Resume depends on this file. The orchestrator looks for `.sdlc/state/*.md` with `Status: active`: one match resumes, several asks which, none starts a new feature.
+Resume depends on this file: one `Status: active` file resumes, several asks which, none starts a new feature. It is written once from the template, filled in Define, then changed only through `scripts/state.py`, which also writes the control contract ([spec 12](../specs/12-control-contract.md)).
 
 ```markdown
 # <feature>
@@ -73,34 +70,32 @@ Current: Stage 1 – Define   (then Stage 2 – Build, Stage 3 – Review, Stage
 ## Open questions
 ```
 
-It is the agent's record of the change, beside the change file for people. The orchestrator writes this file once from the template and fills its plan sections once in Define, then never edits it by hand: `scripts/state.py` makes each change in one call and writes the control contract beside it ([spec 12](../specs/12-control-contract.md)). Before advancing someone else's feature (`Owner:`), it asks and records the handover.
+Before advancing a feature with someone else's `Owner:`, the agent asks you and records the handover.
 
 ## Three-tier knowledge
 
-| Tier | Where | Loads |
-|---|---|---|
-| 1 | `CLAUDE.md` (≤ 60 lines) | every session |
-| 2 | `.claude/rules/<area>.md` with `paths:` | automatically, when matching files are touched |
-| 3 | `knowledge/**.md` | on demand, via `knowledge/index.md` and links from tier 2 |
+```mermaid
+flowchart LR
+    T1["Tier 1 · CLAUDE.md<br/>≤ 60 lines<br/>loads every session"] --> T2["Tier 2 · .claude/rules/&lt;area&gt;.md<br/>with paths:<br/>loads when matching files are touched"] --> T3["Tier 3 · knowledge/**.md<br/>loads on demand<br/>via knowledge/index.md"]
+```
 
-Learn, before the final commit, files a lesson in the right tier only when the feature found one that isn't obvious from the code or the commit, and links it from the Lessons filed line of the change file's `## Review`, so it ships in the same PR. A decision later features must follow (a library, a data shape, a boundary) becomes a record in `knowledge/decisions/`, which Define treats as a constraint. Something corrected twice and checkable by machine becomes a hookify rule instead of more text.
+Put in tier 1 only what nearly every task needs. **Learn** (before the final commit) files a lesson only if it isn't obvious from the code or commit, and links it from `## Review`, so it ships in the same PR. A decision later features must follow becomes a record in `knowledge/decisions/`, which Define treats as a constraint. Anything corrected twice that a machine can check becomes a [hookify rule](Rules-and-context.md#12-turn-a-correction-into-a-rule).
 
 ## By path
 
-
 | What | Path |
 |---|---|
-| Project config (overrides on plugin defaults) | `.sdlc/config.json` |
-| What the plugin placed, scaffold version, migrations | `.sdlc/scaffold.lock.json` (never edit by hand) |
-| Known failures from before setup | `.sdlc/baseline.md` |
-| Feature state (committed; written by `scripts/state.py`) | `.sdlc/state/<feature>.md` |
-| Control contract, derived from the state file (git-ignored) | `.sdlc/state/<feature>.json`, `<feature>.events.jsonl`, `<feature>.commands/` |
-| Feature change file, the record for people (committed) | `docs/sdlc/changes/<feature>.md`; `docs/sdlc` is `docs_dir` in the config |
-| The living spec, when `living_spec` is on (committed): what the system does now, one file per capability | `docs/sdlc/capabilities/<name>.md` (old layout: `.sdlc/capabilities/`), written by Ship |
-| The domain model, when `objects` is on (committed, yours): objects, their names, states and rules | `docs/sdlc/objects.md` (old layout: `.sdlc/objects.md`), written by you from the plugin's template |
-| Feature working files (committed) | `.sdlc/state/<feature>/`: `backlog.md` and `plan-B<n>.md` for work split into parts, `qa-report.md` from a QA round, `release.md` from `/sdlc:deploy`, committed only if you ask |
-| Scratch (git-ignored) | `.sdlc/.work/`: `verify.json` (written by `scripts/verify.py`), `verify-freshness.json` (the freshness hook's copy of verify runs, written by the hook and by `verify.py` itself), `trust-anchor.json`, `review-rounds.json` (the review cap: per feature the round reached, the last round your answers allow, and the cap's ceiling), `stuck-turn.json`, `dispatches.jsonl`, `findings/<feature>/` (each review's report, ending in its `VERDICT:` line) |
-| Ralph loop state (`sdlc-extras`) | `.claude/ralph-loop.local.md` |
+| Project config | `.sdlc/config.json` |
+| Scaffold version, placed files, migrations | `.sdlc/scaffold.lock.json` (never edit) |
+| Known failures | `.sdlc/baseline.md` |
+| Feature state (committed) | `.sdlc/state/<feature>.md` |
+| Control contract (git-ignored) | `.sdlc/state/<feature>.json`, `<feature>.events.jsonl`, `<feature>.commands/` |
+| Change file (committed) | `docs/sdlc/changes/<feature>.md` (`docs/sdlc` = `docs_dir`) |
+| Living spec, if on | `docs/sdlc/capabilities/<name>.md` (old layout: `.sdlc/capabilities/`), written by Ship |
+| Domain model, if on | `docs/sdlc/objects.md` (old layout: `.sdlc/objects.md`) |
+| Work folder (committed) | `.sdlc/state/<feature>/`: `backlog.md`, `plan-B<n>.md`, `qa-report.md`, `release.md` (only if you ask) |
+| Scratch (git-ignored) | `.sdlc/.work/`: `verify.json`, `verify-freshness.json`, `trust-anchor.json`, `review-rounds.json` (per feature: round reached, rounds your answers allow, the cap's ceiling), `stuck-turn.json`, `dispatches.jsonl`, `findings/<feature>/` (review reports) |
+| Ralph loop state | `.claude/ralph-loop.local.md` |
 | Personal hookify rules | `.claude/hookify.<name>.local.md` (git-ignored) |
 | Team hookify rules | `.claude/hookify/<name>.md` (committed) |
-| Security hook per-session state, reviewer venv | `$SECURITY_WARNINGS_STATE_DIR`, else `$CLAUDE_CONFIG_DIR/security/`, else `~/.claude/security/` (venv: `agent-sdk-venv` inside it) |
+| Security hook state, reviewer venv | `$SECURITY_WARNINGS_STATE_DIR`, else `$CLAUDE_CONFIG_DIR/security/`, else `~/.claude/security/` (venv: `agent-sdk-venv`) |

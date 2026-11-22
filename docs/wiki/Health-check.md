@@ -1,11 +1,16 @@
 # Health check
 
-Run `/sdlc:doctor` when something feels off, after installing or upgrading, or before onboarding a teammate. It changes nothing; it prints one row per check with ✅ / ⚠️ / ❌ and, for anything not ok, the fix and the [Troubleshooting](Troubleshooting.md) procedure that covers it. The same report from a shell: `python3 <plugin>/scripts/doctor.py --format md` (exit 1 if anything fails). Without `--format md` it prints JSON: each check has a stable `code` (`repo.commands`), and failing and warning checks are listed again under `problems`, each with its `fix`.
+Run `/sdlc:doctor` when something feels off, after installing or upgrading, or before onboarding a teammate. It **changes nothing**. It prints one row per check (✅ / ⚠️ / ❌) and, for each problem, the fix and the [Troubleshooting](Troubleshooting.md) procedure that covers it.
 
-| Group | What it checks |
+From a shell: `python3 <plugin>/scripts/doctor.py --format md` (exits 1 if anything fails). Without `--format md` it prints JSON: each check has a stable `code` (such as `repo.commands`), and the problems are listed again under `problems`, each with its `fix`.
+
+| Group | Checks |
 |---|---|
-| environment | Python ≥ 3.9, a Python 3 the hooks' launcher (`hooks/sg-python.sh`) finds, git, gh, jq, the security reviewer's environment (built in the state directory on first session) |
-| plugin | version; every script `hooks.json` references exists |
-| repo | setup state and version drift; config and lock parse; plugin files missing, hand-edited, or reached through a link outside the project; project commands defined (per package), their tools on PATH, and whether they have run; in a spec-backed repo (its own `criteria.lock.json` or `acceptance/manifest.json`) `accept.start` and `accept.base_url`; the `AGENTS.md` block; baseline present (brownfield); old layout; `.sdlc/.work/` and the contract files git-ignored; design system present when the repo has UI files; impeccable installed when the design mode is impeccable; rules whose `paths:` match no files; hookify rules that don't parse or have a bad regex; CLAUDE.md over 60 lines; broken links in `knowledge/index.md`; state files missing `Status:`/`Current:`, or several active; corrupt freshness state, or a freshness hook run that failed |
+| **environment** | Python ≥ 3.9, a Python 3 that `hooks/sg-python.sh` finds, git, gh, jq, the security reviewer's environment |
+| **plugin** | Version; every script that `hooks.json` references exists |
+| **repo: setup** | Setup state and version drift; config and lock parse; plugin files missing, hand-edited, or reached through a link outside the project; old layout; `.sdlc/.work/` and contract files git-ignored; the `AGENTS.md` block |
+| **repo: commands** | Commands defined (per package), their tools on PATH, whether they've run; baseline present (brownfield). Spec-backed repo: `accept.start` and `accept.base_url` |
+| **repo: content** | Design system present if there are UI files; impeccable installed if in that mode; rules whose `paths:` match nothing; hookify rules that don't parse or have a bad regex; CLAUDE.md over 60 lines; broken links in `knowledge/index.md` |
+| **repo: state** | State files missing `Status:`/`Current:`, or several active; corrupt freshness state, or a failed freshness-hook run |
 
-Not covered by doctor: whether the plugin is enabled (`/plugin`).
+Not covered: whether the plugin is enabled (check `/plugin`).
