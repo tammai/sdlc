@@ -100,11 +100,18 @@ def is_workbench(root, need_manifest=True):
     return declared and (not need_manifest or os.path.isfile(os.path.join(root, WORKBENCH_FILE)))
 
 
+SEEDED_MARKER = ".sdlc/.work/read-only-seeded"  # the read-only watch has taken this workbench's first look
+
+
 def guarded_workbench(root):
-    """For the write guards: a workbench (is_workbench), or a folder holding workbench.json whose .sdlc/config.json
-    exists but can't be read as an object (a merge-conflict marker, a bad edit). The guards fail closed there."""
+    """For the write guards: a workbench (is_workbench), a folder holding workbench.json whose .sdlc/config.json
+    exists but can't be read as an object (a merge-conflict marker, a bad edit), or one the read-only watch has
+    seeded (its marker), so `"workbench": false` in a config the agent can edit never turns them off. The guards fail
+    closed there."""
     import os
     if is_workbench(root):
+        return True
+    if os.path.isfile(os.path.join(root, WORKBENCH_FILE)) and os.path.isfile(os.path.join(root, SEEDED_MARKER)):
         return True
     config = os.path.join(root, ".sdlc", "config.json")
     if not os.path.isfile(os.path.join(root, WORKBENCH_FILE)) or not os.path.exists(config):

@@ -1268,6 +1268,31 @@ class ReadOnlyBackstop(WorkbenchFeatureCase):
         [name] = [f for f in os.listdir(self.data) if f.startswith("read-only-baseline-")]
         return os.path.join(self.data, name)
 
+    def test_the_control_files_cannot_turn_the_watch_off(self):
+        # .sdlc/2026-11-22-s-workbench-control-files (security-r7 SR7-M3)
+        import sdlc_scopes
+        self.assertEqual(self.watch("SessionStart"), {})
+        manifest = sdlc_scopes.read_repo_json(self.root, "workbench.json")
+        # AC-001: a read-only repo made writable, or dropped from the manifest, is a reported difference until accepted
+        for repos in ([dict(r, write=True) if r["name"] == "specs" else r for r in manifest["repos"]],
+                      [r for r in manifest["repos"] if r["name"] != "specs"]):
+            self.write_json("workbench.json", {"repos": repos})
+            out = self.watch("PostToolUse")
+            self.assertEqual(out.get("decision"), "block", out)
+            self.assertIn("no longer read-only", out["reason"])
+            self.assertEqual(self.watch("Stop").get("decision"), "block")
+            self.accept()
+            self.assertEqual(self.watch("Stop"), {})
+            self.write_json("workbench.json", manifest)
+            self.watch("PostToolUse")
+            self.accept()
+        # AC-002: `"workbench": false` once the watch has seeded leaves the workbench guarded
+        config = sdlc_scopes.read_repo_json(self.root, ".sdlc/config.json")
+        self.write_json(".sdlc/config.json", dict(config, workbench=False))
+        self.assertTrue(sdlc_scopes.guarded_workbench(self.root))
+        self.write("specs/b.md", "x")
+        self.assertEqual(self.watch("PostToolUse").get("decision"), "block")
+
     def test_undoing_an_accepted_change_back_to_the_first_look_is_silent(self):
         # .sdlc/2026-11-22-s-watch-undo-accepted AC-001 (3.8.0 smoke test K)
         self.assertEqual(self.watch("SessionStart"), {})

@@ -32,7 +32,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import sdlc_scopes  # noqa: E402
 
-MARKER = ".sdlc/.work/read-only-seeded"
+MARKER = sdlc_scopes.SEEDED_MARKER
 BASELINE_NAME = "read-only-baseline"  # role_guard denies commands and writes naming it or the marker
 WRITERS = {"Edit", "Write", "MultiEdit", "NotebookEdit", "Bash", "PowerShell", "Monitor"}  # Monitor runs a command
 GIT_TIMEOUT = 4  # each git call; the hook has 10 s
@@ -167,6 +167,9 @@ def seed(root, listed, names=None):
             done.append(name)
         except (RuntimeError, ValueError, OSError, subprocess.SubprocessError):
             continue  # unreadable now: reported at the next look
+    # the repos that must stay read-only: those listed now, and any that stopped being read-only but weren't accepted
+    kept = [n for n in data.get("read_only") or [] if n not in listed and names is not None and n not in names]
+    data["read_only"] = sorted(set(listed) | set(kept))
     data.pop("reported", None)
     save(path, data)
     marker = os.path.join(root, MARKER)
@@ -186,6 +189,11 @@ def look(root, listed):
         return [f"{what} is missing or unreadable, so changes can't be checked"]
     report, grown = [], False
     base = data["repos"]
+    if not isinstance(data.get("read_only"), list):  # a baseline from before the list was kept: take it as it is
+        data["read_only"], grown = sorted(listed), True
+    for name in data["read_only"]:
+        if name not in listed:  # workbench.json made it writable or dropped it: a change of the control file
+            report.append(f"{name}/ (no longer read-only in workbench.json: made writable or removed)")
     for name in list(base):
         if name not in listed:  # dropped from the manifest (scaffold.py workbench remove): no longer watched
             del base[name]
@@ -231,7 +239,7 @@ def message(report):
 
 def project_root(cwd):
     root = os.environ.get("CLAUDE_PROJECT_DIR") or sdlc_scopes.workbench_root(cwd)
-    return os.path.abspath(root) if root and sdlc_scopes.is_workbench(root) else None
+    return os.path.abspath(root) if root and sdlc_scopes.guarded_workbench(root) else None
 
 
 def main():
