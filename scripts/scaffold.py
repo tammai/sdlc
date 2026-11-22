@@ -1519,6 +1519,8 @@ def git_internal(path, root=None):
 
 
 FIXED_FILES = (AGENTS, GITIGNORE, SETTINGS, LOCAL_SETTINGS)
+UNMERGE_KEYS = {AGENTS: (AGENTS_MERGE,), GITIGNORE: (GITIGNORE,), SETTINGS: (SETTINGS, TEAM_PLUGIN_MERGE),
+                LOCAL_SETTINGS: (PLUGIN_MERGE,)}  # each fixed file's lock `merged` keys: what eject takes back
 
 
 def link_problem(root, rel):
@@ -2830,8 +2832,11 @@ def eject_plan(p):
             plan["delete"].append(path)
         else:
             plan["ask"].append(path)
-    # a fixed-name file through a link out of the repo or into .git: listed, never read or unmerged
-    plan["outside"] += [f for f in FIXED_FILES if fixed_problem(p, f) and f not in plan["outside"]]
+    # a fixed-name file through a link out of the repo or into .git, with something recorded to unmerge from it:
+    # listed (the user unmerges it by hand), never read or unmerged; one sdlc never merged into isn't named
+    merged = lock.get("merged", {})
+    recorded = {f: any(merged.get(k) for k in keys) for f, keys in UNMERGE_KEYS.items()}
+    plan["outside"] += [f for f in FIXED_FILES if recorded.get(f) and fixed_problem(p, f) and f not in plan["outside"]]
     return plan
 
 

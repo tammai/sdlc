@@ -721,6 +721,20 @@ class ScaffoldTest(ProjectTestCase):
         with open(target, encoding="utf-8") as f:
             self.assertEqual(f.read(), ".sdlc/.work/\nmine/\n")
 
+    def test_eject_lists_only_linked_files_with_something_recorded(self):
+        # AC-001 (review R2-L2 of 2026-11-22-s-fixed-writers-refuse-links): nothing to unmerge, nothing to name
+        self.setup_for_eject()  # claude-code only: no AGENTS.md block recorded
+        outside = tempfile.mkdtemp(prefix="sdlc-outside-")
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        target = os.path.join(outside, "agents")
+        with open(target, "w", encoding="utf-8") as f:
+            f.write("theirs\n")
+        self.linked_out("AGENTS.md", target)
+        self.assertNotIn("AGENTS.md", self.sc("eject")["outside"])
+        self.assertNotIn("AGENTS.md", self.sc("eject", "--apply")["outside"])
+        with open(target, encoding="utf-8") as f:
+            self.assertEqual(f.read(), "theirs\n")
+
     def read_all(self, rel):
         """Every file's text under the folder `rel`, joined (empty when it's missing)."""
         out = []
