@@ -4,6 +4,16 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
+### Security
+- **A committed lock can't make an upgrade copy a file from outside the plugin.** `.sdlc/scaffold.lock.json` names each file's template, and an upgrade renders it without asking: an absolute, `../` or linked template path read any local file (an SSH key, a token) into the repo. A template is now only one of the plugin's own (a known `builtin:`, or a path under its `templates/` that resolves inside it), checked on the lock and on `render`, `record` and `preview`; and nothing is recorded, rendered or deleted in a `.git` folder, written or reached through a link, Windows aliases included.
+
+### Fixed
+- **Upgrade and eject keep a file you merged.** After an upgrade's "apply merge", the next upgrade replaced the file with the template and eject deleted it without asking, since the merge was recorded like a plain render. A merged file is now reviewed only when the template changed since, asked about on eject, and never overwritten by `render --if-unchanged`.
+- **Commits and pushes through PowerShell get the commit security review.** On Windows, where Claude Code runs commands in its PowerShell tool, they were never reviewed.
+- **A folder named `..something` is inside the project.** The freshness hook and the turn's security-review diff treated `..hidden/` as outside it.
+- **`/sdlc:setup review-rounds <n>` during a feature no longer commits on the default branch** (3.14.0 known issue): the step reads the active feature from the session status line and leaves the change for the feature to ship.
+- **sdlc-stepper doesn't mark a failed merge done.** A `gh pr merge` that fails (a red check, a conflict) now leaves the bar at Ship; before, any `gh pr merge` command showed `Ship · done` until the next prompt.
+
 ## 3.14.0 — 2026-11-21
 
 No migration: repos without the key keep two rounds; `/sdlc:setup review-rounds` sets it.

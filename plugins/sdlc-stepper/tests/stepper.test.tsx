@@ -33,7 +33,7 @@ const BAND = {
   },
 } as const
 
-function repo(on: On, files: Record<string, string>, mtimes: Record<string, number> = {}) {
+function repo(on: On, files: Record<string, string>, mtimes: Record<string, number> = {}, failing?: RegExp) {
   const dirs: Record<string, { name: string; kind: 'file' | 'dir' }[]> = {}
   for (const path of Object.keys(files)) {
     const parts = path.split('/')
@@ -69,7 +69,11 @@ function repo(on: On, files: Record<string, string>, mtimes: Record<string, numb
     return { value: list.map(x => ({ ...x, size: 0, mtimeMs: mtimes[`${rel(e.path)}/${x.name}`] ?? 1, isLink: false })) }
   })
   on('session.start', (_, e) => ({ cwd: e.cwd }))
-  on('tool.call', () => ({ result: {} }))
+  // the engine beneath: a command matching `failing` exits non-zero (a red check, a conflict)
+  on('tool.call', (_, e) =>
+    failing && e.tool === 'Bash' && failing.test(String((e as { command?: unknown }).command))
+      ? { isError: true, result: 'Exit code 1', text: 'Exit code 1' }
+      : { result: {} })
 }
 
 test('the band names the phase, the part and the step, on every surface that has it', async ($, on) => {
@@ -312,6 +316,26 @@ test('merging the PR marks the shipped feature done, and the next prompt clears 
   expect(await look()).toEqual({ marks: ['✓', '✓', '✓', '✓'], words: 'Ship · merged PR #8' })
   await $.prompt.submit({ text: 'done?' })
   expect(await look()).toEqual({ marks: [], words: 'engine' })
+})
+
+test('a merge that failed leaves the feature at Ship', async ($, on) => {
+  const files: Record<string, string> = {
+    '.sdlc/config.json': '{}',
+    '.sdlc/state/f.md': STATE.replace('Stage 2 – Build', 'Stage 3 – Review'),
+  }
+  repo(on, files, {}, /gh pr merge/)
+  on('ui.render', ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return <Text>engine</Text>
+  })
+  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+  files['.sdlc/state/f.md'] = SHIPPED
+  await $.tool.call({ tool: 'Bash', command: 'gh pr checks 8 --watch' })
+  await $.tool.call({ tool: 'Bash', command: 'gh pr merge 8 --squash --delete-branch' })
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect({ marks: await marks(ui), words: (await ui.find({ type: 'Text', text: /^(Ship|engine)/ }))?.text })
+    .toEqual({ marks: ['✓', '✓', '✓', '●'], words: 'Ship · CI' })
+  await ui.unmount()
 })
 
 test('the desktop stepper shows every stage done once the PR is merged', async ($, on) => {
