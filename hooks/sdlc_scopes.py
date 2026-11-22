@@ -63,6 +63,18 @@ _NAME_CHARS = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ012
 _CONTRACT_KEYS = ("provides", "consumes")
 
 
+# The code points HFS+ ignores in a name (git's is_hfs_dotgit), so `.g‌it` opens `.git` there
+HFS_IGNORED = dict.fromkeys([0x200C, 0x200D, 0x200E, 0x200F, *range(0x202A, 0x202F), *range(0x206A, 0x2070), 0xFEFF])
+
+
+def git_segment(seg):
+    """A path segment a filesystem opens as a git dir: `.git` in any case (macOS and Windows ignore it), with the
+    trailing dots or spaces and the NTFS stream suffix Windows ignores, the code points HFS+ ignores, or its 8.3 short
+    name. Every `.git` check uses this one rule, so they can't drift apart."""
+    seg = str(seg).translate(HFS_IGNORED).split(":", 1)[0].rstrip(". ").lower()
+    return seg in (".git", "git~1")
+
+
 def _inside(base, rel):
     """The full path of `rel` under `base`, or OSError when, after links, it leaves `base` or lands in a git dir: the
     file is committed, so a link to another file is never read (a FIFO or /dev/zero would hang the hook too)."""
@@ -74,10 +86,7 @@ def _inside(base, rel):
         inside = os.path.commonpath([real_base, real]) == real_base
     except ValueError:  # another drive
         inside = False
-    ignored = dict.fromkeys([0x200C, 0x200D, 0x200E, 0x200F, *range(0x202A, 0x202F), *range(0x206A, 0x2070), 0xFEFF])
-    segments = [x.translate(ignored).split(":", 1)[0].rstrip(". ").lower()  # macOS and Windows ignore case
-                for x in os.path.relpath(real, real_base).split(os.sep)]
-    if not inside or any(x in (".git", "git~1") for x in segments):
+    if not inside or any(git_segment(x) for x in os.path.relpath(real, real_base).split(os.sep)):
         raise OSError(f"{rel} is a link out of the repo or into .git: not read")
     return full
 
