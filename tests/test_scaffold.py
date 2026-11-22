@@ -883,6 +883,24 @@ class ScaffoldTest(ProjectTestCase):
         self.assertFalse(os.path.exists(self.path(".sdlc/.work")))
         self.assertTrue(os.path.exists(self.path(".sdlc/config.json")))
 
+    def test_eject_removes_a_linked_scratch_folder_but_not_its_target(self):
+        # a committed link at .sdlc/.work: eject removes the link itself, after the lock is gone, never what it
+        # points to, and finishes rather than crashing in rmtree
+        self.setup_for_eject()
+        outside = os.path.realpath(tempfile.mkdtemp(prefix="sdlc-outside-"))
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        with open(os.path.join(outside, "keep.txt"), "w", encoding="utf-8") as f:
+            f.write("mine")
+        shutil.rmtree(self.path(".sdlc/.work"), ignore_errors=True)
+        try:  # Windows without the symlink privilege can't make one
+            os.symlink(outside, self.path(".sdlc/.work"), target_is_directory=True)
+        except (OSError, NotImplementedError):
+            self.skipTest("symlinks unavailable")
+        self.assertTrue(self.sc("eject", "--apply")["scratch_removed"])
+        self.assertFalse(os.path.lexists(self.path(".sdlc/.work")))
+        self.assertFalse(os.path.exists(self.path(".sdlc/scaffold.lock.json")))
+        self.assertEqual(os.listdir(outside), ["keep.txt"])
+
     def test_eject_apply_keeps_user_work(self):
         self.setup_for_eject()
         out = self.sc("eject", "--apply")

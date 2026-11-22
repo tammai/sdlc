@@ -2865,6 +2865,15 @@ def eject_plan(p):
     return plan
 
 
+def _is_link(path):
+    """A symlink, or a Windows junction (which os.path.islink doesn't report before Python 3.12)."""
+    try:
+        st = os.lstat(path)
+    except OSError:
+        return False
+    return stat.S_ISLNK(st.st_mode) or getattr(st, "st_reparse_tag", 0) in (0xA0000003, 0xA000000C)  # junction, link
+
+
 def cmd_eject(p, a):
     plan = eject_plan(p)
     if not a.apply:
@@ -2895,7 +2904,13 @@ def cmd_eject(p, a):
     p.lock = None
     work = p.path(".sdlc/.work")  # scratch; its .gitignore line is gone, so don't leave it to be committed
     scratch_removed = os.path.isdir(work)
-    if scratch_removed:
+    if _is_link(work):  # a committed link: remove the link itself, never what it points to
+        try:
+            os.unlink(work)
+        except OSError:  # a Windows directory link or junction
+            os.rmdir(work)
+        scratch_removed = True
+    elif scratch_removed:
         shutil.rmtree(work)
     out = {"deleted": deleted, "kept_edited": [x for x in plan["ask"] if x not in extra], "scratch_removed": scratch_removed,
            "unmerged": {SETTINGS: allow + team_keys, LOCAL_SETTINGS: plugin_keys, GITIGNORE: ignore, AGENTS: ["sdlc block"] if agents else []},
