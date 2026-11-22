@@ -334,12 +334,18 @@ class WorkbenchGuards(WorkbenchGuardsCase):
 
     def test_a_monitor_command_cannot_commit_or_push(self):
         # end-of-push review r1 SH-H5: the commit and push reviews run after a Bash call; a Monitor one would skip them
+        # Denied exactly where a Bash call would get a commit or push review: the review hook's own patterns decide
         for command in ("git commit -am x", "cd api && git commit -m y && git push", "git -C api push origin HEAD",
-                        "gt submit"):
+                        "gt submit", "git -c user.name=x commit -m y", "git -C api commit -m y",
+                        "git --no-pager -c core.editor=true commit -m y", "make && git commit -m y",
+                        "git --git-dir=.git push", "gt create -m x", "gt modify",
+                        "git -c 'alias.x=!a;b' commit -m y"):
             reason = self.pre("Monitor", command=command, description="d")
             self.assertIsNotNone(reason, command)
             self.assertIn("Bash", reason)
-        for command in ("tail -f log", "until grep -q done log; do sleep 2; done", "git log --oneline"):
+        for command in ("tail -f log", "until grep -q done log; do sleep 2; done", "git log --oneline",
+                        "git log --grep=push", "git stash push -m x", "git log -S commit", "gt log",
+                        "git merge --no-commit main", "git commit-graph write"):
             self.assertIsNone(self.pre("Monitor", command=command, description="d"), command)
 
     def test_hooks_json_sends_monitor_to_the_read_only_guard(self):
@@ -1391,6 +1397,32 @@ class ReadOnlyBackstop(WorkbenchFeatureCase):
         with open(self.baseline_file(), "w", encoding="utf-8") as f:
             json.dump(data, f)
         self.assertEqual(self.watch("Stop").get("decision"), "block")
+
+    def test_an_accept_names_the_dropped_repos_it_clears(self):
+        # todo: `accept read-only` after `scaffold.py workbench remove specs` cleared the report but said "none found"
+        import sdlc_scopes
+        self.assertEqual(self.watch("SessionStart"), {})
+        manifest = sdlc_scopes.read_repo_json(self.root, "workbench.json")
+        note = self.accept()["systemMessage"]
+        self.assertIn("as they are now: specs", note)  # taken as it is
+        self.assertNotIn("stopped watching", note)
+        for repos, names, gone in (([r for r in manifest["repos"] if r["name"] != "specs"], (), "specs"),  # dropped
+                                   ([dict(r, write=True) if r["name"] == "specs" else r for r in manifest["repos"]],
+                                    ("specs",), "specs"),  # made writable, accepted by name
+                                   ([r for r in manifest["repos"] if r["name"] != "api"], ("api",), "api")):
+            # (a writable repo dropped from the manifest is reported too, and named when cleared)
+            self.write_json("workbench.json", {"repos": repos})
+            self.assertEqual(self.watch("PostToolUse").get("decision"), "block")
+            note = self.accept(*names)["systemMessage"]
+            self.assertNotIn("none found", note)
+            self.assertIn("stopped watching", note)
+            self.assertIn(gone, note.split("stopped watching", 1)[1])
+            self.assertEqual(self.watch("Stop"), {})
+            # a second accept has nothing left to clear
+            self.assertIn("none found", self.accept(*names)["systemMessage"])
+            self.write_json("workbench.json", manifest)
+            self.watch("PostToolUse")
+            self.accept()
 
     def test_the_control_files_cannot_turn_the_watch_off(self):
         # .sdlc/2026-11-22-s-workbench-control-files (security-r7 SR7-M3)

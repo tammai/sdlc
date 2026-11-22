@@ -8,7 +8,6 @@ It reads .claude/hookify.*.local.md files and evaluates rules.
 import os
 import sys
 import json
-import re
 
 # Add plugin root to Python path for imports
 PLUGIN_ROOT = os.environ.get('CLAUDE_PLUGIN_ROOT')
@@ -64,15 +63,20 @@ def _read_only_write(input_data):
         return None
 
 
-MONITOR_COMMIT = re.compile(r"\bgit\b[^;&|\n]*\b(?:commit|push)\b|(?:^|[\s;&|(])gt\s+\w")
-
-
 def _monitor_commit(input_data):
     """The deny reason when a Monitor command commits or pushes: the commit and push security reviews run after a
-    Bash or PowerShell call, and a Monitor call's end isn't its command's, so it would skip them."""
+    Bash or PowerShell call, and a Monitor call's end isn't its command's, so it would skip them. The review hook's
+    own patterns decide, so Monitor is denied exactly where Bash would get a commit or push review."""
     if input_data.get("tool_name") != "Monitor":
         return None
-    if MONITOR_COMMIT.search(str((input_data.get("tool_input") or {}).get("command") or "")):
+    command = str((input_data.get("tool_input") or {}).get("command") or "")
+    try:
+        # Imported here: only a Monitor call pays for loading the review hook
+        import security_reminder_hook as sg
+        reviewed = sg._GIT_COMMIT_RE.search(command) or sg._GIT_PUSH_RE.search(command)
+    except Exception:
+        return None
+    if reviewed:
         return ("sdlc: run git commit and git push with the Bash tool, not Monitor: they get their security review "
                 "there.")
     return None
