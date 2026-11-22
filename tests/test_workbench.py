@@ -1301,6 +1301,26 @@ class ReadOnlyBackstop(WorkbenchFeatureCase):
         [name] = [f for f in os.listdir(self.data) if f.startswith("read-only-baseline-")]
         return os.path.join(self.data, name)
 
+    def test_only_a_repo_the_watch_has_held_is_an_unlisted_member(self):
+        # end-of-push review R2-L3: a scratch clone in a seeded workbench isn't a member; a repo dropped from the
+        # manifest (one the watch's `members` held) still is, and unsure ownership reviews it
+        import sdlc_review_gate as gate
+        import sdlc_scopes
+        self.assertEqual(self.watch("SessionStart"), {})
+        scratch = self.path("scratch")
+        git(self.root, "init", "-q", "-b", "main", "scratch")
+        self.write("scratch/a.py", "x = 1\n")
+        git(scratch, "add", "-A")
+        git(scratch, "commit", "-q", "-m", "x")
+        self.assertEqual(gate._workbench_feature(scratch), (False, None))
+        self.assertTrue(gate.decide(scratch, [git_out(scratch, "rev-parse", "HEAD")], set()).get("off"))
+        manifest = sdlc_scopes.read_repo_json(self.root, "workbench.json")
+        self.write_json("workbench.json", {"repos": [r for r in manifest["repos"] if r["name"] != "api"]})
+        self.assertEqual(gate._workbench_feature(self.path("api")), (True, ""))
+        # a baseline it can't read: unsure again, so the scratch clone is reviewed
+        os.remove(self.baseline_file())
+        self.assertEqual(gate._workbench_feature(scratch), (True, ""))
+
     def test_a_write_true_round_trip_is_reported_until_accepted(self):
         # end-of-push review r2 R2-H3: from a clean first look, writable, a commit made to look pushed, read-only
         # again: still reported, until the user accepts
