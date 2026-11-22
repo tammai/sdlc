@@ -18,6 +18,7 @@ Most gates are instructions plus your approval. These are enforced by code:
 ## Known gaps
 
 - **Freshness detection is heuristic.** It catches edits by any tool and filtered runs (file, name or package arguments), but not every possible filter, and not `.only` inside a test file (a guardrail warns on that instead).
+- **A workbench's read-only guard stops mistakes, not a determined agent.** The guard reads command text, and the read-only watch behind it keeps its baseline and marker outside the agent's view only by name: an agent set on it can spell around the text check, remove or rewrite those files, feed the watch a fake event, or forge `refs/remotes` so a local commit looks pushed. Treat it as a seatbelt; keep another team's repos protected on their remote (branch protection, no push rights).
 - **Generated CI is GitHub Actions only.** On other CI systems, run the commands from `.sdlc/config.json` yourself.
 - **Windows:** Claude Code runs commands in Git Bash, so project commands must work there. Generated CI runs every step with `shell: bash`.
 - **Outside services aren't bundled** (GitHub MCP, Linear, Sentry, Vercel, Playwright, …). Phases that would use one say which to add (`skills/orchestrator/references/integrations.md`). Anthropic's `claude-security` plugin isn't bundled (its license reserves all rights); install it separately for deep scans.
