@@ -82,9 +82,10 @@ def _active_feature(root, shas=()):
 def _workbench_feature(repo_root):
     """(member, text) for a repo cloned in a workbench. member: the folder above it is a workbench (a broken workbench
     config counts) whose workbench.json lists it, whatever the repo's own config says; text: the state of the one
-    workbench feature that owns its commits (active, or done with this repo branched and its PR not recorded yet:
-    Ship sets `Status: done` before the app repos commit), "" when unsure (several, or a manifest it can't read),
-    None when none does. Not a member: (False, None)."""
+    workbench feature that owns its commits (active, or done while the repo is on the branch the feature made for it:
+    Ship sets `Status: done` before the app repos commit, and a CI fix commits there after the PR; a recorded PR
+    never ends it, since anyone can record one), "" when unsure (several, or a manifest it can't read), None when
+    none does. Not a member: (False, None)."""
     import sdlc_scopes  # noqa: PLC0415
     repo = os.path.abspath(repo_root)
     wb, name = os.path.dirname(repo), os.path.basename(repo)
@@ -96,7 +97,7 @@ def _workbench_feature(repo_root):
         listed = None
     if listed is not None and name not in listed:
         return False, None
-    owners = []
+    owners, current = [], None
     for f in sdlc_layout.features(wb).values():
         try:
             with open(os.path.join(wb, f["state"]), encoding="utf-8") as fh:
@@ -106,8 +107,12 @@ def _workbench_feature(repo_root):
         if not sdlc_layout.PROCESS_RE.search(text):
             continue
         active = re.search(r"^Status:[ \t]*active[ \t]*(\(|$)", text, re.M | re.I)
-        shipping = (re.search(r"^Status:[ \t]*done", text, re.M | re.I) and name in sdlc_scopes.feature_repos(text)
-                    and name not in sdlc_scopes.feature_prs(text))
+        branch = (sdlc_scopes.feature_repos(text).get(name) or {}).get("branch")
+        shipping = False
+        if branch and re.search(r"^Status:[ \t]*done", text, re.M | re.I):
+            if current is None:
+                current = _git(repo, "branch", "--show-current") or ""
+            shipping = current == branch
         if active or shipping:
             owners.append(text)
     if listed is None:

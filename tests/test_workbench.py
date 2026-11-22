@@ -1478,11 +1478,15 @@ class PluginReviewWorkbench(WorkbenchFeatureCase):
         self.assertEqual(self.state("set", "feat", "Risk", "high")[0], 0)
         d = gate.decide(api, [sha], set())
         self.assertFalse(d.get("skip") or d.get("off") or d["defer"], d)  # Risk: high is always reviewed
-        # Ship sets Status: done before the app repos commit: still reviewed until the repo's PR is recorded
+        # Ship sets Status: done before the app repos commit: still reviewed while the repo is on the feature's branch
         self.assertEqual(self.state("set", "feat", "Status", "done")[0], 0)
         self.assertFalse(gate.decide(api, [sha], set()).get("off"))
+        # .sdlc/2026-11-22-s-done-feature-owns-its-branch AC-001: a recorded PR (real or not) doesn't end it (SR7-M4)
         self.assertEqual(self.state("pr", "feat", "api", "https://example.com/api/pull/1")[0], 0)
-        self.assertTrue(gate.decide(api, [sha], set()).get("off"))  # shipped: nothing owns its commits now
+        self.assertFalse(gate.decide(api, [sha], set()).get("off"))
+        # AC-002: off the feature's branch, the done feature no longer owns the repo's commits, PR or not (SR7-L2)
+        git(api, "switch", "-q", "-c", "next-thing")
+        self.assertTrue(gate.decide(api, [sha], set()).get("off"))
 
     def test_the_app_repos_own_config_never_turns_its_review_off(self):
         import sdlc_review_gate as gate
