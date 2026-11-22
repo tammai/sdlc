@@ -1290,8 +1290,21 @@ class ReadOnlyBackstop(WorkbenchFeatureCase):
         config = sdlc_scopes.read_repo_json(self.root, ".sdlc/config.json")
         self.write_json(".sdlc/config.json", dict(config, workbench=False))
         self.assertTrue(sdlc_scopes.guarded_workbench(self.root))
+        from helpers import run_hook
+        import sdlc_review_gate as gate
+        # the write guard still denies a write into specs/
+        _, out, _, _ = run_hook(["python3", os.path.join(HOOKS, "pretooluse.py")], {
+            "hook_event_name": "PreToolUse", "tool_name": "Write", "cwd": self.root,
+            "tool_input": {"file_path": self.path("specs/b.md"), "content": "x"}}, self.root)
+        self.assertEqual((out or {}).get("hookSpecificOutput", {}).get("permissionDecision"), "deny")
+        self.assertTrue(gate._workbench_feature(self.path("api"))[0])  # the app review still sees a member repo
         self.write("specs/b.md", "x")
         self.assertEqual(self.watch("PostToolUse").get("decision"), "block")
+        # a host without CLAUDE_PROJECT_DIR (Codex), called from inside a repo, finds the workbench too
+        code, out, _, err = run_hook(["python3", os.path.join(HOOKS, "read_only_watch.py")], {
+            "hook_event_name": "Stop", "session_id": "s1", "cwd": self.path("api")}, self.path("api"),
+            {"CLAUDE_PLUGIN_DATA": self.data, "CLAUDE_PROJECT_DIR": ""})
+        self.assertEqual((out or {}).get("decision"), "block", (out, err))
 
     def test_undoing_an_accepted_change_back_to_the_first_look_is_silent(self):
         # .sdlc/2026-11-22-s-watch-undo-accepted AC-001 (3.8.0 smoke test K)
