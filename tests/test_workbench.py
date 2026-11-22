@@ -1513,6 +1513,19 @@ class PluginReviewWorkbench(WorkbenchFeatureCase):
         git(api, "switch", "-q", "-c", "next-thing")
         self.assertTrue(gate.decide(api, [sha], set()).get("off"))
 
+    def test_a_done_feature_keeps_a_detached_repo_until_its_pr_is_recorded(self):
+        # .sdlc/2026-11-22-s-done-feature-detached AC-001: off the branch but no PR recorded yet, still owned
+        import sdlc_review_gate as gate
+        api = self.path("api")
+        self.assertEqual(self.state("repo", "feat", "api")[0], 0)
+        self.assertEqual(self.state("set", "feat", "Status", "done")[0], 0)
+        git(api, "checkout", "-q", "--detach")
+        self.write("api/a.py", "x = 1\n")
+        git(api, "add", "-A")
+        git(api, "commit", "-q", "-m", "x")
+        sha = git_out(api, "rev-parse", "HEAD")
+        self.assertFalse(gate.decide(api, [sha], set()).get("off"))
+
     def test_the_app_repos_own_config_never_turns_its_review_off(self):
         import sdlc_review_gate as gate
         api = self.path("api")

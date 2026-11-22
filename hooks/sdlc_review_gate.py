@@ -83,9 +83,9 @@ def _active_feature(root, shas=()):
 def _workbench_feature(repo_root):
     """(member, text) for a repo cloned in a workbench. member: the folder above it is a workbench (a broken workbench
     config counts) whose workbench.json lists it, whatever the repo's own config says; text: the state of the one
-    workbench feature that owns its commits (active, or done while the repo is on the branch the feature made for it:
-    Ship sets `Status: done` before the app repos commit, and a CI fix commits there after the PR; a recorded PR
-    never ends it, since anyone can record one), "" when unsure (several, or a manifest it can't read), None when
+    workbench feature that owns its commits (active, or done while the repo is on the branch the feature made for it
+    or its PR isn't recorded yet: Ship sets `Status: done` before the app repos commit, and a CI fix commits there
+    after the PR; a recorded PR doesn't end it on that branch, since anyone can record one), "" when unsure (several, or a manifest it can't read), None when
     none does. Not a member: (False, None)."""
     import sdlc_scopes  # noqa: PLC0415
     repo = os.path.abspath(repo_root)
@@ -113,7 +113,9 @@ def _workbench_feature(repo_root):
         if branch and re.search(r"^Status:[ \t]*done", text, re.M | re.I):
             if current is None:
                 current = _git(repo, "branch", "--show-current") or ""
-            shipping = current == branch
+            # on its branch (a recorded PR, which anyone can write, never ends that), or anywhere until a PR is
+            # recorded (a detached HEAD or another branch mid-Ship must not leave a commit unreviewed)
+            shipping = current == branch or name not in sdlc_scopes.feature_prs(text)
         if active or shipping:
             owners.append(text)
     if listed is None:
