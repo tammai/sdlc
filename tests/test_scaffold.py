@@ -486,6 +486,39 @@ class ScaffoldTest(ProjectTestCase):
                                  "restore": ["deleted.yml"], "template_gone": ["orphan.yml"]})
         self.assertEqual((plan["from"], plan["to"]), ("1.3.0", "1.4.0"))
 
+    def merged(self):
+        """A seeded file the user edited, then merged with the template as upgrade's "apply merge" records it."""
+        self.init()
+        self.template("templates/project/guard.md", "guard v1\n")
+        self.sc("render", "templates/project/guard.md", "guard.md", "--class", "seeded")
+        self.write("guard.md", "guard v1\nmine\n")
+        self.sc("record", "seeded", "guard.md", "--template", "templates/project/guard.md")
+
+    def test_a_merged_file_is_reviewed_not_replaced(self):
+        self.merged()
+        plan = self.sc("upgrade-plan")
+        self.assertEqual([plan[k] for k in ("replace", "review")], [[], []])  # nothing new to merge
+        self.template("templates/project/guard.md", "guard v2\n")
+        plan = self.sc("upgrade-plan")
+        self.assertEqual(([i["path"] for i in plan["replace"]], [i["path"] for i in plan["review"]]), ([], ["guard.md"]))
+        self.assertIn("edited", self.sc("render", "templates/project/guard.md", "guard.md", "--class", "seeded",
+                                        "--if-unchanged", expect=2)["refused"])
+        self.assertEqual(self.read("guard.md"), "guard v1\nmine\n")
+
+    def test_eject_asks_about_a_merged_file(self):
+        self.merged()
+        plan = self.sc("eject")
+        self.assertIn("guard.md", plan["ask"])
+        self.assertNotIn("guard.md", plan["delete"])
+
+    def test_a_malformed_render_hash_is_refused(self):
+        self.merged()
+        lock = json.loads(self.read(".sdlc/scaffold.lock.json"))
+        lock["files"]["guard.md"]["render_sha256"] = 7
+        self.write(".sdlc/scaffold.lock.json", json.dumps(lock))
+        out = self.sc("upgrade-plan", expect=1)  # a damaged lock: the script's own exit, with a message
+        self.assertIn("'guard.md'", out["error"])
+
     # --- eject -------------------------------------------------------------------------------
 
     def setup_for_eject(self):

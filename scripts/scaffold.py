@@ -213,8 +213,8 @@ def check_lock(lock):
     for path, e in lock["files"].items():
         if not isinstance(e, dict) or not isinstance(e.get("class"), str):
             raise bad(f"'files' entry {path!r} must be an object with a string 'class'")
-        if not isinstance(e.get("sha256"), (str, type(None))) or not isinstance(e.get("template"), (str, type(None))):
-            raise bad(f"'files' entry {path!r}: 'sha256' and 'template' must be strings")
+        if not all(isinstance(e.get(k), (str, type(None))) for k in ("sha256", "template", "render_sha256")):
+            raise bad(f"'files' entry {path!r}: 'sha256', 'template' and 'render_sha256' must be strings")
     strings = [("declined", lock["declined"]), ("hosts", lock.get("hosts", [])),
                ("setup.completed_steps", lock.get("setup", {}).get("completed_steps", [])),
                ("migrations.applied", lock.get("migrations", {}).get("applied", []))]
@@ -377,6 +377,11 @@ class Project:
         if disk != base:
             merge_into(base, ours, disk, top=top)
 
+    @staticmethod
+    def merged(entry):
+        """The recorded text isn't the template's own render: the user's edits merged in (upgrade's "apply merge")."""
+        return bool(entry.get("render_sha256")) and entry.get("render_sha256") != entry.get("sha256")
+
     def file_state(self, path, entry):
         if not inside_repo(self.root, path):  # through a link out of the repo: never read (a device, a huge file)
             return "outside"
@@ -524,7 +529,11 @@ def cmd_record(p, a):
         entry = files.get(r, {})
         entry.update({"class": a.cls, "sha256": h})
         if a.template:
+            if not template_exists(a.template):
+                raise Refused(f"no template {a.template!r} in the plugin; not recorded")
             entry["template"] = a.template
+            # what the plugin would have written: a text that differs holds the user's edits (Project.merged)
+            entry["render_sha256"] = hashlib.sha256(render_source(a.template, p).encode("utf-8")).hexdigest()
         files[r] = entry
         recorded[r] = entry
     p.save()
@@ -846,7 +855,7 @@ def cmd_render(p, a):
     if not inside_repo(p.root, dest):
         raise Refused(f"{dest} resolves outside the project through a link; nothing written")
     entry = lock["files"].get(dest)
-    if a.if_unchanged and entry and p.file_state(dest, entry) == "modified":
+    if a.if_unchanged and entry and (p.file_state(dest, entry) == "modified" or p.merged(entry)):
         raise Refused(f"{dest} was edited since the plugin wrote it; review the diff instead of overwriting")
     if a.if_unchanged and not entry and os.path.exists(p.path(dest)):
         raise Refused(f"{dest} exists but the plugin never wrote it; review the diff instead of overwriting")
@@ -2631,8 +2640,11 @@ def cmd_upgrade_plan(p, a):
         elif e["class"] == "generated":
             plan["regenerate"].append(item)
         elif state == "unchanged":
-            new = render_source(tpl, p)
-            if hashlib.sha256(new.encode("utf-8")).hexdigest() != e.get("sha256"):
+            new = hashlib.sha256(render_source(tpl, p).encode("utf-8")).hexdigest()
+            if p.merged(e):  # the user's merge: offered again only when the template moved on since
+                if new != e.get("render_sha256"):
+                    plan["review"].append(item)
+            elif new != e.get("sha256"):
                 plan["replace"].append(item)
         elif state == "modified":
             plan["review"].append(item)
@@ -2675,7 +2687,7 @@ def eject_plan(p):
             continue
         if state == "missing":
             plan["already_gone"].append(path)
-        elif e["class"] == "generated" or state == "unchanged":
+        elif e["class"] == "generated" or (state == "unchanged" and not p.merged(e)):
             plan["delete"].append(path)
         else:
             plan["ask"].append(path)
