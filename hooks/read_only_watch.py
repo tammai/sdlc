@@ -33,7 +33,7 @@ import sdlc_scopes  # noqa: E402
 
 MARKER = ".sdlc/.work/read-only-seeded"
 BASELINE_NAME = "read-only-baseline"  # role_guard denies commands and writes naming it or the marker
-WRITERS = {"Edit", "Write", "MultiEdit", "NotebookEdit", "Bash", "PowerShell"}
+WRITERS = {"Edit", "Write", "MultiEdit", "NotebookEdit", "Bash", "PowerShell", "Monitor"}  # Monitor runs a command
 GIT_TIMEOUT = 4  # each git call; the hook has 10 s
 ACCEPT = re.compile(r"^\s*accept\s+read-only\b(?P<names>[\w.\- \t]*)$", re.I)
 KEYS = ("status", "unpushed", "push", "refs")

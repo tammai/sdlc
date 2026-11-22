@@ -37,7 +37,7 @@ STATE = os.path.join(".sdlc", ".work", "review-rounds.json")
 # The user's own command, as typed: /sdlc:setup, /setup, or a Codex skill's $sdlc-setup
 SET = re.compile(r"\s*[/$](?:sdlc[:-])?setup\s+review-rounds\s+([0-9]{1,3})\s*$", re.I)
 HEADER = "Review cap"  # the AskUserQuestion header whose answer grants a round
-GUARDED = {"Edit", "Write", "MultiEdit", "NotebookEdit", "Bash", "PowerShell", "Agent", "Task", "Skill"}
+GUARDED = {"Edit", "Write", "MultiEdit", "NotebookEdit", "Bash", "PowerShell", "Monitor", "Agent", "Task", "Skill"}
 
 
 def load(root):
@@ -222,7 +222,7 @@ def main():
     rel = os.path.relpath(os.path.abspath(os.path.join(data.get("cwd") or root, path)), root).replace(os.sep, "/")
     if path and rel.startswith(".sdlc/.work/findings/") and not any(c in rel for c in "~:"):
         return  # a reviewer finishing its report
-    if tool in ("Bash", "PowerShell") and runs_tests(root, (data.get("tool_input") or {}).get("command") or ""):
+    if tool in ("Bash", "PowerShell", "Monitor") and runs_tests(root, (data.get("tool_input") or {}).get("command") or ""):
         return
     rounds = ", ".join(f"{n} (round {r})" for n, r in over.items())
     reason = (f"sdlc: {rounds}: the last review round allowed before the user decides still fails, so the "

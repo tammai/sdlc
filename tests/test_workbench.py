@@ -1238,6 +1238,17 @@ class ReadOnlyBackstop(WorkbenchFeatureCase):
         [name] = [f for f in os.listdir(self.data) if f.startswith("read-only-baseline-")]
         return os.path.join(self.data, name)
 
+    def test_a_monitor_call_that_writes_a_read_only_repo_is_seen_at_once(self):
+        # .sdlc/2026-11-22-s-monitor-other-hooks AC-002: the per-call check covers Monitor, not only the turn end
+        self.assertEqual(self.watch("SessionStart"), {})
+        self.write("specs/b.md", "x")
+        self.assertEqual(self.watch("PostToolUse", tool="Monitor").get("decision"), "block")
+        with open(os.path.join(HOOKS, "hooks.json"), encoding="utf-8") as f:
+            hooks = json.load(f)["hooks"]
+        for event in ("PreToolUse", "PostToolUse", "PostToolUseFailure"):
+            [matcher] = [e["matcher"] for e in hooks[event] if any("read_only_watch.py" in h["command"] for h in e["hooks"])]
+            self.assertIn("Monitor", matcher.split("|"), event)
+
     def test_any_change_in_a_read_only_repo_is_reported_and_blocks_stop(self):
         specs = self.path("specs")
         self.write("specs/mine.md", "the user's own edit, before the session")
