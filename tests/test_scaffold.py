@@ -1447,6 +1447,31 @@ class ScaffoldTest(ProjectTestCase):
         finally:
             os.environ.pop("GIT_DIR") if old is None else os.environ.__setitem__("GIT_DIR", old)
 
+    def test_untracked_fails_closed_when_the_project_is_below_the_git_toplevel(self):
+        # a monorepo package: its root holds no .git of its own, so a repo git refuses was read as "no repo", every
+        # file as tracked, and a local file that differs from the lock was rendered over or deleted
+        sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
+        import scaffold
+        self.git("init", "-q", "-b", "main")
+        self.write("pkg/a.txt", "x")
+        self.git("add", "pkg/a.txt")
+        self.git("commit", "-q", "-m", "x")
+        p = scaffold.Project(self.path("pkg"))
+        self.assertFalse(p.untracked("a.txt"))
+        self.assertTrue(p.untracked("b.txt"))
+        old = os.environ.get("GIT_DIR")
+        os.environ["GIT_DIR"] = self.path("nowhere")
+        try:
+            self.assertTrue(p.untracked("a.txt"))  # git refuses: kept, never overwritten
+        finally:
+            os.environ.pop("GIT_DIR") if old is None else os.environ.__setitem__("GIT_DIR", old)
+        shutil.rmtree(self.path(".git"))
+        self.write(".git", "gitdir: nowhere\n")  # a broken worktree link above the project
+        self.assertTrue(p.untracked("a.txt"))
+        outside = os.path.realpath(tempfile.mkdtemp(prefix="sdlc-norepo-"))
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        self.assertFalse(scaffold.Project(outside).untracked("a.txt"))  # no repo at all: nothing to tell apart
+
     def legacy_repo(self, files):
         self.git("init", "-q", "-b", "main")
         for path in files:

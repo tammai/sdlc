@@ -403,7 +403,14 @@ class Project:
         def git(*args):  # literal pathspecs: a `*` or `:!` in a recorded name is just a character
             return subprocess.run(["git", "--literal-pathspecs", "-C", self.root, *args], capture_output=True,
                                   encoding="utf-8", errors="replace")
-        repo = os.path.lexists(os.path.join(self.root, ".git"))
+        # In a repo, at its top or below it (a monorepo package): a `.git` here or in any parent, or GIT_DIR set. When
+        # git can't answer there, every file counts as untracked (fail closed), never as tracked
+        repo, d = bool(os.environ.get("GIT_DIR")), os.path.abspath(self.root)
+        while not repo:
+            repo = os.path.lexists(os.path.join(d, ".git"))
+            if os.path.dirname(d) == d:
+                break
+            d = os.path.dirname(d)
         try:
             if git("rev-parse", "--is-inside-work-tree").stdout.strip() != "true":
                 return repo  # a repo git refuses (safe.directory, a bad GIT_DIR): count it untracked, so it's kept
