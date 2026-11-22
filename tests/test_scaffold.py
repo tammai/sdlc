@@ -1468,6 +1468,14 @@ class ScaffoldTest(ProjectTestCase):
         shutil.rmtree(self.path(".git"))
         self.write(".git", "gitdir: nowhere\n")  # a broken worktree link above the project
         self.assertTrue(p.untracked("a.txt"))
+        # end review SP-H1: the project opened through a link from outside the repo still finds the real parents
+        away = tempfile.mkdtemp(prefix="sdlc-away-")
+        self.addCleanup(shutil.rmtree, away, ignore_errors=True)
+        try:
+            os.symlink(self.path("pkg"), os.path.join(away, "pkg"), target_is_directory=True)
+        except (OSError, NotImplementedError):
+            self.skipTest("symlinks unavailable")
+        self.assertTrue(scaffold.Project(os.path.join(away, "pkg")).untracked("a.txt"))
         outside = os.path.realpath(tempfile.mkdtemp(prefix="sdlc-norepo-"))
         self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
         self.assertFalse(scaffold.Project(outside).untracked("a.txt"))  # no repo at all: nothing to tell apart

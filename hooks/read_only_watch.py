@@ -55,6 +55,12 @@ def baseline_path(root):
             return named
     except (OSError, IndexError):
         pass
+    return default_baseline_path(root)
+
+
+def default_baseline_path(root):
+    """This host's own baseline file for the workbench, whatever the marker names (the review gate reads only this
+    one: the marker is in the workbench, so the agent can point it at a file it wrote)."""
     key = hashlib.sha256(os.path.normcase(os.path.realpath(root)).encode("utf-8")).hexdigest()[:16]
     return os.path.join(data_dir(), f"{BASELINE_NAME}-{key}.json")
 
@@ -224,8 +230,8 @@ def look(root, listed, members=None):
             data[key] = []
     if "read_only" not in data:  # a baseline from before the list: the repos it watched, too
         data["read_only"], grown = sorted(set(listed) | set(base)), True
-    if "members" not in data and members is not None:
-        data["members"], grown = sorted(members | set(data["read_only"])), True
+    if members is not None and not members <= set(data.get("members") or []):  # every name the manifest ever listed
+        data["members"], grown = sorted(set(data.get("members") or []) | members | set(data["read_only"])), True
     flipped = set(data.get("flipped") or [])
     for name in data["read_only"]:
         if name not in listed and name not in flipped:  # a control-file flip stays said until the user accepts it

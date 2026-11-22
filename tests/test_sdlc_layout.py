@@ -172,3 +172,14 @@ class GitSegmentTest(ProjectTestCase):
             self.skipTest("symlinks unavailable")
         with self.assertRaises(ValueError):  # the path written is fine; where it leads isn't
             objects.target(self.root, "docs/objects.md")
+
+
+class GitPrefixedNamesPassTest(ProjectTestCase):
+    def test_names_that_only_start_with_git_are_accepted(self):
+        # end review SP-L2: the shared .git rule must not widen to `.git*`
+        sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
+        import scaffold
+        for name in (".github/docs", ".gitignore-docs", "docs/.git-notes", "a.git/docs"):
+            self.assertEqual(sdlc_layout.validate_docs_dir(name), name)
+        self.write(".github/runbooks/deploy.md", "x")
+        self.assertIsNotNone(scaffold.runbook_path(self.root, ".github/runbooks/deploy.md"))

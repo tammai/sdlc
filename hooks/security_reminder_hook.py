@@ -903,28 +903,9 @@ _COMMIT_SHA_RE = re.compile(r'^\[[^\]]*?\b([0-9a-f]{7,40})\]', re.MULTILINE)
 # _GIT_COMMIT_RE and _GIT_PUSH_RE: `-C <path>`, `-c key=val`, `--opt=val`,
 # the long options that take a separate value, and flags that take none
 # (`--no-pager`, `-p`). A value may be quoted in part (`-c user.name="A B"`).
-_GIT_OPT_VALUE = r'''(?:[^\s"']|"[^"]*"|'[^']*')+'''
-_GIT_VALUE_OPTS = r'git-dir|work-tree|namespace|config-env|attr-source'
-_GIT_GLOBAL_OPTS = (
-    r'(?:\s+-[Cc]\s+' + _GIT_OPT_VALUE
-    + r'|\s+--[^\s=]+=' + _GIT_OPT_VALUE
-    + r'|\s+--(?:' + _GIT_VALUE_OPTS + r')\s+' + _GIT_OPT_VALUE
-    # `--help` / `--version` run no subcommand.
-    + r'|\s+(?:--(?!(?:' + _GIT_VALUE_OPTS + r'|help|version)\s)[^\s=]+|-[pP])(?=\s))*'
+from git_commands import (  # noqa: E402  (shared with pretooluse's Monitor deny: one pattern)
+    _GIT_OPT_VALUE, _GIT_VALUE_OPTS, _GIT_GLOBAL_OPTS, GIT_COMMIT_RE as _GIT_COMMIT_RE,
 )
-_GIT_COMMIT_RE = re.compile(
-    # Without the global-option tolerance, `git -C /repo commit` is silently
-    # dropped by the handler — see #2089's secondary finding. The gt branch
-    # has no global-option layer to worry about.
-    # `(?!-)`: not the plumbing commands `git commit-graph` / `git commit-tree`.
-    r'\bgit' + _GIT_GLOBAL_OPTS + r'\s+commit\b(?!-)'
-    r'|\bgt\s+(?:create|modify)\b'
-)
-# Match either the `--amend` flag (with the leading whitespace boundary
-# preserved from the original) OR `gt modify` which is semantically an
-# amend. The handler treats matches as "find the pre-amend SHA via reflog
-# and diff against THAT, not against the post-amend HEAD's parent" — same
-# code path for both git --amend and gt modify.
 _GIT_AMEND_RE = re.compile(r'(?:\s--amend\b|\bgt\s+modify\b)')
 
 # Rolling-window cap on LLM commit-review calls. See atomic_check_rate_limit
@@ -957,9 +938,7 @@ COMMIT_REVIEW_RATE_WINDOW_S = int(
 # stacked-PR push command. gt submit forwards to `git push` internally,
 # but the bash hook fires on Claude's top-level command so we need to
 # recognize gt submit at the matcher level. See #2048.
-_GIT_PUSH_RE = re.compile(
-    r'(?:\bgit' + _GIT_GLOBAL_OPTS + r'\s+push\b|\bgt\s+submit\b)'
-)
+from git_commands import GIT_PUSH_RE as _GIT_PUSH_RE  # noqa: E402
 
 # `git push` stdout: "abc1234..def5678  branch -> branch" (or `+abc..def` on
 # force, `* [new branch]` on first push). The left sha is where the remote

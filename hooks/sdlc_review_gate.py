@@ -97,9 +97,10 @@ def _merged(repo, branch, base):
 def _never_held(wb, name):
     """The read-only watch's baseline lists every name the manifest has held (`members`), and not this one: a scratch
     clone, not a repo dropped from the manifest. A baseline it can't read, or one without `members`: False (unsure)."""
-    import read_only_watch  # noqa: PLC0415  (read only: the watch's own path and loader)
-    members = (read_only_watch.load(read_only_watch.baseline_path(wb)) or {}).get("members")
-    return isinstance(members, list) and all(isinstance(m, str) for m in members) and name not in members
+    import read_only_watch  # noqa: PLC0415  (read only: the watch's own loader, this host's own baseline file)
+    members = (read_only_watch.load(read_only_watch.default_baseline_path(wb)) or {}).get("members")
+    return (isinstance(members, list) and bool(members) and all(isinstance(m, str) for m in members)
+            and name not in members)  # an empty or damaged list says nothing: unsure
 
 
 def _workbench_feature(repo_root):
@@ -143,6 +144,9 @@ def _workbench_feature(repo_root):
     mine = [o for o in owners if name in sdlc_scopes.feature_repos(o[0])]
     current = [t for t, active in mine if active]
     if len(current) == 1:
+        # a done owner whose commits may still come (a CI fix on its branch) keeps its own Risk: high in force
+        if any(re.search(r"^Risk:\s*high\b", t, re.M | re.I) for t, active in mine if not active):
+            return True, ""
         return True, current[0]
     if len(mine) == 1:
         return True, mine[0][0]

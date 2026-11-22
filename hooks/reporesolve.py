@@ -319,7 +319,17 @@ def _workbench_app_repo(root, touched_paths, cwd):
         repos_from_paths(touched_paths, cwd or root, counts=counts)
         apps = [t for t in counts
                 if t != root and os.path.dirname(os.path.realpath(t)) == os.path.realpath(root)]
-        return min(apps, key=lambda t: (-counts[t], t)) if apps else None
+        if not apps:
+            return None
+        best = min(apps, key=lambda t: (-counts[t], t))
+        # the root keeps the review when its own edits are as many, or steer the agent (CLAUDE.md, hooks, config)
+        import sdlc_review_gate  # noqa: PLC0415
+        own = [os.path.relpath(os.path.join(cwd or root, p), root).replace(os.sep, "/") for p in touched_paths]
+        own = [p for p in own if not p.startswith("..") and not any(
+            p == os.path.relpath(a, root) or p.startswith(os.path.relpath(a, root) + "/") for a in apps)]
+        if len(own) >= counts[best] or any(sdlc_review_gate.NEVER_SKIP.match(p) for p in own):
+            return None
+        return best
     except Exception:
         return None
 

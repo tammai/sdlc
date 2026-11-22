@@ -71,11 +71,11 @@ def _monitor_commit(input_data):
         return None
     command = str((input_data.get("tool_input") or {}).get("command") or "")
     try:
-        # Imported here: only a Monitor call pays for loading the review hook
-        import security_reminder_hook as sg
-        reviewed = sg._GIT_COMMIT_RE.search(command) or sg._GIT_PUSH_RE.search(command)
-    except Exception:
-        return None
+        import git_commands  # a leaf module: the review hook's own patterns, nothing else
+        reviewed = git_commands.GIT_COMMIT_RE.search(command) or git_commands.GIT_PUSH_RE.search(command)
+    except Exception:  # never off on an error: anything that looks like a commit or push is denied
+        import re
+        reviewed = re.search(r"\bg(?:i)?t\b.*\b(?:commit|push|submit|create|modify)\b", command)
     if reviewed:
         return ("sdlc: run git commit and git push with the Bash tool, not Monitor: they get their security review "
                 "there.")
