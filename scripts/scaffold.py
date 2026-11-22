@@ -289,6 +289,10 @@ def merge_into(base, ours, theirs, whole=False, records=False, top=True):
 class Project:
     def __init__(self, root):
         self.root = os.path.abspath(root)
+        for rel in (CONFIG, LOCK):  # committed: a link out of the repo or into .git is never read or written
+            problem = link_problem(self.root, rel)
+            if problem:
+                raise ValueError(problem)
         self._config, self._config_checked = read_json(self.path(CONFIG)), False
         self._config_read = copy.deepcopy(self._config)  # save writes config.json only when this command changed it
         raw = read_json(self.path(LOCK), _ABSENT)
@@ -3104,7 +3108,7 @@ def build_parser():
 def main(argv=None):
     a = build_parser().parse_args(argv)
     try:
-        result = a.fn(Project(a.root), a)
+        result = a.fn(Project(a.root), a)  # inside the try: Project refuses a linked config or lock
         code = 0
     except Refused as e:
         result, code = {"refused": str(e)}, 2

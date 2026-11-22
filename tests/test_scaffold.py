@@ -805,6 +805,27 @@ class ScaffoldTest(ProjectTestCase):
         self.real("agents")
         self.assertIn("keep me", self.read("AGENTS.md"))
 
+    def test_config_and_lock_linked_out_of_the_repo_are_refused(self):
+        # AC-001 (review M2 of 2026-11-22-s-doctor-reads-no-links): never read from, or written to, outside
+        outside = tempfile.mkdtemp(prefix="sdlc-outside-")
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        cfg = os.path.join(outside, "config.json")
+        with open(cfg, "w", encoding="utf-8") as f:
+            f.write('{"secret": 1}')
+        self.linked_out(".sdlc/config.json", cfg)
+        self.assertIn(".sdlc/config.json", self.sc("status", expect=1)["error"])
+        os.remove(self.path(".sdlc/config.json"))
+        os.makedirs(self.path(".git"), exist_ok=True)
+        self.write(".git/config", "[core]\n")
+        self.linked_out(".sdlc/scaffold.lock.json", os.path.join("..", ".git", "config"))
+        self.assertIn(".sdlc/scaffold.lock.json", self.sc("status", expect=1)["error"])
+        os.remove(self.path(".sdlc/scaffold.lock.json"))
+        self.linked_out(".sdlc", outside)  # the whole folder: init writes nothing there
+        self.sc("init", "--kind", "greenfield", expect=1)
+        self.assertEqual(sorted(os.listdir(outside)), ["config.json"])
+        with open(cfg, encoding="utf-8") as f:
+            self.assertEqual(f.read(), '{"secret": 1}')
+
     def test_eject_plan_is_dry_by_default(self):
         self.setup_for_eject()
         plan = self.sc("eject")

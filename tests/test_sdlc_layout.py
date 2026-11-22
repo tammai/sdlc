@@ -49,3 +49,40 @@ class LayoutTest(ProjectTestCase):
         for bad in (".", "..", "../x", "/abs", ".git", ".git/x", ".GIT/x", "docs/.git. /x"):
             with self.assertRaises(ValueError, msg=bad):
                 sdlc_layout.validate_docs_dir(bad)
+
+
+class LinkedConfigTest(ProjectTestCase):
+    def test_config_and_manifest_linked_out_of_the_repo_read_as_absent(self):
+        # AC-002 (review M2 of 2026-11-22-s-doctor-reads-no-links): no value from a file outside the repo or in .git
+        import tempfile, shutil  # noqa: E401
+        sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
+        import objects
+        import sdlc_scopes
+        outside = tempfile.mkdtemp(prefix="sdlc-outside-")
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        cfg = os.path.join(outside, "config.json")
+        with open(cfg, "w", encoding="utf-8") as f:
+            json.dump({"docs_dir": "docs/sdlc", "prd": "secret.md", "workbench": True, "objects": True}, f)
+        man = os.path.join(outside, "workbench.json")
+        with open(man, "w", encoding="utf-8") as f:
+            json.dump({"repos": [{"name": "app", "url": "https://x/app.git", "role": "app"}]}, f)
+        os.makedirs(self.path(".sdlc"))
+        try:  # Windows without the symlink privilege can't make one
+            os.symlink(cfg, self.path(".sdlc/config.json"))
+            os.symlink(man, self.path("workbench.json"))
+        except (OSError, NotImplementedError):
+            self.skipTest("symlinks unavailable")
+        self.assertIsNone(sdlc_layout.docs_dir(self.root))
+        self.assertEqual(sdlc_layout.prd(self.root), ".sdlc/prd.md")
+        self.assertFalse(sdlc_scopes.is_workbench(self.root))
+        self.assertIsNone(sdlc_scopes.workbench_of(self.root))
+        self.assertIsNone(objects.setting(self.root))
+        self.assertRaises(ValueError, sdlc_scopes.manifest, self.root)
+        os.remove(self.path(".sdlc/config.json"))
+        os.makedirs(self.path(".git"))
+        self.write(".git/config.json", json.dumps({"docs_dir": "docs/sdlc"}))
+        os.symlink(os.path.join("..", ".git", "config.json"), self.path(".sdlc/config.json"))
+        self.assertIsNone(sdlc_layout.docs_dir(self.root))
+        os.remove(self.path(".sdlc/config.json"))
+        self.write(".sdlc/config.json", json.dumps({"docs_dir": "docs/sdlc"}))  # a plain file still reads
+        self.assertEqual(sdlc_layout.docs_dir(self.root), "docs/sdlc")
