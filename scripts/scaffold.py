@@ -673,8 +673,9 @@ def plugin_enabled(root, plugin_id):
     committed and local ones (each overrides the one before). Not listed anywhere means off."""
     config = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(os.path.expanduser("~"), ".claude")
     on = None
-    for path in (os.path.join(config, "settings.json"), os.path.join(root, SETTINGS), os.path.join(root, LOCAL_SETTINGS)):
-        plugins = read_json(path, {}).get("enabledPlugins")
+    for data in (read_json(os.path.join(config, "settings.json"), {}), read_fixed_json(root, SETTINGS, {}),
+                 read_fixed_json(root, LOCAL_SETTINGS, {})):
+        plugins = data.get("enabledPlugins")
         if isinstance(plugins, dict) and plugin_id in plugins:
             on = plugins[plugin_id] is True
     return bool(on)
@@ -695,7 +696,7 @@ def impeccable_hook_wired(root):
     """A skill-folder install's detector hook is a manifest `/impeccable hooks on` writes into the Claude Code
     settings (the plugin ships its own); look for its hook.mjs in either file."""
     for rel in (LOCAL_SETTINGS, SETTINGS):
-        hooks = read_json(os.path.join(root, rel), {}).get("hooks")
+        hooks = read_fixed_json(root, rel, {}).get("hooks")
         if "impeccable" in json.dumps(hooks or {}) and "hook.mjs" in json.dumps(hooks or {}):
             return True
     return False
@@ -738,16 +739,17 @@ def cmd_design(p, a):
         if status["state"] == "disabled":
             p.require_lock()
             off_in = [rel for rel in (SETTINGS, LOCAL_SETTINGS)
-                      if (read_json(p.path(rel), {}).get("enabledPlugins") or {}).get(status["plugin"]) is False]
+                      if (read_fixed_json(p.root, rel, {}).get("enabledPlugins") or {}).get(status["plugin"]) is False]
             if off_in:  # someone turned it off here on purpose: theirs to change, never overwritten
                 raise Refused(f"{status['plugin']} is set to false in {', '.join(off_in)}: change it there if the "
                               "user wants it on")
-            local = read_json(p.path(LOCAL_SETTINGS), {})
+            local_path = fixed_target(p, LOCAL_SETTINGS)
+            local = read_json(local_path, {})
             added = merge_plugin_keys(p, local, PLUGIN_MERGE, [("enabledPlugins", status["plugin"], True)])
             if added:
                 exclude_locally(p, LOCAL_SETTINGS)
-                os.makedirs(os.path.dirname(p.path(LOCAL_SETTINGS)), exist_ok=True)
-                write_json(p.path(LOCAL_SETTINGS), local)
+                os.makedirs(os.path.dirname(local_path), exist_ok=True)
+                write_json(local_path, local)
             p.save()
             out["enabled"] = {"plugin": status["plugin"], "in": LOCAL_SETTINGS,
                               "loads": "next session: restart Claude Code (or /reload-plugins) before /impeccable"}
@@ -1509,6 +1511,37 @@ def git_internal(path, root=None):
     return any(_git_segment(x) for f in forms for x in f.replace("\\", "/").split("/") if x not in ("", "."))
 
 
+FIXED_FILES = (AGENTS, GITIGNORE, SETTINGS, LOCAL_SETTINGS)
+
+
+def link_problem(root, rel):
+    """Why the repo file `rel`, named by sdlc rather than recorded (FIXED_FILES, CLAUDE.md, .claude/rules), can't be
+    opened, or None: a committed link that leads out of the repo or into a git dir would have sdlc read a file it
+    shouldn't (and copy its text into the repo), or write into it."""
+    if not inside_repo(root, rel) or git_internal(rel, root):
+        return (f"{rel} is a link (or under one) that leads out of the repo or into .git: not read or written; "
+                "replace the link with a plain file")
+    return None
+
+
+def fixed_problem(p, rel):
+    return link_problem(p.root, rel)
+
+
+def read_fixed_json(root, rel, default=None):
+    """The repo's JSON file `rel` (a settings file), or `default` when it's missing or link_problem holds: read as
+    absent, so a linked file never decides anything."""
+    return default if link_problem(root, rel) else read_json(os.path.join(root, rel), default)
+
+
+def fixed_target(p, rel):
+    """The full path of the fixed-name file `rel`, refused as fixed_problem says."""
+    problem = fixed_problem(p, rel)
+    if problem:
+        raise Refused(problem)
+    return p.path(rel)
+
+
 def template_exists(template):
     if template_problem(template):
         return False
@@ -1547,7 +1580,7 @@ def allow_entries(config):
 def cmd_allow(p, a):
     if getattr(a, "from_commands", False):
         a.add = list(a.add or []) + allow_entries(p.config)
-    settings_path = p.path(SETTINGS)
+    settings_path = fixed_target(p, SETTINGS)
     settings = read_json(settings_path, {})
     allow = settings.setdefault("permissions", {}).setdefault("allow", [])
     ours = merged_list(p, SETTINGS)
@@ -1626,8 +1659,8 @@ def enabled_elsewhere(p):
     otherwise inherit)."""
     config = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(os.path.expanduser("~"), ".claude")
     on = []
-    for path in (os.path.join(config, "settings.json"), p.path(SETTINGS)):
-        plugins = read_json(path, {}).get("enabledPlugins")
+    for data in (read_json(os.path.join(config, "settings.json"), {}), read_fixed_json(p.root, SETTINGS, {})):
+        plugins = data.get("enabledPlugins")
         on += [k for k, v in (plugins.items() if isinstance(plugins, dict) else []) if v is True and k not in on]
     return on
 
@@ -1659,6 +1692,7 @@ def cmd_enable_plugin(p, a):
     if a.remove_team:  # the keys --team (or a setup before 2.0.1) put in the committed settings.json
         removed, kept = unmerge_plugin_keys(p, SETTINGS, TEAM_PLUGIN_MERGE)
         return {"removed": removed, "kept": kept}
+    team_path, local_path = fixed_target(p, SETTINGS), fixed_target(p, LOCAL_SETTINGS)
     skipped = not_the_installed_copy()
     wanted = [] if skipped else [("extraKnownMarketplaces", MARKETPLACE[0], MARKETPLACE[1]),
                                  ("enabledPlugins", PLUGIN_KEY, True)]
@@ -1673,7 +1707,7 @@ def cmd_enable_plugin(p, a):
     clash = {c["plugin"]: c for c in conflicts() if c.get("plugin")}
     turning_off = [(i, clash[i.split("@", 1)[0]]) for i in enabled_elsewhere(p) if i.split("@", 1)[0] in clash]
     off = [("enabledPlugins", i, False) for i, _ in turning_off]
-    team, local = read_json(p.path(SETTINGS), {}), read_json(p.path(LOCAL_SETTINGS), {})
+    team, local = read_json(team_path, {}), read_json(local_path, {})
     # A repo whose plugin keys are already the team's keeps adding there (a later --with, upgrade's re-run)
     if a.team or p.require_lock().get("merged", {}).get(TEAM_PLUGIN_MERGE):
         added_team = merge_plugin_keys(p, team, TEAM_PLUGIN_MERGE, wanted)
@@ -1682,12 +1716,12 @@ def cmd_enable_plugin(p, a):
         added_team = []
         added_local = merge_plugin_keys(p, local, PLUGIN_MERGE, wanted + off, also_set=team)
     if added_team:
-        os.makedirs(os.path.dirname(p.path(SETTINGS)), exist_ok=True)
-        write_json(p.path(SETTINGS), team)
+        os.makedirs(os.path.dirname(team_path), exist_ok=True)
+        write_json(team_path, team)
     if added_local:
         excluded = exclude_locally(p, LOCAL_SETTINGS)
-        os.makedirs(os.path.dirname(p.path(LOCAL_SETTINGS)), exist_ok=True)
-        write_json(p.path(LOCAL_SETTINGS), local)
+        os.makedirs(os.path.dirname(local_path), exist_ok=True)
+        write_json(local_path, local)
     p.save()
     enabled = dict(team.get("enabledPlugins") or {}, **(local.get("enabledPlugins") or {}))
     ours = merged_list(p, PLUGIN_MERGE)
@@ -1745,7 +1779,10 @@ def unmerge_plugin_keys(p, path, merge_key):
     """Takes back the plugin keys sdlc recorded under merge_key from the settings file at path; the user's stay.
     Returns (removed, kept): kept are keys sdlc wrote whose value the user has changed since, which are theirs now."""
     ours = merged_list(p, merge_key)
-    settings, removed, kept = read_json(p.path(path), {}), [], []
+    if not ours:
+        return [], []
+    full = fixed_target(p, path)
+    settings, removed, kept = read_json(full, {}), [], []
     clash = {c["plugin"] for c in conflicts() if c.get("plugin")}
     for tag in list(ours):
         section, _, key = str(tag).partition(".")
@@ -1765,13 +1802,13 @@ def unmerge_plugin_keys(p, path, merge_key):
                 removed.append(tag)
         ours.remove(tag)
     if removed:
-        write_json(p.path(path), settings)
+        write_json(full, settings)
     p.save()
     return removed, kept
 
 
 def cmd_gitignore(p, a):
-    path = p.path(GITIGNORE)
+    path = fixed_target(p, GITIGNORE)
     try:
         with open(path, encoding="utf-8") as f:
             lines = f.read().splitlines()
@@ -1916,7 +1953,7 @@ def _workbench_data(p):
 def _gitignore_lines(p):
     """The workbench's .gitignore lines; bytes that aren't UTF-8 (a cp1252 comment) survive a rewrite unchanged."""
     try:
-        with open(p.path(GITIGNORE), encoding="utf-8", errors="surrogateescape") as f:
+        with open(fixed_target(p, GITIGNORE), encoding="utf-8", errors="surrogateescape") as f:
             return f.read().splitlines()
     except FileNotFoundError:
         return []
@@ -1939,7 +1976,7 @@ def cmd_workbench(p, a):
             if not os.path.lexists(p.path(name)) and f"/{name}/" in (x.strip() for x in lines):
                 # removed earlier while its folder was there: the folder is gone now, so the line sdlc wrote goes
                 rest = [x for x in lines if x.strip() != f"/{name}/"]
-                _write_atomic(p.path(GITIGNORE), "\n".join(rest) + ("\n" if rest else ""), "surrogateescape")
+                _write_atomic(fixed_target(p, GITIGNORE), "\n".join(rest) + ("\n" if rest else ""), "surrogateescape")
                 return {"removed": name, "folder_kept": None}
             raise ValueError(f"no repo named {name!r} in {sdlc_scopes.WORKBENCH_FILE}")
         data["repos"] = [r for r in data["repos"] if r.get("name") != name]
@@ -1947,7 +1984,7 @@ def cmd_workbench(p, a):
         kept = name if os.path.lexists(p.path(name)) else None
         if not kept:  # while the folder is there its ignore line stays, so the workbench never commits the repo
             lines = [x for x in _gitignore_lines(p) if sdlc_scopes.ignored_name(x) != name]
-            _write_atomic(p.path(GITIGNORE), "\n".join(lines) + ("\n" if lines else ""), "surrogateescape")
+            _write_atomic(fixed_target(p, GITIGNORE), "\n".join(lines) + ("\n" if lines else ""), "surrogateescape")
         return {"removed": name, "folder_kept": kept,
                 **({"note": f"/{name}/ stays in .gitignore until you delete {name}/; run remove again after"}
                    if kept else {})}
@@ -1971,7 +2008,7 @@ def cmd_workbench(p, a):
     except (ValueError, OSError):
         if added:  # a refused clone leaves the .gitignore as it was
             lines = [x for x in _gitignore_lines(p) if sdlc_scopes.ignored_name(x) != name]
-            _write_atomic(p.path(GITIGNORE), "\n".join(lines) + ("\n" if lines else ""), "surrogateescape")
+            _write_atomic(fixed_target(p, GITIGNORE), "\n".join(lines) + ("\n" if lines else ""), "surrogateescape")
         raise
     data["repos"].append(entry)
     _write_atomic(p.path(sdlc_scopes.WORKBENCH_FILE), json.dumps(data, indent=2) + "\n")
@@ -2022,7 +2059,7 @@ def _ignore(p, name):
     lines = _gitignore_lines(p)
     if any(sdlc_scopes.ignored_name(x) == name for x in lines):
         return False
-    _write_atomic(p.path(GITIGNORE), "\n".join(lines + [f"/{name}/"]) + "\n", "surrogateescape")
+    _write_atomic(fixed_target(p, GITIGNORE), "\n".join(lines + [f"/{name}/"]) + "\n", "surrogateescape")
     return True
 
 
@@ -2164,7 +2201,7 @@ def area_rules(p):
             with open(os.path.join(d, name), encoding="utf-8") as f:
                 rules.append((f"templates/project/rules/{name}", render_text(f.read(), p)))
     for path in sorted(glob.glob(p.path(".claude/rules/*.md"))):
-        if not os.path.basename(path).startswith("sdlc"):
+        if not os.path.basename(path).startswith("sdlc") and not link_problem(p.root, os.path.relpath(path, p.root)):
             with open(path, encoding="utf-8") as f:
                 rules.append((f".claude/rules/{os.path.basename(path)}", f.read()))
     return rules
@@ -2179,7 +2216,7 @@ def agents_block(p):
                  "plugin's policy rules; edit those, then rebuild it with the sdlc setup or upgrade -->",
                  "## Working in this repo (sdlc)", render_text(f.read(), p).strip()]
     claude_md = p.path("CLAUDE.md")
-    if os.path.exists(claude_md):
+    if os.path.exists(claude_md) and not link_problem(p.root, "CLAUDE.md"):
         with open(claude_md, encoding="utf-8") as f:
             parts += ["## Project instructions (from CLAUDE.md)", for_other_tools(f.read(), "CLAUDE.md")]
     rules = area_rules(p)
@@ -2199,6 +2236,8 @@ def agents_block(p):
 
 
 def agents_md_text(p):
+    if fixed_problem(p, AGENTS):  # through a link out of the repo or into .git: never read, so never mirrored
+        return None
     try:
         with open(p.path(AGENTS), encoding="utf-8", newline="") as f:  # newline="": keep the file's CRLF or LF
             return f.read()
@@ -2250,11 +2289,13 @@ def agents_state(p):
 
 def write_agents(p, want):
     """Put `want` in AGENTS.md's managed block, or remove the block when it's None. Text outside it is kept as is."""
-    path = p.path(AGENTS)
+    ours = merged_list(p, AGENTS_MERGE)
+    if want is None and not ours:  # no block to write or take back: AGENTS.md is the team's, never opened
+        return "off"
+    path = fixed_target(p, AGENTS)
     text = agents_md_text(p)
     existed = text is not None
     text = text or ""
-    ours = merged_list(p, AGENTS_MERGE)
     eol = "\r\n" if "\r\n" in text else "\n"
     have = AGENTS_BLOCK.search(text)
     if want is None:
@@ -2768,6 +2809,8 @@ def eject_plan(p):
             plan["delete"].append(path)
         else:
             plan["ask"].append(path)
+    # a fixed-name file through a link out of the repo or into .git: listed, never read or unmerged
+    plan["outside"] += [f for f in FIXED_FILES if fixed_problem(p, f) and f not in plan["outside"]]
     return plan
 
 
@@ -2787,15 +2830,16 @@ def cmd_eject(p, a):
         while d != p.root and os.path.isdir(d) and not os.listdir(d):  # tidy dirs we emptied
             os.rmdir(d)
             d = os.path.dirname(d)
-    allow = list(plan["unmerge"].get(SETTINGS, []))  # copies: the unmerge empties the lock's own lists
+    skip = set(plan["outside"])
+    allow = [] if SETTINGS in skip else list(plan["unmerge"].get(SETTINGS, []))  # copies: unmerge empties them
     if allow:
         cmd_allow(p, argparse.Namespace(add=[], remove=list(allow)))
-    plugin_keys, plugin_kept = unmerge_plugin_keys(p, LOCAL_SETTINGS, PLUGIN_MERGE)
-    team_keys, team_kept = unmerge_plugin_keys(p, SETTINGS, TEAM_PLUGIN_MERGE)
-    ignore = list(plan["unmerge"].get(GITIGNORE, []))
+    plugin_keys, plugin_kept = ([], []) if LOCAL_SETTINGS in skip else unmerge_plugin_keys(p, LOCAL_SETTINGS, PLUGIN_MERGE)
+    team_keys, team_kept = ([], []) if SETTINGS in skip else unmerge_plugin_keys(p, SETTINGS, TEAM_PLUGIN_MERGE)
+    ignore = [] if GITIGNORE in skip else list(plan["unmerge"].get(GITIGNORE, []))
     if ignore:
         cmd_gitignore(p, argparse.Namespace(add=[], remove=list(ignore)))
-    agents = plan["unmerge"].get(AGENTS_MERGE) and write_agents(p, None) == "removed"
+    agents = AGENTS not in skip and plan["unmerge"].get(AGENTS_MERGE) and write_agents(p, None) == "removed"
     os.remove(p.path(LOCK))
     p.lock = None
     work = p.path(".sdlc/.work")  # scratch; its .gitignore line is gone, so don't leave it to be committed

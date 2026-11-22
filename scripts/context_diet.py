@@ -46,6 +46,15 @@ def problem(path, what):
     problems.append({"file": path.replace(os.sep, "/"), "problem": what})
 
 
+def linked_out(root, path):
+    """scaffold.link_problem for a repo settings file; a sibling script, imported only when a repo layer is read."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    if here not in sys.path:
+        sys.path.insert(0, here)
+    import scaffold
+    return scaffold.link_problem(root, os.path.relpath(path, root))
+
+
 def read_json(path, required=False):
     """The parsed file, or None (reported) when it's missing or malformed."""
     try:
@@ -234,6 +243,8 @@ def main():
               ("local", os.path.join(root, ".claude", "settings.local.json"))]
     enabled, set_by = {}, {}
     for scope, path in layers:  # later scopes override earlier ones key by key
+        if scope != "user" and linked_out(root, path):
+            continue  # a committed link out of the repo or into .git: read as absent
         plugins = (read_json(path, required=scope == "user") or {}).get("enabledPlugins")
         for k, v in (plugins.items() if isinstance(plugins, dict) else []):
             enabled[k], set_by[k] = v is True, scope

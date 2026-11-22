@@ -197,7 +197,8 @@ def not_ignored(root, patterns):
         ignored = set(out.splitlines())
         return [p for p in patterns if probes[p] not in ignored]
     gi = os.path.join(root, ".gitignore")
-    lines = open(gi, encoding="utf-8").read().splitlines() if os.path.exists(gi) else []
+    lines = (open(gi, encoding="utf-8").read().splitlines()
+             if os.path.exists(gi) and not scaffold.link_problem(root, ".gitignore") else [])
     lines = {x.strip().strip("/") for x in lines}
     return [p for p in patterns if p.strip("/") not in lines]
 
@@ -246,6 +247,8 @@ def check_workbench(r, root):
           ("git repos not in the manifest: " + ", ".join(nested)) if nested else "none",
           "scaffold.py workbench add <url> --name <folder>, or move them out" if nested else None)
     try:
+        if scaffold.link_problem(root, ".gitignore"):
+            raise OSError("linked out of the repo")  # read as absent
         with open(os.path.join(root, ".gitignore"), encoding="utf-8", errors="replace") as f:
             ignored = {sdlc_scopes.ignored_name(x) for x in f.read().splitlines()}
     except OSError:
@@ -350,7 +353,11 @@ def check_repo(r, root):
         accept_keys(r, root, scaffold.scopes(p.config))
         try:
             agents, cut = scaffold.agents_state(p), scaffold.codex_cut(p)
-            if cut:
+            recorded = ((p.lock or {}).get("merged") or {}).get(scaffold.AGENTS_MERGE)
+            linked = (agents != "off" or recorded) and scaffold.fixed_problem(p, scaffold.AGENTS)
+            if linked:
+                r.add(g, "AGENTS.md", "warn", linked, "replace the link with a plain file, then scaffold.py agents")
+            elif cut:
                 r.add(g, "AGENTS.md", "warn", cut, "python3 scripts/scaffold.py agents after shortening")
             elif agents != "off":
                 r.add(g, "AGENTS.md", "ok" if agents == "in_sync" else "warn",
@@ -414,7 +421,7 @@ def check_repo(r, root):
                       "" if imp["hook"] else "; its detector hook is off (/impeccable hooks on)"), None)
         enabled, sdlc_set_in = {}, None
         for rel in (scaffold.SETTINGS, scaffold.LOCAL_SETTINGS):  # the local file overrides the committed one
-            plugins = scaffold.read_json(os.path.join(root, rel), {}).get("enabledPlugins")
+            plugins = scaffold.read_fixed_json(root, rel, {}).get("enabledPlugins")
             enabled.update(plugins if isinstance(plugins, dict) else {})
             if isinstance(plugins, dict) and scaffold.PLUGIN_KEY in plugins:
                 sdlc_set_in = rel

@@ -617,6 +617,183 @@ class ScaffoldTest(ProjectTestCase):
         self.sc("gitignore", "--add", ".sdlc/.work/")
         self.write(".sdlc/constitution.md", "mine")
 
+    def linked_out(self, rel, to):
+        """`rel` replaced by a link to `to`; False where links can't be made (Windows without the privilege)."""
+        if os.path.isdir(self.path(rel)) and not os.path.islink(self.path(rel)):
+            shutil.rmtree(self.path(rel))
+        elif os.path.lexists(self.path(rel)):
+            os.remove(self.path(rel))
+        os.makedirs(os.path.dirname(self.path(rel)) or self.root, exist_ok=True)
+        try:
+            os.symlink(to, self.path(rel))
+        except (OSError, NotImplementedError):
+            self.skipTest("symlinks unavailable here (Windows without the privilege)")
+        return True
+
+    def test_fixed_name_writers_refuse_a_link_out_of_the_repo_or_into_git(self):
+        # .sdlc/2026-11-22-s-fixed-writers-refuse-links AC-001
+        self.init()
+        outside = tempfile.mkdtemp(prefix="sdlc-outside-")
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        secret = os.path.join(outside, "secret.txt")
+        os.makedirs(self.path(".git"), exist_ok=True)
+        self.write(".git/config", "[core]\n")
+        calls = [(".gitignore", ("gitignore", "--add", "x/")), (".claude/settings.json", ("allow", "--add", "Bash(x)")),
+                 (".claude/settings.local.json", ("enable-plugin",))]
+        for rel, args in calls:
+            for to in (secret, os.path.abspath(self.path(".git/config"))):
+                with open(secret, "w", encoding="utf-8") as f:
+                    f.write("token=1\n")
+                self.linked_out(rel, to)
+                self.installed()
+                out = self.sc(*args, expect=2)
+                self.assertIn(rel, out["refused"], (rel, to))
+                self.assertEqual(self.read(".git/config"), "[core]\n", (rel, to))
+                with open(secret, encoding="utf-8") as f:
+                    self.assertEqual(f.read(), "token=1\n", (rel, to))
+            os.remove(self.path(rel))
+        # a folder of the path linked into .git: refused too
+        os.makedirs(self.path(".git/info"), exist_ok=True)
+        self.linked_out(".claude", os.path.abspath(self.path(".git/info")))
+        self.assertIn(".claude/settings.json", self.sc("allow", "--add", "Bash(x)", expect=2)["refused"])
+        self.assertFalse(os.path.exists(self.path(".git/info/settings.json")))
+        os.remove(self.path(".claude"))
+        # a link that stays inside the repo, outside .git, is still written through
+        self.write("ignore.txt", "a/\n")
+        self.linked_out(".gitignore", "ignore.txt")
+        self.sc("gitignore", "--add", "b/")
+        self.assertEqual(self.read("ignore.txt"), "a/\nb/\n")
+        # the workbench's own .gitignore edits go through the same check (review r1 M-1)
+        sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
+        import scaffold
+        self.linked_out(".gitignore", secret)
+        with self.assertRaises(scaffold.Refused):
+            scaffold._ignore(scaffold.Project(self.root), "app")
+        with self.assertRaises(scaffold.Refused):
+            scaffold._gitignore_lines(scaffold.Project(self.root))
+        with open(secret, encoding="utf-8") as f:
+            self.assertEqual(f.read(), "token=1\n")
+
+    def test_agents_md_link_out_of_the_repo_is_refused(self):
+        # AC-001: AGENTS.md through a committed link is neither read nor written
+        self.hosted_project("claude-code", "codex")
+        os.makedirs(self.path(".git"), exist_ok=True)
+        self.write(".git/config", "[core]\n")
+        self.write("CLAUDE.md", "# Repo\n")
+        outside = tempfile.mkdtemp(prefix="sdlc-outside-")
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        with open(os.path.join(outside, "AGENTS.md"), "w", encoding="utf-8") as f:
+            f.write("token=1\n")
+        for to in (os.path.abspath(self.path(".git/config")), os.path.join(outside, "AGENTS.md")):
+            self.linked_out("AGENTS.md", to)
+            self.assertIn("AGENTS.md", self.real("agents", expect=2)["refused"])
+            self.assertEqual(self.read(".git/config"), "[core]\n")
+            # read as absent: the mirror never carries the target's text
+            self.assertNotIn("token=1", self.read_all(".claude/rules"))
+            sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
+            import scaffold
+            self.assertIsNone(scaffold.agents_md_text(scaffold.Project(self.root)))
+        with open(os.path.join(outside, "AGENTS.md"), encoding="utf-8") as f:
+            self.assertEqual(f.read(), "token=1\n")
+
+    def test_agents_with_nothing_to_write_leaves_a_linked_agents_md_alone(self):
+        # review r2 M1: Claude Code alone has no block to write, so a linked AGENTS.md is never opened or refused
+        self.hosted_project("claude-code")
+        os.makedirs(self.path(".git"), exist_ok=True)
+        self.write(".git/config", "[core]\n")
+        self.linked_out("AGENTS.md", os.path.abspath(self.path(".git/config")))
+        self.assertEqual(self.real("agents")["result"], "off")
+        self.assertEqual(self.read(".git/config"), "[core]\n")
+
+    def test_eject_leaves_a_linked_fixed_file_untouched_and_lists_it(self):
+        # AC-002: eject finishes, lists the linked file under outside, and never writes through it
+        self.setup_for_eject()
+        outside = tempfile.mkdtemp(prefix="sdlc-outside-")
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        target = os.path.join(outside, "gitignore")
+        with open(target, "w", encoding="utf-8") as f:
+            f.write(".sdlc/.work/\nmine/\n")
+        self.linked_out(".gitignore", target)
+        self.assertIn(".gitignore", self.sc("eject")["outside"])
+        out = self.sc("eject", "--apply")
+        self.assertIn(".gitignore", out["outside"])
+        self.assertTrue(out["lock_removed"])
+        with open(target, encoding="utf-8") as f:
+            self.assertEqual(f.read(), ".sdlc/.work/\nmine/\n")
+
+    def read_all(self, rel):
+        """Every file's text under the folder `rel`, joined (empty when it's missing)."""
+        out = []
+        for d, _, names in os.walk(self.path(rel)):
+            for n in names:
+                with open(os.path.join(d, n), encoding="utf-8", errors="replace") as f:
+                    out.append(f.read())
+        return "\n".join(out)
+
+    def test_eject_finishes_with_claude_linked_into_git_or_outside(self):
+        # AC-002 (review r1 H-1): a linked folder hides absent settings files; eject must still finish
+        outside = tempfile.mkdtemp(prefix="sdlc-outside-")
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        for to in ("git", outside):
+            self.setUp() if to == outside else None
+            self.setup_for_eject()
+            os.makedirs(self.path(".git/info"), exist_ok=True)
+            target = os.path.abspath(self.path(".git/info")) if to == "git" else outside
+            before = sorted(os.listdir(target))
+            self.linked_out(".claude", target)
+            plan = self.sc("eject")
+            self.assertIn(".claude/settings.json", plan["outside"], to)
+            self.assertIn(".claude/settings.local.json", plan["outside"], to)
+            out = self.sc("eject", "--apply")
+            self.assertTrue(out["lock_removed"], to)
+            self.assertEqual(sorted(os.listdir(target)), before, to)
+
+    def test_settings_read_through_a_link_read_as_absent(self):
+        # AC-003 (review r1 H-2): the settings readers never open a linked file; enable-plugin refuses first
+        sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
+        import scaffold
+        self.init()
+        outside = tempfile.mkdtemp(prefix="sdlc-outside-")
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        evil = os.path.join(outside, "settings.json")
+        with open(evil, "w", encoding="utf-8") as f:
+            json.dump({"enabledPlugins": {"x@y": True},
+                       "hooks": {"PostToolUse": [{"hooks": [{"command": "impeccable/hook.mjs"}]}]}}, f)
+        for rel in (".claude/settings.json", ".claude/settings.local.json"):
+            self.linked_out(rel, evil)
+            self.assertFalse(scaffold.plugin_enabled(self.root, "x@y"), rel)
+            self.assertFalse(scaffold.impeccable_hook_wired(self.root), rel)
+            self.assertEqual(scaffold.read_fixed_json(self.root, rel, {}), {}, rel)
+            self.assertNotIn("x@y", scaffold.enabled_elsewhere(scaffold.Project(self.root)), rel)
+            self.installed()
+            self.assertIn(rel, self.sc("enable-plugin", expect=2)["refused"], rel)
+            os.remove(self.path(rel))
+        # --remove with keys to take back refuses a linked file; with none it has nothing to open
+        self.installed()
+        self.sc("enable-plugin")
+        with open(self.path(".claude/settings.local.json"), encoding="utf-8") as f:
+            local = f.read()
+        with open(evil, "w", encoding="utf-8") as f:
+            f.write(local)
+        self.linked_out(".claude/settings.local.json", evil)
+        self.assertIn(".claude/settings.local.json", self.sc("enable-plugin", "--remove", expect=2)["refused"])
+        with open(evil, encoding="utf-8") as f:
+            self.assertEqual(f.read(), local)
+        self.assertEqual(self.sc("enable-plugin", "--remove-team")["removed"], [])
+
+    def test_agents_block_skips_sources_linked_out_of_the_repo(self):
+        # AC-004 (review r1 M-2): CLAUDE.md or a rule linked outside never reaches AGENTS.md
+        self.hosted_project("claude-code", "codex")
+        outside = tempfile.mkdtemp(prefix="sdlc-outside-")
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        secret = os.path.join(outside, "creds")
+        with open(secret, "w", encoding="utf-8") as f:
+            f.write("aws_secret=1\n")
+        self.linked_out("CLAUDE.md", secret)
+        self.linked_out(".claude/rules/leak.md", secret)
+        self.real("agents")
+        self.assertNotIn("aws_secret", self.read("AGENTS.md"))
+
     def test_eject_plan_is_dry_by_default(self):
         self.setup_for_eject()
         plan = self.sc("eject")
