@@ -519,6 +519,88 @@ class ScaffoldTest(ProjectTestCase):
         out = self.sc("upgrade-plan", expect=1)  # a damaged lock: the script's own exit, with a message
         self.assertIn("'guard.md'", out["error"])
 
+    def tamper(self, path, template, cls="generated"):
+        lock = json.loads(self.read(".sdlc/scaffold.lock.json"))
+        lock["files"][path] = {"class": cls, "sha256": None, "template": template}
+        self.write(".sdlc/scaffold.lock.json", json.dumps(lock))
+
+    def test_a_lock_template_outside_the_plugins_templates_is_refused(self):
+        secret = os.path.join(os.path.realpath(tempfile.mkdtemp(prefix="sdlc-secret-")), "id_rsa")
+        self.addCleanup(shutil.rmtree, os.path.dirname(secret), ignore_errors=True)
+        with open(secret, "w", encoding="utf-8") as f:
+            f.write("PRIVATE KEY\n")
+        bads = [secret, os.path.relpath(secret, self.plugin), "templates/../" + os.path.relpath(secret, self.plugin),
+                "builtin:evil", "builtin:ci:../x", "README.md", "templates\\project\\ci.yml", "C:/x", "C:x",
+                "templates//project/ci.yml", "templates/./project/ci.yml", ""]
+        try:  # a link out of templates/; Windows without the symlink privilege can't make one
+            os.symlink(secret, os.path.join(self.plugin, "templates", "project", "link.md"))
+            bads.append("templates/project/link.md")
+        except (OSError, NotImplementedError):
+            pass
+        self.init()
+        self.write("mine.md", "x")
+        for bad in bads:
+            self.tamper("leak.md", bad)
+            out = self.sc("upgrade-plan", expect=1)
+            self.assertIn("'leak.md'", out["error"], bad)
+            self.assertFalse(os.path.exists(self.path("leak.md")), bad)
+            self.tamper("leak.md", "templates/project/ci.yml")  # a fair entry: the lock reads again
+            self.sc("upgrade-plan")
+            # the CLI takes a Windows separator as the user's own: there it names a fair template
+            if bad and not (os.sep == "\\" and bad == "templates\\project\\ci.yml"):
+                self.assertIn("template", self.sc("render", bad, "leak2.md", expect=2)["refused"], bad)
+                self.assertFalse(os.path.exists(self.path("leak2.md")), bad)
+                self.assertIn("template", self.sc("preview", bad, expect=2)["refused"], bad)
+                self.assertIn("template", self.sc("record", "seeded", "mine.md", "--template", bad, expect=2)["refused"], bad)
+        self.assertNotIn("PRIVATE", json.dumps(self.sc("upgrade-plan")))
+        # what the skills render still works; an entry recorded with no template stays fine
+        out = self.sc("render", "builtin:ci:api", ".github/workflows/sdlc-verify-api.yml", expect=1)
+        self.assertIn("no package named 'api'", out["error"])  # past the template check, to the package lookup
+        self.sc("record", "seeded", "mine.md")
+        self.sc("record", "seeded", "mine.md", "--template", "templates/project/ci.yml\r")  # a shell loop's \r
+        self.assertEqual(json.loads(self.read(".sdlc/scaffold.lock.json"))["files"]["mine.md"]["template"],
+                         "templates/project/ci.yml")
+        self.assertEqual(self.sc("preview", "templates/project/ci.yml\r")["template"], "templates/project/ci.yml")
+        for blank in (" ", "\r"):  # nothing left after the strip: refused, never read as no template
+            self.assertIn("template", self.sc("record", "seeded", "mine.md", "--template", blank, expect=2)["refused"])
+
+    def test_nothing_is_recorded_or_rendered_under_git(self):
+        self.init()
+        os.makedirs(self.path(".git/hooks"), exist_ok=True)
+        os.makedirs(self.path("sub/.git/hooks"), exist_ok=True)
+        dests = [".git/hooks/post-commit", ".GIT/config", "./.git/x", ".git./x", ".git /x", "GIT~1/x",
+                 ".git::$INDEX_ALLOCATION/x", "sub/.git/hooks/pre-commit"]
+        try:  # a committed link into .git; Windows without the symlink privilege can't make one
+            os.symlink(".git", self.path("x"), target_is_directory=True)
+            dests.append("x/hooks/post-commit")
+        except (OSError, NotImplementedError):
+            pass
+        self.write("mine.md", "x")
+        for dest in dests:
+            self.assertIn(".git", self.sc("render", "templates/project/ci.yml", dest, expect=2)["refused"], dest)
+        self.assertEqual(os.listdir(self.path(".git/hooks")), [])
+        self.assertEqual(os.listdir(self.path("sub/.git/hooks")), [])
+        for ok in (".gitignore", ".github/workflows/sdlc-x.yml", ".gitattributes"):  # names that only start with .git
+            self.sc("render", "templates/project/ci.yml", ok, "--class", "seeded")
+        if os.path.islink(self.path("x")):
+            self.write(".git/config", "[core]\n")
+            self.assertIn(".git", self.sc("record", "seeded", "x/config", expect=2)["refused"])
+            self.tamper("x/config", "templates/project/ci.yml")  # passes the shape check: caught where it's written
+            plan = self.sc("upgrade-plan")
+            self.assertIn("x/config", plan["outside"])
+            self.assertNotIn("x/config", [i["path"] for i in plan["regenerate"]])
+            os.remove(self.path("x"))
+            os.symlink(".git", self.path(".claude"), target_is_directory=True)  # a shipped file's folder into .git
+            self.template("templates/project/rules/sdlc.md", "rules\n")
+            self.assertIn(".claude/rules/sdlc.md", self.sc("upgrade-plan")["outside"])
+            os.remove(self.path(".claude"))
+            os.symlink(".git", self.path("x"), target_is_directory=True)
+            eject = self.sc("eject")
+            self.assertIn("x/config", eject["outside"])
+            self.assertNotIn("x/config", eject["delete"])
+        self.tamper(".git/hooks/post-commit", "templates/project/ci.yml")
+        self.assertIn(".git", self.sc("upgrade-plan", expect=1)["error"])
+
     # --- eject -------------------------------------------------------------------------------
 
     def setup_for_eject(self):

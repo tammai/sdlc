@@ -213,6 +213,11 @@ def check_lock(lock):
     for path, e in lock["files"].items():
         if not isinstance(e, dict) or not isinstance(e.get("class"), str):
             raise bad(f"'files' entry {path!r} must be an object with a string 'class'")
+        problem = template_problem(e["template"]) if e.get("template") is not None else None
+        if problem:
+            raise bad(f"'files' entry {path!r}: {problem}")
+        if git_internal(path):
+            raise bad(f"'files' names {path!r}, under .git/, which the plugin never writes")
         if not all(isinstance(e.get(k), (str, type(None))) for k in ("sha256", "template", "render_sha256")):
             raise bad(f"'files' entry {path!r}: 'sha256', 'template' and 'render_sha256' must be strings")
     strings = [("declined", lock["declined"]), ("hosts", lock.get("hosts", [])),
@@ -519,8 +524,12 @@ def cmd_step_done(p, a):
 def cmd_record(p, a):
     files = p.require_lock()["files"]
     recorded = {}
+    # as render takes it: a shell loop's trailing `\r` and a Windows separator are not part of the name
+    template = cli_template(a.template) if a.template is not None else None
     for path in a.paths:
         r = rel(p.root, path)
+        if git_internal(r, p.root):
+            raise Refused(f"{r} is in a .git folder (or links into one), which the plugin never records")
         if not inside_repo(p.root, r):
             raise Refused(f"{r} resolves outside the project through a link; not recorded")
         h = sha256(p.path(r))
@@ -528,12 +537,13 @@ def cmd_record(p, a):
             raise ValueError(f"cannot record {r}: file does not exist")
         entry = files.get(r, {})
         entry.update({"class": a.cls, "sha256": h})
-        if a.template:
-            if not template_exists(a.template):
-                raise Refused(f"no template {a.template!r} in the plugin; not recorded")
-            entry["template"] = a.template
+        if template:
+            problem = template_problem(template)
+            if problem or not template_exists(template):
+                raise Refused(problem or f"no template {template!r} in the plugin; not recorded")
+            entry["template"] = template
             # what the plugin would have written: a text that differs holds the user's edits (Project.merged)
-            entry["render_sha256"] = hashlib.sha256(render_source(a.template, p).encode("utf-8")).hexdigest()
+            entry["render_sha256"] = hashlib.sha256(render_source(template, p).encode("utf-8")).hexdigest()
         files[r] = entry
         recorded[r] = entry
     p.save()
@@ -849,9 +859,11 @@ def cmd_render(p, a):
     lock = p.require_lock()
     # a shell loop over this script's own output on Windows hands both on with a trailing `\r` (3.12.0 smoke C3):
     # no template or path of the plugin's ends in whitespace, so it is dropped, never written into a file name
-    template = a.template.strip().replace(os.sep, "/")
+    template = cli_template(a.template)
     text = render_source(template, p)
     dest = rel(p.root, a.dest.strip())
+    if git_internal(dest, p.root):
+        raise Refused(f"{dest} is in a .git folder (or links into one), which the plugin never writes; nothing written")
     if not inside_repo(p.root, dest):
         raise Refused(f"{dest} resolves outside the project through a link; nothing written")
     entry = lock["files"].get(dest)
@@ -1428,6 +1440,9 @@ def generate_codeowners(p):
 
 
 def render_source(template, p):
+    problem = template_problem(template)
+    if problem:
+        raise Refused(problem)
     if template == "builtin:ci":
         return generate_ci(p)
     if template.startswith("builtin:ci:"):
@@ -1444,12 +1459,74 @@ def render_source(template, p):
         return render_text(f.read(), p)
 
 
+@functools.lru_cache(maxsize=None)
+def _templates_base():
+    return os.path.realpath(os.path.join(PLUGIN_ROOT, "templates"))  # once per process: the lock checks every entry
+
+
+BUILTINS = ("ci", "contract-check", "codeowners", "invariants", "agents-mirror")
+
+
+def template_problem(template):
+    """Why `template` isn't one of the plugin's own, or None. The committed lock names templates, and an upgrade
+    renders them without a question, so every route checks here: a known builtin, or a relative path under the
+    plugin's templates/ that still resolves inside it after links (another drive counts as outside)."""
+    if not isinstance(template, str) or not template:
+        return "a template must be a non-empty string"
+    if template.startswith("builtin:"):
+        name = template[len("builtin:"):]
+        if name in BUILTINS or re.fullmatch(r"ci:[A-Za-z0-9][A-Za-z0-9._-]*", name):
+            return None
+        return f"{template!r} isn't one of the plugin's builtin templates"
+    parts = template.split("/")
+    if "\\" in template or re.match(r"^[A-Za-z]:", template) or parts[0] != "templates" or \
+            any(x in ("", ".", "..") for x in parts):
+        return f"template {template!r} isn't a path under the plugin's templates/"
+    base = _templates_base()
+    try:
+        inside = os.path.commonpath([base, os.path.realpath(os.path.join(PLUGIN_ROOT, template))]) == base
+    except ValueError:
+        inside = False
+    return None if inside else f"template {template!r} resolves outside the plugin's templates/"
+
+
+def _git_segment(seg):
+    """A path segment a filesystem opens as a git dir: `.git` in any case, with the trailing dots or spaces and the
+    NTFS stream suffix Windows ignores, or its 8.3 short name."""
+    seg = seg.split(":", 1)[0].rstrip(". ").lower()
+    return seg in (".git", "git~1")
+
+
+def git_internal(path, root=None):
+    """`path` (repo-relative) is, or with `root` resolves through links into, a git dir at any depth: nothing the
+    plugin records, renders or deletes may land there. Both forms, so a committed link `x -> .git` doesn't pass."""
+    forms = [str(path)]
+    if root is not None:
+        try:
+            forms.append(os.path.relpath(os.path.realpath(os.path.join(root, path)), _real_root(root)))
+        except ValueError:  # another drive: inside_repo refuses it
+            pass
+    return any(_git_segment(x) for f in forms for x in f.replace("\\", "/").split("/") if x not in ("", "."))
+
+
 def template_exists(template):
+    if template_problem(template):
+        return False
     return template.startswith("builtin:") or os.path.exists(os.path.join(PLUGIN_ROOT, template))
 
 
+def cli_template(text):
+    """A template named on the command line, as the lock stores it: a shell loop's trailing `\\r` and a Windows
+    separator are not part of the name (3.12.0 smoke C3). An empty one is refused, never read as none."""
+    template = text.strip().replace(os.sep, "/")
+    if not template:
+        raise Refused("a template must be a non-empty string")
+    return template
+
+
 def cmd_preview(p, a):
-    return {"template": a.template, "text": render_source(a.template, p)}
+    template = cli_template(a.template)
+    return {"template": template, "text": render_source(template, p)}
 
 
 # --- keyed merges ------------------------------------------------------------------------
@@ -2605,7 +2682,7 @@ def cmd_upgrade_plan(p, a):
     # new in this plugin version; the rules and guardrails are Claude Code's, the other hosts get them in AGENTS.md
     for tpl, dest, cls in shipped_files(p) if "claude-code" in hosts(p) else []:
         if dest not in tracked and dest not in declined:
-            if not inside_repo(p.root, dest):  # its folder links out of the repo: listed, never rendered there
+            if not inside_repo(p.root, dest) or git_internal(dest, p.root):  # links out, or into .git: never rendered
                 plan["outside"].append(dest)
                 continue
             item = {"path": dest, "template": tpl, "class": cls}
@@ -2616,7 +2693,7 @@ def cmd_upgrade_plan(p, a):
     if any(re.fullmatch(r"\.github/workflows/sdlc-verify(-.+)?\.yml", path) for path in tracked):
         for tpl, dest in INVARIANTS:
             if dest not in tracked and dest not in declined:
-                if not inside_repo(p.root, dest):
+                if not inside_repo(p.root, dest) or git_internal(dest, p.root):
                     plan["outside"].append(dest)
                     continue
                 item = {"path": dest, "template": tpl, "class": "seeded"}
@@ -2627,7 +2704,7 @@ def cmd_upgrade_plan(p, a):
         tpl = e.get("template")
         if not tpl:
             continue
-        if not inside_repo(p.root, path):  # through a link out of the repo: listed, never rendered or deleted
+        if not inside_repo(p.root, path) or git_internal(path, p.root):  # links out, or into .git: never rendered
             plan["outside"].append(path)
             continue
         if not template_exists(tpl):
@@ -2681,8 +2758,8 @@ def eject_plan(p):
     plan = {"delete": [], "ask": [], "already_gone": [], "outside": [], "unmerge": lock.get("merged", {}),
             "keep": keep}
     for path, e in sorted(lock.get("files", {}).items()):
-        state = p.file_state(path, e)
-        if state == "outside":  # through a link out of the repo: listed, never read or deleted
+        state = "outside" if git_internal(path, p.root) else p.file_state(path, e)
+        if state == "outside":  # through a link out of the repo, or into .git: listed, never read or deleted
             plan["outside"].append(path)
             continue
         if state == "missing":
