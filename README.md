@@ -6,7 +6,7 @@
 [![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-D97757)](#install)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-3776AB)](#install)
 
-![sdlc: a request is sized S, M or L, then goes through Define, Build, Review and Ship to an open PR with CI green](docs/assets/banner.svg)
+![sdlc, a Claude Code harness for your SDLC: requests converge into Define, then Build, Review and Ship to a merged branch with a green check](docs/assets/cover.svg)
 
 A Claude Code harness for your SDLC: work sized to fit, Define → Build → Review → Ship, test-first proof, diff-based reviews, and a record of every change.
 
