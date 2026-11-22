@@ -332,6 +332,16 @@ class WorkbenchGuards(WorkbenchGuardsCase):
         for command in ("tail -f specs/a.md", "until grep -q done api/log; do sleep 2; done"):
             self.assertIsNone(self.pre("Monitor", command=command, description="d"), command)
 
+    def test_a_monitor_command_cannot_commit_or_push(self):
+        # end-of-push review r1 SH-H5: the commit and push reviews run after a Bash call; a Monitor one would skip them
+        for command in ("git commit -am x", "cd api && git commit -m y && git push", "git -C api push origin HEAD",
+                        "gt submit"):
+            reason = self.pre("Monitor", command=command, description="d")
+            self.assertIsNotNone(reason, command)
+            self.assertIn("Bash", reason)
+        for command in ("tail -f log", "until grep -q done log; do sleep 2; done", "git log --oneline"):
+            self.assertIsNone(self.pre("Monitor", command=command, description="d"), command)
+
     def test_hooks_json_sends_monitor_to_the_read_only_guard(self):
         # AC-002: the PreToolUse entry that runs pretooluse.py matches the Monitor tool, and keeps the others
         with open(os.path.join(HOOKS, "hooks.json"), encoding="utf-8") as f:
@@ -1240,8 +1250,19 @@ class ReviewRound4Guards(WorkbenchGuardsCase):
         for command in hidden:
             reason = self.pre("Bash", command=command)
             self.assertIsNotNone(reason, command)
-        # plain spellings of the same things still pass
-        for command in ("echo $(( 1 + 2 )) > out.txt", "echo 'a #b'", "echo x > out.txt", "printf '%s' x"):
+        # end-of-push review r1: SH-H1 (a `#` after an escaped delimiter or a continuation), SH-H2 (clobber after
+        # `>>` / `>&`), SH-H6 (a substitution in an array subscript)
+        hidden += ["echo a\\;#x; rm specs/a.md", "echo a\\|#x; rm specs/a.md", "echo a\\&#x; rm specs/a.md",
+                   "echo a\\(#x; rm specs/a.md", "echo a\\\n#x; rm specs/a.md", "echo x >>! specs/a.md",
+                   "echo x >>| specs/a.md", "echo x >&! specs/a.md", "echo x 2>>! specs/a.md",
+                   "[[ 'a[$(rm specs/a.md)]' -eq 1 ]]", "let 'a[`rm specs/a.md`]=1'"]
+        for command in hidden:
+            self.assertIsNotNone(self.pre("Bash", command=command), command)
+        # plain spellings of the same things still pass (SH-M4, SH-L4: no false denies)
+        for command in ("echo $(( 1 + 2 )) > out.txt", "echo 'a #b'", "echo x > out.txt", "printf '%s' x",
+                        "IFS=$'\\n' read -r x", "cut -d$'\\t' -f1 f", "echo $$'x'", "echo $(( $((1+2)) * 3 ))",
+                        "echo a\\\\ # a comment", "echo x 2>&1 >> out.txt", "echo x >|out.txt", "cmd >out | tee log",
+                        "echo x # ; rm nothing"):
             self.assertIsNone(self.pre("Bash", command=command), command)
 
     def test_too_deep_is_denied_for_that_reason(self):
@@ -1280,6 +1301,51 @@ class ReadOnlyBackstop(WorkbenchFeatureCase):
     def baseline_file(self):
         [name] = [f for f in os.listdir(self.data) if f.startswith("read-only-baseline-")]
         return os.path.join(self.data, name)
+
+    def test_control_file_round_trips_and_damage_are_still_seen(self):
+        # end-of-push review r1 of 2026-11-22-todo-fixes
+        import sdlc_scopes
+        import sdlc_review_gate as gate
+        self.write("specs/x.md", "first\n")  # dirty at the first look (SH-M1)
+        self.assertEqual(self.watch("SessionStart"), {})
+        manifest = sdlc_scopes.read_repo_json(self.root, "workbench.json")
+        specs = self.path("specs")
+        # SH-H3: writable, a local commit made to look pushed, read-only again: compared with the old baseline
+        self.write_json("workbench.json", {"repos": [dict(r, write=True) if r["name"] == "specs" else r
+                                                     for r in manifest["repos"]]})
+        self.watch("PostToolUse")
+        os.remove(self.path("specs/x.md"))
+        git(specs, "add", "-A")
+        git(specs, "commit", "-q", "--allow-empty", "-m", "sneaky")
+        git(specs, "update-ref", "refs/remotes/origin/main", "HEAD")
+        self.write_json("workbench.json", manifest)  # a clean tree at refs that look pushed
+        self.assertEqual(self.watch("Stop").get("decision"), "block")
+        self.accept()
+        self.assertEqual(self.watch("Stop"), {})
+        # SH-M1: back to a dirty first look by name, but with new bytes: reported, not taken silently
+        self.write("specs/x.md", "rewritten by the agent\n")
+        self.assertEqual(self.watch("PostToolUse").get("decision"), "block")
+        self.accept()
+        # SH-H4: a writable repo's entry removed, or the manifest deleted, is seen; membership holds for the review
+        self.write_json("workbench.json", {"repos": [r for r in manifest["repos"] if r["name"] != "api"]})
+        out = self.watch("PostToolUse")
+        self.assertEqual(out.get("decision"), "block", out)
+        self.assertIn("api", out["reason"])
+        self.assertTrue(gate._workbench_feature(self.path("api"))[0])
+        os.rename(self.path("workbench.json"), self.path("moved.json"))
+        self.assertTrue(sdlc_scopes.guarded_workbench(self.root))
+        self.assertEqual(self.watch("Stop").get("decision"), "block")
+        self.assertTrue(gate._workbench_feature(self.path("api"))[0])
+        os.rename(self.path("moved.json"), self.path("workbench.json"))
+        self.write_json("workbench.json", manifest)
+        self.accept()
+        # SH-L3: a damaged `first` is reported, never a silent crash
+        with open(self.baseline_file(), encoding="utf-8") as f:
+            data = json.load(f)
+        data["first"] = []
+        with open(self.baseline_file(), "w", encoding="utf-8") as f:
+            json.dump(data, f)
+        self.assertEqual(self.watch("Stop").get("decision"), "block")
 
     def test_the_control_files_cannot_turn_the_watch_off(self):
         # .sdlc/2026-11-22-s-workbench-control-files (security-r7 SR7-M3)

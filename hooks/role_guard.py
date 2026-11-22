@@ -192,9 +192,9 @@ class TooDeep(Exception):
 
 
 class Unreadable(TooDeep):
-    """Shell syntax the lexer reads differently from the shell, so a write could hide in it: ANSI-C `$'…'`, a
-    substitution inside `$(( ))`, a `#` after an escaped blank, the `>!` and `>|` redirects. Denied like TooDeep
-    rather than parsed: a wider parser is a new place for the two readings to differ."""
+    """Shell syntax the lexer reads differently from the shell, so a write could hide in it: ANSI-C `$'…\\'…'`, a
+    substitution inside `$(( ))` or an array subscript, zsh's clobber redirects. Denied like TooDeep rather than
+    parsed: a wider parser is a new place for the two readings to differ."""
 
 
 MAX_NEST = 24
@@ -209,8 +209,12 @@ WATCH_FILES = ("read-only-baseline", "read-only-seeded", "read_only_watch", "cla
 def deep_reason(found):
     """The deny reason when a command was too deeply nested to check, else None."""
     return ("sdlc: this command nests substitutions too deep, or uses shell syntax the guard can't read the way the "
-            "shell does ($'…', a substitution inside $(( )), `\\ #`, >! or >|), so it can't check what it writes: "
+            "shell does ($'…\\'…', a substitution inside $(( )) or an array subscript, zsh's >! or >>|), so it can't "
+            "check what it writes: "
             "split it into simpler commands in plain syntax.") if found == TOO_DEEP else None
+
+
+SUBSCRIPT_SUB = re.compile(r"\[[^\]]*(?:\$\(|`)")  # bash runs `$( )` in an array subscript, even in '…'
 
 
 def lex(command, dialect="sh"):
@@ -220,6 +224,8 @@ def lex(command, dialect="sh"):
     substitution (`$( )`, backticks, `<( )`; PowerShell's `$( )`), comes inline between ("(", None) and (")", None),
     so a `cd` inside it ends with it; the substitution leaves SUB in its command's text. Comments, `\\`-newline
     continuations and here-doc bodies are never commands; `case` patterns' `)` close nothing."""
+    if dialect == "sh" and SUBSCRIPT_SUB.search(command):
+        raise Unreadable()  # `[[ 'a[$(cmd)]' -eq 1 ]]`, `let`, `declare -i`: arithmetic evaluates the subscript
     events, _ = _lex(command, 0, None, dialect, 0)
     return events
 
@@ -241,7 +247,16 @@ def _lex(s, i, stop, dialect, nest):
         strings.clear()
 
     def at_word_start():
-        return i == 0 or s[i - 1] in " \t\n;|&()"
+        """After a real blank, operator or newline: not one the escape char escapes (`a\\;#x`), and not the newline
+        of a line continuation (`a\\` + newline + `#x`), which both leave the `#` mid-word for the shell."""
+        if i == 0:
+            return True
+        if s[i - 1] not in " \t\n;|&()":
+            return False
+        k, n = i - 2, 0
+        while k >= 0 and s[k] == esc:
+            k, n = k - 1, n + 1
+        return n % 2 == 0
 
     def command_start():
         words = "".join(buf).split()
@@ -310,14 +325,14 @@ def _lex(s, i, stop, dialect, nest):
             i = len(s) if end < 0 else end + len(closer)
             buf.append(SUB)
             continue
-        if dialect == "sh" and (s.startswith("$'", i) or s.startswith(">!", i) or s.startswith(">|", i)):
-            raise Unreadable()
+        if dialect == "sh" and s.startswith("$'", i) and not (i and s[i - 1] == "$"):  # `$$'x'`: the PID, then 'x'
+            close = s.find("'", i + 2)
+            if close < 0 or s[close - 1] == "\\":  # only `\'` makes ANSI-C quoting end elsewhere than '…' does
+                raise Unreadable()
         if ch in quotes:
             quote = ch
             buf.append(ch)
         elif ch == "#" and dialect != "cmd" and at_word_start():
-            if dialect == "sh" and i >= 2 and s[i - 1] in " \t" and s[i - 2] == "\\":
-                raise Unreadable()  # `\ #`: the blank is escaped, so the shell reads a word, not a comment
             nl = s.find("\n", i)
             i = len(s) if nl < 0 else nl
             continue
@@ -328,7 +343,7 @@ def _lex(s, i, stop, dialect, nest):
         elif dialect == "sh" and (s.startswith("$((", i) or s.startswith("((", i) and command_start()) \
                 and s.find("))", i) >= 0:  # unbalanced: read as the subshells it opens
             end = matching(i + (s[i] == "$"), "((", "))")  # arithmetic: its `<<` is a shift, not a here-doc
-            if "$(" in s[i + 2:end] or "`" in s[i:end]:
+            if re.search(r"\$\((?!\()", s[i + 2:end]) or "`" in s[i:end]:  # `$((` inside is more arithmetic
                 raise Unreadable()  # a substitution in arithmetic runs; read as text here, it would hide a write
             buf.append(s[i:end])
             i = end
@@ -436,6 +451,8 @@ def _lex(s, i, stop, dialect, nest):
                 if j < len(s) and (s[j].isdigit() or s[j] == "-"):  # 2>&1, >&-: a stream
                     i = j + 1
                     continue
+            if dialect == "sh" and j < len(s) and s[j] in "!|":
+                raise Unreadable()  # zsh's clobber `>!`, `>>!`, `>&!`, or a `|` after `>>`/`>&`: not read here
             while j < len(s) and s[j] in " \t":
                 j += 1
             k = j  # one shell word: quoted and bare runs joined (`"acceptance"/manifest.json`)

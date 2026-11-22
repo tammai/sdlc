@@ -36,21 +36,22 @@ def _segment(glob):
 
 
 def _segments_match(globs, parts):
-    memo = {}
-
-    def at(i, j):
-        if (i, j) in memo:
-            return memo[(i, j)]
-        if i == len(globs):
-            found = j == len(parts)
-        elif globs[i] == "**":
-            found = any(at(i + 1, k) for k in range(j, len(parts) + 1))
+    """Whether the segment lists match, bottom-up in O(len(globs) x len(parts)): a `**` either ends here or takes one
+    more segment, so neither many `**` nor a deep path can blow it up (and no recursion to run out of)."""
+    n, m = len(globs), len(parts)
+    nxt = [False] * m + [True]  # row n: only the end of the path matches the end of the glob
+    for g in reversed(globs):
+        row = [False] * (m + 1)
+        if g == "**":
+            row[m] = nxt[m]
+            for k in range(m - 1, -1, -1):
+                row[k] = nxt[k] or row[k + 1]
         else:
-            found = j < len(parts) and fnmatch.fnmatchcase(parts[j], _segment(globs[i])) and at(i + 1, j + 1)
-        memo[(i, j)] = found
-        return found
-
-    return at(0, 0)
+            seg = _segment(g)
+            for k in range(m - 1, -1, -1):
+                row[k] = nxt[k + 1] and fnmatch.fnmatchcase(parts[k], seg)
+        nxt = row
+    return nxt[0]
 
 
 def _deep(pattern, limit=MAX_EXPANSIONS):

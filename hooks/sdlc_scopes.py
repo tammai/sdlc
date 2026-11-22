@@ -121,7 +121,7 @@ def guarded_workbench(root):
     import os
     if is_workbench(root):
         return True
-    if os.path.isfile(os.path.join(root, WORKBENCH_FILE)) and os.path.isfile(os.path.join(root, SEEDED_MARKER)):
+    if os.path.isfile(os.path.join(root, SEEDED_MARKER)):  # whatever workbench.json and the config say now
         return True
     config = os.path.join(root, ".sdlc", "config.json")
     if not os.path.isfile(os.path.join(root, WORKBENCH_FILE)) or not os.path.exists(config):
@@ -365,6 +365,19 @@ def branched_repos(root, state_text):
             continue
         kept.append((name, rec))
     return kept, dropped
+
+
+def listed_names(root):
+    """Every repo name workbench.json lists (read entry by entry), or None when it can't be read as JSON with a
+    `repos` list. For the watch, which must see a writable repo's entry go too."""
+    try:
+        data = read_repo_json(root, WORKBENCH_FILE)
+    except (OSError, ValueError):
+        return None
+    repos = data.get("repos") if isinstance(data, dict) else None
+    if not isinstance(repos, list):
+        return None
+    return {r["name"] for r in repos if isinstance(r, dict) and isinstance(r.get("name"), str)}
 
 
 def read_only_names(root):

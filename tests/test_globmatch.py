@@ -65,6 +65,10 @@ class GlobMatchTest(unittest.TestCase):
             except subprocess.TimeoutExpired:
                 self.fail(f"the commit review's area match stalled on {glob[:12]}…")
         self.assertTrue(globmatch.glob_match("{a,b}" * 30 + "x", "anything"))  # too big to judge: counts as touched
+        import time  # end-of-push review r1 SH-H7: many `**` against a deep path
+        t = time.monotonic()
+        globmatch.glob_match("**/a/" * 60 + "z", "a/" * 1500 + "b")
+        self.assertLess(time.monotonic() - t, 5)
 
 
 if __name__ == "__main__":

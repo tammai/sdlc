@@ -97,8 +97,8 @@ a required check in the workbench.
   repo is denied, naming its owner. Behind that guard, a change in a read-only repo (a changed file, a local
   commit or a push URL, whatever command made it) is reported after the call and blocks Stop until the user undoes
   it or accepts it by sending `accept read-only <repo>` as a message, and read-only repos can't push:
-  sdlc points their push URL nowhere the first time it sees them (pull keeps working). A repo made writable or
-  removed in `workbench.json` is reported the same way. Once sdlc has looked, `"workbench": false` doesn't turn the
+  sdlc points their push URL nowhere the first time it sees them (pull keeps working). A read-only repo made
+  writable, or any repo removed from `workbench.json`, is reported the same way. Once sdlc has looked, `"workbench": false` doesn't turn the
   guards off: to stop using a workbench, the user deletes `.sdlc/.work/read-only-seeded` themselves, in their own
   terminal (the guard denies any call that names it).
 - One feature, recorded once in the workbench, drives a branch and PR per repo it touches. The first time Build

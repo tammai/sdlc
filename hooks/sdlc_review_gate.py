@@ -97,7 +97,9 @@ def _workbench_feature(repo_root):
     except ValueError:
         listed = None
     if listed is not None and name not in listed:
-        return False, None
+        if not os.path.isfile(os.path.join(wb, sdlc_scopes.SEEDED_MARKER)):
+            return False, None
+        return True, ""  # a seeded workbench's repo dropped from the manifest: unsure, so reviewed
     owners, current = [], None
     for f in sdlc_layout.features(wb).values():
         try:
@@ -222,7 +224,7 @@ def review_wanted(repo_root):
             import sdlc_scopes  # noqa: PLC0415
             rec = sdlc_scopes.feature_repos(owner).get(os.path.basename(os.path.abspath(repo_root))) or {}
             start = _git(repo_root, "rev-parse", "--verify", "-q", rec["base"]) if rec.get("base") else None
-            return _security_touched(repo_root, owner, start, None, [], worktree=True)
+            return not start or _security_touched(repo_root, owner, start, None, [], worktree=True)  # no base: review
         found = _active_features(repo_root)
         if not found:
             return False
