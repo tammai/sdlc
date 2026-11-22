@@ -18,10 +18,10 @@
 - [ ] `runbook_path` and `objects` bar `.claude` / `.sdlc` with a narrower spelling rule than `.git`'s (8.3 names, NTFS stream suffix, HFS+ code points); generalise `sdlc_scopes.git_segment` — end review SP-L1, unconfirmed (2026-11-22)
 - [ ] The Monitor commit/push deny matches `git commit` inside quoted text (`echo "git commit"`) — end review SP-L3, unconfirmed (2026-11-22)
 - [ ] SubagentStop at a workbench root now resolves to the app repo and skips (reason 11); `_merged` costs grow with every done feature that listed a repo; a locally deleted feature branch keeps ownership — end review SG-L1..L3 of 2026-11-22-todo-lanes (2026-11-22)
+- [ ] Any git folder in a seeded workbench that the manifest doesn't list counts as a member with unsure ownership, so a scratch clone gets a model review on every commit; limit it to names the watch's `members` has held — end-of-push review R2-L3 (hooks) (2026-11-22) — tried in 2026-11-22-todo-lanes (members the watch has held) and reverted: a repo added and dropped between the watch's looks escaped review; needs a record the agent can't outrun (2026-11-22)
 
 ## Done
 - [x] `accept read-only specs` after `scaffold.py workbench remove specs` clears the report but says "none found"; name dropped repos too — end-of-push review R2-L4 (hooks) (2026-11-22) — done 2026-11-22
-- [x] Any git folder in a seeded workbench that the manifest doesn't list counts as a member with unsure ownership, so a scratch clone gets a model review on every commit; limit it to names the watch's `members` has held — end-of-push review R2-L3 (hooks) (2026-11-22) — done 2026-11-22
 - [x] `Project.untracked` may still fail open when the project root isn't the git toplevel — end-of-push review R2-L3 (scripts), unconfirmed (2026-11-22) — done 2026-11-22 (reproduced, symlinked roots too)
 - [x] `.impeccable/config.json` is read through a committed link by doctor and scaffold; route it through `sdlc_scopes.read_repo_text` — end-of-push review R2-L2 (scripts), predates it (2026-11-22) — done 2026-11-22
 - [x] The Monitor commit/push deny (`hooks/pretooluse.py` `_monitor_commit`) misses spellings the Bash commit and push reviews catch, and denies `git log --grep=push`; reuse the review hook's own commit and push patterns — end-of-push review R2-H4, R2-L2 (2026-11-22) — done 2026-11-22

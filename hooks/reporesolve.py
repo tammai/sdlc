@@ -322,13 +322,22 @@ def _workbench_app_repo(root, touched_paths, cwd):
         if not apps:
             return None
         best = min(apps, key=lambda t: (-counts[t], t))
-        # the root keeps the review when its own edits are as many, or steer the agent (CLAUDE.md, hooks, config)
-        import sdlc_review_gate  # noqa: PLC0415
-        own = [os.path.relpath(os.path.join(cwd or root, p), root).replace(os.sep, "/") for p in touched_paths]
-        own = [p for p in own if not p.startswith("..") and not any(
-            p == os.path.relpath(a, root) or p.startswith(os.path.relpath(a, root) + "/") for a in apps)]
-        if len(own) >= counts[best] or any(sdlc_review_gate.NEVER_SKIP.match(p) for p in own):
+        # the root keeps the review when its own edits are as many (counted the same resolved way as the apps'), or
+        # steer the agent (CLAUDE.md, hooks, config), matched on the resolved path and in any case
+        if counts.get(root, 0) >= counts[best]:
             return None
+        import sdlc_review_gate  # noqa: PLC0415
+        real_root, real_apps = os.path.realpath(root), [os.path.realpath(a) for a in apps]
+        for p in touched_paths:
+            try:
+                real = os.path.realpath(os.path.expanduser(p if os.path.isabs(p) else os.path.join(cwd or root, p)))
+                if any(real == a or real.startswith(a + os.sep) for a in real_apps):
+                    continue
+                rel = os.path.relpath(real, real_root).replace(os.sep, "/")
+            except (ValueError, OSError):
+                continue  # another drive: not the root's
+            if not rel.startswith("..") and re.match(sdlc_review_gate.NEVER_SKIP.pattern, rel, re.I):
+                return None
         return best
     except Exception:
         return None

@@ -94,15 +94,6 @@ def _merged(repo, branch, base):
     return False
 
 
-def _never_held(wb, name):
-    """The read-only watch's baseline lists every name the manifest has held (`members`), and not this one: a scratch
-    clone, not a repo dropped from the manifest. A baseline it can't read, or one without `members`: False (unsure)."""
-    import read_only_watch  # noqa: PLC0415  (read only: the watch's own loader, this host's own baseline file)
-    members = (read_only_watch.load(read_only_watch.default_baseline_path(wb)) or {}).get("members")
-    return (isinstance(members, list) and bool(members) and all(isinstance(m, str) for m in members)
-            and name not in members)  # an empty or damaged list says nothing: unsure
-
-
 def _workbench_feature(repo_root):
     """(member, text) for a repo cloned in a workbench. member: the folder above it is a workbench (a broken workbench
     config counts) whose workbench.json lists it, whatever the repo's own config says; text: the state of the one
@@ -121,9 +112,11 @@ def _workbench_feature(repo_root):
     except ValueError:
         listed = None
     if listed is not None and name not in listed:
-        if not os.path.isfile(os.path.join(wb, sdlc_scopes.SEEDED_MARKER)) or _never_held(wb, name):
+        if not os.path.isfile(os.path.join(wb, sdlc_scopes.SEEDED_MARKER)):
             return False, None
-        return True, ""  # a seeded workbench's repo dropped from the manifest: unsure, so reviewed
+        # a seeded workbench's unlisted folder: unsure, so reviewed. A scratch clone pays a review; telling it from a
+        # repo dropped from the manifest needs a record the agent can't outrun (end review r2 of 2026-11-22-todo-lanes)
+        return True, ""
     owners = []  # (text, active)
     for f in sdlc_layout.features(wb).values():
         try:

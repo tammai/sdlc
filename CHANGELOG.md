@@ -21,7 +21,7 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 - **A Monitor command can't commit or push:** run those with Bash, where the commit and push security reviews run.
 - **A Monitor command meets the review-cap hold and the read-only watch's per-call check**, as Bash does.
 
-- **Workbench: a done feature keeps the commit review on its app repos until its branch is merged upstream**, on any branch and whatever PR is recorded. A high-risk done feature stays reviewed beside a new one, and a scratch clone is no longer counted as a member.
+- **Workbench: a done feature keeps the commit review on its app repos until its branch is merged upstream**, on any branch and whatever PR is recorded. A high-risk done feature stays reviewed beside a new one.
 - **Workbench: a turn run from the workbench root gets the turn-end review in the app repo it edited**; before, no app repo was reviewed. The root keeps it when its own edits lead or touch steering files.
 - **Every `.git` check shares one rule** (case, trailing dots and spaces, NTFS stream suffix, 8.3 name, HFS+ code points).
 - **The Monitor deny uses the commit and push reviews' own patterns**, and stays on if they can't load.

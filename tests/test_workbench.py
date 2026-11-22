@@ -1316,7 +1316,7 @@ class ReadOnlyBackstop(WorkbenchFeatureCase):
         [name] = [f for f in os.listdir(self.data) if f.startswith("read-only-baseline-")]
         return os.path.join(self.data, name)
 
-    def test_only_a_repo_the_watch_has_held_is_an_unlisted_member(self):
+    def test_an_unlisted_folder_of_a_seeded_workbench_is_reviewed(self):
         # end-of-push review R2-L3: a scratch clone in a seeded workbench isn't a member; a repo dropped from the
         # manifest (one the watch's `members` held) still is, and unsure ownership reviews it
         import sdlc_review_gate as gate
@@ -1331,8 +1331,9 @@ class ReadOnlyBackstop(WorkbenchFeatureCase):
         self.write("scratch/a.py", "x = 1\n")
         git(scratch, "add", "-A")
         git(scratch, "commit", "-q", "-m", "x")
-        self.assertEqual(gate._workbench_feature(scratch), (False, None))
-        self.assertTrue(gate.decide(scratch, [git_out(scratch, "rev-parse", "HEAD")], set()).get("off"))
+        # end review r2: telling a scratch clone from a dropped repo can be outrun, so both are reviewed
+        self.assertEqual(gate._workbench_feature(scratch), (True, ""))
+        self.assertFalse(gate.decide(scratch, [git_out(scratch, "rev-parse", "HEAD")], set()).get("off"))
         manifest = sdlc_scopes.read_repo_json(self.root, "workbench.json")
         self.write_json("workbench.json", {"repos": [r for r in manifest["repos"] if r["name"] != "api"]})
         self.assertEqual(gate._workbench_feature(self.path("api")), (True, ""))
@@ -1970,6 +1971,22 @@ class StopReviewRepo(WorkbenchFeatureCase):
         self.assertEqual(rr.resolve_repo_root(self.root, touched_paths=steer), (self.root, rr.RES_CWD))
         more = [self.path("notes.md"), self.path("x.md"), self.path("api/a.py")]
         self.assertEqual(rr.resolve_repo_root(self.root, touched_paths=more), (self.root, rr.RES_CWD))
+
+    def test_the_root_keeps_steering_edits_through_a_linked_path(self):
+        # end review r2 R2-M1: a path spelled through a link to the root, or in another case, still steers
+        import reporesolve as rr
+        import tempfile
+        away = os.path.realpath(tempfile.mkdtemp(prefix="sdlc-away-"))
+        self.addCleanup(rmtree, away)
+        link = os.path.join(away, "wb")
+        try:
+            os.symlink(self.root, link, target_is_directory=True)
+        except (OSError, NotImplementedError):
+            self.skipTest("symlinks unavailable")
+        touched = [os.path.join(link, "CLAUDE.md"), self.path("api/a.py"), self.path("api/b.py")]
+        self.assertEqual(rr.resolve_repo_root(self.root, touched_paths=touched), (self.root, rr.RES_CWD))
+        touched = [self.path("hooks/x.py").replace("hooks", "HOOKS"), self.path("api/a.py"), self.path("api/b.py")]
+        self.assertEqual(rr.resolve_repo_root(self.root, touched_paths=touched)[0], self.root)
 
     def test_a_plain_repo_with_a_nested_repo_keeps_the_old_resolution(self):
         import reporesolve as rr
