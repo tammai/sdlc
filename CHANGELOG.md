@@ -9,6 +9,8 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 - **A Monitor command meets the workbench's read-only guard.** The Monitor tool runs a shell command, but only Bash and PowerShell calls were checked, so in a workbench a Monitor command could write a read-only repo, an app repo no feature had branched, a recorded acceptance test, or the read-only watch's files. It is now judged as a Bash command.
 
+- **A committed link can't make setup write into `.git` or outside the repo.** `AGENTS.md`, `.gitignore`, `.claude/settings.json` and `.claude/settings.local.json` are merged by their fixed names; a committed link (`AGENTS.md -> .git/config`, `.claude -> .git/info`) had sdlc append to the file it named, and read an outside file's text into the repo. Those files are now refused when they lead out of the repo or into a git dir, and read as absent wherever sdlc only reads them (doctor included); a `CLAUDE.md` or `.claude/rules/*.md` linked out of the repo is left out of AGENTS.md's block. A link inside the repo still works, and eject lists such a file under `outside` and leaves it.
+
 ### Fixed
 - **Upgrade and eject keep a file you merged.** After an upgrade's "apply merge", the next upgrade replaced the file with the template and eject deleted it without asking, since the merge was recorded like a plain render. A merged file is now reviewed only when the template changed since, asked about on eject, and never overwritten by `render --if-unchanged`.
 - **Commits and pushes through PowerShell get the commit security review.** On Windows, where Claude Code runs commands in its PowerShell tool, they were never reviewed.
