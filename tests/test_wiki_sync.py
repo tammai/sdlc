@@ -40,7 +40,7 @@ class WikiSyncTest(unittest.TestCase):
 
         home = page("Home.md")
         self.assertIn("](Install)", home)
-        self.assertIn("](https://github.com/o/r/raw/main/docs/assets/banner.svg)", home)
+        self.assertIn("](https://github.com/o/r/raw/main/docs/assets/cover.svg)", home)
         self.assertIn("](https://github.com/o/r/blob/main/docs/adr/README.md)", home)
         self.assertNotIn(".md)", home.replace("README.md)", "").replace("CHANGELOG.md)", ""))
         self.assertIn("](Troubleshooting#r4-blocked-at-stop-with-re-run-tests)", page("Everyday-work.md"))
