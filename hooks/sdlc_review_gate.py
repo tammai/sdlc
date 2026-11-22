@@ -27,6 +27,7 @@ import os
 import re
 import subprocess
 
+import globmatch  # sibling module: committed globs matched in bounded time
 import sdlc_layout  # sibling module: where feature state lives
 
 MAX_DEFER = 10
@@ -139,28 +140,6 @@ DEFAULT_AREAS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__f
                              "config.defaults.json")
 
 
-def _glob_re(pattern):
-    """A .gitignore-style glob (`**`, `*`, `?`, `{a,b}`) as a regex over a repo-relative path."""
-    out, i = "", 0
-    while i < len(pattern):
-        c = pattern[i]
-        if pattern.startswith("**/", i):
-            out, i = out + "(?:.*/)?", i + 3
-            continue
-        if pattern.startswith("**", i):
-            out, i = out + ".*", i + 2
-            continue
-        if c == "{":
-            end = pattern.find("}", i)
-            if end > i:
-                out += "(?:" + "|".join(re.escape(p) for p in pattern[i + 1:end].split(",")) + ")"
-                i = end + 1
-                continue
-        out += "[^/]*" if c == "*" else "[^/]" if c == "?" else re.escape(c)
-        i += 1
-    return re.compile(out + r"\Z")
-
-
 def _globs(text):
     try:
         areas = json.loads(text).get("areas") or {}
@@ -185,7 +164,8 @@ def _security_areas(root):
             globs += _globs(f.read()) or []
     except OSError:
         pass
-    return [_glob_re(g.lower()) for g in globs]  # case-folded both sides: folding only adds matches
+    # case-folded both sides: folding only adds matches; globmatch, so a committed glob can't stall the review
+    return [globmatch.Glob(g.lower()) for g in globs]
 
 
 def _names(root, *args):
