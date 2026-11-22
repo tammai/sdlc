@@ -851,6 +851,19 @@ class ScaffoldTest(ProjectTestCase):
         plan = self.sc("upgrade-plan")
         self.assertNotIn(".github/workflows/x.yml", [i["path"] for i in plan.get("regenerate", [])])
         self.assertTrue(os.path.isdir(self.path(".github/workflows/x.yml")))
+        # end-of-push review r1 H2: never "unchanged", even against a recorded "" hash; listed, never deleted
+        lock = json.loads(self.read(".sdlc/scaffold.lock.json"))
+        lock["files"][".github/workflows/x.yml"]["sha256"] = ""
+        self.write(".sdlc/scaffold.lock.json", json.dumps(lock))
+        self.assertIn(".github/workflows/x.yml", self.sc("upgrade-plan")["outside"])
+        eject = self.sc("eject")
+        self.assertIn(".github/workflows/x.yml", eject["outside"])
+        self.assertNotIn(".github/workflows/x.yml", eject["delete"])
+        self.sc("eject", "--apply")
+        self.assertTrue(os.path.isdir(self.path(".github/workflows/x.yml")))
+        self.init()
+        os.makedirs(self.path("adir.md"))
+        self.assertIn("adir.md", self.sc("record", "seeded", "adir.md", expect=2)["refused"])  # nothing to hash
 
     def test_eject_plan_is_dry_by_default(self):
         self.setup_for_eject()
@@ -1371,6 +1384,25 @@ class ScaffoldTest(ProjectTestCase):
         self.assertIn(".github/workflows/sdlc-x.yml", eject["delete"])
         self.sc("eject", "--apply")
         self.assertEqual(self.read(".env"), "API_KEY=local\n")
+
+    def test_untracked_holds_when_git_refuses_the_repo_or_the_name_is_a_pathspec(self):
+        # end-of-push review r1 M2, L1
+        sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
+        import scaffold
+        self.git("init", "-q", "-b", "main")
+        self.write("[ab].txt", "x")
+        self.write("a.txt", "x")
+        self.git("add", "a.txt")
+        self.git("commit", "-q", "-m", "x")
+        p = scaffold.Project(self.root)
+        self.assertTrue(p.untracked("[ab].txt"))  # as a pathspec it would match the tracked a.txt
+        self.assertFalse(p.untracked("a.txt"))
+        old = os.environ.get("GIT_DIR")
+        os.environ["GIT_DIR"] = self.path("nowhere")
+        try:
+            self.assertTrue(p.untracked("a.txt"))  # git refuses: kept, never overwritten
+        finally:
+            os.environ.pop("GIT_DIR") if old is None else os.environ.__setitem__("GIT_DIR", old)
 
     def legacy_repo(self, files):
         self.git("init", "-q", "-b", "main")

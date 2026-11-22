@@ -92,3 +92,28 @@ class LinkedConfigTest(ProjectTestCase):
         os.remove(self.path(".sdlc/config.json"))
         self.write(".sdlc/config.json", json.dumps({"docs_dir": "docs/sdlc"}))  # a plain file still reads
         self.assertEqual(sdlc_layout.docs_dir(self.root), "docs/sdlc")
+
+
+class LinkedConfigReadersTest(ProjectTestCase):
+    def test_no_config_reader_follows_a_link_to_a_fifo(self):
+        # end-of-push review r1 M1: every reader of .sdlc/config.json goes through sdlc_scopes' guarded reader
+        import subprocess
+        import tempfile, shutil  # noqa: E401
+        if not hasattr(os, "mkfifo"):
+            self.skipTest("no FIFOs here")
+        outside = tempfile.mkdtemp(prefix="sdlc-outside-")
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        fifo = os.path.join(outside, "config.json")
+        os.mkfifo(fifo)
+        os.makedirs(self.path(".sdlc"))
+        os.symlink(fifo, self.path(".sdlc/config.json"))
+        code = ("import sys; sys.path[:0] = [sys.argv[1] + '/hooks', sys.argv[1] + '/scripts']; r = sys.argv[2]\n"
+                "import review_rounds, sdlc_review_gate, verify_freshness, capabilities, state, brief, spec_lock\n"
+                "review_rounds.read_config(r); sdlc_review_gate._security_areas(r); verify_freshness.load_scopes(r, '')\n"
+                "capabilities.config(r); state.test_command(r); brief.config_text(r); spec_lock.lock_paths(r)\n")
+        try:
+            p = subprocess.run([sys.executable, "-c", code, PLUGIN_ROOT, self.root], capture_output=True, timeout=20,
+                               encoding="utf-8", errors="replace")
+        except subprocess.TimeoutExpired:
+            self.fail("a config reader opened the linked FIFO")
+        self.assertEqual(p.returncode, 0, p.stderr)

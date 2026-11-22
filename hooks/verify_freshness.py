@@ -174,8 +174,7 @@ def load_scopes(root, state_test_cmd):
     """([{name, path, tests}], root_tests): one scope per package, else the whole project. `tests` empty means
     "use the generic runner patterns"; root_tests (monorepo only) are root-level commands that cover every scope."""
     try:
-        with open(os.path.join(root, ".sdlc", "config.json"), encoding="utf-8") as f:
-            config = json.load(f)
+        config = sdlc_scopes.read_repo_json(root, ".sdlc/config.json")  # a link out of the repo reads as absent
     except (OSError, ValueError):
         config = {}
     config = config if isinstance(config, dict) else {}

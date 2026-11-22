@@ -65,11 +65,17 @@ def tracked(root):
     return p.stdout if p.returncode == 0 else ""
 
 
+def config_text(root):
+    """.sdlc/config.json's text, "{}" when missing or a link out of the repo (never read through it)."""
+    import sdlc_scopes  # noqa: PLC0415
+    return sdlc_scopes.read_repo_text(root, ".sdlc/config.json") or "{}"
+
+
 def platform(root):
     """The platform reference's Define checks for config's deploy target, as a section; None when there are none.
     Repo config is untrusted: only a plain slug may name a file in the plugin."""
     try:
-        cfg = json.loads(read(root, ".sdlc/config.json") or "{}")
+        cfg = json.loads(config_text(root))
     except ValueError:
         return None
     deploy = cfg.get("deploy") if isinstance(cfg, dict) else None
@@ -90,7 +96,7 @@ def rules(root):
     """Config's `rules` (#75) as a section: each document's rules, for whoever writes or reviews it; None when there
     are none. Instructions to the agent only, read like CLAUDE.md: nothing runs without asking because of them."""
     try:
-        cfg = json.loads(read(root, ".sdlc/config.json") or "{}")
+        cfg = json.loads(config_text(root))
     except ValueError:
         return None
     given = cfg.get("rules") if isinstance(cfg, dict) else None

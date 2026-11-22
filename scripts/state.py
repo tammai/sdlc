@@ -624,9 +624,9 @@ def git_line(root, *args):
 
 
 def test_command(root):
+    import sdlc_scopes  # noqa: PLC0415  (a config linked out of the repo reads as absent)
     try:
-        with open(os.path.join(root, ".sdlc", "config.json"), encoding="utf-8") as f:
-            commands = json.load(f).get("commands") or {}
+        commands = sdlc_scopes.read_repo_json(root, ".sdlc/config.json").get("commands") or {}
     except (OSError, ValueError, AttributeError):
         return ""
     return commands.get("test") or "" if isinstance(commands, dict) else ""

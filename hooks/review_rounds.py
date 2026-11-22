@@ -139,11 +139,8 @@ def runs_tests(root, command):
 
 
 def read_config(root):
-    try:
-        with open(os.path.join(root, ".sdlc", "config.json"), encoding="utf-8") as f:
-            return f.read()
-    except (OSError, ValueError):
-        return None
+    import sdlc_scopes  # a config linked out of the repo reads as absent
+    return sdlc_scopes.read_repo_text(root, ".sdlc/config.json")
 
 
 def config_cap(root):

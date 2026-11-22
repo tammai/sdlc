@@ -28,7 +28,10 @@ def _read(path):
 def lock_paths(root):
     """Repo-relative paths of the locks to read: config `spec_lock`, else every tracked criteria.lock.json."""
     try:
-        config = json.loads(_read(os.path.join(root, ".sdlc", "config.json")) or "{}")
+        import sys  # noqa: PLC0415  (hooks/ holds the one reader that refuses a config linked out of the repo)
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "hooks"))
+        import sdlc_scopes  # noqa: PLC0415
+        config = json.loads(sdlc_scopes.read_repo_text(root, ".sdlc/config.json") or "{}")
     except ValueError:
         config = {}
     if isinstance(config, dict) and isinstance(config.get("spec_lock"), str) and config["spec_lock"]:

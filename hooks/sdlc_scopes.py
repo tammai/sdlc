@@ -82,6 +82,16 @@ def _inside(base, rel):
     return full
 
 
+def read_repo_text(base, rel):
+    """The text of the committed file `rel` under `base`, or None when it's missing, unreadable, or a link out of the
+    repo or into .git (_inside): read as absent, never through the link."""
+    try:
+        with open(_inside(base, rel), encoding="utf-8") as f:
+            return f.read()
+    except (OSError, ValueError):
+        return None
+
+
 def read_repo_json(base, rel):
     """The JSON file `rel` under `base` (a repo root), read only when _inside allows it."""
     import json

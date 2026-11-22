@@ -161,11 +161,8 @@ def _security_areas(root):
         return None
     if not globs:
         return None
-    try:
-        with open(os.path.join(root, ".sdlc", "config.json"), encoding="utf-8") as f:
-            globs += _globs(f.read()) or []
-    except OSError:
-        pass
+    import sdlc_scopes  # noqa: PLC0415  (a config linked out of the repo reads as absent)
+    globs += _globs(sdlc_scopes.read_repo_text(root, ".sdlc/config.json") or "{}") or []
     # case-folded both sides: folding only adds matches; globmatch, so a committed glob can't stall the review
     return [globmatch.Glob(g.lower()) for g in globs]
 

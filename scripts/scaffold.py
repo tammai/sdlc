@@ -116,6 +116,9 @@ def write_json(path, data, scratch=None):
             time.sleep(0.05)
 
 
+UNREADABLE = "unreadable"  # sha256 of a path that exists but can't be read: never a hash, so it matches no record
+
+
 def sha256(path):
     try:
         with open(path, "rb") as f:
@@ -123,8 +126,8 @@ def sha256(path):
             return hashlib.sha256(f.read().replace(b"\r\n", b"\n")).hexdigest()
     except FileNotFoundError:
         return None
-    except OSError:  # a folder, a looping link: no hash matches, so it counts as edited and is never overwritten
-        return ""
+    except OSError:  # a folder, a looping link: matches no recorded hash ("" included); file_state lists it outside
+        return UNREADABLE
 
 
 @functools.lru_cache(maxsize=64)
@@ -397,15 +400,16 @@ class Project:
         """Whether git doesn't track the repo file `path` (outside a git repo: False, nothing to tell apart). A
         committed lock entry can name a local file git never saw (`.env`, a key): one that differs from the lock is the
         user's, so it's offered, never rendered over or deleted."""
-        def git(*args):
-            return subprocess.run(["git", "-C", self.root, *args], capture_output=True, encoding="utf-8",
-                                  errors="replace")
+        def git(*args):  # literal pathspecs: a `*` or `:!` in a recorded name is just a character
+            return subprocess.run(["git", "--literal-pathspecs", "-C", self.root, *args], capture_output=True,
+                                  encoding="utf-8", errors="replace")
+        repo = os.path.lexists(os.path.join(self.root, ".git"))
         try:
             if git("rev-parse", "--is-inside-work-tree").stdout.strip() != "true":
-                return False
+                return repo  # a repo git refuses (safe.directory, a bad GIT_DIR): count it untracked, so it's kept
             return git("ls-files", "--error-unmatch", "--", path).returncode != 0
         except OSError:  # no git at all
-            return False
+            return repo
 
     def file_state(self, path, entry):
         if not inside_repo(self.root, path):  # through a link out of the repo: never read (a device, a huge file)
@@ -413,6 +417,8 @@ class Project:
         actual = sha256(self.path(path))
         if actual is None:
             return "missing"
+        if actual == UNREADABLE:  # a folder or a looping link where the file was: listed, never read, written or deleted
+            return "outside"
         return "unchanged" if actual == entry.get("sha256") else "modified"
 
 
@@ -556,6 +562,8 @@ def cmd_record(p, a):
         h = sha256(p.path(r))
         if h is None:
             raise ValueError(f"cannot record {r}: file does not exist")
+        if h == UNREADABLE:
+            raise Refused(f"{r} isn't a readable file (a folder or a looping link); not recorded")
         entry = files.get(r, {})
         entry.update({"class": a.cls, "sha256": h})
         if template:

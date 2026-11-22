@@ -20,6 +20,40 @@ class GlobMatchTest(unittest.TestCase):
         for pattern, path, want in cases:
             self.assertIs(globmatch.glob_match(pattern, path), want, (pattern, path))
 
+    def test_whatever_the_old_area_matcher_matched_still_matches(self):
+        # end-of-push review r1 H1: a `**` inside a segment crossed `/` in the old matcher; an area may only grow
+        import re
+
+        def old(pattern):  # sdlc_review_gate._glob_re before c9e318b
+            out, i = "", 0
+            while i < len(pattern):
+                c = pattern[i]
+                if pattern.startswith("**/", i):
+                    out, i = out + "(?:.*/)?", i + 3
+                    continue
+                if pattern.startswith("**", i):
+                    out, i = out + ".*", i + 2
+                    continue
+                if c == "{":
+                    end = pattern.find("}", i)
+                    if end > i:
+                        out += "(?:" + "|".join(re.escape(p) for p in pattern[i + 1:end].split(",")) + ")"
+                        i = end + 1
+                        continue
+                out += "[^/]*" if c == "*" else "[^/]" if c == "?" else re.escape(c)
+                i += 1
+            return re.compile(out + r"\Z")
+
+        patterns = ["**.pem", "secrets**", "**secret**", "a**/b", "src/**", "**/auth/**", "{a,{b}", "x**y/z",
+                    "**/*{secret,token}*", "db/**/migrate*", "*.key", "a/**b"]
+        paths = ["a.pem", "x/y/k.pem", "secrets", "secrets/a/b", "x/my-secret-file", "a/b", "a1/z/b", "a/x/y/b",
+                 "src/a", "auth/x", "p/auth/q/r", "a", "{b", "a}", "xay/z", "x/q/y/z", "db/1/migrate_x", "k.key",
+                 "a/b/c", "a/xb", "a/x/yb"]
+        for pattern in patterns:
+            for path in paths:
+                if old(pattern).match(path):
+                    self.assertTrue(globmatch.glob_match(pattern, path), (pattern, path))
+
     def test_a_hostile_security_area_cannot_stall_the_commit_review(self):
         # .sdlc/2026-11-22-s-gate-glob-stall AC-001: areas come from a committed config; the old regex took > 10 s
         code = ("import sys; sys.path.insert(0, sys.argv[1]); import sdlc_review_gate as g, re\n"
