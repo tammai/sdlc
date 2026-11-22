@@ -52,3 +52,5 @@ UI review applies (the stepper band); deferred by the user to one review over al
   
   Fixed test first (AC-001 widened): the bare-command check, Ship current with no pulse while waiting for the merge, `--status` ignored, the reload in the README, the design system updated.
 - **Left as noted:** in a workbench, one repo's passing checks set `CI passed` while other PRs may still be pending. `shippedHere` is keyed by the feature name only.
+
+- **End-of-push review (one pass over all of the 2026-11-22 todo fixes, by area):** scripts and hooks security reviews r1 FAIL, fixed in ddd2c43 and a1552fc; r2 FAIL past the cap, and the user chose to fix the rest (4a0e8f8) and park the read-only guard's lexer as a documented limitation (docs/wiki/Limitations.md). UI review r1 FAIL, fixed in b43026e. What is left is in `.sdlc/todo.md`.
