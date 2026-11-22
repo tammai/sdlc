@@ -1860,5 +1860,37 @@ class PluginReviewGuards(WorkbenchGuardsCase):
         self.assertIn("git switch -c <f>", read_doc("skills", "orchestrator", "references", "flow.md"))
 
 
+class StopReviewRepo(WorkbenchFeatureCase):
+    """The turn-end review's repo: from the workbench root, the app repo the turn edited, not the root, whose
+    .gitignore hides every app file (todo: the Stop review resolves one repo per turn)."""
+
+    def test_a_turn_at_the_root_is_reviewed_in_the_app_repo_it_edited(self):
+        import reporesolve as rr
+        api, web = self.path("api"), self.path("web")
+        self.assertEqual(rr.resolve_repo_root(self.root, touched_paths=[self.path("api/a.py")]),
+                         (api, rr.RES_WORKBENCH_APP))
+        # paths in two app repos: the busier one; a tie goes to the first by name
+        busier = [self.path("web/a.py"), self.path("api/a.py"), self.path("web/b.py")]
+        self.assertEqual(rr.resolve_repo_root(self.root, touched_paths=busier), (web, rr.RES_WORKBENCH_APP))
+        tie = [self.path("web/a.py"), self.path("api/a.py")]
+        self.assertEqual(rr.resolve_repo_root(self.root, touched_paths=tie), (api, rr.RES_WORKBENCH_APP))
+        # only workbench files touched, or none: the root, as before
+        self.assertEqual(rr.resolve_repo_root(self.root, touched_paths=[self.path("notes.md")]),
+                         (self.root, rr.RES_CWD))
+        self.assertEqual(rr.resolve_repo_root(self.root, touched_paths=[]), (self.root, rr.RES_CWD))
+        # a session inside an app repo keeps its own repo
+        self.assertEqual(rr.resolve_repo_root(api, touched_paths=[self.path("web/a.py")]), (api, rr.RES_CWD))
+
+    def test_a_plain_repo_with_a_nested_repo_keeps_the_old_resolution(self):
+        import reporesolve as rr
+        import tempfile
+        lone = os.path.realpath(tempfile.mkdtemp(prefix="sdlc-lone-"))
+        self.addCleanup(rmtree, lone)
+        git(lone, "init", "-q")
+        git(lone, "init", "-q", "inner")
+        self.assertEqual(rr.resolve_repo_root(lone, touched_paths=[os.path.join(lone, "inner", "a.py")]),
+                         (lone, rr.RES_CWD))
+
+
 if __name__ == "__main__":
     unittest.main()
