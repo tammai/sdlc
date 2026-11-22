@@ -427,6 +427,25 @@ class DoctorTest(ProjectTestCase):
         self.assertNotIn("100 lines", c[("repo", "CLAUDE.md size")]["detail"])
         self.assertNotIn("active: linked", c[("repo", "features")]["detail"])
 
+    def test_folders_linked_out_of_the_repo_are_named_not_listed(self):
+        # AC-001 (review L1 of 2026-11-22-s-doctor-reads-no-links): the outside folder's file names stay out too
+        outside = os.path.realpath(tempfile.mkdtemp(prefix="sdlc-outside-"))
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        for name in ("rules/secretname.md", "hookify/secrethook.md"):
+            os.makedirs(os.path.dirname(os.path.join(outside, name)), exist_ok=True)
+            with open(os.path.join(outside, name), "w", encoding="utf-8") as f:
+                f.write("# x\n")
+        os.makedirs(self.path(".claude"))
+        try:  # Windows without the symlink privilege can't make one
+            os.symlink(os.path.join(outside, "rules"), self.path(".claude/rules"), target_is_directory=True)
+            os.symlink(os.path.join(outside, "hookify"), self.path(".claude/hookify"), target_is_directory=True)
+        except (OSError, NotImplementedError):
+            self.skipTest("symlinks unavailable")
+        report = json.dumps(self.doctor()[0][("repo", "rules paths")]) + json.dumps(self.doctor()[0][("repo", "hookify rules")])
+        self.assertIn(".claude/rules/ (linked", report)
+        self.assertIn(".claude/hookify/ (linked", report)
+        self.assertNotIn("secret", report)
+
     def test_unreadable_repo_files_warn_instead_of_crashing(self):
         os.makedirs(self.path(".claude/rules/dir.md"))  # a folder where a file should be
         os.makedirs(self.path(".claude/hookify/dir.md"))  # read by scaffold.team_rules too (review r2 H1)

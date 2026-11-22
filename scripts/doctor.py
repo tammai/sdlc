@@ -184,6 +184,14 @@ def repo_text(root, rel):
     return scaffold.repo_text(root, rel)
 
 
+def repo_glob(root, folder, pattern):
+    """(paths, whys): the files matching `pattern` in the repo folder `folder`, or none and why when the folder is a
+    link out of the repo or into .git, so the outside folder's file names never reach the report."""
+    if scaffold.link_problem(root, folder):
+        return [], [f"{folder}/ (linked out of the repo or into .git)"]
+    return sorted(glob.glob(os.path.join(root, folder, pattern))), []
+
+
 def not_read(whys):
     return "not read: " + ", ".join(whys)
 
@@ -474,8 +482,9 @@ def check_repo(r, root):
                   design_system if ds else f"the repo has UI files but no {design_system}: UI work has no system to follow",
                   None if ds else "run the design-system step of /sdlc:setup (or /sdlc:upgrade)")
 
-    dead, linked = [], []
-    for path in sorted(glob.glob(os.path.join(root, ".claude", "rules", "*.md"))):
+    rule_files, linked = repo_glob(root, ".claude/rules", "*.md")
+    dead = []
+    for path in rule_files:
         if os.path.basename(path).startswith("sdlc"):
             continue  # plugin policy rules wait for files to exist (e.g. no migrations yet); not a problem
         text, why = repo_text(root, os.path.relpath(path, root))
@@ -491,11 +500,12 @@ def check_repo(r, root):
         r.add(g, "rules paths", "warn" if dead or linked else "ok", detail or "every scoped rule matches files",
               join_fixes("fix the rule's `paths:`" if dead else "", NOT_READ_FIX if linked else ""))
 
-    bad, linked = [], []
+    local, linked = repo_glob(root, ".claude", "hookify.*.local.md")
+    team, linked_team = repo_glob(root, ".claude/hookify", "*.md") if not linked else ([], [])
+    hook_files, linked, bad = local + team, linked + linked_team, []
     try:
         from core.config_loader import load_rule_file, rule_problems
-        for path in sorted(glob.glob(os.path.join(root, ".claude", "hookify.*.local.md")) +
-                           glob.glob(os.path.join(root, ".claude", "hookify", "*.md"))):
+        for path in hook_files:
             rel = os.path.relpath(path, root)
             _, why = repo_text(root, rel)  # the engine opens it itself: only a plain, readable file reaches it
             if why:
@@ -507,9 +517,8 @@ def check_repo(r, root):
                 continue
             if rule.enabled:
                 bad.extend(f"{rel} ({p})" for p in rule_problems(rule))
-        n = len(glob.glob(os.path.join(root, ".claude", "hookify.*.local.md")) +
-                glob.glob(os.path.join(root, ".claude", "hookify", "*.md")))
-        if n:
+        n = len(hook_files)
+        if n or linked:
             r.add(g, "hookify rules", "fail" if bad else "warn" if linked else "ok",
                   "; ".join(bad + ([not_read(linked)] if linked else [])) or f"{n} rules parse",
                   join_fixes(f"{RUNBOOK} R7" if bad else "", NOT_READ_FIX if linked else ""))

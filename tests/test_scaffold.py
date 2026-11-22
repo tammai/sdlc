@@ -826,6 +826,17 @@ class ScaffoldTest(ProjectTestCase):
         with open(cfg, encoding="utf-8") as f:
             self.assertEqual(f.read(), '{"secret": 1}')
 
+    def test_a_folder_at_a_recorded_path_counts_as_edited(self):
+        # AC-002 (review r2 of 2026-11-22-s-doctor-reads-no-links): sha256 on a folder was a traceback
+        self.init()
+        self.sc("render", "templates/project/ci.yml", ".github/workflows/x.yml", "--class", "seeded")
+        os.remove(self.path(".github/workflows/x.yml"))
+        os.makedirs(self.path(".github/workflows/x.yml"))
+        self.sc("status")
+        plan = self.sc("upgrade-plan")
+        self.assertNotIn(".github/workflows/x.yml", [i["path"] for i in plan.get("regenerate", [])])
+        self.assertTrue(os.path.isdir(self.path(".github/workflows/x.yml")))
+
     def test_eject_plan_is_dry_by_default(self):
         self.setup_for_eject()
         plan = self.sc("eject")

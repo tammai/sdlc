@@ -123,6 +123,8 @@ def sha256(path):
             return hashlib.sha256(f.read().replace(b"\r\n", b"\n")).hexdigest()
     except FileNotFoundError:
         return None
+    except OSError:  # a folder, a looping link: no hash matches, so it counts as edited and is never overwritten
+        return ""
 
 
 @functools.lru_cache(maxsize=64)
