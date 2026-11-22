@@ -285,6 +285,30 @@ class DoctorTest(ProjectTestCase):
         self.write(".gitignore", "node_modules/\n")
         self.assertEqual(self.check(".gitignore")["status"], "warn")
 
+    def test_a_linked_gitignore_or_agents_md_is_read_as_absent(self):
+        # R2-M2 of 2026-11-22-s-fixed-writers-refuse-links: doctor's .gitignore reads and AGENTS.md warning
+        self.setup_repo()
+        outside = os.path.realpath(tempfile.mkdtemp(prefix="sdlc-outside-"))
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        with open(os.path.join(outside, "gitignore"), "w", encoding="utf-8") as f:
+            f.write(".sdlc/.work/\n.sdlc/state/*.json\n.sdlc/state/*.events.jsonl\n.sdlc/state/*.commands/\n")
+        with open(os.path.join(outside, "agents"), "w", encoding="utf-8") as f:
+            f.write("<!-- sdlc:begin -->\nsecret\n<!-- sdlc:end -->\n")
+        os.remove(self.path(".gitignore"))
+        try:
+            os.symlink(os.path.join(outside, "gitignore"), self.path(".gitignore"))
+            os.symlink(os.path.join(outside, "agents"), self.path("AGENTS.md"))
+        except (OSError, NotImplementedError):
+            self.skipTest("symlinks unavailable")
+        subprocess.run([sys.executable, SCAFFOLD, "--root", self.root, "add-host", "codex"], check=True,
+                       capture_output=True)
+        c, _ = self.doctor()
+        self.assertEqual(c[("repo", ".gitignore")]["status"], "warn")  # the outside lines don't count
+        agents = c[("repo", "AGENTS.md")]  # named, never read
+        self.assertEqual(agents["status"], "warn")
+        self.assertIn("link", agents["detail"])
+        self.assertNotIn("secret", json.dumps(agents))
+
     def test_gitignore_set_up_before_the_control_contract_warns(self):
         # Repos set up on 1.8.1 ignore only .sdlc/.work/; state.py's contract files would get committed
         self.setup_repo()

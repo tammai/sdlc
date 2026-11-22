@@ -1004,6 +1004,23 @@ class ScaffoldTest(ProjectTestCase):
         self.write(".sdlc/config.json", json.dumps(config))
         self.assertIn("runbook", self.sc("deploy")["invalid"])
 
+    def test_impeccable_enable_refuses_a_linked_local_settings_file(self):
+        # R2-M2 of 2026-11-22-s-fixed-writers-refuse-links: the enable goes through fixed_target
+        self.init()
+        self.installed()
+        outside = tempfile.mkdtemp(prefix="sdlc-outside-")
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        target = os.path.join(outside, "local.json")
+        with open(target, "w", encoding="utf-8") as f:
+            f.write("{}")
+        self.linked_out(".claude/settings.local.json", target)
+        self.write("claude-config/plugins/installed_plugins.json", json.dumps({"version": 2, "plugins": {
+            "impeccable@x": [{"scope": "user", "installPath": self.path("claude-config/impeccable")}]}}))
+        out = self.sc("design", "impeccable", "--enable", expect=2)
+        self.assertIn("settings.local.json", out["refused"])
+        with open(target, encoding="utf-8") as f:
+            self.assertEqual(f.read(), "{}")
+
     def test_impeccable_mode_drops_ui_guardrail(self):
         # impeccable's detector hook does this job; both would report the same value on every edit
         self.template("templates/project/hookify/sdlc-ui-hardcoded-values.md", "ui\n")

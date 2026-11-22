@@ -53,6 +53,22 @@ class ContextDietTest(ProjectTestCase):
         self.assertNotIn("docx", src)  # a synced skill is not a personal one
         self.assertEqual(out["problems"], [])
 
+    def test_a_settings_layer_linked_out_of_the_repo_is_skipped(self):
+        # R2-M2 of 2026-11-22-s-fixed-writers-refuse-links: a linked project layer never decides what's on
+        import shutil
+        import tempfile
+        outside = tempfile.mkdtemp(prefix="sdlc-outside-")
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        with open(os.path.join(outside, "settings.json"), "w", encoding="utf-8") as f:
+            json.dump({"enabledPlugins": {"figma@claude-plugins-official": True}}, f)
+        os.makedirs(self.path("project/.claude"))
+        try:
+            os.symlink(os.path.join(outside, "settings.json"), self.path("project/.claude/settings.json"))
+        except (OSError, NotImplementedError):
+            self.skipTest("symlinks unavailable")
+        _, src = self.diet()
+        self.assertFalse(src["figma"]["enabled"])
+
     def test_malformed_installed_plugins_is_reported_not_a_crash(self):
         self.write("home/.claude/plugins/installed_plugins.json", "{not json")
         out, src = self.diet()

@@ -158,6 +158,36 @@ class WorkbenchManifest(WorkbenchTestCase):
             with self.assertRaisesRegex(ValueError, "^not run: workbench.json"):
                 sdlc_scopes.manifest(self.root)
 
+    def test_workbench_add_and_remove_refuse_a_linked_gitignore(self):
+        # R2-M2 of 2026-11-22-s-fixed-writers-refuse-links: the .gitignore rewrites and the clone's rollback
+        import tempfile
+        url = self.origin("api", {"commands": {"test": "true"}})
+        outside = os.path.realpath(tempfile.mkdtemp(prefix="sdlc-outside-"))
+        self.addCleanup(rmtree, outside)
+        target = os.path.join(outside, "gitignore")
+        with open(target, "w", encoding="utf-8") as f:
+            f.write("theirs\n")
+        if os.path.lexists(self.path(".gitignore")):
+            os.remove(self.path(".gitignore"))
+        try:
+            os.symlink(target, self.path(".gitignore"))
+        except (OSError, NotImplementedError):
+            self.skipTest("symlinks unavailable")
+        code, out, err = self.run_scaffold("workbench", "add", url, "--name", "api", "--role", "app", "--write")
+        self.assertEqual(code, 2, (out, err))
+        self.assertIn(".gitignore", out["refused"])
+        self.assertFalse(os.path.exists(self.path("api")))  # the clone is rolled back
+        os.remove(self.path(".gitignore"))
+        code, out, err = self.run_scaffold("workbench", "add", url, "--name", "api", "--role", "app", "--write")
+        self.assertEqual(code, 0, (out, err))
+        os.remove(self.path(".gitignore"))
+        os.symlink(target, self.path(".gitignore"))
+        rmtree(self.path("api"))
+        code, out, err = self.run_scaffold("workbench", "remove", "api")
+        self.assertEqual(code, 2, (out, err))
+        with open(target, encoding="utf-8") as f:
+            self.assertEqual(f.read(), "theirs\n")
+
     def test_workbench_add_and_remove(self):
         import sdlc_scopes
         url = self.origin("api", {"commands": {"test": "true"}})
