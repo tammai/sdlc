@@ -2932,7 +2932,7 @@ def main():
     # just-made commit is recorded by commit-review, so the next standalone
     # push sees it as reviewed and the sweep base advances past it. Older
     # unreviewed commits in the range are caught on that next push.
-    if tool_name == "Bash" and hook_event_name == "PostToolUse":
+    if tool_name in ("Bash", "PowerShell") and hook_event_name == "PostToolUse":  # sdlc: Windows runs git in PowerShell
         cmd = (input_data.get("tool_input") or {}).get("command", "") or ""
         if not (_GIT_COMMIT_RE.search(cmd) or _GIT_PUSH_RE.search(cmd)):
             return
