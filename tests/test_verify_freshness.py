@@ -161,6 +161,13 @@ class VerifyFreshnessTest(ProjectTestCase):
                 self.edit(rel)
                 self.assertAllows()
 
+    def test_a_folder_named_dotdot_something_is_inside_the_project(self):
+        self.set_state()
+        self.bash("npm test")
+        self.edit("..hidden/x.ts")
+        out = self.assertBlocks()
+        self.assertIn("..hidden/x.ts", out["reason"])
+
     def test_edit_outside_project_is_ignored(self):
         self.set_state()
         self.bash("npm test")
