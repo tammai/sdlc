@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { Phase, Step, View } from '../types'
-import { PHASES, makeView, parseBacklog, parseState, shipTarget, stepFor, updateLine } from './sdlc'
+import { PHASES, checksAlone, makeView, parseBacklog, parseState, shipTarget, stepFor, updateLine } from './sdlc'
 import type { IconState } from './desktop'
 import { MINI_H, miniSvg, phaseState } from './desktop'
 
@@ -198,10 +198,11 @@ export const register: Register = on => {
       const v = await refresh($)
       if (v && out.deny === undefined) {
         let name = stepFor(v.phase, e.tool, e as unknown as Record<string, unknown>)
-        // a merge that failed (a red check, a conflict) leaves the feature at Ship; checks that pass at Ship finish
-        // it on the bar (nothing left but the merge the user decides); a failed run of any other step is still that step
+        // a merge that failed (a red check, a conflict) leaves the feature at Ship; checks that pass at Ship, run alone
+        // so their exit is theirs, leave only the merge the user decides (Ship stays current, without the pulse); a
+        // failed run of any other step is still that step
         if (name === 'done' && out.isError) name = 'merge failed'
-        else if (name === 'CI' && v.phase === 'Ship' && !out.isError) name = 'CI passed'
+        else if (name === 'CI' && v.phase === 'Ship' && !out.isError && checksAlone(String((e as { command?: unknown }).command ?? ''))) name = 'CI passed'
         if (name) await update($, step, () => ({ phase: v.phase, name: name as string }) satisfies Step)
       }
     } catch {
@@ -236,8 +237,9 @@ export const register: Register = on => {
     if (e.props.hasSurvey || !v) return next(e)
     const s = await read($, step)
     const stepName = s && s.phase === v.phase ? s.name : null
-    // Shipped and merged, or its checks passed at Ship: every stage done, nothing current (nothing pulses)
-    const finished = Boolean(v.shipped) && (stepName === 'done' || stepName === 'CI passed')
+    // Shipped and merged: every stage done, nothing current. Checks passed: Ship current, waiting for the merge (no pulse)
+    const finished = Boolean(v.shipped) && stepName === 'done'
+    const waiting = Boolean(v.shipped) && stepName === 'CI passed'
     const said = s && s.phase === v.phase ? s.line : undefined  // the agent's own latest update, when it has made one
 
     if (e.surface === 'desktop') {
@@ -245,7 +247,7 @@ export const register: Register = on => {
       // icons joined by short lines, one drawing), a dot, where the session is now (phase, part, step), and
       // the feature at the right. Only the current stage's icon pulses.
       const { Box, Text, Svg } = $.ui.resolve(e)
-      const mini = miniSvg(v.phase, finished)
+      const mini = miniSvg(v.phase, finished, waiting)
       // After the stepper: the phase, then the part and the step when there are any, so it is never bare
       const here = said ?? [v.phase, v.current ? `${v.current.id}  ${v.current.title}` : null, stepName].filter(Boolean).join(' · ')
       return (

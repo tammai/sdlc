@@ -604,7 +604,7 @@ test('a session started above the repos shows the one with the latest active fea
   await ui.unmount()
 })
 
-test('checks that pass at Ship finish it on the bar; checks that fail leave Ship current', async ($, on) => {
+test('checks that pass alone at Ship stop the pulse and say so; red or piped checks leave Ship current', async ($, on) => {
   const files: Record<string, string> = {
     '.sdlc/config.json': '{}',
     '.sdlc/state/f.md': STATE.replace('Stage 2 – Build', 'Stage 3 – Review'),
@@ -625,9 +625,13 @@ test('checks that pass at Ship finish it on the bar; checks that fail leave Ship
   }
   await $.tool.call({ tool: 'Bash', command: 'gh pr checks 9 --watch' })  // red
   expect(await look('terminal')).toEqual({ marks: ['✓', '✓', '✓', '●'], words: 'Ship · CI' })
-  await $.tool.call({ tool: 'Bash', command: 'gh pr checks 8 --watch' })  // green
-  expect(await look('terminal')).toEqual({ marks: ['✓', '✓', '✓', '✓'], words: 'Ship · CI passed' })
-  expect(await look('desktop')).toEqual({ alt: 'Define: done, Build: done, Review: done, Ship: done', pulse: false })
+  await $.tool.call({ tool: 'Bash', command: 'gh pr checks 8 --watch 2>&1 | tail -20' })  // piped: exit 0 says nothing
+  expect(await look('terminal')).toEqual({ marks: ['✓', '✓', '✓', '●'], words: 'Ship · CI' })
+  await $.tool.call({ tool: 'Bash', command: 'gh pr checks 8 --watch || true' })
+  expect(await look('terminal')).toEqual({ marks: ['✓', '✓', '✓', '●'], words: 'Ship · CI' })
+  await $.tool.call({ tool: 'Bash', command: 'gh pr checks 8 --watch' })  // green, alone: only the merge is left
+  expect(await look('terminal')).toEqual({ marks: ['✓', '✓', '✓', '●'], words: 'Ship · CI passed' })
+  expect(await look('desktop')).toEqual({ alt: 'Define: done, Build: done, Review: done, Ship: waiting for merge', pulse: false })
 })
 
 test('a feature another session ships gives way to the older active one here', async ($, on) => {
@@ -651,4 +655,5 @@ test('shipTarget reads the feature a ship.py call names', async () => {
   expect(shipTarget('python3 ship.py --root /w 2026-11-22-s-x --note "a b"')).toBe('2026-11-22-s-x')
   expect(shipTarget('python3 ship.py && x')).toBe(null)
   expect(shipTarget('ls')).toBe(null)
+  expect(shipTarget('python3 ship.py f --status')).toBe(null)  // a status check ships nothing
 })

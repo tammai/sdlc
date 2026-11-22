@@ -12,7 +12,8 @@ One row, left to right: the title `SDLC`, the mini stepper (the four stages Defi
 |---|---|---|
 | done | `✓` in `success` | check in a green disc |
 | current | `●` in `success` | white dot in a green disc, with the pulse ring |
-| blocked | `◌` in `warning` | (not drawn yet: an empty ring) |
+| current, waiting for the merge (Ship, checks passed) | `●` in `success` | the same dot, without the pulse; alt `Ship: waiting for merge` |
+| blocked | `◌` in `warning` (no state reaches it yet) | (not drawn yet: an empty ring) |
 | ahead | `○` in `inactive` | empty gray ring |
 
 State is told by shape as well as colour, so it reads without colour. Done and current share the green; the mark tells them apart.
@@ -26,11 +27,13 @@ The lines between marks: `─` in `success` once the work is past the stage befo
 
 ## Motion
 
-One animation only: on the desktop, the current stage's ring spreads out and fades (radius 8 → 11.5, stroke opacity 0.6 → 0, 1.8s, repeating). Nothing else moves; the terminal band never pulses.
+One animation only: on the desktop, the current stage's ring spreads out and fades (radius 8 → 11.5, stroke opacity 0.6 → 0, 1.8s, repeating), except while Ship waits for the merge. Nothing else moves; the terminal band never pulses.
+
+A merged ship draws every stage done (`Ship · done`); a merge that failed reads `Ship · merge failed` with Ship current.
 
 ## Layout and fit
 
-- Terminal: a rounded outline when the band gets 3 rows or more, else the row alone (the engine hides a band that doesn't fit). Under 60 columns the band narrows.
+- Terminal: a rounded outline when the band gets 3 rows or more, else the row alone (the engine hides a band that doesn't fit). Under 60 columns the feature name is left out. The title `SDLC` is bold.
 - Desktop: one row with `gap` 2 between the groups and `xs` inside them, `paddingX` 1; the mini stepper is 20px high with 16px icons.
 
 ## Accessibility

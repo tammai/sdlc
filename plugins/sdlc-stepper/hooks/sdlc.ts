@@ -81,7 +81,7 @@ export function updateLine(answer: string): { phase: Phase; line: string } | nul
  *  not a flag's value, as in `--root DIR`). */
 export function shipTarget(command: string): string | null {
   const m = /ship\.py["']?((?:\s+\S+)+)/.exec(command)
-  if (!m) return null
+  if (!m || /\s--status\b/.test(m[1] as string)) return null  // a status check ships nothing
   const words = (m[1] as string).trim().split(/\s+/)
   for (let i = 0; i < words.length; i++) {
     const w = words[i] as string
@@ -91,6 +91,11 @@ export function shipTarget(command: string): string | null {
     return w.replace(/^["']|["']$/g, '')
   }
   return null
+}
+
+/** Whether a command is `gh pr checks …` alone: piped, chained or `|| true`, its exit says nothing about the checks. */
+export function checksAlone(command: string): boolean {
+  return /^\s*gh\s+pr\s+checks\b[^|&;`$()<>\n]*$/.test(command)
 }
 
 export function stepFor(phase: Phase, tool: string, input: Record<string, unknown>): string | null {
