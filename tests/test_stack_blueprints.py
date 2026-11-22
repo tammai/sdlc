@@ -1,4 +1,5 @@
 """Stack blueprints folded into setup: how a stack is chosen, the sections, conventions and platforms."""
+import json
 import os
 import sys
 import unittest
@@ -560,6 +561,17 @@ class LockMerge(ProjectTestCase):
     sc, lock = Conventions.sc, Conventions.lock
     write_lock = Hardening.write_lock
 
+    def test_a_bad_template_another_command_wrote_meanwhile_is_refused_at_save(self):
+        import scaffold  # noqa: E402
+        self.sc("init", "--kind", "greenfield")
+        a = scaffold.Project(self.root)
+        a.require_lock()["declined"].append("a.md")
+        lock = self.lock()
+        lock["files"]["leak.md"] = {"class": "generated", "sha256": None, "template": "/etc/hosts"}
+        self.write(".sdlc/scaffold.lock.json", json.dumps(lock))  # on disk between a's read and its save
+        with self.assertRaises(ValueError):
+            a.save()
+
     def test_concurrent_saves_merge(self):
         import scaffold  # noqa: E402
         self.sc("init", "--kind", "greenfield")
@@ -601,7 +613,7 @@ class LockMerge(ProjectTestCase):
         self.assertIn("h.md", self.lock()["declined"])
         # one entry changed by both: the last writer's whole entry, never a mix
         i, j = scaffold.Project(self.root), scaffold.Project(self.root)
-        i.require_lock()["files"]["b.txt"] = {"class": "generated", "sha256": "i", "template": "t1"}
+        i.require_lock()["files"]["b.txt"] = {"class": "generated", "sha256": "i", "template": "templates/project/t1.md"}
         i.save()
         j.require_lock()["files"]["b.txt"] = {"class": "seeded", "sha256": "j", "template": None}
         j.save()
