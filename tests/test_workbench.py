@@ -1231,6 +1231,19 @@ class ReviewRound4Guards(WorkbenchGuardsCase):
         for command in ("rm specs\\a.md", "git -C .\\specs commit -am x"):
             self.assertIsNotNone(self.pre("Bash", command=command), command)
 
+    def test_shell_syntax_the_lexer_cant_read_is_denied(self):
+        # .sdlc/2026-11-22-s-lexer-denies-unreadable AC-001 (security review SR1-H1 of 2026-11-22-m-watch-guard-reads):
+        # each line hides a write the lexer reads differently from the shell; the guard denies rather than guess
+        hidden = ["echo $(( $(rm specs/a.md) + 1 ))", "echo $(( `rm specs/a.md` ))",
+                  "echo a\\ #; rm specs/a.md", "echo $'\\''; rm specs/a.md", "echo x >! specs/a.md",
+                  "echo x >| specs/a.md"]
+        for command in hidden:
+            reason = self.pre("Bash", command=command)
+            self.assertIsNotNone(reason, command)
+        # plain spellings of the same things still pass
+        for command in ("echo $(( 1 + 2 )) > out.txt", "echo 'a #b'", "echo x > out.txt", "printf '%s' x"):
+            self.assertIsNone(self.pre("Bash", command=command), command)
+
     def test_too_deep_is_denied_for_that_reason(self):
         reason = self.pre("Bash", command="echo " + "$(" * 30 + "x" + ")" * 30)
         self.assertIsNotNone(reason)

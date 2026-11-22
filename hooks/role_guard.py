@@ -191,6 +191,12 @@ class TooDeep(Exception):
     """Substitutions nested past MAX_NEST: the guard denies rather than guess (a hook error would let it through)."""
 
 
+class Unreadable(TooDeep):
+    """Shell syntax the lexer reads differently from the shell, so a write could hide in it: ANSI-C `$'…'`, a
+    substitution inside `$(( ))`, a `#` after an escaped blank, the `>!` and `>|` redirects. Denied like TooDeep
+    rather than parsed: a wider parser is a new place for the two readings to differ."""
+
+
 MAX_NEST = 24
 TOO_DEEP = "(substitutions nested too deep to check)"
 SUB = "__sdlc_sub__"  # what a substitution leaves in its command's words
@@ -202,8 +208,9 @@ WATCH_FILES = ("read-only-baseline", "read-only-seeded", "read_only_watch", "cla
 
 def deep_reason(found):
     """The deny reason when a command was too deeply nested to check, else None."""
-    return ("sdlc: this command nests substitutions too deep to check what it writes: split it into simpler "
-            "commands.") if found == TOO_DEEP else None
+    return ("sdlc: this command nests substitutions too deep, or uses shell syntax the guard can't read the way the "
+            "shell does ($'…', a substitution inside $(( )), `\\ #`, >! or >|), so it can't check what it writes: "
+            "split it into simpler commands in plain syntax.") if found == TOO_DEEP else None
 
 
 def lex(command, dialect="sh"):
@@ -303,10 +310,14 @@ def _lex(s, i, stop, dialect, nest):
             i = len(s) if end < 0 else end + len(closer)
             buf.append(SUB)
             continue
+        if dialect == "sh" and (s.startswith("$'", i) or s.startswith(">!", i) or s.startswith(">|", i)):
+            raise Unreadable()
         if ch in quotes:
             quote = ch
             buf.append(ch)
         elif ch == "#" and dialect != "cmd" and at_word_start():
+            if dialect == "sh" and i >= 2 and s[i - 1] in " \t" and s[i - 2] == "\\":
+                raise Unreadable()  # `\ #`: the blank is escaped, so the shell reads a word, not a comment
             nl = s.find("\n", i)
             i = len(s) if nl < 0 else nl
             continue
@@ -317,6 +328,8 @@ def _lex(s, i, stop, dialect, nest):
         elif dialect == "sh" and (s.startswith("$((", i) or s.startswith("((", i) and command_start()) \
                 and s.find("))", i) >= 0:  # unbalanced: read as the subshells it opens
             end = matching(i + (s[i] == "$"), "((", "))")  # arithmetic: its `<<` is a shift, not a here-doc
+            if "$(" in s[i + 2:end] or "`" in s[i:end]:
+                raise Unreadable()  # a substitution in arithmetic runs; read as text here, it would hide a write
             buf.append(s[i:end])
             i = end
             continue
