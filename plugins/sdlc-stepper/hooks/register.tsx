@@ -192,7 +192,9 @@ export const register: Register = on => {
       const v = await refresh($)
       if (v && out.deny === undefined) {
         const name = stepFor(v.phase, e.tool, e as unknown as Record<string, unknown>)
-        if (name) await update($, step, () => ({ phase: v.phase, name }) satisfies Step)
+        // a merge that failed (a red check, a conflict) leaves the feature at Ship; a failed run of any other step
+        // is still that step
+        if (name && !(name === 'done' && out.isError)) await update($, step, () => ({ phase: v.phase, name }) satisfies Step)
       }
     } catch {
       // a stale band is better than a failed tool call
