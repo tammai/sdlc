@@ -3,7 +3,7 @@
 
 PreToolUse on file tools (roles, main()).
 Recorded acceptance tests (spec 03 S3), for every caller: bundle_problem(), which hooks/pretooluse.py calls on the
-edit tools, Bash and PowerShell, for every host (so a repo without a bundle runs no extra hook): in a repo with
+edit tools, Bash, PowerShell and Monitor, for every host (so a repo without a bundle runs no extra hook): in a repo with
 acceptance/manifest.json, denies a file tool writing the manifest or a test it lists, and a shell command whose text
 writes, moves or removes one (a redirect, tee, sed -i, cp/mv, rm, truncate, git checkout/restore/rm, PowerShell write
 cmdlets; through cd, git -C and bash -c too). It reads command text only: a program that opens the file itself isn't
@@ -598,7 +598,7 @@ def written(data, root, protected, folders=False):
     if tool in WRITES:
         path = tin.get("file_path") or tin.get("notebook_path") or tin.get("path") or ""
         return path if path and hits(root, cwd, path, protected, folders=folders) else None
-    if tool in ("Bash", "PowerShell"):
+    if tool in ("Bash", "PowerShell", "Monitor"):  # Monitor runs its command in the session's shell, as Bash does
         return shell_write(str(tin.get("command") or ""), root, cwd, protected, folders=folders,
                            dialect="ps" if tool == "PowerShell" else "sh")
     return None
