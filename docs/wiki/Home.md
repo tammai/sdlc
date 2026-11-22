@@ -1,4 +1,4 @@
-![sdlc: a request is sized S, M or L, then goes through Define, Build, Review and Ship to an open PR with CI green](../assets/banner.svg)
+![sdlc, a Claude Code harness for your SDLC: requests converge into Define, then Build, Review and Ship to a merged branch with a green check](../assets/cover.svg)
 
 A Claude Code harness for your SDLC: work sized to fit, Define → Build → Review → Ship, test-first proof, diff-based reviews, and a record of every change.
 
