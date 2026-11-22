@@ -210,11 +210,22 @@ def _branch_point(root):
 
 def review_wanted(repo_root):
     """For the Stop review: True only when SDLC_SECURITY_REVIEW=always, or the one active feature's change (committed
-    since Base:, uncommitted or untracked) is security-touched. No active feature: False. Several active features, a
+    since Base:, uncommitted or untracked) is security-touched; in a workbench's app repo, the workbench feature that
+    owns its commits, with the repo's own base. No active feature: False. Several active features, a
     state without Base:, or any error: True."""
     try:
         if _always():
             return True
+        member, owner = _workbench_feature(repo_root)
+        if member:  # a workbench's app repo: the workbench's feature decides, as for its commits (decide)
+            if owner is None:
+                return False
+            if not owner:
+                return True  # unsure which feature: review
+            import sdlc_scopes  # noqa: PLC0415
+            rec = sdlc_scopes.feature_repos(owner).get(os.path.basename(os.path.abspath(repo_root))) or {}
+            start = _git(repo_root, "rev-parse", "--verify", "-q", rec["base"]) if rec.get("base") else None
+            return _security_touched(repo_root, owner, start, None, [], worktree=True)
         found = _active_features(repo_root)
         if not found:
             return False

@@ -1526,6 +1526,23 @@ class PluginReviewWorkbench(WorkbenchFeatureCase):
         git(api, "switch", "-q", "-c", "next-thing")
         self.assertTrue(gate.decide(api, [sha], set()).get("off"))
 
+    def test_the_turn_end_review_sees_an_app_repos_uncommitted_change(self):
+        # .sdlc/2026-11-22-s-stop-review-app-repos AC-001: the Stop review asks the workbench's feature, as decide does
+        import sdlc_review_gate as gate
+        api = self.path("api")
+        self.assertEqual(self.state("repo", "feat", "api")[0], 0)
+        self.write("api/a.py", "x = 1\n")  # uncommitted
+        self.assertEqual(self.state("set", "feat", "Risk", "high")[0], 0)
+        self.assertTrue(gate.review_wanted(api))
+        self.assertEqual(self.state("set", "feat", "Risk", "low")[0], 0)
+        self.assertFalse(gate.review_wanted(api))  # low risk, no security area touched
+        self.write("api/auth/login.py", "x = 1\n")  # a default sensitive area
+        self.assertTrue(gate.review_wanted(api))
+        self.assertEqual(self.state("set", "feat", "Status", "done")[0], 0)
+        self.assertEqual(self.state("pr", "feat", "api", "12")[0], 0)
+        git(api, "switch", "-q", "-c", "next-thing")
+        self.assertFalse(gate.review_wanted(api))  # nothing owns it now
+
     def test_a_done_feature_keeps_a_detached_repo_until_its_pr_is_recorded(self):
         # .sdlc/2026-11-22-s-done-feature-detached AC-001: off the branch but no PR recorded yet, still owned
         import sdlc_review_gate as gate
