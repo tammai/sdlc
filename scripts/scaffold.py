@@ -393,6 +393,20 @@ class Project:
         """The recorded text isn't the template's own render: the user's edits merged in (upgrade's "apply merge")."""
         return bool(entry.get("render_sha256")) and entry.get("render_sha256") != entry.get("sha256")
 
+    def untracked(self, path):
+        """Whether git doesn't track the repo file `path` (outside a git repo: False, nothing to tell apart). A
+        committed lock entry can name a local file git never saw (`.env`, a key): one that differs from the lock is the
+        user's, so it's offered, never rendered over or deleted."""
+        def git(*args):
+            return subprocess.run(["git", "-C", self.root, *args], capture_output=True, encoding="utf-8",
+                                  errors="replace")
+        try:
+            if git("rev-parse", "--is-inside-work-tree").stdout.strip() != "true":
+                return False
+            return git("ls-files", "--error-unmatch", "--", path).returncode != 0
+        except OSError:  # no git at all
+            return False
+
     def file_state(self, path, entry):
         if not inside_repo(self.root, path):  # through a link out of the repo: never read (a device, a huge file)
             return "outside"
@@ -2782,7 +2796,7 @@ def cmd_upgrade_plan(p, a):
         item = {"path": path, "template": tpl}
         if state == "outside":  # through a link out of the repo: listed, never rendered over
             plan["outside"].append(path)
-        elif e["class"] == "generated":
+        elif e["class"] == "generated" and not (state == "modified" and p.untracked(path)):
             plan["regenerate"].append(item)
         elif state == "unchanged":
             new = hashlib.sha256(render_source(tpl, p).encode("utf-8")).hexdigest()
@@ -2832,7 +2846,8 @@ def eject_plan(p):
             continue
         if state == "missing":
             plan["already_gone"].append(path)
-        elif e["class"] == "generated" or (state == "unchanged" and not p.merged(e)):
+        elif (e["class"] == "generated" and not (state == "modified" and p.untracked(path))) or (
+                state == "unchanged" and not p.merged(e)):
             plan["delete"].append(path)
         else:
             plan["ask"].append(path)

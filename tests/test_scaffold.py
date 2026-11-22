@@ -1333,6 +1333,28 @@ class ScaffoldTest(ProjectTestCase):
         subprocess.run(["git", "-C", self.root, "-c", "user.email=t@t", "-c", "user.name=t", *args], check=True,
                        capture_output=True)
 
+    def test_a_generated_entry_never_overwrites_or_deletes_an_untracked_local_file(self):
+        # .sdlc/2026-11-22-s-generated-untracked AC-001 (security review S-2 of 2026-11-22-s-lock-template-trusted)
+        self.git("init", "-q", "-b", "main")
+        self.init()
+        self.sc("render", "templates/project/ci.yml", ".env")  # a committed lock can name any path as generated
+        self.sc("render", "templates/project/ci.yml", ".github/workflows/sdlc-x.yml")
+        self.git("add", ".github", ".sdlc")
+        self.git("commit", "-q", "-m", "x")
+        self.write(".env", "API_KEY=local\n")  # the user's local file, never committed
+        self.write(".github/workflows/sdlc-x.yml", "edited\n")  # tracked: regenerated as before
+        plan = self.sc("upgrade-plan")
+        regen = [i["path"] for i in plan["regenerate"]]
+        self.assertNotIn(".env", regen)
+        self.assertIn(".env", [i["path"] for i in plan["review"]])
+        self.assertIn(".github/workflows/sdlc-x.yml", regen)
+        eject = self.sc("eject")
+        self.assertNotIn(".env", eject["delete"])
+        self.assertIn(".env", eject["ask"])
+        self.assertIn(".github/workflows/sdlc-x.yml", eject["delete"])
+        self.sc("eject", "--apply")
+        self.assertEqual(self.read(".env"), "API_KEY=local\n")
+
     def legacy_repo(self, files):
         self.git("init", "-q", "-b", "main")
         for path in files:
