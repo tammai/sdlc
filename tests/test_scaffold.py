@@ -794,6 +794,17 @@ class ScaffoldTest(ProjectTestCase):
         self.real("agents")
         self.assertNotIn("aws_secret", self.read("AGENTS.md"))
 
+    def test_agents_block_skips_unreadable_sources(self):
+        # AC-003 (review r2 H1): a folder or a broken link at CLAUDE.md or a rule is left out, not a traceback
+        self.hosted_project("claude-code", "codex")
+        os.makedirs(self.path(".claude/rules/dir.md"))
+        self.write(".claude/rules/plain.md", "# Plain rule\nkeep me\n")
+        if os.path.exists(self.path("CLAUDE.md")):
+            os.remove(self.path("CLAUDE.md"))
+        os.makedirs(self.path("CLAUDE.md"))
+        self.real("agents")
+        self.assertIn("keep me", self.read("AGENTS.md"))
+
     def test_eject_plan_is_dry_by_default(self):
         self.setup_for_eject()
         plan = self.sc("eject")

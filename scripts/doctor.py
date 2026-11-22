@@ -178,6 +178,23 @@ def repo_files(root):
     return files
 
 
+def repo_text(root, rel):
+    """scaffold.repo_text: (text, None), or (None, why) for a file linked out of the repo or into .git (so an outside
+    file can't hang doctor or reach the report) or one that can't be opened. Callers name it in a warn row (not_read)."""
+    return scaffold.repo_text(root, rel)
+
+
+def not_read(whys):
+    return "not read: " + ", ".join(whys)
+
+
+NOT_READ_FIX = "make it a plain, readable file in the repo"
+
+
+def join_fixes(*parts):
+    return "; ".join(x for x in parts if x) or None
+
+
 def rule_paths(text):
     m = re.match(r"^---\n(.*?)\n---", text, re.S)
     if not m or "paths:" not in m.group(1):
@@ -457,25 +474,34 @@ def check_repo(r, root):
                   design_system if ds else f"the repo has UI files but no {design_system}: UI work has no system to follow",
                   None if ds else "run the design-system step of /sdlc:setup (or /sdlc:upgrade)")
 
-    dead = []
+    dead, linked = [], []
     for path in sorted(glob.glob(os.path.join(root, ".claude", "rules", "*.md"))):
         if os.path.basename(path).startswith("sdlc"):
             continue  # plugin policy rules wait for files to exist (e.g. no migrations yet); not a problem
-        paths = rule_paths(open(path, encoding="utf-8").read())
+        text, why = repo_text(root, os.path.relpath(path, root))
+        if why:
+            linked.append(why)
+            continue
+        paths = rule_paths(text)
         if paths and not any(glob_matches(x, files) for x in paths):
             dead.append(os.path.basename(path))
     if os.path.isdir(os.path.join(root, ".claude", "rules")):
-        r.add(g, "rules paths", "warn" if dead else "ok",
-              "match no files (never load): " + ", ".join(dead) if dead else "every scoped rule matches files",
-              "fix the rule's `paths:`" if dead else None)
+        detail = "; ".join(x for x in ("match no files (never load): " + ", ".join(dead) if dead else "",
+                                        not_read(linked) if linked else "") if x)
+        r.add(g, "rules paths", "warn" if dead or linked else "ok", detail or "every scoped rule matches files",
+              join_fixes("fix the rule's `paths:`" if dead else "", NOT_READ_FIX if linked else ""))
 
-    bad = []
+    bad, linked = [], []
     try:
         from core.config_loader import load_rule_file, rule_problems
         for path in sorted(glob.glob(os.path.join(root, ".claude", "hookify.*.local.md")) +
                            glob.glob(os.path.join(root, ".claude", "hookify", "*.md"))):
-            rule = load_rule_file(path)
             rel = os.path.relpath(path, root)
+            _, why = repo_text(root, rel)  # the engine opens it itself: only a plain, readable file reaches it
+            if why:
+                linked.append(why)
+                continue
+            rule = load_rule_file(path)
             if not rule:
                 bad.append(f"{rel} (no valid frontmatter)")
                 continue
@@ -484,24 +510,31 @@ def check_repo(r, root):
         n = len(glob.glob(os.path.join(root, ".claude", "hookify.*.local.md")) +
                 glob.glob(os.path.join(root, ".claude", "hookify", "*.md")))
         if n:
-            r.add(g, "hookify rules", "fail" if bad else "ok", "; ".join(bad) if bad else f"{n} rules parse",
-                  f"{RUNBOOK} R7" if bad else None)
+            r.add(g, "hookify rules", "fail" if bad else "warn" if linked else "ok",
+                  "; ".join(bad + ([not_read(linked)] if linked else [])) or f"{n} rules parse",
+                  join_fixes(f"{RUNBOOK} R7" if bad else "", NOT_READ_FIX if linked else ""))
     except ImportError as e:
         r.add(g, "hookify rules", "skip", f"hookify engine not importable: {e}")
 
-    cm = os.path.join(root, "CLAUDE.md")
-    if os.path.exists(cm):
-        n = len(open(cm, encoding="utf-8").read().splitlines())
-        r.add(g, "CLAUDE.md size", "ok" if n <= CLAUDE_MD_BUDGET else "warn", f"{n} lines (budget {CLAUDE_MD_BUDGET})",
-              None if n <= CLAUDE_MD_BUDGET else "/sdlc:knowledge-audit")
+    if os.path.exists(os.path.join(root, "CLAUDE.md")) or os.path.islink(os.path.join(root, "CLAUDE.md")):
+        text, why = repo_text(root, "CLAUDE.md")
+        if why:
+            r.add(g, "CLAUDE.md size", "warn", not_read([why]), NOT_READ_FIX)
+        else:
+            n = len(text.splitlines())
+            r.add(g, "CLAUDE.md size", "ok" if n <= CLAUDE_MD_BUDGET else "warn",
+                  f"{n} lines (budget {CLAUDE_MD_BUDGET})", None if n <= CLAUDE_MD_BUDGET else "/sdlc:knowledge-audit")
 
     idx = os.path.join(root, "knowledge", "index.md")
     if os.path.isdir(os.path.join(root, "knowledge")):
-        if not os.path.exists(idx):
+        text, why = repo_text(root, "knowledge/index.md") if os.path.lexists(idx) else (None, None)
+        if why:
+            r.add(g, "knowledge index", "warn", not_read([why]), NOT_READ_FIX)
+        elif not os.path.exists(idx):
             r.add(g, "knowledge index", "warn", "knowledge/ has no index.md: tier-3 docs are invisible",
                   "sdlc:managing-knowledge")
         else:
-            links = knowledge_links(open(idx, encoding="utf-8").read())
+            links = knowledge_links(text)
             broken = [l for l in links if not re.match(r"[a-z]+:", l) and not os.path.exists(
                 os.path.normpath(os.path.join(os.path.dirname(idx), urllib.parse.unquote(l))))]
             r.add(g, "knowledge index", "warn" if broken else "ok",
@@ -525,22 +558,31 @@ def check_repo(r, root):
 
     states = sdlc_layout.features(root)
     if states:
-        active, malformed = [], []
+        active, malformed, linked = [], [], []
         for name, f in sorted(states.items()):
-            text = open(os.path.join(root, f["state"]), encoding="utf-8").read()
-            if not re.search(r"^Status:\s*\S", text, re.M) or not re.search(r"^Current:\s*Stage\s*\d", text, re.M):
+            text, why = repo_text(root, f["state"])
+            if why:
+                linked.append(why)
+            elif not re.search(r"^Status:\s*\S", text, re.M) or not re.search(r"^Current:\s*Stage\s*\d", text, re.M):
                 malformed.append(name)
             elif re.search(r"^Status:\s*active\b", text, re.M | re.I):
                 active.append(name)
-        r.add(g, "features", "warn" if malformed or len(active) > 1 else "ok",
+        r.add(g, "features", "warn" if malformed or linked or len(active) > 1 else "ok",
               "; ".join(x for x in (f"{len(states)} features, active: {', '.join(active) or 'none'}",
-                                    f"missing Status/Current: {', '.join(malformed)}" if malformed else "") if x),
-              f"{RUNBOOK} R8/R9" if malformed or len(active) > 1 else None)
+                                    f"missing Status/Current: {', '.join(malformed)}" if malformed else "",
+                                    not_read(linked) if linked else "") if x),
+              join_fixes(f"{RUNBOOK} R8/R9" if malformed or len(active) > 1 else "", NOT_READ_FIX if linked else ""))
     fresh = os.path.join(root, ".sdlc", ".work", "verify-freshness.json")
-    if os.path.exists(fresh):
+    text, why = repo_text(root, ".sdlc/.work/verify-freshness.json") if os.path.lexists(fresh) else (None, None)
+    if why:  # gitignored, but `git add -f` commits it, link and all
+        r.add(g, "verify freshness", "warn", not_read([why]), NOT_READ_FIX)
+    elif text is not None:
         try:
-            st = json.load(open(fresh, encoding="utf-8"))
-            scopes = st.get("scopes") or {"": st}
+            st = json.loads(text)
+            scopes = st.get("scopes") or {"": st} if isinstance(st, dict) else None
+            if not isinstance(scopes, dict) or not all(
+                    isinstance(s, dict) and isinstance(s.get("reason", ""), str) for s in scopes.values()):
+                raise ValueError("not the freshness state's shape")
             stale = [(n + ": " if n not in ("", "(root)") else "") + s.get("reason", "")
                      for n, s in scopes.items() if s.get("stale")]
             r.add(g, "verify freshness", "ok", f"{st.get('feature')}: " + ("stale: " + "; ".join(stale)
@@ -549,10 +591,12 @@ def check_repo(r, root):
             r.add(g, "verify freshness", "warn", "state file is corrupt (the hook recovers on the next full run)",
                   f"delete .sdlc/.work/verify-freshness.json · {RUNBOOK} R4")
     error = os.path.join(root, ".sdlc", ".work", "verify-freshness.error")
-    if os.path.exists(error):
-        with open(error, encoding="utf-8", errors="replace") as f:
-            r.add(g, "verify freshness hook", "warn", "its last run failed, so it didn't guard that turn: "
-                  + f.read().strip()[:200], "report it with the file's contents; the next clean run clears it")
+    text, why = repo_text(root, ".sdlc/.work/verify-freshness.error") if os.path.lexists(error) else (None, None)
+    if why:
+        r.add(g, "verify freshness hook", "warn", not_read([why]), NOT_READ_FIX)
+    elif text is not None:
+        r.add(g, "verify freshness hook", "warn", "its last run failed, so it didn't guard that turn: "
+              + text.strip()[:200], "report it with the file's contents; the next clean run clears it")
 
 
 def to_markdown(report):
