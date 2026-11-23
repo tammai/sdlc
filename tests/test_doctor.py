@@ -135,6 +135,15 @@ class DoctorTest(ProjectTestCase):
                        capture_output=True, env={**os.environ, "CLAUDE_PLUGIN_ROOT": PLUGIN_ROOT})
         self.assertIsNone(self.check("commands run"))
 
+    def test_an_advisory_repo_names_its_mode_and_needs_no_commands(self):
+        # 3.15.0 smoke test D4: advisory records no commands and writes no guardrails, yet doctor failed on both
+        self.setup_repo()
+        self.configure(mode="advisory", commands={})
+        checks, _ = self.doctor()
+        self.assertIn("advisory", checks[("repo", "mode")]["detail"])
+        self.assertNotEqual(checks[("repo", "commands")]["status"], "fail", checks[("repo", "commands")])
+        self.assertNotIn(("repo", "guardrails"), checks)
+
     def test_old_layout_after_setup_warns_to_upgrade(self):
         self.setup_repo()
         self.assertIsNone(self.check("layout"))
