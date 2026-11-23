@@ -2372,6 +2372,40 @@ class StopReviewEveryRepo(WorkbenchFeatureCase):
         code, out, raw, err = self.hook({"hook_event_name": "Stop", "stop_hook_active": False}, self.root)
         self.assertEqual(code, 2, raw + err)
 
+    def test_the_same_snippet_at_another_place_in_the_file_is_raised(self):
+        # security review M-2 of 2026-11-23-todo-mode-tickets: a finding has no location, so a snippet that appears
+        # twice in the file can't tell the reported place from the other: nothing is dropped for it
+        self.answer("web/b.py")
+        self.hook({"hook_event_name": "UserPromptSubmit", "prompt": "edit"}, self.root)
+        body = ("import subprocess\ndef run_a(cmd):\n    return subprocess.call(cmd, shell=True)\n"
+                "def run_b(cmd):\n    return subprocess.call(cmd, shell=True)\n")
+        for rel in ("api/a.py", "web/b.py"):
+            self.write(rel, body)
+            self.hook({"hook_event_name": "PostToolUse", "tool_name": "Write",
+                       "tool_input": {"file_path": self.path(rel), "content": body}}, self.root)
+        stop = {"hook_event_name": "Stop", "stop_hook_active": False}
+        code, out, raw, err = self.hook(stop, self.root)
+        self.assertEqual(code, 2, raw + err)
+        code, out, raw, err = self.hook(stop, self.root)  # the rewake: the model reports the other place
+        self.assertEqual(code, 2, raw + err)
+
+    def test_a_finding_after_an_interrupted_turn_is_raised_again(self):
+        # security review L-3: an interrupted turn keeps its baseline, but the next prompt is a new turn for the drop
+        self.answer("web/b.py")
+        self.turn(self.root, ["api/a.py", "web/b.py"])
+        with open(self.path("web/b.py"), encoding="utf-8") as f:
+            original = f.read()
+        fixed = "def run_b(cmd):\n    return None\n"
+        self.write("web/b.py", fixed)
+        self.hook({"hook_event_name": "PostToolUse", "tool_name": "Write",
+                   "tool_input": {"file_path": self.path("web/b.py"), "content": fixed}}, self.root)
+        self.hook({"hook_event_name": "UserPromptSubmit", "prompt": "next"}, self.root)  # interrupted: no Stop ran
+        self.write("web/b.py", original)
+        self.hook({"hook_event_name": "PostToolUse", "tool_name": "Write",
+                   "tool_input": {"file_path": self.path("web/b.py"), "content": original}}, self.root)
+        code, out, raw, err = self.hook({"hook_event_name": "Stop", "stop_hook_active": False}, self.root)
+        self.assertEqual(code, 2, raw + err)
+
     def test_the_first_repos_files_keep_priority_under_the_cap(self):
         # code review r3 CR3-3: with one slot, api (the first repo: two of its paths against one) keeps it
         self.env["MAX_DIFF_FILES"] = "1"

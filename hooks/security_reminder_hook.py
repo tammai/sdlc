@@ -766,6 +766,9 @@ def handle_user_prompt_submit(input_data):
         # First UPS of a session can have touched_paths if PostToolUse
         # somehow ran first (print mode, odd harnesses) — in that case
         # we still need to capture a baseline.
+        # sdlc patch: every prompt starts a turn for the Stop review's drop, even one that keeps an interrupted
+        # turn's baseline (prompt_at stays, so the other repos' diffs reach back to it)
+        state["turn_at"] = captured_at
         if state.get("touched_paths") and state.get("baseline_sha"):
             preserved["value"] = True
             # A baseline captured while the Stop review was off has no
@@ -2533,13 +2536,19 @@ def handle_stop_hook(input_data):
             # change must not raise the same finding up to the rewake cap. Changed code keeps it.
             # Dropped only for the same file, category and vulnerable code, on the same diff, in this same turn
             # (security review SEC-1, SEC-2 of 2026-11-23-todo-mode-tickets).
-            _turn = snap.get("prompt_at")
+            _turn = snap.get("turn_at") or snap.get("prompt_at")
+            # A snippet found more than once in its file's diff, or a diff the size cap cut, can't say which place
+            # the earlier report was about: nothing is dropped for it (security review M-2)
+            _texts = {fp: " ".join(c.split()) for fp, c in diff_files}
+            _cut = bool(_stop_diff_truncated())
             _seen = {(f.get("filePath", ""), f.get("category", ""), " ".join(str(f.get("vulnerableCode", "")).split()),
                       f.get("diffHash")) for f in previous_findings
                      if isinstance(f, dict) and f.get("diffHash") and _turn is not None and f.get("turn") == _turn}
-            _unchanged = [v for v in vulns if (v.get("filePath", ""), v.get("category", "Unknown"),
+            _unchanged = [v for v in vulns if not _cut and (v.get("filePath", ""), v.get("category", "Unknown"),
                                                " ".join(str(v.get("vulnerableCode", "")).split()),
-                                               _diff_hashes.get(v.get("filePath", ""), "-")) in _seen]
+                                               _diff_hashes.get(v.get("filePath", ""), "-")) in _seen
+                          and _texts.get(v.get("filePath", ""), "").count(
+                              " ".join(str(v.get("vulnerableCode", "")).split())) < 2]
             if _unchanged:
                 vulns = [v for v in vulns if v not in _unchanged]
                 debug_log(f"Stop hook: {len(_unchanged)} findings already reported on unchanged code, dropped")
@@ -2555,7 +2564,7 @@ def handle_stop_hook(input_data):
                     "vulnerableCode": v.get("vulnerableCode", ""),
                     # sdlc patch: the code it was found in; a subagent's review drops nothing for the main Stop
                     "diffHash": None if is_subagent else _diff_hashes.get(v.get("filePath", "")),
-                    "turn": snap.get("prompt_at"),  # sdlc patch: and the turn it was found in
+                    "turn": snap.get("turn_at") or snap.get("prompt_at"),  # sdlc patch: and the turn it was found in
                 }
                 for v in vulns
             ]
