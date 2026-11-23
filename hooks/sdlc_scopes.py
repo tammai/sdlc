@@ -109,11 +109,26 @@ def _inside(base, rel):
     return full
 
 
+def open_regular(full):
+    """`full` opened for text reading only when it is a regular file, judged on the open descriptor: a FIFO swapped
+    in after a path check can't make the reader wait (opened non-blocking, then fstat). OSError otherwise."""
+    import os
+    import stat
+    fd = os.open(full, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_BINARY", 0))  # Windows: no 0x1A stop
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            raise OSError(f"{full} isn't a regular file: not read")
+        return os.fdopen(fd, encoding="utf-8")
+    except BaseException:
+        os.close(fd)
+        raise
+
+
 def read_repo_text(base, rel):
     """The text of the committed file `rel` under `base`, or None when it's missing, unreadable, or a link out of the
     repo or into .git (_inside): read as absent, never through the link."""
     try:
-        with open(_inside(base, rel), encoding="utf-8") as f:
+        with open_regular(_inside(base, rel)) as f:
             return f.read()
     except (OSError, ValueError):
         return None
@@ -122,7 +137,7 @@ def read_repo_text(base, rel):
 def read_repo_json(base, rel):
     """The JSON file `rel` under `base` (a repo root), read only when _inside allows it."""
     import json
-    with open(_inside(base, rel), encoding="utf-8") as f:
+    with open_regular(_inside(base, rel)) as f:
         return json.load(f)
 
 
@@ -205,7 +220,7 @@ def accepted(root):
     HEAD's committed config (a team's choice on a fresh clone)."""
     import json
     try:
-        with open(_inside(root, ANCHOR), encoding="utf-8") as f:  # a regular file inside the repo only
+        with open_regular(_inside(root, ANCHOR)) as f:  # a regular file inside the repo only
             entry = json.load(f).get(CONFIG_KEY)
         if valid_record(entry):
             return _gating(entry)
