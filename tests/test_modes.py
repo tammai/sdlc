@@ -329,7 +329,7 @@ class ModesTest(ProjectTestCase):
         p = subprocess.run([sys.executable, SCAFFOLD, "--root", self.path("api"), "skip", "pr"], capture_output=True,
                            encoding="utf-8", errors="replace")
         self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
-        self.assertIn(self.root, p.stdout + p.stderr)
+        self.assertIn(self.root, json.loads(p.stdout)["refused"])
 
     def test_no_stray_sdlc_folder_and_no_reads_without_a_relaxation(self):
         # security r2 R2-H2, R2-H3, R2-M1: sdlc set up in a subfolder of a git repo is the gate; the git top gets no
