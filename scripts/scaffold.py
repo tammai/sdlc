@@ -938,6 +938,24 @@ def storybook_unrun(p):
     return None
 
 
+def cmd_team(p, a):
+    """Team mode (config `team`, full mode only): the orchestrator coordinates, and role agents run the stages of an
+    M or L feature (sdlc:analyst for Define, sdlc:builder for Build, the reviewers, sdlc:releaser for Ship)."""
+    if a.state is not None:
+        if a.state not in ("on", "off"):
+            raise Refused(f"team is on or off, not {a.state!r}")
+        p.require_lock()
+        p.config = p.config or {}
+        if a.state == "off":
+            p.config.pop("team", None)
+        else:
+            if configured_advisory(p):
+                raise Refused("advisory mode runs no flow, so no stage agents: /sdlc:setup mode full first")
+            p.config["team"] = True
+        p.save()
+    return {"team": (p.config or {}).get("team") is True}
+
+
 def cmd_storybook(p, a):
     """Storybook as the living design system (config `storybook`, builtin design mode only): the stories are the
     component catalog the UI flow and review check against. `on` needs a `.storybook/` folder (the root's or a
@@ -998,6 +1016,7 @@ def cmd_mode(p, a):
         p.config["mode"] = a.mode
         if a.mode == "advisory":
             p.config.pop("skip", None)  # nothing gates in advisory: a skip list would only mislead
+            p.config.pop("team", None)  # nor runs a flow: back to full must not turn team mode on unasked
         rule = rule_for_mode(p)
         if rule:
             out["rule"] = rule
@@ -3358,6 +3377,9 @@ def build_parser():
                                              "record it")
     s.add_argument("rounds", nargs="?")
     s.set_defaults(fn=cmd_review_rounds)
+    s = sub.add_parser("team", help="team mode: role agents run the stages of an M or L feature; on or off")
+    s.add_argument("state", nargs="?")
+    s.set_defaults(fn=cmd_team)
     s = sub.add_parser("storybook", help="Storybook as the living design system (builtin mode): on or off")
     s.add_argument("state", nargs="?")
     s.set_defaults(fn=cmd_storybook)

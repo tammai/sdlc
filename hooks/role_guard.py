@@ -13,6 +13,8 @@ a `write: false` repo's folder (and touch, mkdir, and git commands that change t
 Roles: Claude Code names the subagent making a call in `agent_type` (`sdlc:<agent>`); calls from the main session
 or other plugins' agents get no output from this part. Denies, with the reason the agent sees:
   - a reviewer editing any file but its report under .sdlc/.work/findings/: reviewers report, they don't fix
+  - team mode's analyst writing anything but a feature's change file, state file and work folder, and objects.md; its builder writing a change file (or a Windows short name or stream path, which could be one); its releaser writing product
+    code (anything but the record, knowledge/, CLAUDE.md, AGENTS.md, CHANGELOG.md, .claude/rules/ and hookify rules)
   - the qa-tester reading or searching project files other than .sdlc/, the docs folder (docs_dir) and READMEs, or
     writing anything but qa-report.md and .sdlc/.work/qa/
 Paths outside the project (scratch dirs) are left alone. A session started in a folder above sdlc repos is judged
@@ -62,6 +64,21 @@ def problem(agent, tool, rel, root):
     if agent in REVIEWERS and tool in WRITES and not findings:
         return (f"sdlc: {agent} reports findings; it doesn't edit files. Write your report under "
                 ".sdlc/.work/findings/ and put the fix in it.")
+    # Team mode's stage agents (config `team`): the analyst writes the record, the builder never rewrites its criteria,
+    # the releaser ships without touching product code
+    place = team_place(rel, root)
+    if agent == "analyst" and tool in WRITES and place not in ("change", "record"):
+        return ("sdlc: the analyst writes the feature's change file, its state file and work files (and objects.md), "
+                "nothing else: the builder writes code and tests, and config is the user's.")
+    if agent == "builder" and tool in WRITES and place == "odd":
+        return ("sdlc: a Windows short name or stream path could be the change file, which the builder doesn't write: "
+                "use the file's plain name.")
+    if agent == "builder" and tool in WRITES and place in ("change", "stray"):
+        return ("sdlc: the builder doesn't write the change file: its criteria are the analyst's and its ## Review the "
+                "coordinator's. Raise what's wrong with it in your report.")
+    if agent == "releaser" and tool in WRITES and not (in_sdlc and plain or shipping(rel)):
+        return ("sdlc: the releaser ships: Learn's lessons (knowledge/, CLAUDE.md, .claude/rules/, hookify rules), "
+                "CHANGELOG.md and the record, never product code. A code fix goes back to the builder.")
     if agent == "qa-tester":
         if tool in WRITES and not (rel.endswith("/qa-report.md") and in_reports or rel.startswith(".sdlc/.work/qa/")):
             return "sdlc: the qa-tester writes only qa-report.md and scratch files under .sdlc/.work/qa/."
@@ -70,6 +87,89 @@ def problem(agent, tool, rel, root):
             return ("sdlc: the qa-tester tests the software without reading its code. Use the spec, quickstart, "
                     "contracts, README and the running software.")
     return None
+
+
+RESERVED = {"ci", "lint", "capabilities", "state"}  # the scaffold's own folders under .sdlc/, never a feature's
+
+
+def odd(rel, root):
+    """A Windows short name (`SDLC~1`) or stream (`a:b`) that could reach .sdlc/ or the docs folder by another
+    spelling: a `~<digit>` within the record folders' depth, or either one in a path that canon() puts inside them."""
+    c = canon(rel) or ""
+    docs = canon(sdlc_layout.docs_dir(root) or "")
+    inside = c == ".sdlc" or c.startswith(".sdlc/") or bool(docs) and (c + "/").startswith(docs + "/")
+    segs = rel.replace("\\", "/").split("/")
+    depth = docs.count("/") + 1 if docs else 1
+    short = [i for i, seg in enumerate(segs) if re.search(r"~\d", seg)]
+    return bool(short) and (inside or short[0] < depth) or ":" in rel and inside
+
+
+def team_place(rel, root):
+    """Where a path sits for team mode's analyst and builder, judged in canon() spelling (another case, trailing dots
+    or a `..` reach the same file): "change" for a feature's change file (either layout), "record" for the rest of
+    what Define writes (a feature's state file and work folder, objects.md), "stray" for a path shaped like an
+    old-layout change file in a folder no feature owns (denied to both), "odd" for a short name or stream that
+    could name any of them (odd()), None for anything else (config, the hooks' records in .sdlc/.work/, the
+    scaffold's own folders under .sdlc/, the shared docs). An old-layout `.sdlc/<f>/` is a feature's when it holds
+    a state or change file, or, in a repo without `docs_dir`, doesn't exist yet."""
+    if odd(rel, root):
+        return "odd"
+    if any(ch in rel for ch in ":") or re.search(r"~\d", rel):
+        return None  # outside the record: not the analyst's, and the builder's as any product path
+    c = canon(rel)
+    if not c:
+        return None
+    parts = c.split("/")
+    docs = canon(sdlc_layout.docs_dir(root) or "")
+    feature = len(parts) >= 3 and re.fullmatch(r"[a-z0-9][a-z0-9-]*(\.md)?" if parts[1] == "state" else r"[a-z0-9][a-z0-9-]*",
+                                                parts[2 if parts[1] == "state" else 1])
+    if parts[0] != ".sdlc" or not feature or parts[1] != "state" and parts[1] in RESERVED:
+        feature = None
+    shaped = bool(feature) and parts[1] != "state" and len(parts) == 3 and parts[2] == "change.md"
+    if feature and parts[1] != "state":
+        folder = os.path.join(root, ".sdlc", parts[1])
+        if not (os.path.isfile(os.path.join(folder, "state.md")) or os.path.isfile(os.path.join(folder, "change.md"))
+                or not docs and not os.path.lexists(folder)):
+            feature = None
+    if docs and c.startswith(docs + "/changes/") and c.endswith(".md") and c.count("/") == docs.count("/") + 2 or (
+            feature and parts[1] != "state" and len(parts) == 3 and parts[2] == "change.md"):
+        return "change"
+    if shaped:
+        return "stray"  # shaped like an old-layout change file in a folder no feature owns: the builder's deny holds
+    if feature and (parts[1] != "state" or len(parts) > 3 or parts[2].endswith(".md")):
+        return "record"
+    return "record" if c in objects_files(root) else None
+
+
+def objects_files(root):
+    """The domain model's file in canon() spelling: the default places, and a path config's `objects` names when
+    objects.py would take it (a .md file inside the repo, not in .git, .claude or .sdlc, no link out)."""
+    out = {".sdlc/objects.md", canon(f"{sdlc_layout.docs_dir(root) or '.sdlc'}/objects.md")}
+    try:
+        import sdlc_scopes  # noqa: PLC0415
+        named = sdlc_scopes._config(root).get("objects")
+        if isinstance(named, str) and named.lower().endswith(".md"):
+            c = canon(named)
+            real = os.path.realpath(os.path.join(root, named))
+            top = os.path.realpath(root)
+            if c and c.split("/")[0] not in (".git", ".claude", ".sdlc") and \
+                    os.path.commonpath([real, top]) == top and not any(ch in named for ch in ":~"):
+                out.add(c)
+    except Exception:
+        pass
+    return out
+
+
+def shipping(rel):
+    """A file Ship's Learn and changelog write: knowledge/, a CLAUDE.md, AGENTS.md or CHANGELOG.md anywhere,
+    .claude/rules/ and hookify rules (in canon() spelling, so case folds only where the file system does)."""
+    c = canon(rel)
+    if ":" in rel or re.search(r"~\d", rel) or not c:
+        return False
+    name = c.rsplit("/", 1)[-1]
+    names = {canon(n) for n in ("CHANGELOG.md", "CLAUDE.md", "AGENTS.md")}
+    return (c.startswith("knowledge/") or name in names or c.startswith(canon(".claude/rules") + "/")
+            or c.startswith(canon(".claude") + "/hookify.") and c.count("/") == 1)
 
 
 # --- recorded acceptance tests (spec 03 S3): read-only for everyone ---------------------------------------------

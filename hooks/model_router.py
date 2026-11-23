@@ -5,11 +5,13 @@ PreToolUse on Agent/Task. Denies, with the reason Claude sees:
   - no `model`                                   (an omitted model inherits the session's)
   - `model: haiku`                               (the cheap tier is sonnet)
   - `model: fable` unless every active state.md says `Top model: fable`
-  - a review agent below opus, on every track and risk (sdlc 2.0: each review runs once, fresh, on the top tier)
+  - a review agent below opus, on every track and risk (sdlc 2.0: each review runs once, fresh, on the top tier),
+    and team mode's analyst likewise
 Forks are exempt: they always run on the session model. So are impeccable's own agents (impeccable-*), which it
 spawns without a model (their frontmatter says `model: inherit`). Picking the tier for other work stays with
 Model selection in sdlc:orchestrator; this only enforces its floor and ceiling.
-No active feature, or any error: no output, the dispatch goes ahead.
+No active feature, or any error: no output, the dispatch goes ahead; except, with config `team`, an analyst dispatch
+(it runs before Define's state file exists): checked as if a feature were active, fable denied.
 While a feature is active, every dispatch is logged to .sdlc/.work/dispatches.jsonl (time, the features' current
 stage, agent, model, denied or not), so a gate can check which agent did a stage's work.
 """
@@ -23,7 +25,7 @@ import sdlc_layout  # sibling module: where feature state and sdlc documents liv
 
 # The user's decision: every review runs on the top tier, whatever the track
 ALWAYS_TOP = {"code-reviewer", "feature-reviewer", "ui-reviewer", "qa-tester", "pr-test-analyzer",
-              "silent-failure-hunter"}
+              "silent-failure-hunter", "analyst"}  # team mode's analyst decides what gets built: top tier
 TIERS = "sonnet (cheap and standard), opus (top); see Model selection in sdlc:orchestrator"
 
 
@@ -44,7 +46,8 @@ def problem(tool_input, states):
         return ("sdlc: the top tier is opus; fable is used only when the user chooses it. "
                 "If the user asked for fable, set `Top model: fable` in state.md first.")
     if agent in ALWAYS_TOP and model not in ("opus", "fable"):
-        return f"sdlc: {agent} runs on the top tier (opus) on every track and risk: every review stays on opus."
+        return (f"sdlc: {agent} runs on the top tier (opus) on every track and risk: every review, and team mode's "
+                "analyst, stays on opus.")
     return None
 
 
@@ -69,7 +72,12 @@ def main():
         if sdlc_scopes.advisory_from(data.get("cwd") or root):  # advisory: nothing gates
             return
         states = active_states(root)
-        reason = problem(data.get("tool_input") or {}, states) if states else None
+        tool_input = data.get("tool_input") or {}
+        reason = problem(tool_input, states) if states else None
+        # Team mode's analyst runs before Define's state file exists: config `team` holds its tier then
+        if not states and str(tool_input.get("subagent_type") or "").split(":")[-1] == "analyst" and \
+                sdlc_scopes._config(sdlc_scopes.gate_root(root) or root).get("team") is True:
+            reason = problem(tool_input, [""])  # no state names `Top model: fable`: fable is denied
         if reason:
             print(json.dumps({"hookSpecificOutput": {
                 "hookEventName": "PreToolUse",

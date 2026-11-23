@@ -17,7 +17,7 @@ Teams that try to fix this assemble several plugins and conventions by hand, eac
 | **Developer using an AI coding agent** (primary; solo or in a team) | Take a request from idea to merged code with the right amount of process, decide at the moments that matter, and trust that "tests pass" is true |
 | **Tech lead / AI-driven-development lead** | Roll out one consistent workflow to a team: shared guardrails and conventions, versioned upgrades, no per-person setup |
 | **Teammates joining a set-up repo**, in the same or another agent | Install one plugin and get the repo's commands, rules and knowledge without re-explaining |
-| **The executing agent** (later, role-based agents; a runner or control app) | Clear phase instructions, the right skill or agent at each step, what the next step needs on file, machine feedback (hooks) when it drifts, and machine-readable state |
+| **The executing agent** (the session, or with team mode role agents per stage, held by the role guard; later a runner or control app) | Clear phase instructions, the right skill or agent at each step, what the next step needs on file, machine feedback (hooks) when it drifts, and machine-readable state |
 
 ## 3. Goals
 

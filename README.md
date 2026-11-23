@@ -73,7 +73,7 @@ Run `/sdlc:start` with no argument in a new session to resume where you left off
 
 | Command | Does |
 |---|---|
-| `/sdlc:setup` | Set the repo up once (`/sdlc:setup design` changes the design mode later, `/sdlc:setup deploy` how it deploys, `/sdlc:setup objects` turns on the domain model, `/sdlc:setup review-rounds` how many review rounds run before you decide, `/sdlc:setup mode` full or advisory, `/sdlc:setup skip` the review or PR steps this repo skips, `/sdlc:setup done` its Definition of Done) |
+| `/sdlc:setup` | Set the repo up once (`/sdlc:setup design` changes the design mode later, `/sdlc:setup deploy` how it deploys, `/sdlc:setup objects` turns on the domain model, `/sdlc:setup review-rounds` how many review rounds run before you decide, `/sdlc:setup mode` full or advisory, `/sdlc:setup skip` the review or PR steps this repo skips, `/sdlc:setup done` its Definition of Done, `/sdlc:setup team on|off` team mode) |
 | `/sdlc:start [request]` | Start work, or resume the active feature |
 | `/sdlc:status` | Where each feature stands |
 | `/sdlc:doctor` | Health check, with a fix for each problem |
