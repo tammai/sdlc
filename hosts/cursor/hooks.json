@@ -3,34 +3,34 @@
   "hooks": {
     "preToolUse": [
       {
-        "command": "python3 \"${CURSOR_PLUGIN_ROOT}/hosts/hook.py\" cursor PreToolUse",
+        "command": "set \"\\\" <# \"; python3 \"${CURSOR_PLUGIN_ROOT}/hosts/hook.py\" cursor PreToolUse #>; ${\\} | & \"${CURSOR_PLUGIN_ROOT}/hosts/cursor/hook.ps1\" cursor PreToolUse",
         "timeout": 60,
         "matcher": "^(Shell|Write|Delete)$"
       }
     ],
     "postToolUse": [
       {
-        "command": "python3 \"${CURSOR_PLUGIN_ROOT}/hosts/hook.py\" cursor PostToolUse",
+        "command": "set \"\\\" <# \"; python3 \"${CURSOR_PLUGIN_ROOT}/hosts/hook.py\" cursor PostToolUse #>; ${\\} | & \"${CURSOR_PLUGIN_ROOT}/hosts/cursor/hook.ps1\" cursor PostToolUse",
         "timeout": 60,
         "matcher": "^(Shell|Write|Delete)$"
       }
     ],
     "postToolUseFailure": [
       {
-        "command": "python3 \"${CURSOR_PLUGIN_ROOT}/hosts/hook.py\" cursor PostToolUseFailure",
+        "command": "set \"\\\" <# \"; python3 \"${CURSOR_PLUGIN_ROOT}/hosts/hook.py\" cursor PostToolUseFailure #>; ${\\} | & \"${CURSOR_PLUGIN_ROOT}/hosts/cursor/hook.ps1\" cursor PostToolUseFailure",
         "timeout": 60,
         "matcher": "^Shell$"
       }
     ],
     "beforeSubmitPrompt": [
       {
-        "command": "python3 \"${CURSOR_PLUGIN_ROOT}/hosts/hook.py\" cursor UserPromptSubmit",
+        "command": "set \"\\\" <# \"; python3 \"${CURSOR_PLUGIN_ROOT}/hosts/hook.py\" cursor UserPromptSubmit #>; ${\\} | & \"${CURSOR_PLUGIN_ROOT}/hosts/cursor/hook.ps1\" cursor UserPromptSubmit",
         "timeout": 60
       }
     ],
     "stop": [
       {
-        "command": "python3 \"${CURSOR_PLUGIN_ROOT}/hosts/hook.py\" cursor Stop",
+        "command": "set \"\\\" <# \"; python3 \"${CURSOR_PLUGIN_ROOT}/hosts/hook.py\" cursor Stop #>; ${\\} | & \"${CURSOR_PLUGIN_ROOT}/hosts/cursor/hook.ps1\" cursor Stop",
         "timeout": 60
       }
     ]
