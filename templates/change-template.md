@@ -51,6 +51,12 @@
 |---|---|---|
 | AC-001 | [test file] › [test name] | `[command that runs only this test]` |
 
+## Definition of Done
+
+<!-- Only when the brief prints a `definition of done` section (config `done`): copy its items here, one
+     `- [ ] <item>` line each, and before Ship tick each with its evidence: `- [x] <item> — <evidence>`, or
+     `- [x] <item> — n/a: <reason>`. ship.py refuses while one is open. No such section: delete this heading. -->
+
 ## Must never break
 
 - [an invariant this change must keep, e.g. "a killed process never leaves the store unreadable"]

@@ -5,6 +5,7 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 ## Unreleased
 
 ### Added
+- **A Definition of Done.** Setup asks for the team's own bar (a changelog line, docs updated, a migration note…), up to 10 items, as config `done` (`/sdlc:setup done`). Every change carries it as a checklist in its change file, each item ticked with its evidence, and `ship.py` won't proceed while one is open; the trust anchor shows a change to the list.
 - **Advisory mode and configurable steps** ([ADR 0030](docs/adr/0030-modes-and-skips.md)). Setup now asks first whether a repo runs sdlc in **full** or **advisory** mode. Advisory gives the skills and agents as aids: every hook, gate and guardrail stays silent, except a workbench's read-only guard, and the orchestrator does what you ask without running its flow. A full repo can skip named steps with `/sdlc:setup skip security-review|code-review|ui-review|pr`; a skipped review is recorded in `## Review`, and `pr` ends Ship after the local commit. Define, tests and verify are never skippable. The trust anchor shows any change toward fewer checks for your confirmation; the session status line names the mode. Reading the mode never waits on a FIFO, and the reply that accepts a new mode or skip tells the agent at once.
 
 ### Security

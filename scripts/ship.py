@@ -251,6 +251,7 @@ def ship(root, feature, message, review=None, note=None, timeout=1800, waive_bas
     if owner and me and owner != me:
         raise Refused(f"Owner is {owner}, not {me}: ask the user before taking it over", "owner_differs",
                       fix="ask the user whether to take it over (state.py set <feature> Owner <you>)")
+    check_done(root, paths["change"], field(state, "Base"), feature)  # reads only: a refusal writes nothing
     if review:
         add_review(root, paths["change"], review)
     # Every refusal comes before the state moves, so a refusal leaves the state file as it was
@@ -282,6 +283,81 @@ def ship(root, feature, message, review=None, note=None, timeout=1800, waive_bas
     if sdlc_scopes.is_workbench(root):
         out["repos"] = ship_repos(root, feature, paths["change"], message, files, branch, repos)
     return out
+
+
+DONE_LINE = re.compile(r"^\s*[-*]\s*\[([ xX])\]\s*(.*?)\s*$")
+DONE_FORMAT = "`- [x] <item> — <evidence>` (or `- [x] <item> — n/a: <reason>`)"
+
+
+def accepted_done(root, feature, base):
+    """The Definition of Done the user last accepted for this feature: the list in the trust anchor's accepted
+    commands record (`commands_ok`, written when the user replied to its notice), else the list at the feature's
+    Base. None when neither holds one."""
+    try:
+        with sdlc_scopes.open_regular(sdlc_scopes._inside(root, ".sdlc/.work/trust-anchor.json")) as f:
+            ok = (json.load(f).get(feature) or {}).get("commands_ok")
+        if isinstance(ok, str):
+            return json.loads(ok).get("done")
+    except (OSError, ValueError, AttributeError):
+        pass
+    at_base = git(root, "show", f"{base}:./.sdlc/config.json", check=False) if base else ""
+    try:
+        return json.loads(at_base).get("done") if at_base.strip() else None
+    except (ValueError, AttributeError):
+        return None
+
+
+def done_items(root, base, feature):
+    """The Definition of Done this feature must meet: config's list now plus every item of the list the user last
+    accepted (accepted_done), so an item can only leave the bar through the user's reply to the trust anchor.
+    Refused when the current config can't give a valid list."""
+    items, problem = sdlc_scopes.done_config(root)
+    if problem:
+        raise Refused(f"the Definition of Done in .sdlc/config.json isn't valid: {problem}", "definition_of_done_invalid",
+                      fix="fix it with scaffold.py done (or /sdlc:setup done)")
+    earlier = accepted_done(root, feature, base)
+    norm = lambda s: " ".join(s.split()).casefold()  # noqa: E731
+    have = {norm(x) for x in items}
+    held = []
+    if isinstance(earlier, list) and earlier and sdlc_scopes.done_problem(earlier) is None:
+        held = [x.strip() for x in earlier if norm(x) not in have]
+    return items + held, held
+
+
+def check_done(root, change, base, feature):
+    """The Definition of Done (done_items): each item ticked in the change file's `## Definition of Done` with real
+    evidence after ` — ` (or `n/a: <reason>`); any ticked line for an item counts. Refused otherwise, naming what is
+    open and the format."""
+    items, held = done_items(root, base, feature)
+    if not items:
+        return
+    text = verify.read(os.path.join(root, change)) or ""
+    m = re.search(sdlc_scopes.DONE_HEADING + r"(.*?)(?=^##\s|\Z)", text, re.M | re.S)
+    norm = lambda s: " ".join(s.split()).casefold()  # noqa: E731
+    lines = [(hit.group(1) != " ", norm(hit.group(2))) for hit in map(DONE_LINE.match, (m.group(1) if m else "").splitlines())
+             if hit]
+
+    def met(item):
+        key = norm(item) + " — "
+        for ticked, body in lines:
+            if not ticked or not body.startswith(key):
+                continue
+            evidence = body[len(key):].strip()
+            if not evidence or evidence in ("n/a", "n/a:") or re.fullmatch(r"(n/a:\s*)?<[^<>]*>", evidence):
+                continue  # none, or the template's placeholder copied as is
+            if evidence.startswith("n/a") and not re.match(r"n/a:\s*\S", evidence):
+                continue
+            return True
+        return False
+
+    open_items = [x for x in items if not met(x)]
+    if open_items:
+        kept = [x for x in open_items if x in held]
+        why = (f" ({'; '.join(kept)}: from the list last accepted, which only the user's reply to the trust anchor "
+               "changes)") if kept else ""
+        raise Refused(f"the Definition of Done isn't met: {'; '.join(open_items)}{why}. Under `## Definition of Done` "
+                      f"in {change}, tick each as {DONE_FORMAT}", "definition_of_done_open",
+                      fix=f"in {change}, under `## Definition of Done`: {DONE_FORMAT}")
 
 
 def living_spec(root, feature, write=False):

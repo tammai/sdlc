@@ -141,6 +141,49 @@ def read_repo_json(base, rel):
         return json.load(f)
 
 
+DONE_MOST, DONE_LONGEST = 10, 200  # a Definition of Done: at most 10 one-line items of at most 200 characters
+DONE_HEADING = r"^##[ \t]+Definition of Done[ \t]*$"  # the change file's section, read one way by Ship and the anchor
+
+
+def done_problem(items):
+    """Why `items` can't be a Definition of Done, or None: 1 to DONE_MOST strings, each one line, non-empty and at
+    most DONE_LONGEST characters."""
+    if not isinstance(items, list) or not 1 <= len(items) <= DONE_MOST:
+        return f"a Definition of Done is 1 to {DONE_MOST} items"
+    for x in items:
+        if not isinstance(x, str) or not x.strip() or len(x) > DONE_LONGEST or len(x.splitlines()) != 1:
+            return f"each item is one line of 1 to {DONE_LONGEST} characters, not {str(x)[:40]!r}"
+        if " — " in x:
+            return f"an item can't hold ' — ' (it separates an item from its evidence): {x[:40]!r}"
+    return None
+
+
+def done_config(root):
+    """(items, problem): the repo's Definition of Done (config `done`), and why a value that is there isn't a valid
+    one (then items is []); ([], None) when there is none."""
+    import os
+    try:
+        cfg = read_repo_json(root, ".sdlc/config.json")
+    except FileNotFoundError:
+        return [], None
+    except Exception:  # there but unreadable or not JSON: the list can't be known, so it fails closed
+        if os.path.lexists(os.path.join(root, ".sdlc", "config.json")):
+            return [], ".sdlc/config.json can't be read as JSON"
+        return [], None
+    if not isinstance(cfg, dict):
+        return [], ".sdlc/config.json isn't a JSON object"
+    items = cfg.get("done")
+    if items is None or items == []:  # an empty list means none
+        return [], None
+    problem = done_problem(items)
+    return ([], problem) if problem else ([x.strip() for x in items], None)
+
+
+def definition_of_done(root):
+    """The repo's Definition of Done items, [] when there is none or it isn't valid (done_config says why)."""
+    return done_config(root)[0]
+
+
 MODES = ("full", "advisory")
 SKIPPABLE = ("security-review", "code-review", "ui-review", "pr")
 ANCHOR = ".sdlc/.work/trust-anchor.json"  # the trust anchor's record; its `_config` holds the accepted mode and skips
