@@ -5,15 +5,20 @@
 ```mermaid
 flowchart TD
     S["/sdlc:setup"] --> BR["Branch sdlc/setup<br/>(one commit per step, resumable)"]
-    BR --> K{"Source code?"}
+    BR --> MD{"Full or advisory?"}
+    MD -->|advisory| AD["Skills and agents only: no hooks, gates or guardrails"]
+    MD -->|full| K
+    K{"Source code?"}
     K -->|no| G["Greenfield: stack interview, proposal, you approve, generate skeleton"]
     K -->|yes| BF["Brownfield: record commands, baseline, audit, migrate AI configs"]
-    G --> C["Common steps: rules, guardrails, CI, PRD, constitution,<br/>design system, knowledge, deploy, review rounds"]
+    G --> C["Common steps: rules, guardrails, CI, PRD, constitution,<br/>design system, knowledge, deploy, review rounds,<br/>Definition of Done"]
     BF --> C
     C --> M["Merge locally, no push"]
 ```
 
 ![Setup phase in detail](../diagrams/sdlc_setup_phase.svg)
+
+Setup asks first whether the repo runs sdlc in **full** mode (the four phases with hooks, gates and guardrails) or **advisory** mode (the skills and agents as aids, for a repo whose own workflow would conflict). `/sdlc:setup mode full|advisory` changes it later, and a full repo can skip named steps with `/sdlc:setup skip` ([ADR 0030](../adr/0030-modes-and-skips.md)).
 
 ## Principles
 
@@ -59,10 +64,11 @@ Existing monorepos keep their layout.
 | `AGENTS.md` block | When Codex, Cursor or Antigravity uses the repo |
 | PRD | Your existing one, or drafted from an interview or the code. Guesses are marked "inferred, confirm". You approve before it's written to `docs/sdlc/prd.md` |
 | Constitution | The default Simplicity principle plus architecture principles for your stack |
-| Design system | UI projects only ([with impeccable](#setup-with-impeccable)) |
+| Design system | UI projects only ([with impeccable](#setup-with-impeccable)). In builtin mode it can make Storybook the living design system instead (`storybook` in [Configuration](Configuration.md)) |
 | Knowledge folder | Greenfield: includes a scaling roadmap (growth steps and the trigger for each) |
 | Deploy | Asks for the target (for example GCP Cloud Run) and each environment, routine or not. Seeds `knowledge/runbooks/deploy.md` |
 | Review rounds | Asks how many review rounds (2 to 5) run before you're asked; stored as `review_rounds` |
+| Definition of Done | Asks for the team's own bar beyond tests and review (a changelog line, docs updated…), up to 10 items, stored as `done`; every change ticks each with its evidence before Ship. `/sdlc:setup done` changes it |
 
 The steps that write `.claude/` run only under Claude Code.
 
