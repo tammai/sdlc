@@ -25,6 +25,7 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 - **Workbench: a turn run from the workbench root gets the turn-end review in the app repo it edited**; before, no app repo was reviewed. The root keeps it when its own edits lead or touch steering files.
 - **Every `.git` check shares one rule** (case, trailing dots and spaces, NTFS stream suffix, 8.3 name, HFS+ code points).
 - **The Monitor deny uses the commit and push reviews' own patterns**, and stays on if they can't load.
+- **Workbench: the turn-end review covers every repo a turn edited with the edit tools**, in one review call (each file named by its path from the session's folder), not only the one with the most edits; when that one has nothing to review, the others still are.
 - **`.claude` and `.sdlc` are barred from the deploy runbook and objects paths in every spelling `.git` is** (8.3 short name, NTFS stream suffix, HFS+ code points), not only by case and trailing dots.
 - **impeccable's machine-local `config.local.json` is never read through a link** out of the repo or into `.git`, at the file or its `.impeccable` folder, like its committed `config.json`.
 

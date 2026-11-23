@@ -2432,6 +2432,216 @@ def handle_stop_hook(input_data):
         })
         sys.exit(0)
 
+    # sdlc patch: the other repos of a workbench this turn edited (stop_repos), read once, after the first repo's
+    # own diff so its skip reasons are its own. Every path of the turn counts, not only those since the last Stop,
+    # so a rewake diffs them again from the turn's start (more tokens; a file the cap cut is sent again then). Where
+    # the first repo has nothing to review, they are reviewed alone.
+    _other = {}
+
+    def _other_files():
+        """The other repos' files as (prefix, repo-relative path, diff)."""
+        if "files" not in _other:
+            _other["files"] = []
+            if not is_subagent:
+                kept = dict(gitutil._diff_read)  # each diff resets these: the first repo's plus the others'
+                try:
+                    import stop_repos  # noqa: PLC0415
+                    _other["files"] = stop_repos.other_repo_files(
+                        repo_root or repo_cwd or cwd, snap["turn_touched"], snap.get("prompt_at"),
+                        input_data.get("cwd", ""), max_paths=MAX_REVIEW_SET_PATHS, max_files=MAX_DIFF_FILES)
+                    for _k, _v in stop_repos.read_totals.items():
+                        kept[_k] = kept.get(_k, 0) + _v
+                except Exception as e:
+                    debug_log(f"Stop hook: other repos skipped: {e}")
+                gitutil._diff_read.update(kept)
+                for _k, _v in (("diff_mb", kept.get("bytes", 0) >> 20), ("diff_cut_files", kept.get("cut_files", 0)),
+                               ("diff_timeout", kept.get("timeouts", 0))):
+                    if _v:
+                        _TAIL_METRICS[_k] = _v
+        return _other["files"]
+
+    def _pick_other(slots):
+        """The other repos' files for `slots` review slots, saying how many didn't fit."""
+        import stop_repos  # noqa: PLC0415  (imported already: _other_files found files)
+        picked = stop_repos.pick(_other_files(), slots)
+        left = len(_other_files()) - len(picked)
+        if left:
+            debug_log(f"Stop hook: {left} files of other repos past the file cap, not sent")
+            _TAIL_METRICS["other_dropped"] = left
+        return picked
+
+    def _skip_or_other(reason, **extra):
+        if not _other_files():
+            _skip(reason, **extra)
+        files = _pick_other(MAX_DIFF_FILES)
+        debug_log(f"Stop hook: first repo skipped ({reason}); reviewing {len(files)} files of other repos")
+        secret_named = gitutil.count_secret_named(files)
+        if secret_named:
+            _TAIL_METRICS["secret_named_reviewed"] = secret_named
+        # the first repo's baseline stays as it is: it had nothing reviewed
+        _review_and_exit(files, move_baseline=False, primary_skip=reason)
+
+    foreign_baseline, repo_root, diff_hash = False, None, None
+
+    # sdlc patch: the review and its verdict, a function so a turn whose first repo has nothing to review still
+    # reaches the other workbench repos it edited (stop_repos)
+    def _review_and_exit(diff_files, move_baseline=True, primary_skip=None):
+        if primary_skip is not None:
+            _TAIL_METRICS["primary_skip"] = primary_skip  # only other repos were reviewed
+        import time as _time
+        stop_review_start = _time.time()
+
+        # Stop hook is single-shot only. Agentic review is wired into
+        # handle_commit_review_posttooluse (PostToolUse on `git commit`) — commits
+        # are slower-OK and benefit from the deeper context-reading loop.
+        concrete_guidance, vulns = analyze_code_security(
+            diff_files, is_diff=True, previous_findings=previous_findings
+        )
+        # NOTE: analyze_security_concerns disabled — it produces too many false positives
+        # on pre-existing patterns in starter code. The concrete vulnerability analysis
+        # is more precise and has severity filtering (high/critical only).
+
+        stop_review_elapsed = _time.time() - stop_review_start
+        debug_log(f"Stop hook: LLM reviews took {stop_review_elapsed:.1f}s total")
+
+        review_ms = int(stop_review_elapsed * 1000)
+        fire_index = fire_count + 1
+
+        # Late dedup: drop only what a concurrent commit-review wrote while our
+        # LLM ran. Anything already in `previous_findings` (the consume_stop_state
+        # snapshot) that the LLM re-flagged is an intentional "fix incomplete"
+        # verdict and passes through.
+        if vulns:
+            vulns, n_deduped = _dedup_against_state(
+                session_id, vulns, prompted=_finding_keys(previous_findings)
+            )
+            if n_deduped and not vulns:
+                debug_log("Stop hook: all findings already delivered by commit-review")
+                _skip(35, deduped=n_deduped, review_ms=review_ms)
+            concrete_guidance = _format_vulns_guidance(vulns)
+
+        if concrete_guidance:
+            finding_snapshots = [
+                {
+                    "filePath": v.get("filePath", ""),
+                    "category": v.get("category", "Unknown"),
+                    "vulnerableCode": v.get("vulnerableCode", ""),
+                }
+                for v in vulns
+            ]
+            # Update baseline so next stop hook iteration only sees new changes
+            new_sha = None if is_subagent or not move_baseline else capture_git_baseline(cwd)
+            new_base_fail = diffstate.last_baseline_fail
+            new_untracked_baseline = _list_untracked(cwd) if new_sha else None
+            # After a baseline from another checkout, the rest of it is replaced
+            # too, below.
+            new_head = (_git_rev_parse_head(cwd)
+                        if new_sha and foreign_baseline and not head_at_capture else None)
+
+            def _record_fire(state):
+                if is_subagent:
+                    state["reviewed_diff_hash"] = diff_hash
+                else:
+                    state["stop_hook_fire_count"] = fire_index
+                    state["stop_hook_fire_count_ts"] = _time.time()
+                # Re-read under lock — the commit-review PostToolUse hook may have
+                # appended findings since consume_stop_state snapshotted.
+                # Dedupe on (filePath, category) — vulnerableCode includes diff
+                # context lines that drift between fires, so byte-identical
+                # matching let the same finding accumulate as "new" each fire.
+                existing = [f for f in state.get("previous_findings", []) if isinstance(f, dict)]
+                seen = {(f.get("filePath", ""), f.get("category", "")) for f in existing}
+                for f in finding_snapshots:
+                    key = (f["filePath"], f["category"])
+                    if key not in seen:
+                        seen.add(key)
+                        existing.append(f)
+                state["previous_findings"] = existing
+                state["previous_findings_ts"] = _time.time()
+                if new_sha:
+                    state["baseline_sha"] = new_sha
+                    state["untracked_at_baseline"] = new_untracked_baseline
+                    _store_baseline_fail(state, new_base_fail)
+                    state["baseline_root"] = repo_root
+                    state.pop("baseline_kept", None)
+                    if foreign_baseline:
+                        # The stored HEAD is the other checkout's. Keep the one
+                        # this review used, so a later Stop this turn still sees
+                        # commits made (or amended) here since the prompt.
+                        state["head_at_capture"] = head_at_capture or new_head
+            with_locked_state(session_id, _record_fire)
+
+            if new_sha:
+                debug_log(f"Updated git baseline after stop hook: {new_sha[:12]}")
+
+            sev = {"critical": 0, "high": 0, "medium": 0}
+            for v in vulns:
+                s = v.get("severity", "medium")
+                if s in sev:
+                    sev[s] += 1
+            # 8 base keys + at most 2 sweep keys = 10 (cap). Drop the mask here.
+            # untracked_baseline_n is the signal for whether the UPS-time
+            # untracked-snapshot capture actually ran.
+            sweep_trimmed = {k: v for k, v in sweep.items() if k != "warn_unresolved_mask"}
+            # Guidance goes to stderr plus top-level decision/reason (see
+            # emit_metrics). exit(2) preserved as the asyncRewake "force fix"
+            # signal — that's the documented mechanism.
+            emit_metrics({
+                "vulns_found": len(vulns),
+                "untracked_baseline_n": len(untracked_at_baseline),
+                "diff_strategy_v2": True,
+                "critical_count": sev["critical"],
+                "high_count": sev["high"],
+                "files_reviewed": len(diff_files),
+                "touched_paths_count": len(touched_paths),
+                "review_ms": review_ms,
+                "fire_index": fire_index,
+                **_stop_diff_truncated(),
+                **({"repo_resolution": repo_res} if res_metrics else {}),
+                **sweep_trimmed,
+                **({"diff_hdr_unparsed": len(gitutil._unparsed_diff_headers)}
+                   if gitutil._unparsed_diff_headers else {}),
+                **({"secret_shaped_skipped": len(gitutil._secret_shaped_skipped)}
+                   if gitutil._secret_shaped_skipped else {}),
+            }, rewake_summary=_format_vulns_summary(vulns),
+               additional_context=(PROVENANCE_BANNER + "\n\n"
+                                   + concrete_guidance + CONTINUATION_SUFFIX + "\n"),
+               hook_event_name=hook_event_name)
+            sys.exit(2)
+
+        stop_review_failed = llm.last_review_failed()
+        if stop_review_failed:
+            debug_log(f"Stop hook: review got no verdict "
+                      f"({_review_failure_reason(llm.last_review_status())[1]})")
+            restore_unreviewed_stop_state(session_id, touched_paths, snap_baseline)
+        else:
+            debug_log("Stop hook: no security issues found")
+            if is_subagent:
+                record_reviewed_diff(session_id, diff_hash)
+        # CC keeps the first 20 metric keys (10 in older versions), in insertion
+        # order, after the pv and usage keys emit_metrics puts first. The previous
+        # **sweep,**v2_metrics tail meant the 3 v2_metrics keys were always sliced
+        # off this most-common path, so the diff-strategy diagnostics never reached
+        # telemetry. Drop sweep here (it's PostToolUse-warning state, orthogonal to
+        # diff-strategy comparison).
+        emit_metrics({
+            **({"review_failed": True} if stop_review_failed else {}),
+            "vulns_found": 0,
+            "diff_strategy_v2": True,
+            "files_reviewed": len(diff_files),
+            "touched_paths_count": len(touched_paths),
+            "review_ms": review_ms,
+            "fire_index": fire_index,
+            **({"api_error": llm._last_call_claude_http_error} if llm._last_call_claude_http_error is not None else {}),
+            **_stop_diff_truncated(),
+            **v2_metrics,
+            **({"diff_hdr_unparsed": len(gitutil._unparsed_diff_headers)}
+               if gitutil._unparsed_diff_headers else {}),
+            **({"secret_shaped_skipped": len(gitutil._secret_shaped_skipped)}
+               if gitutil._secret_shaped_skipped else {}),
+        })
+        sys.exit(0)
+
     # Limit stop hook firings per asyncRewake loop to prevent infinite loops.
     # fire_count auto-expires after STOP_LOOP_STATE_TTL_SEC so a stale count
     # from a prior turn doesn't block this one.
@@ -2484,7 +2694,7 @@ def handle_stop_hook(input_data):
     # sdlc patch (ADR 0019): the turn-end model review runs only for a security-touched active feature
     if not sdlc_review_gate.review_wanted(repo_cwd or cwd):
         debug_log("Stop hook: no security-touched sdlc feature, skipped")
-        _skip(51)
+        _skip_or_other(51)
 
     # The baseline belongs to the checkout the prompt hook captured it in.
     # When the turn ends in another one (the session entered a worktree, or
@@ -2540,14 +2750,14 @@ def handle_stop_hook(input_data):
         _note_scope(review_paths)
     if not review_paths:
         debug_log("Stop hook: empty review set")
-        _skip(9, touched_paths_count=len(touched_paths))
+        _skip_or_other(9, touched_paths_count=len(touched_paths))
     debug_log(f"Stop hook: review_set={len(review_paths)} base={diff_base[:12]} dirty_now={v2_metrics['dirty_now_count']} changed_since={v2_metrics['changed_since_count']}")
     if (len(review_paths) > MAX_REVIEW_SET_PATHS
             and sum(_is_reviewable_source(os.path.relpath(p, repo_root))
                     for p in review_paths) > MAX_REVIEW_SET_PATHS):
         debug_log(f"Stop hook: pathological review set (more than "
                   f"{MAX_REVIEW_SET_PATHS} paths), skipping")
-        _skip(8)
+        _skip_or_other(8)
     # Run from repo_root so the toplevel-relative review_paths resolve.
     # Diff CONTENT against the turn-start stash (baseline_sha) so the LLM
     # sees only this-turn edits — diffing against HEAD includes the user's
@@ -2579,23 +2789,23 @@ def handle_stop_hook(input_data):
     if not diff_output or not diff_output.strip():
         if "gave_up" in gitutil._path_list_too_long:
             debug_log("Stop hook: changed paths do not fit the git commands, skipping")
-            _skip(8)
+            _skip_or_other(8)
         if "none_reviewable" in gitutil._path_list_too_long:
             debug_log("Stop hook: no source code files among the changed paths")
-            _skip(7)
+            _skip_or_other(7)
         debug_log("Stop hook: no changes since baseline")
-        _skip(6)
+        _skip_or_other(6)
 
     diff_hash = hashlib.sha256(diff_output.encode("utf-8", "replace")).hexdigest()
     if snap.get("reviewed_diff_hash") == diff_hash:
         debug_log("Stop hook: diff already reviewed by SubagentStop")
-        _skip(12)
+        _skip_or_other(12)
 
     # Parse diff into per-file content
     diff_files = parse_diff_into_files(diff_output)
     if not diff_files:
         debug_log("Stop hook: no source code files in diff")
-        _skip(7)
+        _skip_or_other(7)
 
     # Mirror commit-review: hard-bail only on pathological diffs (>300 files,
     # usually a bad baseline), otherwise prioritize by security-risk path
@@ -2607,7 +2817,7 @@ def handle_stop_hook(input_data):
     if len(diff_files) > 10 * MAX_DIFF_FILES:
         debug_log(f"Stop hook: pathological diff ({len(diff_files)} files > "
                   f"{10 * MAX_DIFF_FILES}), skipping")
-        _skip(8, diff_files_count=len(diff_files))
+        _skip_or_other(8, diff_files_count=len(diff_files))
     if len(diff_files) > MAX_DIFF_FILES:
         diff_files, _stop_dropped = _prioritize_diff_files(
             diff_files, MAX_DIFF_FILES)
@@ -2618,165 +2828,20 @@ def handle_stop_hook(input_data):
     diff_files = filter_preexisting_from_diff(diff_files, cwd, baseline_sha)
     if "scope" in _scope:
         _note_scope([fp for fp, _ in diff_files])
+    # sdlc patch: the other workbench repos this turn edited join the same review in the slots the first repo's
+    # files leave (they come first: its baseline moves past them), every file named by its path from the session's
+    # cwd (the repo the session sits at the top of keeps bare names), so two repos' files never share a name
+    if _other_files():
+        import stop_repos  # noqa: PLC0415  (imported already: _other_files found files)
+        _own = stop_repos.name_prefix(repo_root, input_data.get("cwd", ""))
+        diff_files = [(_own + fp, c) for fp, c in diff_files] + _pick_other(MAX_DIFF_FILES - len(diff_files))
 
     debug_log(f"Stop hook: reviewing {len(diff_files)} changed files (standard diff)")
     secret_named = gitutil.count_secret_named(diff_files)
     if secret_named:
         _TAIL_METRICS["secret_named_reviewed"] = secret_named
 
-    import time as _time
-    stop_review_start = _time.time()
-
-    # Stop hook is single-shot only. Agentic review is wired into
-    # handle_commit_review_posttooluse (PostToolUse on `git commit`) — commits
-    # are slower-OK and benefit from the deeper context-reading loop.
-    concrete_guidance, vulns = analyze_code_security(
-        diff_files, is_diff=True, previous_findings=previous_findings
-    )
-    # NOTE: analyze_security_concerns disabled — it produces too many false positives
-    # on pre-existing patterns in starter code. The concrete vulnerability analysis
-    # is more precise and has severity filtering (high/critical only).
-
-    stop_review_elapsed = _time.time() - stop_review_start
-    debug_log(f"Stop hook: LLM reviews took {stop_review_elapsed:.1f}s total")
-
-    review_ms = int(stop_review_elapsed * 1000)
-    fire_index = fire_count + 1
-
-    # Late dedup: drop only what a concurrent commit-review wrote while our
-    # LLM ran. Anything already in `previous_findings` (the consume_stop_state
-    # snapshot) that the LLM re-flagged is an intentional "fix incomplete"
-    # verdict and passes through.
-    if vulns:
-        vulns, n_deduped = _dedup_against_state(
-            session_id, vulns, prompted=_finding_keys(previous_findings)
-        )
-        if n_deduped and not vulns:
-            debug_log("Stop hook: all findings already delivered by commit-review")
-            _skip(35, deduped=n_deduped, review_ms=review_ms)
-        concrete_guidance = _format_vulns_guidance(vulns)
-
-    if concrete_guidance:
-        finding_snapshots = [
-            {
-                "filePath": v.get("filePath", ""),
-                "category": v.get("category", "Unknown"),
-                "vulnerableCode": v.get("vulnerableCode", ""),
-            }
-            for v in vulns
-        ]
-        # Update baseline so next stop hook iteration only sees new changes
-        new_sha = None if is_subagent else capture_git_baseline(cwd)
-        new_base_fail = diffstate.last_baseline_fail
-        new_untracked_baseline = _list_untracked(cwd) if new_sha else None
-        # After a baseline from another checkout, the rest of it is replaced
-        # too, below.
-        new_head = (_git_rev_parse_head(cwd)
-                    if new_sha and foreign_baseline and not head_at_capture else None)
-
-        def _record_fire(state):
-            if is_subagent:
-                state["reviewed_diff_hash"] = diff_hash
-            else:
-                state["stop_hook_fire_count"] = fire_index
-                state["stop_hook_fire_count_ts"] = _time.time()
-            # Re-read under lock — the commit-review PostToolUse hook may have
-            # appended findings since consume_stop_state snapshotted.
-            # Dedupe on (filePath, category) — vulnerableCode includes diff
-            # context lines that drift between fires, so byte-identical
-            # matching let the same finding accumulate as "new" each fire.
-            existing = [f for f in state.get("previous_findings", []) if isinstance(f, dict)]
-            seen = {(f.get("filePath", ""), f.get("category", "")) for f in existing}
-            for f in finding_snapshots:
-                key = (f["filePath"], f["category"])
-                if key not in seen:
-                    seen.add(key)
-                    existing.append(f)
-            state["previous_findings"] = existing
-            state["previous_findings_ts"] = _time.time()
-            if new_sha:
-                state["baseline_sha"] = new_sha
-                state["untracked_at_baseline"] = new_untracked_baseline
-                _store_baseline_fail(state, new_base_fail)
-                state["baseline_root"] = repo_root
-                state.pop("baseline_kept", None)
-                if foreign_baseline:
-                    # The stored HEAD is the other checkout's. Keep the one
-                    # this review used, so a later Stop this turn still sees
-                    # commits made (or amended) here since the prompt.
-                    state["head_at_capture"] = head_at_capture or new_head
-        with_locked_state(session_id, _record_fire)
-
-        if new_sha:
-            debug_log(f"Updated git baseline after stop hook: {new_sha[:12]}")
-
-        sev = {"critical": 0, "high": 0, "medium": 0}
-        for v in vulns:
-            s = v.get("severity", "medium")
-            if s in sev:
-                sev[s] += 1
-        # 8 base keys + at most 2 sweep keys = 10 (cap). Drop the mask here.
-        # untracked_baseline_n is the signal for whether the UPS-time
-        # untracked-snapshot capture actually ran.
-        sweep_trimmed = {k: v for k, v in sweep.items() if k != "warn_unresolved_mask"}
-        # Guidance goes to stderr plus top-level decision/reason (see
-        # emit_metrics). exit(2) preserved as the asyncRewake "force fix"
-        # signal — that's the documented mechanism.
-        emit_metrics({
-            "vulns_found": len(vulns),
-            "untracked_baseline_n": len(untracked_at_baseline),
-            "diff_strategy_v2": True,
-            "critical_count": sev["critical"],
-            "high_count": sev["high"],
-            "files_reviewed": len(diff_files),
-            "touched_paths_count": len(touched_paths),
-            "review_ms": review_ms,
-            "fire_index": fire_index,
-            **_stop_diff_truncated(),
-            **({"repo_resolution": repo_res} if res_metrics else {}),
-            **sweep_trimmed,
-            **({"diff_hdr_unparsed": len(gitutil._unparsed_diff_headers)}
-               if gitutil._unparsed_diff_headers else {}),
-            **({"secret_shaped_skipped": len(gitutil._secret_shaped_skipped)}
-               if gitutil._secret_shaped_skipped else {}),
-        }, rewake_summary=_format_vulns_summary(vulns),
-           additional_context=(PROVENANCE_BANNER + "\n\n"
-                               + concrete_guidance + CONTINUATION_SUFFIX + "\n"),
-           hook_event_name=hook_event_name)
-        sys.exit(2)
-
-    stop_review_failed = llm.last_review_failed()
-    if stop_review_failed:
-        debug_log(f"Stop hook: review got no verdict "
-                  f"({_review_failure_reason(llm.last_review_status())[1]})")
-        restore_unreviewed_stop_state(session_id, touched_paths, snap_baseline)
-    else:
-        debug_log("Stop hook: no security issues found")
-        if is_subagent:
-            record_reviewed_diff(session_id, diff_hash)
-    # CC keeps the first 20 metric keys (10 in older versions), in insertion
-    # order, after the pv and usage keys emit_metrics puts first. The previous
-    # **sweep,**v2_metrics tail meant the 3 v2_metrics keys were always sliced
-    # off this most-common path, so the diff-strategy diagnostics never reached
-    # telemetry. Drop sweep here (it's PostToolUse-warning state, orthogonal to
-    # diff-strategy comparison).
-    emit_metrics({
-        **({"review_failed": True} if stop_review_failed else {}),
-        "vulns_found": 0,
-        "diff_strategy_v2": True,
-        "files_reviewed": len(diff_files),
-        "touched_paths_count": len(touched_paths),
-        "review_ms": review_ms,
-        "fire_index": fire_index,
-        **({"api_error": llm._last_call_claude_http_error} if llm._last_call_claude_http_error is not None else {}),
-        **_stop_diff_truncated(),
-        **v2_metrics,
-        **({"diff_hdr_unparsed": len(gitutil._unparsed_diff_headers)}
-           if gitutil._unparsed_diff_headers else {}),
-        **({"secret_shaped_skipped": len(gitutil._secret_shaped_skipped)}
-           if gitutil._secret_shaped_skipped else {}),
-    })
-    sys.exit(0)
+    _review_and_exit(diff_files)
 
 _SDK_BOOTSTRAP_THROTTLE = os.path.join(_resolve_state_dir(), ".sdk_bootstrap_spawned")
 

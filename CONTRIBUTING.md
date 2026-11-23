@@ -37,6 +37,7 @@ sdlc/
 │   ├── user_answer.py       lets the user's AskUserQuestion answer lift those two gates; denies pre-filled answers (original)
 │   ├── pretooluse.py, stop.py, userpromptsubmit.py   hookify entry points (vendored)
 │   ├── security_reminder_hook.py + modules, sg-python.sh   security-guidance (vendored; patched to ask sdlc_review_gate.py)
+│   ├── stop_repos.py        the turn-end review's other workbench repos, diffed and named for the same review call (original)
 │   ├── sdlc_scopes.py       the project's scopes, read one way by scripts and hooks; the workbench manifest, ## Repos and ## PRs (original)
 │   ├── globmatch.py         committed globs (security areas, rule paths) matched in bounded time (original)
 │   └── sdlc_review_gate.py  while a feature is active: one commit security review per review-ready diff, skipped unless security-touched (original)
@@ -94,7 +95,7 @@ sdlc/
 ├── CHANGELOG.md  NOTICE.md  LICENSE  README.md
 ```
 
-Original to this plugin: the orchestrator and setting-up-projects skills (with `setting-up-projects/references/trimming-context.md` and `design-mode.md`), `managing-knowledge`, the `qa-tester` and `ui-reviewer` agents, `verify_freshness.py`, `sdlc_review_gate.py`, `globmatch.py`, `model_router.py`, `role_guard.py`, `prove_budget.py`, `session_status.py`, `trust_anchor.py`, `review_rounds.py`, `stuck_turn.py`, `user_answer.py`, `commands/deploy.md`, everything in `scripts/`, `templates/project/`, `templates/knowledge/`, `templates/design-system-template.md`, `templates/backlog-template.md`, `templates/objects-template.md`, `migrations/`, `tests/`, `docs/`. Everything else is vendored; `NOTICE.md` says what came from where and what was changed.
+Original to this plugin: the orchestrator and setting-up-projects skills (with `setting-up-projects/references/trimming-context.md` and `design-mode.md`), `managing-knowledge`, the `qa-tester` and `ui-reviewer` agents, `verify_freshness.py`, `sdlc_review_gate.py`, `stop_repos.py`, `globmatch.py`, `model_router.py`, `role_guard.py`, `prove_budget.py`, `session_status.py`, `trust_anchor.py`, `review_rounds.py`, `stuck_turn.py`, `user_answer.py`, `commands/deploy.md`, everything in `scripts/`, `templates/project/`, `templates/knowledge/`, `templates/design-system-template.md`, `templates/backlog-template.md`, `templates/objects-template.md`, `migrations/`, `tests/`, `docs/`. Everything else is vendored; `NOTICE.md` says what came from where and what was changed.
 
 ## Dev loop
 

@@ -1999,5 +1999,264 @@ class StopReviewRepo(WorkbenchFeatureCase):
                          (lone, rr.RES_CWD))
 
 
+FAKE_API = """import http.server, json, sys
+class H(http.server.BaseHTTPRequestHandler):
+    def reply(self, body):
+        data = json.dumps(body).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+    def do_GET(self):
+        self.reply({"data": [{"id": "claude-opus-5-5", "type": "model"}], "has_more": False})
+    def do_POST(self):
+        body = self.rfile.read(int(self.headers.get("Content-Length") or 0))
+        with open(sys.argv[2], "ab") as f:
+            f.write(body + b"\\n")
+        try:
+            with open(sys.argv[2] + ".answer", encoding="utf-8") as f:
+                answer = f.read()
+        except OSError:
+            answer = json.dumps({"hasVulnerabilities": False, "vulnerabilities": []})
+        self.reply({"id": "m", "type": "message", "role": "assistant", "model": "claude-opus-5-5",
+                    "content": [{"type": "text", "text": answer}],
+                    "stop_reason": "end_turn", "usage": {"input_tokens": 1, "output_tokens": 1}})
+    def log_message(self, *a):
+        pass
+http.server.HTTPServer(("127.0.0.1", int(sys.argv[1])), H).serve_forever()
+"""
+
+
+class StopReviewEveryRepo(WorkbenchFeatureCase):
+    """todo: a turn that edits several app repos of a workbench gets the turn-end review in each of them, in one
+    review call, not only in the busiest one. Driven through the real hooks against a local fake API that records
+    what the review was sent."""
+
+    def setUp(self):
+        super().setUp()
+        import socket
+        import subprocess
+        with socket.socket() as s:
+            s.bind(("127.0.0.1", 0))
+            port = s.getsockname()[1]
+        self.sent = self.path("state/sent.jsonl")
+        os.makedirs(self.path("state"), exist_ok=True)
+        server = os.path.join(self.root, "..", os.path.basename(self.root) + "-api.py")
+        with open(server, "w", encoding="utf-8") as f:
+            f.write(FAKE_API)
+        self.addCleanup(os.remove, server)
+        proc = subprocess.Popen([sys.executable, server, str(port), self.sent])
+        self.addCleanup(proc.wait)
+        self.addCleanup(proc.terminate)
+        import time
+        for _ in range(100):
+            with socket.socket() as s:
+                if s.connect_ex(("127.0.0.1", port)) == 0:
+                    break
+            time.sleep(0.05)
+        self.env = {"SECURITY_WARNINGS_STATE_DIR": self.path("state"), "ANTHROPIC_API_KEY": "test",
+                    "ANTHROPIC_BASE_URL": f"http://127.0.0.1:{port}", "SDLC_SECURITY_REVIEW": "always",
+                    "SECURITY_GUIDANCE_DEBUG_LOG": self.path("state/debug.log")}
+
+    def hook(self, payload, cwd):
+        from helpers import run_hook
+        payload = {"session_id": "s1", "cwd": cwd, **payload}
+        return run_hook([sys.executable, os.path.join(HOOKS, "security_reminder_hook.py")], payload, cwd, self.env)
+
+    def turn(self, cwd, files):
+        """One turn from `cwd`: the prompt, a Write of each file, then Stop. What the review was sent, as text."""
+        self.hook({"hook_event_name": "UserPromptSubmit", "prompt": "edit"}, cwd)
+        for rel in files:
+            body = f"import subprocess\ndef run_{os.path.basename(rel)[:-3]}(cmd):\n    return subprocess.call(cmd, shell=True)\n"
+            self.write(rel, body)
+            self.hook({"hook_event_name": "PostToolUse", "tool_name": "Write",
+                       "tool_input": {"file_path": self.path(rel), "content": body}}, cwd)
+        code, out, raw, err = self.hook({"hook_event_name": "Stop", "stop_hook_active": False}, cwd)
+        try:
+            with open(self.sent, encoding="utf-8") as f:
+                return f.read()
+        except OSError:
+            log = ""
+            try:
+                with open(self.path("state/debug.log"), encoding="utf-8") as f:
+                    log = f.read()[-3000:]
+            except OSError:
+                pass
+            self.fail(f"no review was sent: exit {code}, out {raw!r}, err {err[-500:]!r}, log {log}")
+
+    def test_a_turn_at_the_root_reviews_every_app_repo_it_edited(self):
+        sent = self.turn(self.root, ["api/a.py", "web/b.py"])
+        self.assertIn("run_a", sent)
+        self.assertIn("run_b", sent)
+        self.assertIn("api/a.py", sent)  # paths from the session's cwd, the workbench root here (code review r3)
+        self.assertIn("web/b.py", sent)
+        self.assertEqual(sent.count("\n"), 1, "one review call for both repos")
+
+    def test_a_first_repo_with_nothing_to_review_still_reviews_the_other(self):
+        # the session sits in api, which the turn didn't change: its own review set is empty (skip 9 before)
+        sent = self.turn(self.path("api"), ["web/b.py"])
+        self.assertIn("run_b", sent)
+
+    def test_a_turn_inside_one_app_repo_also_reviews_another_it_edited(self):
+        sent = self.turn(self.path("api"), ["api/a.py", "web/b.py"])
+        self.assertIn("run_a", sent)  # api, where the session sits, keeps bare names; web's are paths from there
+        self.assertIn("../web/b.py", sent)
+
+    def test_one_file_name_in_two_repos_stays_two_files(self):
+        # code review r2 CR2-1: `src/x.py` in api and in web must never share a name, shown or stored
+        self.answer("web/src/x.py")
+        sent = self.turn(self.root, ["api/src/x.py", "web/src/x.py"])
+        self.assertIn("api/src/x.py", sent)
+        self.assertIn("web/src/x.py", sent)
+        paths = [f.get("filePath") for f in self.stored().get("previous_findings", [])]
+        self.assertEqual(paths, ["web/src/x.py"])
+
+    def stored(self):
+        """The session state the hook keeps (previous findings, baseline)."""
+        import glob
+        for name in glob.glob(self.path("state/**/*.json"), recursive=True):
+            with open(name, encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, dict) and ("baseline_sha" in data or "previous_findings" in data):
+                return data
+        return {}
+
+    def answer(self, file_path):
+        finding = {"filePath": file_path, "category": "Command Injection", "severity": "high",
+                   "vulnerableCode": "subprocess.call(cmd, shell=True)", "fix": "no shell",
+                   "explanation": "shell"}
+        with open(self.sent + ".answer", "w", encoding="utf-8") as f:
+            json.dump({"hasVulnerabilities": True, "vulnerabilities": [finding]}, f)
+
+    def test_an_other_repos_finding_is_stored_as_its_repo_names_the_file(self):
+        # code review r1: stored as `web/b.py`, a later review in web (`b.py`) would report it again
+        self.answer("web/b.py")
+        self.turn(self.root, ["api/a.py", "web/b.py"])
+        paths = [f.get("filePath") for f in self.stored().get("previous_findings", [])]
+        self.assertEqual(paths, ["web/b.py"])  # stored as shown (code review r2: repo-relative names collide)
+
+    def test_reviewing_only_other_repos_leaves_the_first_repos_baseline(self):
+        # code review r1: the first repo had nothing reviewed, so its stored baseline must not move
+        self.answer("../web/b.py")
+        self.hook({"hook_event_name": "UserPromptSubmit", "prompt": "edit"}, self.path("api"))
+        before = {k: self.stored().get(k) for k in ("baseline_sha", "baseline_root", "head_at_capture")}
+        body = "import os\nos.system(input())\n"
+        self.write("web/b.py", body)
+        self.hook({"hook_event_name": "PostToolUse", "tool_name": "Write",
+                   "tool_input": {"file_path": self.path("web/b.py"), "content": body}}, self.path("api"))
+        code, out, raw, err = self.hook({"hook_event_name": "Stop", "stop_hook_active": False}, self.path("api"))
+        self.assertEqual(code, 2, raw + err)  # the finding was delivered
+        self.assertEqual({k: self.stored().get(k) for k in before}, before)
+
+    def test_an_other_repo_is_diffed_only_from_what_this_turn_can_vouch_for(self):
+        # code review r1, r2: no turn start, or past the size limits (reviewable source only): nothing sent
+        import time
+        sys.path.insert(0, HOOKS)
+        import stop_repos
+        start = time.time() - 5
+        self.write("web/b.py", "import os\nos.system(input())\n")
+        self.write("web/c.py", "x = 1\n")
+        for i in range(3):
+            self.write(f"web/notes{i}.md", "x\n")
+        web = self.path("web")
+        files = stop_repos.repo_diff_files(web, start, self.root)
+        self.assertEqual(sorted((pre, p) for pre, p, _ in files), [("web/", "b.py"), ("web/", "c.py")])
+        self.assertEqual(stop_repos.repo_diff_files(web, None, self.root), [])
+        self.assertEqual(len(stop_repos.repo_diff_files(web, start, self.root, max_paths=2)), 2)  # the .md don't count
+        self.assertEqual(stop_repos.repo_diff_files(web, start, self.root, max_paths=1), [])
+
+    def test_names_are_paths_from_the_sessions_cwd(self):
+        # code review r3 CR3-6: the agent opens each name as written; the session's own repo keeps bare names, and a
+        # session in a repo's subfolder still finds the other repos (r2 CR2-4)
+        sys.path.insert(0, HOOKS)
+        import stop_repos
+        os.makedirs(self.path("api/src"), exist_ok=True)
+        touched = [self.path("api/src/a.py"), self.path("web/b.py")]
+        self.assertEqual(stop_repos.other_repos(self.path("api/src"), touched, self.path("api/src")),
+                         [self.path("web")])
+        self.assertEqual(stop_repos.name_prefix(self.path("web"), self.root), "web/")
+        self.assertEqual(stop_repos.name_prefix(self.path("api"), self.path("api")), "")
+        self.assertEqual(stop_repos.name_prefix(self.path("web"), self.path("api")), "../web/")
+        self.assertEqual(stop_repos.name_prefix(self.root, self.path("api/src")), "../../")
+
+    def test_the_other_repos_files_are_ranked_by_their_own_paths(self):
+        # code review r3 CR3-4: a repo folder named `api` must not outrank a riskier path in `web`
+        sys.path.insert(0, HOOKS)
+        import stop_repos
+        diff = "@@ -0,0 +1 @@\n+x = 1\n"
+        files = [("api/", "src/format.py", diff), ("web/", "src/auth/login.py", diff)]
+        self.assertEqual([p for p, _ in stop_repos.pick(files, 1)], ["web/src/auth/login.py"])
+        self.assertEqual(stop_repos.pick(files, 0), [])
+        self.assertEqual(sorted(p for p, _ in stop_repos.pick(files, 5)), ["api/src/format.py", "web/src/auth/login.py"])
+
+    def test_a_session_in_a_repo_subfolder_reviews_the_other_repo(self):
+        # code review r3 CR3-8: through the hooks, the session in api/src, the turn editing only web
+        os.makedirs(self.path("api/src"), exist_ok=True)
+        sent = self.turn(self.path("api/src"), ["web/b.py"])
+        self.assertIn("../../web/b.py", sent)
+
+    def test_a_rewake_still_reviews_the_other_repo(self):
+        # code review r4: a second Stop in the same turn (touched paths cleared) diffs web again from the turn's start
+        self.answer("web/b.py")
+        self.turn(self.root, ["api/a.py", "web/b.py"])
+        os.remove(self.sent + ".answer")
+        code, out, raw, err = self.hook({"hook_event_name": "Stop", "stop_hook_active": False}, self.root)
+        with open(self.sent, encoding="utf-8") as f:
+            calls = f.read().splitlines()
+        self.assertEqual(len(calls), 2, raw + err)
+        self.assertIn("web/b.py", calls[1])
+
+    def test_the_first_repos_files_keep_priority_under_the_cap(self):
+        # code review r3 CR3-3: with one slot, api (the first repo: two of its paths against one) keeps it
+        self.env["MAX_DIFF_FILES"] = "1"
+        sent = self.turn(self.root, ["api/a.py", "api/c.py", "web/b.py"])
+        self.assertNotIn("web/b.py", sent)
+        self.assertIn("api/", sent)
+
+    def test_a_repo_touched_early_in_a_long_turn_is_not_trimmed(self):
+        # code review r4: turn_touched keeps the last 200 paths; one touched again late must count as recent
+        sys.path.insert(0, HOOKS)
+        import diffstate
+        import session_state
+        os.environ["SECURITY_WARNINGS_STATE_DIR"] = self.path("state")
+        self.addCleanup(os.environ.pop, "SECURITY_WARNINGS_STATE_DIR", None)
+        early = self.path("web/b.py")
+        many = [self.path(f"api/f{i}.py") for i in range(250)]
+        def seed(state):
+            state["turn_touched"] = [early] + many
+            state["touched_paths"] = [early]
+        session_state.with_locked_state("trim", seed)
+        self.assertIn(early, diffstate.consume_stop_state("trim")["turn_touched"])
+
+    def test_only_repos_the_review_gate_wants_are_added(self):
+        from unittest import mock
+        sys.path.insert(0, HOOKS)
+        import sdlc_review_gate
+        import stop_repos
+        import time
+        for rel in ("api/a.py", "web/b.py"):
+            self.write(rel, "import os\nos.system(input())\n")
+        touched = [self.path("api/a.py"), self.path("web/b.py")]
+        with mock.patch.object(sdlc_review_gate, "review_wanted", lambda repo: repo.endswith("web")):
+            files = stop_repos.other_repo_files(self.root, touched, time.time() - 5, self.root)
+        self.assertEqual([(pre, p) for pre, p, _ in files], [("web/", "b.py")])
+
+    def test_a_plain_repo_with_a_nested_repo_adds_nothing(self):
+        sys.path.insert(0, HOOKS)
+        import stop_repos
+        import tempfile
+        lone = os.path.realpath(tempfile.mkdtemp(prefix="sdlc-lone-"))
+        self.addCleanup(rmtree, lone)
+        git(lone, "init", "-q")
+        git(lone, "init", "-q", "inner")
+        self.assertEqual(stop_repos.other_repos(lone, [os.path.join(lone, "inner", "a.py")], lone), [])
+
+    def test_a_turn_in_one_repo_sends_only_that_repo(self):
+        sent = self.turn(self.root, ["api/a.py"])
+        self.assertIn("run_a", sent)
+        self.assertNotIn("web/", sent)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -20,6 +20,7 @@ One line per doc: path — what it answers (≤12 words). Keep this file under ~
 - [gotchas/windows-bash-is-wsl.md](gotchas/windows-bash-is-wsl.md) — why a bare "bash" subprocess runs WSL on Windows
 - [gotchas/windows-file-writes.md](gotchas/windows-file-writes.md) — os.access ignores ACLs, atomic replace drops owner/ACL/links, OS locks don't cross WSL
 - [gotchas/hook-inputs.md](gotchas/hook-inputs.md) — failed Bash is PostToolUseFailure; agent_type; CLAUDE_PROJECT_DIR isn't the repo
+- [gotchas/stop-review-session-state.md](gotchas/stop-review-session-state.md) — touched_paths clears every Stop (use turn_touched); only the first repo's baseline moves; testing Stop with a fake API
 - [gotchas/repo-config-is-untrusted.md](gotchas/repo-config-is-untrusted.md) — no-question actions take inputs from the plugin, never repo config
 - [gotchas/subagents-cant-run-skill-commands.md](gotchas/subagents-cant-run-skill-commands.md) — a subagent skips "run /<skill> <command>"; give it a script or the reference file
 - [gotchas/hooks-read-command-text.md](gotchas/hooks-read-command-text.md) — commit review needs `git commit` visible; don't widen command parsers; hookify regexes read quoted text
