@@ -718,18 +718,39 @@ def plugin_enabled(root, plugin_id):
     return bool(on)
 
 
+def impeccable_config_refused(root):
+    """The impeccable config files that are there but that sdlc doesn't read: a link out of the repo or into .git
+    (at the file or its folder), or a file it can't read. Each counts as the hook being off."""
+    out = []
+    for name in ("config.json", "config.local.json"):
+        rel = f".impeccable/{name}"
+        if os.path.lexists(os.path.join(root, rel)) and sdlc_scopes.read_repo_text(root, rel) is None:
+            out.append(rel)
+    return out
+
+
+def refused_config_hint(root):
+    """What to say when impeccable's hook counts as off because sdlc doesn't read its config, or None."""
+    refused = impeccable_config_refused(root)
+    if not refused:
+        return None
+    return (f"{', '.join(refused)} links out of the repo or can't be read, so sdlc counts impeccable's detector hook "
+            "as off: replace the link with the file itself")
+
+
 def impeccable_hook_off(root):
     """impeccable's own off switch for its detector hook (`/impeccable hooks off`): `hook.enabled: false` in
     `.impeccable/config.json` or the machine's `config.local.json`, the later winning. Both are read through
     sdlc_scopes.read_repo_text, never through a link out of the repo or into .git (at the file or its folder); such
     a file, or one that can't be read, counts as off, so sdlc keeps its own UI guardrail rather than lose both."""
     off = False
+    refused = impeccable_config_refused(root)
     for name in ("config.json", "config.local.json"):
         rel = f".impeccable/{name}"
-        text = sdlc_scopes.read_repo_text(root, rel)
-        if text is None and os.path.lexists(os.path.join(root, rel)):
+        if rel in refused:
             off = True
             continue
+        text = sdlc_scopes.read_repo_text(root, rel)
         try:
             data = json.loads(text) if text is not None else {}
         except json.JSONDecodeError as e:
@@ -848,8 +869,9 @@ def swap_ui_guardrail(p, loads_later=False):
         if not entry:
             return None
         if loads_later or not impeccable_status(p.root)["hook"]:
-            return {"kept": dest, "why": "impeccable's detector hook doesn't run here yet: set the mode again once "
-                                         "it does (after a restart, or /impeccable hooks on)"}
+            return {"kept": dest, "why": refused_config_hint(p.root) or (
+                "impeccable's detector hook doesn't run here yet: set the mode again once it does (after a restart, "
+                "or /impeccable hooks on)")}
         state = p.file_state(dest, entry)
         if state == "outside":  # through a link out of the repo: never deleted
             return {"kept": dest, "why": "it resolves outside the project through a link: remove it by hand if wanted"}
@@ -2551,6 +2573,7 @@ PRODUCTION_ENVS = ("prod", "production", "live", "prd")
 ENV_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 # /sdlc:deploy appends to the runbook: never a hook, the agent's settings or sdlc's own state
 RUNBOOK_EXCLUDED = (".git", ".claude", ".sdlc")
+RUNBOOK_INSTRUCTION_FILES = ("claude.md", "claude.local.md", "agents.md")  # /sdlc:deploy appends to the runbook
 
 
 def is_production(name):
@@ -2558,8 +2581,9 @@ def is_production(name):
 
 
 def runbook_path(root, value):
-    """`value` as a normalised repo-relative path to a Markdown file inside the repo and outside `.git/`, `.claude/`
-    and `.sdlc/`, checked again after symlinks are resolved; else None."""
+    """`value` as a normalised repo-relative path to a Markdown file inside the repo and outside every `.git/`,
+    `.claude/` and `.sdlc/` (a nested package's or an app repo's too), not an agent's instruction file, with no
+    control or format character, checked again after symlinks are resolved; else None."""
     if not isinstance(value, str) or not value.strip():
         return None
     raw = value.replace("\\", "/")
@@ -2573,8 +2597,9 @@ def runbook_path(root, value):
         return None
     for path in (norm, os.path.relpath(real, real_root).replace(os.sep, "/")):
         parts = path.split("/")
-        if not path.lower().endswith(".md") or any(sdlc_scopes.dot_segment(parts[0], n) for n in RUNBOOK_EXCLUDED) \
-                or any(_git_segment(x) for x in parts):  # a git dir at any depth; all three at the top; any spelling
+        if not path.lower().endswith(".md") or sdlc_scopes.odd_name(path) or \
+                parts[-1].rstrip(". ").casefold() in RUNBOOK_INSTRUCTION_FILES or \
+                any(sdlc_scopes.dot_segment(x, n) for x in parts for n in RUNBOOK_EXCLUDED):  # any depth and spelling
             return None
     return norm
 
