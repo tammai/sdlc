@@ -37,6 +37,9 @@ Codex, Cursor and Antigravity are **only partly tested**: setup has run in each,
 | Subagent role guarantees | ✅ enforced | Instructions only |
 | `sdlc-extras` | ✅ | ❌ |
 
+- **Headless Cursor sends no turn-end events.** `cursor-agent -p` (2026.11.05) registers `beforeSubmitPrompt` and `stop` but never fires them, so the review-cap lift, the freshness check and the trust anchor's turn-end check don't run in a headless Cursor run; its per-call checks do. The interactive app is unchecked.
+- **Codex started from a Claude Code session** inherits that session's `CLAUDE_*` variables; the hooks drop `CLAUDE_PROJECT_DIR` and judge the repo Codex works in (checked live with Codex 0.154). Codex runs the sdlc version it cached at install: after updating sdlc, refresh it with `codex plugin add sdlc@sdlc`.
+
 More: [spec 11](../specs/11-multi-agent.md).
 
 ## Tested versions

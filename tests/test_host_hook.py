@@ -34,6 +34,32 @@ class CodexHookTest(ProjectTestCase):
         self.assertEqual(self.codex("PreToolUse", tool_name="Bash", tool_input={"command": "ls"}), {})
         self.assertEqual(run_hook(ADAPTER + ["codex", "PreToolUse"], "not json", self.root)[:2], (0, {}))  # never fails the turn
 
+    def test_codex_inside_a_claude_code_session_judges_its_own_repo(self):
+        # todo (TokenEconomizer's report): Codex started from a Claude Code session inherits its CLAUDE_* variables.
+        # Only CLAUDE_PROJECT_DIR changes what the hooks judge (hosts/hook.py drops it); the rest (CLAUDECODE, the
+        # data and config folders) must not stop the workbench guard from judging the repo Codex works in
+        import subprocess
+        import tempfile
+        other = os.path.realpath(tempfile.mkdtemp(prefix="sdlc-claude-session-"))
+        self.addCleanup(shutil.rmtree, other, ignore_errors=True)
+        subprocess.run(["git", "init", "-q", self.root], check=True)
+        os.makedirs(self.path(".sdlc"), exist_ok=True)
+        with open(self.path(".sdlc/config.json"), "w", encoding="utf-8") as f:
+            json.dump({"workbench": True}, f)
+        with open(self.path("workbench.json"), "w", encoding="utf-8") as f:
+            json.dump({"repos": [{"name": "specs", "url": "x", "role": "specs"}]}, f)
+        subprocess.run(["git", "init", "-q", self.path("specs")], check=True)
+        inherited = {"CLAUDE_PROJECT_DIR": other, "CLAUDECODE": "1", "CLAUDE_CODE_ENTRYPOINT": "cli",
+                     "CLAUDE_PLUGIN_DATA": os.path.join(other, "data"), "CLAUDE_CONFIG_DIR": os.path.join(other, "cfg")}
+        for tool, tin in (("Bash", {"command": "echo hi > specs/x.txt"}),
+                          ("apply_patch", {"command": "*** Begin Patch\n*** Add File: specs/x.txt\n+hi\n*** End Patch\n"})):
+            code, out, raw, err = run_hook(ADAPTER + ["codex", "PreToolUse"],
+                                           {"hook_event_name": "PreToolUse", "cwd": self.root, "session_id": "s",
+                                            "tool_name": tool, "tool_input": tin, "tool_use_id": "c1"},
+                                           self.root, inherited)
+            self.assertEqual(code, 0, err)
+            self.assertEqual((out or {}).get("hookSpecificOutput", {}).get("permissionDecision"), "deny", (tool, raw))
+
     def test_a_patch_after_the_tests_keeps_stage_3_from_finishing(self):
         self.write(".sdlc/login/state.md", "# Feature: login\nStatus: active\nProcess: 3\nCurrent: Stage 3\n\n"
                                            "## Commands\n- test: `pytest`\n")
