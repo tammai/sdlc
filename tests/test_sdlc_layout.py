@@ -201,6 +201,42 @@ class SdlcFolderSpellingTest(ProjectTestCase):
             for seg in self.spellings(name):
                 self.assertIsNone(scaffold.runbook_path(self.root, f"{seg}/x.md"), seg)
 
+    def test_runbook_path_refuses_instruction_files_and_odd_names(self):
+        # security review L-2, L-3 of 2026-11-23-s-runbook-nested-sdlc-folders: /sdlc:deploy appends to the runbook,
+        # so never an agent's instruction file; and no control or format character, as the objects path refuses
+        sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
+        import scaffold
+        for value in ("CLAUDE.md", "CLAUDE.local.md", "AGENTS.md", "pkg/claude.md", "api/AGENTS.MD",
+                      "docs/a\nb.md", "docs/a\u202eb.md", "docs/\u200bdeploy.md"):
+            self.assertIsNone(scaffold.runbook_path(self.root, value), repr(value))
+        self.assertEqual(scaffold.runbook_path(self.root, "docs/claude-deploy.md"), "docs/claude-deploy.md")
+        self.write("CLAUDE.md", "x")
+        os.makedirs(self.path("ops"), exist_ok=True)
+        try:  # a link to an instruction file counts like the file (security review L-4)
+            os.symlink(os.path.join("..", "CLAUDE.md"), self.path("ops/deploy.md"))
+        except (OSError, NotImplementedError):
+            self.skipTest("symlinks unavailable")
+        self.assertIsNone(scaffold.runbook_path(self.root, "ops/deploy.md"))
+
+    def test_runbook_path_refuses_them_at_any_depth(self):
+        # security review S-4 of 2026-11-23-todo-fixes: a nested package's .claude or an app repo's .sdlc in a
+        # workbench is sdlc's or Claude Code's own folder too
+        sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
+        import scaffold
+        for value in ("pkg/.claude/skills/x/SKILL.md", "api/.sdlc/todo.md", "a/b/.SDLC/x.md", "pkg/CLAUDE~1/x.md"):
+            self.assertIsNone(scaffold.runbook_path(self.root, value), value)
+        for value in ("knowledge/runbooks/deploy.md", "docs/claude/deploy.md", "pkg/.claudex/deploy.md"):
+            self.assertEqual(scaffold.runbook_path(self.root, value), value)
+        for name in (".claude", ".sdlc"):
+            for seg in self.spellings(name):
+                self.assertIsNone(scaffold.runbook_path(self.root, f"sub/{seg}/x.md"), seg)
+        os.makedirs(self.path("pkg/.claude"))
+        try:  # where a path leads counts at any depth too (security review L-1)
+            os.symlink(os.path.join("pkg", ".claude"), self.path("docs"), target_is_directory=True)
+        except (OSError, NotImplementedError):
+            self.skipTest("symlinks unavailable")
+        self.assertIsNone(scaffold.runbook_path(self.root, "docs/deploy.md"))
+
     def test_objects_path_refuses_every_spelling(self):
         sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
         import objects
