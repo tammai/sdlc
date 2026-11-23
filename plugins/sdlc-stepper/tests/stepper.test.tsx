@@ -52,11 +52,16 @@ function repo(on: On, files: Record<string, string>, mtimes: Record<string, numb
   for (const top of new Set(Object.keys(files).map(f => f.split('/')[0] as string))) {
     dirs['.'].push({ name: top, kind: top in files ? 'file' : 'dir' })
   }
-  const rel = (path: string) =>
-    path === root || path === '.' ? '.'
+  // on Windows the kit's paths use backslashes: matched in one spelling
+  const slashes = (path: string) => path.replace(/\\/g, '/')
+  const rel = (raw: string) => {
+    const path = slashes(raw)
+    return path === root || path === '.' ? '.'
       : ([...Object.keys(files), ...Object.keys(dirs)].find(k => path === k || path.endsWith(`/${k}`)) ?? path)
+  }
   on('fs.exists', (_, e) => {
-    if (!root && e.path.endsWith('/.sdlc/config.json')) root = e.path.slice(0, -'/.sdlc/config.json'.length)
+    const path = slashes(e.path)
+    if (!root && path.endsWith('/.sdlc/config.json')) root = path.slice(0, -'/.sdlc/config.json'.length)
     return { value: rel(e.path) in files || rel(e.path) in dirs }
   })
   on('fs.read', (_, e) => {

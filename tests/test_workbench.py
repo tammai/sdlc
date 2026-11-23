@@ -482,6 +482,9 @@ class WorkbenchFeature(WorkbenchFeatureCase):
         self.assertEqual(code, 1, out)
         self.assertIn("web", json.loads(out)["error"])
         self.assertIn("uncommitted", json.loads(out)["error"])
+        # 3.15.0 smoke test K4: the guard holds writes there until it's branched, so the agent can't clean it up
+        self.assertIn("wip.txt", json.loads(out)["error"])
+        self.assertIn("ask the user", json.loads(out)["error"])
         self.assertEqual(git_out(self.path("web"), "rev-parse", "--abbrev-ref", "HEAD"), "main")
         self.assertNotIn("web", sdlc_scopes.feature_repos(self.state_text()))
         # A read-only repo records the commit read; an unlisted name or a bad one is refused
@@ -1452,6 +1455,57 @@ class ReadOnlyBackstop(WorkbenchFeatureCase):
             self.write_json("workbench.json", manifest)
             self.watch("PostToolUse")
             self.accept()
+
+    def write_reason(self, data=None):
+        """pretooluse.py's deny reason for a Write into specs/, '' when allowed; the host's data folder is `data`."""
+        from helpers import run_hook
+        _, out, _, _ = run_hook(["python3", os.path.join(HOOKS, "pretooluse.py")], {
+            "hook_event_name": "PreToolUse", "tool_name": "Write", "cwd": self.root,
+            "tool_input": {"file_path": self.path("specs/b.md"), "content": "x"}}, self.root,
+            {"CLAUDE_PLUGIN_DATA": data or self.data})
+        hso = (out or {}).get("hookSpecificOutput", {})
+        return hso.get("permissionDecisionReason", "") if hso.get("permissionDecision") == "deny" else ""
+
+    def make_specs_writable(self):
+        import sdlc_scopes
+        manifest = sdlc_scopes.read_repo_json(self.root, "workbench.json")
+        self.write_json("workbench.json", {"repos": [dict(r, write=True) if r["name"] == "specs" else r
+                                                     for r in manifest["repos"]]})
+
+    def test_a_repo_made_writable_stays_guarded_until_the_user_accepts(self):
+        # 3.15.0 smoke test K5: `"write": true` in workbench.json lifted the per-call guard before any accept
+        self.assertEqual(self.watch("SessionStart"), {})
+        self.make_specs_writable()
+        reason = self.write_reason()
+        self.assertIn("specs/", reason)
+        self.assertIn("accept read-only specs", reason)
+        self.watch("PostToolUse")
+        self.accept("specs")
+        self.assertNotIn("read-only repo", self.write_reason())  # accepted: writable from here on
+
+    def test_a_damaged_baseline_never_lifts_the_manifests_guard(self):
+        # security review SR1-M1: a baseline json can't parse (too deep) made the guard allow every write
+        self.assertEqual(self.watch("SessionStart"), {})
+        with open(self.baseline_file(), "w", encoding="utf-8") as f:
+            f.write('{"repos": {}, "read_only": ' + "[" * 100000 + "]" * 100000 + "}")
+        self.assertIn("read-only repo", self.write_reason())
+
+    def test_an_accept_under_another_hosts_data_folder_clears_this_hosts_record(self):
+        # security review SR1-M2: this host's own baseline kept denying a repo the user had accepted elsewhere
+        import tempfile
+        other = os.path.realpath(tempfile.mkdtemp(prefix="sdlc-data-"))
+        self.addCleanup(rmtree, other)
+        self.assertEqual(self.watch("SessionStart"), {})  # this host seeds, in self.data
+        os.remove(self.path(".sdlc/.work/read-only-seeded"))
+        from helpers import run_hook
+        for prompt in (None, "accept read-only specs"):  # another host seeds anew, then the user accepts there
+            if prompt:
+                self.make_specs_writable()
+            payload = {"hook_event_name": "UserPromptSubmit" if prompt else "SessionStart", "session_id": "s2",
+                       "cwd": self.root, **({"prompt": prompt} if prompt else {})}
+            run_hook(["python3", os.path.join(HOOKS, "read_only_watch.py")], payload, self.root,
+                     {"CLAUDE_PLUGIN_DATA": other})
+        self.assertNotIn("read-only", self.write_reason(self.data))
 
     def test_the_control_files_cannot_turn_the_watch_off(self):
         # .sdlc/2026-11-22-s-workbench-control-files (security-r7 SR7-M3)
