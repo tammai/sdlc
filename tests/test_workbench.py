@@ -1801,6 +1801,117 @@ class PluginReviewWorkbench(WorkbenchFeatureCase):
         git(api, "fetch", "-q", "origin")
         self.assertFalse(owned(commit("e")))  # merged into origin's main: the feature is over here
 
+    def test_a_merged_branch_deleted_locally_ends_ownership(self):
+        # end review SG-L3 of 2026-11-22-todo-lanes: `gh pr merge --delete-branch` removes refs/heads/<branch>; its
+        # last tip, from HEAD's reflog, decides. An unmerged deleted branch keeps the repo owned (fail closed)
+        import sdlc_review_gate as gate
+        api = self.path("api")
+        origin = self.path("origin-api.git")
+        git(self.root, "init", "-q", "--bare", origin)
+        git(api, "remote", "add", "origin", origin)
+        git(api, "push", "-q", "origin", "main")
+        git(api, "fetch", "-q", "origin")
+
+        def commit(name):
+            self.write(f"api/{name}.py", "x = 1\n")
+            git(api, "add", "-A")
+            git(api, "commit", "-q", "-m", name)
+            return git_out(api, "rev-parse", "HEAD")
+
+        def owned(sha):
+            return not gate.decide(api, [sha], set()).get("off")
+
+        self.assertEqual(self.state("repo", "feat", "api")[0], 0)
+        self.assertEqual(self.state("set", "feat", "Status", "done")[0], 0)
+        work = commit("b")
+        git(api, "switch", "-q", "main")
+        git(api, "branch", "-q", "-D", "feat-x")
+        self.assertTrue(owned(commit("c")))  # deleted, never merged: still owned
+        git(api, "push", "-q", "origin", f"{work}:refs/heads/main")
+        git(api, "fetch", "-q", "origin")
+        git(api, "reset", "-q", "--hard", "origin/main")
+        self.assertFalse(owned(commit("d")))  # its last tip is in origin's main: over
+
+
+    def test_a_deleted_branch_with_unmerged_work_on_the_remote_stays_owned(self):
+        # security review S-1 of 2026-11-23-s-gate-ownership-leftovers: a CI fix committed from another worktree
+        # isn't in HEAD's reflog; its pushed branch on the remote still holds unmerged work, so the feature owns on
+        import sdlc_review_gate as gate
+        api = self.path("api")
+        origin = self.path("origin-api.git")
+        git(self.root, "init", "-q", "--bare", origin)
+        git(api, "remote", "add", "origin", origin)
+        git(api, "push", "-q", "origin", "main")
+        self.assertEqual(self.state("repo", "feat", "api")[0], 0)
+        self.assertEqual(self.state("set", "feat", "Status", "done")[0], 0)
+        self.write("api/b.py", "x = 1\n")
+        git(api, "add", "-A")
+        git(api, "commit", "-q", "-m", "b")
+        work = git_out(api, "rev-parse", "HEAD")
+        git(api, "push", "-q", "origin", f"{work}:refs/heads/main")
+        git(api, "switch", "-q", "main")
+        other = self.path("api-wt")
+        git(api, "worktree", "add", "-q", other, "feat-x")
+        with open(os.path.join(other, "fix.py"), "w", encoding="utf-8") as f:
+            f.write("y = 2\n")
+        git(other, "add", "-A")
+        git(other, "commit", "-q", "-m", "ci fix")
+        git(other, "push", "-q", "origin", "feat-x")
+        git(api, "worktree", "remove", "--force", other)
+        git(api, "fetch", "-q", "origin")
+        git(api, "reset", "-q", "--hard", "origin/main")
+        git(api, "branch", "-q", "-D", "feat-x")
+        self.write("api/c.py", "z = 3\n")
+        git(api, "add", "-A")
+        git(api, "commit", "-q", "-m", "c")
+        self.assertFalse(gate.decide(api, [git_out(api, "rev-parse", "HEAD")], set()).get("off"))
+
+    def test_a_reflog_that_isnt_a_plain_file_is_not_read(self):
+        # security review S-4 of 2026-11-23-s-gate-ownership-leftovers: a FIFO at .git/logs/HEAD would block the hook
+        import threading
+        import sdlc_review_gate as gate
+        api = self.path("api")
+        log = os.path.join(api, ".git", "logs", "HEAD")
+        os.remove(log)
+        if not hasattr(os, "mkfifo"):
+            self.skipTest("no FIFOs here")
+        os.mkfifo(log)
+        result = []
+        t = threading.Thread(target=lambda: result.append(gate._reflog_tip(api, "feat-x")), daemon=True)
+        t.start()
+        t.join(5)
+        if t.is_alive():
+            with open(log, "w"):
+                pass  # release the reader so the test process can end
+            self.fail("_reflog_tip blocked on a FIFO")
+        self.assertEqual(result, [None])
+
+    def test_the_remote_default_branch_is_looked_up_once_per_check(self):
+        # end review SG-L2: every done feature listing the repo cost up to three remote rev-parses on each check
+        from unittest import mock
+        import sdlc_review_gate as gate
+        api = self.path("api")
+        for name in ("feat", "feat2", "feat3"):
+            if name != "feat":
+                code, out = self.state("new", name, "--track", "S", "--risk", "low", "--task", "y | AC-001 | api/b.py")
+                self.assertEqual(code, 0, out)
+            self.assertEqual(self.state("repo", name, "api")[0], 0)
+            self.write(f"api/{name}.py", "x = 1\n")
+            git(api, "add", "-A")
+            git(api, "commit", "-q", "-m", name)
+            self.assertEqual(self.state("set", name, "Status", "done")[0], 0)
+        calls = []
+        real = gate._git
+
+        def counting(repo, *args):
+            calls.append(args)
+            return real(repo, *args)
+
+        with mock.patch.object(gate, "_git", counting):
+            gate._workbench_feature(api)
+        remote = [c for c in calls if any("refs/remotes/origin/" in str(a) for a in c) and c[0] == "rev-parse"]
+        self.assertLessEqual(len(remote), 3, remote)
+
     def test_a_high_risk_done_owner_keeps_its_repo_reviewed_beside_an_active_one(self):
         # end review SG-M1: the new low-risk feature mustn't judge the done high-risk one's commits still to come
         import sdlc_review_gate as gate
@@ -2228,6 +2339,34 @@ class StopReviewEveryRepo(WorkbenchFeatureCase):
             state["touched_paths"] = [early]
         session_state.with_locked_state("trim", seed)
         self.assertIn(early, diffstate.consume_stop_state("trim")["turn_touched"])
+
+    def test_a_subagent_stop_at_the_root_reviews_the_app_repo(self):
+        # end review SG-L1: a SubagentStop whose session is the workbench root resolved to the app repo and skipped
+        self.hook({"hook_event_name": "UserPromptSubmit", "prompt": "edit"}, self.root)
+        body = "import os\nos.system(input())\n"
+        self.write("api/a.py", body)
+        self.hook({"hook_event_name": "PostToolUse", "tool_name": "Write",
+                   "tool_input": {"file_path": self.path("api/a.py"), "content": body}}, self.root)
+        code, out, raw, err = self.hook({"hook_event_name": "SubagentStop", "stop_hook_active": False}, self.root)
+        self.assertNotIn('"skip_reason": 11', raw)
+        with open(self.sent, encoding="utf-8") as f:
+            self.assertIn("a.py", f.read())
+
+    def test_a_subagent_stop_in_a_repo_outside_the_workbench_still_skips(self):
+        # security review S-2: the session is the workbench root, the subagent works in a repo outside it
+        import tempfile
+        lone = os.path.realpath(tempfile.mkdtemp(prefix="sdlc-lone-"))
+        self.addCleanup(rmtree, lone)
+        git(lone, "init", "-q")
+        self.env["CLAUDE_PROJECT_DIR"] = self.root
+        self.hook({"hook_event_name": "UserPromptSubmit", "prompt": "edit"}, lone)
+        body = "import os\nos.system(input())\n"
+        with open(os.path.join(lone, "a.py"), "w", encoding="utf-8") as f:
+            f.write(body)
+        self.hook({"hook_event_name": "PostToolUse", "tool_name": "Write",
+                   "tool_input": {"file_path": os.path.join(lone, "a.py"), "content": body}}, lone)
+        code, out, raw, err = self.hook({"hook_event_name": "SubagentStop", "stop_hook_active": False}, lone)
+        self.assertIn('"skip_reason": 11', raw)
 
     def test_only_repos_the_review_gate_wants_are_added(self):
         from unittest import mock
