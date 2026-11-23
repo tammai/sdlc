@@ -1,6 +1,7 @@
 # Todo
 
 ## Open
+- [ ] Brownfield: the generated `sdlc-verify.yml` fails every PR while `.sdlc/baseline.md` lists a failing test (it runs the plain test command; local Ship waives the baseline, CI can't) — 3.15.0 smoke test G (2026-11-23)
 
 ## Done
 - [x] Advisory greenfield setup ends with doctor ❌ `repo.commands` (advisory skips the stack and commands by design), `repo.guardrails` says rules were written, and doctor never names the mode — 3.15.0 smoke test D4/P1 (2026-11-23) — done 2026-11-23 (2026-11-23-s-doctor-advisory)

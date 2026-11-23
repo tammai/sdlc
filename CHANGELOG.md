@@ -11,6 +11,7 @@ No migration: every new config key (`mode`, `skip`, `team`, `done`, `storybook`)
 CHECKS_PLACEHOLDER
 
 ### Known issues
+- **A brownfield repo's generated CI fails while its baseline lists a failing test.** `sdlc-verify.yml` runs the repo's own test command, which has no way to skip the baselined tests; locally, `ship.py --waive-baseline` lets them through.
 - **sdlc's turn-end, commit and push reviews get no credentials when you sign in with `/login`** on some machines (seen on Windows, in 3.14.0 too): the hooks say once a week that the review isn't running. An `ANTHROPIC_API_KEY` in the environment turns them on.
 
 ### Added
@@ -48,6 +49,7 @@ CHECKS_PLACEHOLDER
 - **impeccable's machine-local `config.local.json` is never read through a link** out of the repo or into `.git`, at the file or its `.impeccable` folder, like its committed `config.json`. Doctor and `/sdlc:setup design` name such a file and say to replace the link, instead of advising `/impeccable hooks on`.
 
 ### Fixed
+- **sdlc's working folder is ignored from setup's first step**: `.sdlc/.work/` ignores itself, so setup's early commits no longer take a hook's record (`trust-anchor.json`) before the gitignore step.
 - **Doctor names the mode, and an advisory repo passes.** A `mode` row shows full (with any skipped steps) or advisory; in advisory, missing commands and guardrails are expected, not failures.
 - **`- None` under `## Avoid` in `objects.md` means nothing to avoid**, instead of an Avoid line `/sdlc:setup objects` couldn't enable.
 - **A note after a task's file stays with it:** `--task "… | src/x.test.ts (test)"` no longer lists `(test)` as a file.
