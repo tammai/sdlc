@@ -174,6 +174,43 @@ class GitSegmentTest(ProjectTestCase):
             objects.target(self.root, "docs/objects.md")
 
 
+class SdlcFolderSpellingTest(ProjectTestCase):
+    """end review SP-L1 of 2026-11-22-todo-lanes: `.claude` and `.sdlc` are barred by the same spelling rule as `.git`
+    (sdlc_scopes.dot_segment): case, trailing dots and spaces, NTFS stream suffix, HFS+ code points, 8.3 short name."""
+
+    @staticmethod
+    def spellings(name):
+        short = name.lstrip(".")[:6]
+        out = (name.upper(), name + ". ", short.upper() + "~1", short + "~1", name + "::$INDEX_ALLOCATION",
+               name[:2] + "\u200c" + name[2:], "\ufeff" + name, name.replace("s", "\u017f"), name.replace("i", "\u0131"))
+        # security-r1 S-3: a folder sorting before it (`.claude-a`) gives it `~2`; git bars `~1`-`~4` past `.git`
+        return out + ((short.upper() + "~2", short + "~4") if name != ".git" else ())
+
+    def test_the_shared_helper_names_every_spelling(self):
+        import sdlc_scopes
+        for name in (".git", ".claude", ".sdlc"):
+            for seg in self.spellings(name) + (name,):
+                self.assertTrue(sdlc_scopes.dot_segment(seg, name), (seg, name))
+        for seg in (".claudex", "claude", ".sdlcrc", "sdlc~5", "git~2", ".github"):
+            self.assertFalse(any(sdlc_scopes.dot_segment(seg, n) for n in (".git", ".claude", ".sdlc")), seg)
+
+    def test_runbook_path_refuses_every_spelling(self):
+        sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
+        import scaffold
+        for name in (".claude", ".sdlc"):
+            for seg in self.spellings(name):
+                self.assertIsNone(scaffold.runbook_path(self.root, f"{seg}/x.md"), seg)
+
+    def test_objects_path_refuses_every_spelling(self):
+        sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
+        import objects
+        for name in (".claude", ".sdlc"):
+            for seg in self.spellings(name):
+                for value in (f"{seg}/objects.md", f"docs/{seg}/objects.md"):
+                    with self.assertRaises(ValueError, msg=value):
+                        objects.target(self.root, value)
+
+
 class GitPrefixedNamesPassTest(ProjectTestCase):
     def test_names_that_only_start_with_git_are_accepted(self):
         # end review SP-L2: the shared .git rule must not widen to `.git*`

@@ -67,12 +67,22 @@ _CONTRACT_KEYS = ("provides", "consumes")
 HFS_IGNORED = dict.fromkeys([0x200C, 0x200D, 0x200E, 0x200F, *range(0x202A, 0x202F), *range(0x206A, 0x2070), 0xFEFF])
 
 
+def dot_segment(seg, name):
+    """A path segment a filesystem opens as the dot folder `name` (`.git`, `.claude`, `.sdlc`): in any case (macOS
+    and Windows ignore it), with the trailing dots or spaces and the NTFS stream suffix Windows ignores, the code
+    points HFS+ ignores, or its numbered 8.3 short name (dot dropped, six characters, `~1`; `~1`-`~4` past `.git`, as
+    git bars them; not the hashed short name Windows gives past `~4`). Case is folded as APFS folds it (`.ſdlc` opens
+    `.sdlc`) and as NTFS upper-cases it (`.gıt` may open `.git`). Every check of those folders uses this one rule, so
+    they can't drift apart."""
+    seg = str(seg).translate(HFS_IGNORED).split(":", 1)[0].rstrip(". ")
+    short = name.lstrip(".")[:6]
+    names = {name} | {f"{short}~{n}" for n in ((1,) if name == ".git" else (1, 2, 3, 4))}
+    return seg.casefold() in names or seg.upper().casefold() in names
+
+
 def git_segment(seg):
-    """A path segment a filesystem opens as a git dir: `.git` in any case (macOS and Windows ignore it), with the
-    trailing dots or spaces and the NTFS stream suffix Windows ignores, the code points HFS+ ignores, or its 8.3 short
-    name. Every `.git` check uses this one rule, so they can't drift apart."""
-    seg = str(seg).translate(HFS_IGNORED).split(":", 1)[0].rstrip(". ").lower()
-    return seg in (".git", "git~1")
+    """A path segment a filesystem opens as a git dir (dot_segment for `.git`)."""
+    return dot_segment(seg, ".git")
 
 
 def _inside(base, rel):
