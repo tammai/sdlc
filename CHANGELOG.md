@@ -4,6 +4,12 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
+## 3.15.0 — 2026-11-23
+
+No migration: every new config key (`mode`, `skip`, `team`, `done`, `storybook`) keeps 3.14's behaviour when absent, and `/sdlc:upgrade` regenerates the changed templates.
+
+CHECKS_PLACEHOLDER
+
 ### Added
 - **Team mode** (`/sdlc:setup team on`). An M or L feature's stages run as role agents, each starting fresh from the record, with the main session as their coordinator: `sdlc:analyst` writes the change file (on opus), `sdlc:builder` builds and fixes review findings, the reviewers review, `sdlc:releaser` ships. The role guard holds each to its files: the analyst writes only the record, the builder never the change file's criteria, a reviewer's report or the state file, the releaser no product code.
 - **Storybook as an opt-in living design system** (builtin design mode). `scaffold.py storybook on` (setup's design step) makes the stories the component catalog: each component a change touches gets a story for every state the spec names, the UI review treats a component without a story as off-system, and an optional `commands.storybook` runs in verify after `build`. Doctor warns when it's on with no `.storybook/` (the root's or a package's), in impeccable mode, or when a custom `verify.order` leaves it out; a Storybook build's `storybook-static/` is never drift, committed by Ship, or sent to the security reviews.
