@@ -280,11 +280,19 @@ def write_record(base, rel, data):
     import tempfile
     full = os.path.join(base, rel)
     try:
+        work = rel.replace("\\", "/").startswith(".sdlc/.work/") and not os.path.lexists(os.path.join(base, ".sdlc",
+                                                                                                    ".work"))
         os.makedirs(os.path.dirname(full), exist_ok=True)
         folder = os.path.realpath(os.path.dirname(full))
         real_base = os.path.realpath(base)
         if folder != real_base and not folder.startswith(real_base + os.sep):
             return False  # a linked folder would carry the record out of the repo
+        if work:  # created here, before setup's gitignore step can have run: it ignores itself (3.15.0 smoke test G)
+            try:
+                with open(os.path.join(base, ".sdlc", ".work", ".gitignore"), "x", encoding="utf-8") as f:
+                    f.write("# sdlc's working files: never committed\n*\n")
+            except OSError:
+                pass  # the record matters more; setup's gitignore step still adds the folder
         fd, tmp = tempfile.mkstemp(prefix=".tmp-", dir=os.path.dirname(full))
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)

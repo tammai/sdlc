@@ -153,7 +153,9 @@ def parse(text):
         if current and f:
             current[1][f.group(1).strip().lower()] = f.group(2).strip()
     rules = [l for l in parts.get("rules", []) if re.match(r"^\s*[-*]\s+", l)]
-    avoid = [l for l in parts.get("avoid", []) if re.match(r"^\s*[-*]\s+", l)]
+    # `- None` (or n/a, nothing) says there is nothing to avoid, as setup sometimes writes it (3.15.0 smoke test C8)
+    avoid = [l for l in parts.get("avoid", []) if re.match(r"^\s*[-*]\s+", l)
+             and not re.match(r"^\s*[-*]\s+(none|n/a|nothing)\.?\s*$", l, re.I)]
     return objects, rules, avoid
 
 

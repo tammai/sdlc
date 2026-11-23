@@ -249,5 +249,14 @@ class StateTest(ProjectTestCase):
         self.assertFalse(os.path.exists(self.snapshot_path) or os.path.exists(self.events_path))
 
 
+    def test_a_note_after_a_task_file_stays_with_it(self):
+        # 3.15.0 smoke test P5: `src/x.test.ts (test)` became a file named `(test)`
+        self.write(".sdlc/config.json", json.dumps({"docs_dir": "docs/sdlc"}))
+        code, out = self.state("new", "2026-11-23-s-x", "--track", "S", "--risk", "low",
+                               "--task", "Fix | AC-001 | src/x.ts, src/x.test.ts (test)")
+        self.assertEqual(code, 0, out)
+        with open(self.path(".sdlc/state/2026-11-23-s-x.md"), encoding="utf-8") as f:
+            self.assertIn("   - Files: `src/x.ts`, `src/x.test.ts` (test)\n", f.read())
+
 if __name__ == "__main__":
     unittest.main()

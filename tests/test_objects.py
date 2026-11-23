@@ -124,5 +124,12 @@ class ObjectsTest(ProjectTestCase):
         self.assertNotIn("===== objects:", p.stdout)
 
 
+    def test_none_under_avoid_means_nothing_to_avoid(self):
+        # 3.15.0 smoke test C8: setup wrote `- None` there, and the check refused it
+        with open(TEMPLATE, encoding="utf-8") as f:
+            text = f.read()
+        self.write(FILE, text[:text.index("## Avoid")] + "## Avoid\n- None\n")
+        self.assertEqual(self.check(), (0, {"ok": True, "problems": []}))
+
 if __name__ == "__main__":
     unittest.main()

@@ -4,6 +4,16 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
+## 3.15.0 — 2026-11-23
+
+No migration: every new config key (`mode`, `skip`, `team`, `done`, `storybook`) keeps 3.14's behaviour when absent, and `/sdlc:upgrade` regenerates the changed templates.
+
+Checked on 2026-11-23 at commit 6b51ad3, on Windows 11: the full suite (883 tests, 9 skipped, Python 3.10), `claude plugin validate .`, `claude plugin test plugins/sdlc-stepper` (26 tests, now passing on Windows too) and `hosts.py check`. The smoke test ran in real headless sessions on Windows 11, loading the checkout with `--plugin-dir` (the installed sdlc turned off per test repo), in five groups at once against 6831c71: A+B, C then D, E and H in C's repo, F, G and K; every part was in scope. Every must item passed. K2, K4 and K5 passed again at caf3b57 after their fixes. Should items: F1 passed; F2 ran only its no-credentials branch (see Known issues); the new D4 (advisory), E12 (Definition of Done), E13 (skip pr) and K5 (a flipped repo stays guarded) were added and pass. Not run: C4's `--team` and installed-plugin variants, E8's L change with an Avoid word, E9, and H6's regenerated `invariants.py`. The smoke test's other findings were fixed test first in this release (each listed under Fixed) or are under Known issues. Cursor on Windows was checked live with headless cursor-agent 2026.11.22 (and 2026.10.22 in WSL); the desktop app wasn't.
+
+### Known issues
+- **A brownfield repo's generated CI fails while its baseline lists a failing test.** `sdlc-verify.yml` runs the repo's own test command, which has no way to skip the baselined tests; locally, `ship.py --waive-baseline` lets them through.
+- **sdlc's turn-end, commit and push reviews get no credentials when you sign in with `/login`** on some machines (seen on Windows, in 3.14.0 too): the hooks say once a week that the review isn't running. An `ANTHROPIC_API_KEY` in the environment turns them on.
+
 ### Added
 - **Team mode** (`/sdlc:setup team on`). An M or L feature's stages run as role agents, each starting fresh from the record, with the main session as their coordinator: `sdlc:analyst` writes the change file (on opus), `sdlc:builder` builds and fixes review findings, the reviewers review, `sdlc:releaser` ships. The role guard holds each to its files: the analyst writes only the record, the builder never the change file's criteria, a reviewer's report or the state file, the releaser no product code.
 - **Storybook as an opt-in living design system** (builtin design mode). `scaffold.py storybook on` (setup's design step) makes the stories the component catalog: each component a change touches gets a story for every state the spec names, the UI review treats a component without a story as off-system, and an optional `commands.storybook` runs in verify after `build`. Doctor warns when it's on with no `.storybook/` (the root's or a package's), in impeccable mode, or when a custom `verify.order` leaves it out; a Storybook build's `storybook-static/` is never drift, committed by Ship, or sent to the security reviews.
@@ -22,7 +32,7 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 - **A committed glob can't stall the commit review or doctor.** The security areas in `.sdlc/config.json` and a rule's `paths:` were turned into regexes that backtracked for minutes on `*a*a*a…` or a long brace list; the same globs are now run as a small automaton, in time linear in the path, with exactly the old meaning.
 - **The `.git` checks catch `.g\u200cit` and `.GIT`.** The code points HFS+ ignores, and case on macOS, no longer let a path through.
 - **A generated lock entry never overwrites or deletes a file git doesn't track.** An upgrade offers it for review and eject asks, when a local file such as `.env` differs from the lock.
-- **Workbench: editing `workbench.json` or the workbench config can't switch the guards off.** A read-only repo made writable or removed is reported until you accept it, and once sdlc has looked, `"workbench": false` leaves the guards, the watch and the app review on.
+- **Workbench: editing `workbench.json` or the workbench config can't switch the guards off unnoticed.** A read-only repo made writable or removed is reported, and blocks the end of the turn, until you accept it; once sdlc has looked, `"workbench": false` leaves the guards, the watch and the app review on.
 - **Workbench: a recorded PR doesn't end the review of an app repo's commits** while the repo is on the feature's branch, and the turn-end security review now covers an app repo's uncommitted change.
 - **The read-only guard denies shell syntax it knows it reads differently from the shell** (ANSI-C quoting that ends apart from `'…'`, a substitution inside `$(( ))`, zsh's `>!` and `>>|`, a `#` after an escaped delimiter), instead of letting a write hide in it. It remains a seatbelt: other spellings can still get past it (docs/wiki/Limitations.md), and the read-only watch reports what changed.
 - **A Monitor command can't commit or push:** run those with Bash, where the commit and push security reviews run.
@@ -39,6 +49,13 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 - **impeccable's machine-local `config.local.json` is never read through a link** out of the repo or into `.git`, at the file or its `.impeccable` folder, like its committed `config.json`. Doctor and `/sdlc:setup design` name such a file and say to replace the link, instead of advising `/impeccable hooks on`.
 
 ### Fixed
+- **`ship.py --waive-baseline` refused for another failure names everything to fix**: it no longer says to rerun with the flag you gave, and it still names a failing test `.sdlc/baseline.md` doesn't list.
+- **sdlc's working folder is ignored from setup's first step**: a `.sdlc/.work/` a hook creates ignores itself, so setup's early commits no longer take its record (`trust-anchor.json`) before the gitignore step.
+- **Doctor names the mode, and an advisory repo passes.** A `mode` row shows full (with any skipped steps) or advisory; in advisory, missing commands and guardrails are expected, not failures.
+- **`- None` under `## Avoid` in `objects.md` means nothing to avoid**, instead of an Avoid line `/sdlc:setup objects` couldn't enable.
+- **A note after a task's file stays with it:** `--task "… | src/x.test.ts (test)"` no longer lists `(test)` as a file.
+- **Workbench: `accept read-only` says when sdlc's scripts refuse the manifest it accepts**, such as a non-app repo made writable.
+- **`/sdlc:status` doesn't count runtime files of features on another branch** as features or as an outdated scaffold.
 - **Workbench: an app repo with stray files tells the agent to ask you.** `state.py repo` names the uncommitted or untracked files (a `__pycache__` folder) and says to ask you to commit, remove or ignore them, since sdlc holds writes there until the feature branches it; before, it told the agent to clean up, which the guard then denied.
 - **Cursor's hooks run on Windows.** Cursor runs a hook command there through Windows PowerShell, where `python3` is often missing or the Microsoft Store stub, so every sdlc hook did nothing. The command now reads in both sh and PowerShell; on Windows it runs the first working `python3`, `python` or `py -3` and hands it the event.
 - **The background Agent SDK install no longer runs in your project folder.** On Windows, a folder a running process sits in can't be deleted or renamed, and the install can take minutes; it now runs in the plugin's state folder.

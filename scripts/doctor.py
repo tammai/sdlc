@@ -307,6 +307,10 @@ def check_repo(r, root):
                   "/plugin update sdlc")
         else:
             r.add(g, "version", "ok", detail + (" (repo upgraded by a newer plugin)" if drift == "ahead" else ""))
+        # the mode the config asks for (ADR 0030); the hooks follow it once accepted (the session status line)
+        mode, skips = scaffold.sdlc_scopes._gating(p.config or {})
+        r.add(g, "mode", "ok", "advisory: the skills and agents only, no hooks, gates or guardrails"
+              if mode == "advisory" else "full" + (f"; skips: {', '.join(skips)}" if skips else ""))
         files = status.get("files", {})
         missing = [f for f, e in files.items() if e["state"] == "missing"]
         edited = [f for f, e in files.items() if e["state"] == "modified" and e["class"] == "seeded"]
@@ -322,7 +326,7 @@ def check_repo(r, root):
                   f"(scaffold.py forget) · {RUNBOOK} R14")
         else:
             r.add(g, "plugin files", "ok", f"{len(files)} tracked" + (f"; you edited: {', '.join(edited)}" if edited else ""))
-        if drift == "current" and "claude-code" in scaffold.hosts(p):
+        if drift == "current" and "claude-code" in scaffold.hosts(p) and not scaffold.configured_advisory(p):
             # Claude Code's rules and guardrails setup writes, never written at all (absent from the lock and the
             # disk, not declined), as when a shell loop failed unseen. A scaffold behind the plugin is upgrade's to add.
             lock = p.lock or {}
@@ -349,7 +353,7 @@ def check_repo(r, root):
             for name, sc in contract["scopes"].items():
                 where = "" if name == scaffold.ROOT_SCOPE else f"{name}: "
                 problems += [where + x for x in sc["problems"]]
-                if sc["missing"]:
+                if sc["missing"] and not scaffold.configured_advisory(p):  # advisory records no commands
                     problems.append(f"{where}no {', '.join(sc['missing'])} command")
                 tools += [f"{where}{key} needs `{exe}`" for key, exe in sc["not_found"].items()]
             counted = len([n for n in contract["scopes"] if not (contract["monorepo"] and n == scaffold.ROOT_SCOPE)])

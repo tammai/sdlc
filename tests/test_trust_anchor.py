@@ -286,5 +286,24 @@ class TrustAnchorTest(ProjectTestCase):
         return self.stop()
 
 
+
+class WorkFolderTest(ProjectTestCase):
+    def test_the_first_record_in_a_new_work_folder_is_never_committed(self):
+        # 3.15.0 smoke test G: setup's first commit took .sdlc/.work/trust-anchor.json, before its gitignore step
+        import sys
+        sys.path.insert(0, HOOKS)
+        import sdlc_scopes
+        subprocess.run(["git", "init", "-q", self.root], check=True)
+        self.write(".sdlc/config.json", "{}")
+        self.assertTrue(sdlc_scopes.write_record(self.root, ".sdlc/.work/trust-anchor.json", {}))
+        status = subprocess.run(["git", "-C", self.root, "status", "--porcelain", "--untracked-files=all"],
+                                capture_output=True, encoding="utf-8").stdout
+        self.assertNotIn(".work", status)
+        self.assertIn(".sdlc/config.json", status)
+        # a folder that already exists is the repo's own business: nothing is added to it
+        os.remove(self.path(".sdlc/.work/.gitignore"))
+        sdlc_scopes.write_record(self.root, ".sdlc/.work/other.json", {})
+        self.assertFalse(os.path.exists(self.path(".sdlc/.work/.gitignore")))
+
 if __name__ == "__main__":
     unittest.main()

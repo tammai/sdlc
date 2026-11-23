@@ -175,6 +175,19 @@ class ShipTest(ProjectTestCase):
         self.assertEqual(code, 1, out)
         self.assertIn("Current: Stage 2", self.state_text())
 
+    def test_a_waiver_refused_for_another_step_still_names_an_unlisted_test(self):
+        # 3.15.0 smoke test G: with another failure beside the tests, the refusal said to rerun with the flag
+        # already given, and named no test the baseline doesn't list
+        self.failing("test", "test_div_by_zero", "test_mul")
+        with open(self.path(".sdlc/config.json"), encoding="utf-8") as f:
+            config = json.load(f)
+        config["commands"]["lint"] = "python3 -c \"raise SystemExit(1)\""
+        self.write(".sdlc/config.json", json.dumps(config))
+        self.baseline("| (root) | tests/test_div.py › T.test_div_by_zero | returns Infinity | b8392a3 |")
+        code, out = self.ship("--waive-baseline")
+        self.assertEqual(code, 1, out)
+        self.assertNotIn("rerun with --waive-baseline", out)
+        self.assertIn("not in .sdlc/baseline.md: tests.test_div.T.test_mul", out)
 
     def test_ship_checks_every_ac_even_with_a_part_left_in_progress(self):
         self.write(".sdlc/login/change.md", "# Change\n\n## Acceptance criteria\n\n- **AC-001** x\n\n## Acceptance tests\n\n"

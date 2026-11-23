@@ -130,6 +130,14 @@ def verified(root, feature, timeout, waive_baseline=False):
     waivable = listed and not (apps and any(f.startswith(apps) for f in last["failures"]))
     hint = ("\nIf only the test step failed and every failure is in .sdlc/baseline.md, rerun with --waive-baseline."
             if waivable else "")
+    if waive_baseline and waivable:
+        # The flag was given but another step failed too: say what the waiver can't cover, and still name a failing
+        # test the baseline doesn't list, so one fix round sees both (3.15.0 smoke test G)
+        tests = [f for f in last["failures"] if re.match(r"[^\n]*\btest: exit", f)]
+        unlisted = baseline_match(dict(last, failures=tests), listed)[0] if tests else None
+        hint = ("\n--waive-baseline covers only the test step's failures that .sdlc/baseline.md lists; fix the others "
+                "first." + (f"\n{unlisted}" if unlisted else ""))
+        waivable = False
     raise Refused("verify failed:\n" + "\n".join(notes + last["failures"]) + hint, "verify_failed",
                   fix="fix the failures and run ship.py again" + (", or rerun with --waive-baseline" if waivable else ""),
                   problems=notes + last["failures"])

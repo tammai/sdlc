@@ -323,6 +323,11 @@ def main():
             note += (f"; stopped watching the repos made writable or removed in {sdlc_scopes.WORKBENCH_FILE}: "
                      f"{', '.join(cleared)}")
         note += "."
+        try:  # a manifest the watch takes but sdlc's scripts refuse: say so now, not at the next feature step
+            sdlc_scopes.manifest(root)
+        except ValueError as e:
+            note += (f" But sdlc's scripts refuse {sdlc_scopes.WORKBENCH_FILE} as it is now ({e}): every feature "
+                     "step stops until it's fixed.")
         print(json.dumps({"systemMessage": note,
                           "hookSpecificOutput": {"hookEventName": event, "additionalContext": note}}))
         return
