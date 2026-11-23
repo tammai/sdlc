@@ -118,6 +118,23 @@ class DoctorTest(ProjectTestCase):
                        capture_output=True, env={**os.environ, "CLAUDE_PLUGIN_ROOT": PLUGIN_ROOT})
         self.assertIsNone(self.check("commands run"))
 
+    def test_a_monorepos_root_commands_are_checked_and_reported(self):
+        # 2026-11-23-s-doctor-root-scope: the root `commands.test` beside packages runs in verify; doctor checks its tool
+        # and whether it ran, like a package's
+        self.setup_repo()
+        os.makedirs(self.path("web"))
+        self.configure(packages=[{"name": "web", "path": "web", "commands": COMMANDS}],
+                       commands={"test": "nosuch-tool-xyz run"})
+        checks, _ = self.doctor()
+        self.assertIn("nosuch-tool-xyz", (checks.get(("repo", "command tools")) or {}).get("detail", ""))
+        self.configure(commands={"test": "git --version"})
+        unrun = self.check("commands run")
+        self.assertIsNotNone(unrun)
+        self.assertRegex(unrun["detail"], r"(^|, |: )test(,|$)")  # the root's own step, beside web's
+        subprocess.run([sys.executable, SCAFFOLD, "--root", self.root, "run-commands"], check=True,
+                       capture_output=True, env={**os.environ, "CLAUDE_PLUGIN_ROOT": PLUGIN_ROOT})
+        self.assertIsNone(self.check("commands run"))
+
     def test_old_layout_after_setup_warns_to_upgrade(self):
         self.setup_repo()
         self.assertIsNone(self.check("layout"))
