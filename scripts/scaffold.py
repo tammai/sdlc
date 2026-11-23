@@ -2573,6 +2573,7 @@ PRODUCTION_ENVS = ("prod", "production", "live", "prd")
 ENV_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 # /sdlc:deploy appends to the runbook: never a hook, the agent's settings or sdlc's own state
 RUNBOOK_EXCLUDED = (".git", ".claude", ".sdlc")
+RUNBOOK_INSTRUCTION_FILES = ("claude.md", "claude.local.md", "agents.md")  # /sdlc:deploy appends to the runbook
 
 
 def is_production(name):
@@ -2580,8 +2581,9 @@ def is_production(name):
 
 
 def runbook_path(root, value):
-    """`value` as a normalised repo-relative path to a Markdown file inside the repo and outside `.git/`, `.claude/`
-    and `.sdlc/`, checked again after symlinks are resolved; else None."""
+    """`value` as a normalised repo-relative path to a Markdown file inside the repo and outside every `.git/`,
+    `.claude/` and `.sdlc/` (a nested package's or an app repo's too), not an agent's instruction file, with no
+    control or format character, checked again after symlinks are resolved; else None."""
     if not isinstance(value, str) or not value.strip():
         return None
     raw = value.replace("\\", "/")
@@ -2595,8 +2597,9 @@ def runbook_path(root, value):
         return None
     for path in (norm, os.path.relpath(real, real_root).replace(os.sep, "/")):
         parts = path.split("/")
-        if not path.lower().endswith(".md") or any(sdlc_scopes.dot_segment(parts[0], n) for n in RUNBOOK_EXCLUDED) \
-                or any(_git_segment(x) for x in parts):  # a git dir at any depth; all three at the top; any spelling
+        if not path.lower().endswith(".md") or sdlc_scopes.odd_name(path) or \
+                parts[-1].rstrip(". ").casefold() in RUNBOOK_INSTRUCTION_FILES or \
+                any(sdlc_scopes.dot_segment(x, n) for x in parts for n in RUNBOOK_EXCLUDED):  # any depth and spelling
             return None
     return norm
 

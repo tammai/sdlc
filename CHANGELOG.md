@@ -26,6 +26,7 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 - **Every `.git` check shares one rule** (case, trailing dots and spaces, NTFS stream suffix, 8.3 name, HFS+ code points).
 - **The Monitor deny uses the commit and push reviews' own patterns**, and stays on if they can't load.
 - **Workbench: the turn-end review covers every repo a turn edited with the edit tools**, in one review call (each file named by its path from the session's folder), not only the one with the most edits; when that one has nothing to review, the others still are.
+- **The deploy runbook path is barred from `.claude` and `.sdlc` at any depth** (a nested package's, or an app repo's in a workbench), not only at the top. It is never an agent's instruction file (`CLAUDE.md`, `CLAUDE.local.md`, `AGENTS.md`), since `/sdlc:deploy` appends to it, nor a name with a control or format character.
 - **`.claude` and `.sdlc` are barred from the deploy runbook and objects paths in every spelling `.git` is** (8.3 short name, NTFS stream suffix, HFS+ code points), not only by case and trailing dots.
 - **impeccable's machine-local `config.local.json` is never read through a link** out of the repo or into `.git`, at the file or its `.impeccable` folder, like its committed `config.json`. Doctor and `/sdlc:setup design` name such a file and say to replace the link, instead of advising `/impeccable hooks on`.
 
