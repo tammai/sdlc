@@ -49,6 +49,7 @@ CHECKS_PLACEHOLDER
 - **impeccable's machine-local `config.local.json` is never read through a link** out of the repo or into `.git`, at the file or its `.impeccable` folder, like its committed `config.json`. Doctor and `/sdlc:setup design` name such a file and say to replace the link, instead of advising `/impeccable hooks on`.
 
 ### Fixed
+- **`ship.py --waive-baseline` refused for another failure names everything to fix**: it no longer says to rerun with the flag you gave, and it still names a failing test `.sdlc/baseline.md` doesn't list.
 - **sdlc's working folder is ignored from setup's first step**: `.sdlc/.work/` ignores itself, so setup's early commits no longer take a hook's record (`trust-anchor.json`) before the gitignore step.
 - **Doctor names the mode, and an advisory repo passes.** A `mode` row shows full (with any skipped steps) or advisory; in advisory, missing commands and guardrails are expected, not failures.
 - **`- None` under `## Avoid` in `objects.md` means nothing to avoid**, instead of an Avoid line `/sdlc:setup objects` couldn't enable.
