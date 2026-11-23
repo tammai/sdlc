@@ -352,10 +352,11 @@ def check_repo(r, root):
                 if sc["missing"]:
                     problems.append(f"{where}no {', '.join(sc['missing'])} command")
                 tools += [f"{where}{key} needs `{exe}`" for key, exe in sc["not_found"].items()]
+            counted = len([n for n in contract["scopes"] if not (contract["monorepo"] and n == scaffold.ROOT_SCOPE)])
             r.add(g, "commands", "fail" if problems else "ok",
                   "; ".join(problems) if problems else
-                  f"defined for {len(contract['scopes'])} {'package' if contract['monorepo'] else 'project'}"
-                  f"{'s' if len(contract['scopes']) > 1 else ''}",
+                  f"defined for {counted} {'package' if contract['monorepo'] else 'project'}"
+                  f"{'s' if counted > 1 else ''}",
                   f"set them in .sdlc/config.json · {RUNBOOK} R13" if problems else None)
             if tools:
                 r.add(g, "command tools", "warn", "not found on PATH: " + "; ".join(tools),

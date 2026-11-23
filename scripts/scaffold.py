@@ -1480,6 +1480,14 @@ def cmd_contract(p, a):
         out["scopes"][sc["name"] or "?"] = {"path": sc["path"], "missing": missing, "not_applicable": not_applicable,
                                             "not_found": not_found, "problems": problems,
                                             "ok": not missing and not problems}
+    # A monorepo's root steps (commands.test, commands.storybook) run from the root in verify: their tools are
+    # checked too; the contract's required commands are the packages'
+    root_steps = {st["step"]: st["run"] for st in verify_plan(p.config)["verify"] if st["scope"] == ROOT_SCOPE}
+    if root_steps and ROOT_SCOPE not in out["scopes"]:
+        not_found = {k: exe for k, cmd in root_steps.items() for exe in [executable(cmd)]
+                     if exe and not resolves(exe, p.root)}
+        out["scopes"][ROOT_SCOPE] = {"path": ".", "missing": [], "not_applicable": [], "not_found": not_found,
+                                     "problems": [], "ok": True}
     out["ok"] = all(s["ok"] for s in out["scopes"].values())
     out["tools_ok"] = all(not s["not_found"] for s in out["scopes"].values())
     # Last recorded runs, with any whose command has changed since dropped: they no longer prove anything

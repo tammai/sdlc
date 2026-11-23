@@ -10,7 +10,7 @@
 
 - [x] Stop review dedup: a finding has no location, so the same snippet at a second place in one file is dropped on a rewake when the model reports the other occurrence later (or the cap cut the file on the first fire); consider a line number in the key or no drop for a truncated file — security review M-2 of 2026-11-23-todo-mode-tickets, unconfirmed (2026-11-23) — done 2026-11-23 (2026-11-23-s-stop-dedup-edges)
 - [x] Stop review dedup: after an interrupted turn the next prompt keeps the old `prompt_at` (UserPromptSubmit returns before setting it when the baseline is kept), so code reverted and re-added across the interrupt can be dropped; use a marker written on every prompt — security review L-3, unconfirmed (2026-11-23) — done 2026-11-23 (2026-11-23-s-stop-dedup-edges)
-- [ ] Doctor never checks root-scope commands in a monorepo (root `commands.test`, now also `commands.storybook`): their tool on PATH and "commands run" aren't reported; include the root pseudo-scope in the contract check and the never-run list — code review r2 of 2026-11-23-m-storybook-opt-in, predates it (2026-11-23)
+- [x] Doctor never checks root-scope commands in a monorepo (root `commands.test`, now also `commands.storybook`): their tool on PATH and "commands run" aren't reported; include the root pseudo-scope in the contract check and the never-run list — code review r2 of 2026-11-23-m-storybook-opt-in, predates it (2026-11-23) — done 2026-11-23 (2026-11-23-s-doctor-root-scope)
 
 ## Done
 - [x] Add a team mode to the orchestrator: when active, role-based agents drive the sdlc stages — not built yet (2026-10-25) — done 2026-11-23: config `team`, agents analyst/builder/releaser
