@@ -222,6 +222,15 @@ def brief(root, name=None, criteria=()):
     given = rules(root)
     if given:
         parts.append(given)
+    import sdlc_scopes  # noqa: PLC0415
+    done, problem = sdlc_scopes.done_config(root)
+    if problem:
+        parts.append(section("definition of done (.sdlc/config.json `done`)",
+                             f"isn't valid, so Ship refuses until it is fixed: {problem}"))
+    if done:
+        parts.append(section("definition of done (.sdlc/config.json `done`): copy into the change file's "
+                             "## Definition of Done; tick each with its evidence before Ship",
+                             "\n".join(f"- [ ] {x}" for x in done)))
     living = living_spec(root)
     if living:
         parts.append(living)

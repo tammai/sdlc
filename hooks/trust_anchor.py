@@ -70,8 +70,10 @@ def commands(text):
     except ValueError:
         return None
     # docs_dir too: the freshness hook and the role guard treat that folder as non-code
-    return json.dumps({"commands": cfg.get("commands"), "packages": cfg.get("packages"),
-                       "docs_dir": cfg.get("docs_dir")}, sort_keys=True)
+    watched = {"commands": cfg.get("commands"), "packages": cfg.get("packages"), "docs_dir": cfg.get("docs_dir")}
+    if cfg.get("done") not in (None, []):  # only when set: an anchor taken before `done` existed still matches
+        watched["done"] = cfg.get("done")
+    return json.dumps(watched, sort_keys=True)
 
 
 def read(path):
@@ -108,7 +110,7 @@ def check(root, name, text, anchor, shown):
         import sdlc_scopes  # noqa: PLC0415  (a config linked out of the repo reads as absent, as verify reads it)
         cmds_now = commands(sdlc_scopes.read_repo_text(root, ".sdlc/config.json"))
         if cmds_base and cmds_now != anchor.get("commands_ok", cmds_base):
-            notices.append("the commands or docs_dir in .sdlc/config.json differ from Base")
+            notices.append("the commands, docs_dir or done (Definition of Done) in .sdlc/config.json differ from Base")
         anchor["commands_seen"] = cmds_now
     st = stage(text)
     # The change file up to its review sections, which Review writes (blank lines before them don't count); else
@@ -116,6 +118,9 @@ def check(root, name, text, anchor, shown):
     spec = read(os.path.join(root, located["change"])) if located.get("change") else None
     spec = re.split(r"^## Review\b", spec, maxsplit=1, flags=re.M)[0].rstrip() if spec is not None else read(
         os.path.join(intents, "spec.md"))
+    if spec is not None:  # the Definition of Done is ticked at Ship, after Review began: not part of the anchor
+        import sdlc_scopes  # noqa: PLC0415  (one heading rule with ship.py)
+        spec = re.sub(sdlc_scopes.DONE_HEADING + r".*?(?=^##\s|\Z)", "", spec, flags=re.M | re.S).rstrip()
     digest = hashlib.sha256(spec.encode("utf-8")).hexdigest() if spec is not None else None
     anchor["spec_seen"] = digest
     if st is not None and st >= sdlc_layout.REVIEW:

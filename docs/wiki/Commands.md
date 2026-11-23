@@ -3,7 +3,7 @@
 | Command | Does |
 |---|---|
 | `/sdlc:start [request]` | Start a feature, or resume the active one if the request is empty (`B<n>`: a named part) |
-| `/sdlc:setup [what you're building]` | Set the repo up once (greenfield or brownfield); resumes if interrupted. `/sdlc:setup deploy` records or changes how the project deploys; `/sdlc:setup objects` drafts the domain model's `objects.md` with you and turns it on; `/sdlc:setup review-rounds` sets how many review rounds (2 to 5) run before you decide; `/sdlc:setup mode full|advisory` and `/sdlc:setup skip security-review|code-review|ui-review|pr` set the mode and the skipped steps (shown to you by the trust anchor before they count) |
+| `/sdlc:setup [what you're building]` | Set the repo up once (greenfield or brownfield); resumes if interrupted. `/sdlc:setup deploy` records or changes how the project deploys; `/sdlc:setup objects` drafts the domain model's `objects.md` with you and turns it on; `/sdlc:setup review-rounds` sets how many review rounds (2 to 5) run before you decide; `/sdlc:setup mode full|advisory` and `/sdlc:setup skip security-review|code-review|ui-review|pr` set the mode and the skipped steps (shown to you by the trust anchor before they count); `/sdlc:setup done` sets the Definition of Done every change ticks before Ship |
 | `/sdlc:upgrade [--dry-run] [--revisit]` | Bring the repo's scaffold up to the installed plugin version |
 | `/sdlc:eject` | Remove the plugin's files from the repo, keeping your work |
 | `/sdlc:doctor` | Health check of the machine, the plugin and the repo, with a fix for each problem. Changes nothing |

@@ -913,6 +913,28 @@ def rule_for_mode(p):
     return {"rendered": dest}
 
 
+def cmd_done(p, a):
+    """The project's Definition of Done (config `done`): what every change must show before Ship, item by item. With
+    items, records them (the list given replaces the old one); --clear removes it."""
+    if a.clear and a.items:
+        raise Refused("--clear takes no items: clear the list, or give the items that replace it")
+    if a.clear or a.items:
+        p.require_lock()  # a repo set up for sdlc: /sdlc:setup runs Setup first otherwise
+        gate_of(p)  # a workbench's app repo: Ship reads the list at the workbench
+    if a.clear:
+        (p.config or {}).pop("done", None)
+        p.save()
+    elif a.items:
+        items = [x.strip() for x in a.items]
+        problem = sdlc_scopes.done_problem(items)
+        if problem:
+            raise Refused(problem)
+        p.config = p.config or {}
+        p.config["done"] = items
+        p.save()
+    return {"done": (p.config or {}).get("done") or []}
+
+
 def cmd_mode(p, a):
     """The repo's sdlc mode: `full` (default) or `advisory` (skills and agents as aids; no hook gates anything). With
     a mode, records it; the trust anchor shows a move to advisory to the user at the next turn end."""
@@ -3283,6 +3305,10 @@ def build_parser():
                                              "record it")
     s.add_argument("rounds", nargs="?")
     s.set_defaults(fn=cmd_review_rounds)
+    s = sub.add_parser("done", help="the project's Definition of Done, checked at Ship; with items, record them")
+    s.add_argument("items", nargs="*")
+    s.add_argument("--clear", action="store_true", help="no Definition of Done")
+    s.set_defaults(fn=cmd_done)
     s = sub.add_parser("mode", help="full (default) or advisory (skills and agents as aids, no gates); with a mode, "
                                     "record it")
     s.add_argument("mode", nargs="?")

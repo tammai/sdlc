@@ -35,7 +35,7 @@ flowchart LR
     end
 ```
 
-A later session, a reviewer or a teammate can pick up the work from these two files alone. Everything above `## Review` is frozen once Review starts. Field-by-field layout: [Where things live](Where-things-live.md#statemd).
+A later session, a reviewer or a teammate can pick up the work from these two files alone. Everything above `## Review` is frozen once Review starts, except the `## Definition of Done` checklist, ticked at Ship. Field-by-field layout: [Where things live](Where-things-live.md#statemd).
 
 ## Tracks
 

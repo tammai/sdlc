@@ -161,6 +161,7 @@ In Stage 3 the freshness hook blocks finishing on stale test results, and the bu
 
 ## Ship (Stage 4), with Learn
 
+0. **Definition of Done** (the brief's `definition of done` section, config `done`): every item in `<change>`'s `## Definition of Done` ticked with its evidence, `- [x] <item> — <evidence>` (or `n/a: <reason>`); `ship.py` refuses otherwise.
 1. **Learn, before the commit**, so the knowledge lands in the change (docs only, so it doesn't make the code unverified):
    - **Lessons.** Only when the change taught something not obvious from the code or the commit (a platform gotcha, a trap that cost time): `sdlc:managing-knowledge` files it in the right tier (CLAUDE.md, a path-scoped rule, or `knowledge/`), linked from `## Review`'s Lessons filed line. A decision in `## Decisions` that later features must follow (a library, a data shape, a boundary shared across features) → a decision record in `knowledge/decisions/`, linked the same way; a decision about this change's own behaviour stays in `## Decisions` only. Corrected twice and mechanically checkable → `/sdlc:hookify`. Nothing to learn → write nothing.
    - **Defects.** Each high finding fixed in Review that a reviewer could check next time, and not already listed, gets one line in `<docs>/recurring-defects.md` (shape in `recurring-defects.md`). When that file doesn't exist yet, create it with the heading `# Recurring defects` and the line `One line per defect: what it looks like, then the severity.`, then the entries; it ships in the same PR.

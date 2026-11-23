@@ -2,7 +2,6 @@
 
 ## Open
 
-- [ ] Add a Definition of Done to the setup step so the agent knows when a job is done — not built yet (2026-10-25)
 - [ ] Add a team mode to the orchestrator: when active, role-based agents drive the sdlc stages — not built yet (2026-10-25)
 
 - [ ] Cursor's hooks call a bare `python3` (`hosts/cursor/hooks.json`), but Cursor on Windows runs hook commands through PowerShell, where `python3` may be the Store stub or missing; use a launcher that falls back to `python`/`py -3` as `hooks/sg-python.sh` does — whole-plugin review M/L, recovered (2026-11-20) — needs a Windows machine with Cursor: one hook command must run under both sh and Windows PowerShell 5.1 (no `||` there), and whether stdin survives a fallback from the Store stub can only be checked there; set aside for the Windows session (2026-11-22)
@@ -15,6 +14,7 @@
 - [ ] Stop review dedup: after an interrupted turn the next prompt keeps the old `prompt_at` (UserPromptSubmit returns before setting it when the baseline is kept), so code reverted and re-added across the interrupt can be dropped; use a marker written on every prompt — security review L-3, unconfirmed (2026-11-23)
 
 ## Done
+- [x] Add a Definition of Done to the setup step so the agent knows when a job is done — not built yet (2026-10-25) — done 2026-11-23: config `done`, checked by ship.py
 - [x] Workbench turn-end review: a rewake re-sends another repo's code the agent left unchanged after a finding, so a declined finding there may be raised again (up to the rewake cap, 3); only the first repo's baseline moves past reviewed code — code review r4 CR4-1 of 2026-11-23-m-stop-review-every-repo (2026-11-23) — done 2026-11-23 (a finding on unchanged code is dropped)
 - [x] Spec 02's Known gaps should name the mode/skip paths that count without a notice (a deleted record lets HEAD's committed config decide; a hand-written accepted entry counts) — security review R4-L4 (2026-11-23) — done 2026-11-23
 - [x] Modes: the session status line is built at SessionStart only, so a mode or skip accepted mid-session shows stale until the next session — security review R3-L5 (2026-11-23) — done 2026-11-23: the accepting reply tells the agent the new mode
