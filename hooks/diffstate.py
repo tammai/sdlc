@@ -101,6 +101,7 @@ def consume_stop_state(session_id, clear=True):
             # Where and when the prompt hook captured it; see baseline_origin.
             "baseline_root": state.get("baseline_root"),
             "prompt_at": state.get("prompt_at"),
+            "turn_at": state.get("turn_at"),  # sdlc patch: set on every prompt, the Stop review's turn
             "baseline_kept": state.get("baseline_kept") or 0,
             "untracked_at_baseline": (
                 dict(state["untracked_at_baseline"])
@@ -133,7 +134,7 @@ def consume_stop_state(session_id, clear=True):
 
     return with_locked_state(session_id, _snap) or {
         "touched_paths": [], "baseline_sha": None, "head_at_capture": None,
-        "untracked_at_baseline": {}, "baseline_root": None, "prompt_at": None,
+        "untracked_at_baseline": {}, "baseline_root": None, "prompt_at": None, "turn_at": None,
         "baseline_kept": 0,
         "fire_count": 0, "fire_count_expired": False, "previous_findings": [],
         "reviewed_diff_hash": None, "state_resets": 0, "state_overwrites": 0,
