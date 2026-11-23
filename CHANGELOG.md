@@ -8,7 +8,7 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 No migration: every new config key (`mode`, `skip`, `team`, `done`, `storybook`) keeps 3.14's behaviour when absent, and `/sdlc:upgrade` regenerates the changed templates.
 
-CHECKS_PLACEHOLDER
+Checked on 2026-11-23 at commit 6b51ad3, on Windows 11: the full suite (883 tests, 9 skipped, Python 3.10), `claude plugin validate .`, `claude plugin test plugins/sdlc-stepper` (26 tests, now passing on Windows too) and `hosts.py check`. The smoke test ran in real headless sessions on Windows 11, loading the checkout with `--plugin-dir` (the installed sdlc turned off per test repo), in five groups at once against 6831c71: A+B, C then D, E and H in C's repo, F, G and K; every part was in scope. Every must item passed. K2, K4 and K5 passed again at caf3b57 after their fixes. Should items: F1 passed; F2 ran only its no-credentials branch (see Known issues); the new D4 (advisory), E12 (Definition of Done), E13 (skip pr) and K5 (a flipped repo stays guarded) were added and pass. Not run: C4's `--team` and installed-plugin variants, E8's L change with an Avoid word, E9, and H6's regenerated `invariants.py`. The smoke test's other findings were fixed test first in this release (each listed under Fixed) or are under Known issues. Cursor on Windows was checked live with headless cursor-agent 2026.11.22 (and 2026.10.22 in WSL); the desktop app wasn't.
 
 ### Known issues
 - **A brownfield repo's generated CI fails while its baseline lists a failing test.** `sdlc-verify.yml` runs the repo's own test command, which has no way to skip the baselined tests; locally, `ship.py --waive-baseline` lets them through.
