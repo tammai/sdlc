@@ -434,8 +434,10 @@ def check_repo(r, root):
                       f"impeccable's detector hook runs here and {guardrail} still does the same check",
                       "/sdlc:setup design (it finishes the swap)")
             else:
+                refused = None if imp["hook"] else scaffold.refused_config_hint(root)
                 r.add(g, "impeccable", "ok", "enabled: UI design work goes through it" + (
-                      "" if imp["hook"] else "; its detector hook is off (/impeccable hooks on)"), None)
+                      "" if imp["hook"] else f"; {refused}" if refused
+                      else "; its detector hook is off (/impeccable hooks on)"), None)
         enabled, sdlc_set_in = {}, None
         for rel in (scaffold.SETTINGS, scaffold.LOCAL_SETTINGS):  # the local file overrides the committed one
             plugins = scaffold.read_fixed_json(root, rel, {}).get("enabledPlugins")

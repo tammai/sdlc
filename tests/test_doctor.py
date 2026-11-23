@@ -273,6 +273,31 @@ class DoctorTest(ProjectTestCase):
         self.configure(design="builtin")
         self.assertNotIn(("repo", "impeccable"), self.doctor(**config)[0])
 
+    def test_a_refused_impeccable_config_is_named_not_hooks_on(self):
+        # security review R2-4 of 2026-11-23-todo-fixes: a linked config.local.json counts as hook off; say why,
+        # since /impeccable hooks on writes the file sdlc won't read through the link
+        import tempfile
+        self.setup_repo()
+        self.configure(design="impeccable")
+        home = self.path("home")
+        config = {"CLAUDE_CONFIG_DIR": self.path("claude-config"), "HOME": home, "USERPROFILE": home}
+        self.write(".claude/skills/impeccable/SKILL.md", "---\nname: impeccable\n---\n")
+        outside = os.path.realpath(tempfile.mkdtemp(prefix="sdlc-outside-"))
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        with open(os.path.join(outside, "local.json"), "w", encoding="utf-8") as f:
+            f.write('{"hook": {"enabled": true}}')
+        os.makedirs(self.path(".impeccable"), exist_ok=True)
+        try:
+            os.symlink(os.path.join(outside, "local.json"), self.path(".impeccable/config.local.json"))
+        except (OSError, NotImplementedError):
+            self.skipTest("symlinks unavailable")
+        check = self.doctor(**config)[0][("repo", "impeccable")]
+        self.assertIn(".impeccable/config.local.json", check["detail"])
+        self.assertNotIn("/impeccable hooks on", check["detail"])
+        sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
+        import scaffold
+        self.assertEqual(scaffold.impeccable_config_refused(self.root), [".impeccable/config.local.json"])
+
     def test_ui_without_design_system_warns(self):
         self.setup_repo()
         self.write("src/App.tsx", "export const App = () => null\n")
