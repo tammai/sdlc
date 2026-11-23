@@ -1475,6 +1475,7 @@ NON_SOURCE_EXTENSIONLESS_BASENAMES = {
 SKIP_PATH_PATTERNS = (
     'node_modules/', 'dist/', 'build/', '.next/', 'vendor/',
     '__generated__/', '__pycache__/', '.venv/', 'target/',
+    'storybook-static/',  # sdlc patch: a Storybook build's output (commands.storybook)
 )
 SKIP_FILE_SUFFIXES = (
     '.min.js', '.min.css', '.d.ts', '.d.mts', '.d.cts',

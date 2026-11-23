@@ -36,6 +36,8 @@ sdlc never edits `PRODUCT.md`, `DESIGN.md` or `.impeccable/`; impeccable writes 
 - **Existing system:** find it (tokens or theme files, Tailwind theme or `@theme`, the UI library in the manifest, shadcn's `components.json`, a `components/ui` folder, Storybook) and fill `<docs>/design-system.md` from `${CLAUDE_PLUGIN_ROOT}/templates/design-system-template.md`, pointing at it rather than copying values.
 - **None:** propose one mainstream component library for the stack plus a minimal token set (color roles, spacing, type scale, radius), create the tokens file in the stack's usual place, and fill the doc from it; never invent a full bespoke system.
 
+- **Storybook** (opt-in, not the default): the repo has a `.storybook/` folder, or the user wants their components kept there. Ask whether Storybook is the living design system: its stories become the component catalog the UI flow and review check against (`ui-work.md`). Yes → `$S storybook on` (refused without `.storybook/` or in impeccable mode), the doc's Source of truth points at the stories, and offer a `commands.storybook` for verify, the team's Storybook build (e.g. `npx storybook build --test`; the test runner needs a served Storybook, so it isn't a verify command on its own). In a monorepo it goes in the package's `commands` (or the root's). A custom `verify.order` must list `storybook`. `$S storybook off` turns it back.
+
 `$S design builtin` puts the UI guardrail back (unless the team declined it). User approves the design system doc.
 
 ## Revisiting it: `/sdlc:setup design`

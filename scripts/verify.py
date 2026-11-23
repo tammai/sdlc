@@ -3,7 +3,7 @@
 change.md names for it (plan.md on a 1.x feature) (ADR 0013, 0020).
 
 Usage: verify.py [--root DIR] [--feature NAME] [--timeout S] [--json] [red AC-nnn [AC-nnn ...] | status | trace]
-  Runs the verify plan (lint, typecheck, build, test from .sdlc/config.json, per package; in a workbench also each
+  Runs the verify plan (lint, typecheck, build, storybook, test from .sdlc/config.json, per package; in a workbench also each
   repo the feature branched, from its own config in its folder, a failure naming the repo), then, for every `AC-nnn`
   in change.md: a row in its `## Acceptance tests` table (plan.md's on a 1.x feature), a `manual` row's reason, the
   test file, a recorded red run, and the row's Run command passing. Writes the result to .sdlc/.work/verify.json and
@@ -80,7 +80,8 @@ TASK_START = re.compile(r"^\s*(\d+)\.\s")
 BACKTICKED = re.compile(r"`([^`]+)`")
 # What running the tests or tools leaves behind when a repo doesn't ignore it: never drift (graphify-out/: a code
 # graph the graphify tool rebuilds, e.g. on its --watch)
-GENERATED = re.compile(r"(^|/)(__pycache__|\.pytest_cache|\.mypy_cache|\.ruff_cache|node_modules|\.tox)/|\.py[co]$|"
+GENERATED = re.compile(r"(^|/)(__pycache__|\.pytest_cache|\.mypy_cache|\.ruff_cache|node_modules|\.tox|storybook-static)/|"
+                       r"\.py[co]$|"
                        r"^graphify-out/")
 
 

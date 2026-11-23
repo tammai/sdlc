@@ -837,6 +837,9 @@ def cmd_design(p, a):
     if a.mode:
         p.config = p.config or {}
         p.config["design"] = a.mode
+        if a.mode == "impeccable" and p.config.pop("storybook", None) is not None:
+            # impeccable's DESIGN.md is the system: Storybook is a builtin switch; said, as a switch back won't restore it
+            out["storybook"] = "turned off: impeccable mode keeps its own system (scaffold.py storybook on again after a switch back to builtin)"
         p.save()
     out.update(design=design_mode(p), impeccable_installed=impeccable_installed(p.root),
                impeccable=impeccable_status(p.root))
@@ -911,6 +914,54 @@ def rule_for_mode(p):
         f.write(render_source(want, p))
     lock["files"][dest] = {"class": "generated", "sha256": sha256(full), "template": want}
     return {"rendered": dest}
+
+
+def storybook_found(p):
+    """A `.storybook/` folder at the root or in any configured package (a monorepo keeps it in one)."""
+    return any(os.path.isdir(p.path(os.path.join(sc["path"], ".storybook")))
+               for sc in [{"path": "."}] + scopes(p.config))
+
+
+def storybook_on(p):
+    """Storybook is the living design system here: config `storybook` in the builtin design mode."""
+    return (p.config or {}).get("storybook") is True and design_mode(p) != "impeccable"
+
+
+def storybook_unrun(p):
+    """A `commands.storybook` set (root or package) that the effective verify order leaves out, or None."""
+    cfg = effective_config(p.config)
+    set_somewhere = any((sc.get("commands") or {}).get("storybook") for sc in scopes(p.config)) or \
+        (cfg.get("commands") or {}).get("storybook")
+    order = (cfg.get("verify") or {}).get("order") or []
+    if set_somewhere and "storybook" not in order:
+        return "commands.storybook is set but .sdlc/config.json's verify.order leaves storybook out, so verify never runs it"
+    return None
+
+
+def cmd_storybook(p, a):
+    """Storybook as the living design system (config `storybook`, builtin design mode only): the stories are the
+    component catalog the UI flow and review check against. `on` needs a `.storybook/` folder (the root's or a
+    package's); `off` removes it."""
+    if a.state is not None:
+        if a.state not in ("on", "off"):
+            raise Refused(f"storybook is on or off, not {a.state!r}")
+        p.require_lock()
+        p.config = p.config or {}
+        if a.state == "off":
+            p.config.pop("storybook", None)
+        else:
+            if design_mode(p) == "impeccable":
+                raise Refused("impeccable mode keeps its own system (DESIGN.md): Storybook is a builtin-mode switch")
+            if not storybook_found(p):
+                raise Refused("no .storybook/ folder here or in a package: set Storybook up first (npx storybook init)")
+            p.config["storybook"] = True
+        p.save()
+    steps = [x for x in verify_plan(p.config)["verify"] if x["step"] == "storybook"]
+    out = {"storybook": storybook_on(p), "command": {x["scope"]: x["run"] for x in steps} or None}
+    unrun = storybook_unrun(p)
+    if unrun:
+        out["warning"] = unrun
+    return out
 
 
 def cmd_done(p, a):
@@ -1423,12 +1474,14 @@ def cmd_contract(p, a):
 
 def verify_plan(config):
     cfg = effective_config(config)
-    order = cfg.get("verify", {}).get("order", ["lint", "typecheck", "build", "test"])
+    order = cfg.get("verify", {}).get("order", ["lint", "typecheck", "build", "storybook", "test"])
     plan = {"install": [], "verify": []}
     # A root `commands.test` beside packages (`turbo run test`) runs from the root after every package's steps; the
     # other root commands keep not running there, as before workbenches (an existing monorepo behaves as it did)
-    root_test = sdlc_scopes.root_commands(cfg).get("test")
-    root = {"name": ROOT_SCOPE, "path": ".", "commands": {"test": root_test} if root_test else {}}
+    root_cmds = sdlc_scopes.root_commands(cfg)
+    # the root's Storybook too (a monorepo may build its catalog from the root, e.g. `pnpm -F web build-storybook`)
+    root = {"name": ROOT_SCOPE, "path": ".", "commands": {k: root_cmds[k] for k in ("storybook", "test")
+                                                          if root_cmds.get(k)}}
     for sc in scopes(config) + [root]:
         cmds = sc["commands"]
         if cmds.get("install") and sc is not root:
@@ -3305,6 +3358,9 @@ def build_parser():
                                              "record it")
     s.add_argument("rounds", nargs="?")
     s.set_defaults(fn=cmd_review_rounds)
+    s = sub.add_parser("storybook", help="Storybook as the living design system (builtin mode): on or off")
+    s.add_argument("state", nargs="?")
+    s.set_defaults(fn=cmd_storybook)
     s = sub.add_parser("done", help="the project's Definition of Done, checked at Ship; with items, record them")
     s.add_argument("items", nargs="*")
     s.add_argument("--clear", action="store_true", help="no Definition of Done")

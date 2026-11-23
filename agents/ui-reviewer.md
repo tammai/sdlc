@@ -22,6 +22,13 @@ You review UI changes for one thing: does this look and behave like *this projec
 
 No `<docs>/design-system.md`? Say so as the first finding (High: "no design system to review against") and review against the existing screens' conventions and the slop list only.
 
+## Storybook
+
+`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" storybook` says whether the repo keeps its components in Storybook (`storybook: true`). Then the stories are the system: read the stories of every component the diff uses or changes (the `## UI mapping` names them).
+- A component used on a changed screen with no story in the catalog is off-system (High, as a component the system doesn't list).
+- A new or changed component without a story for each state the spec names (loading, empty, error, success, disabled) is High; a story that hard-codes values the tokens define is a token finding.
+- Never run Storybook's dev server or write stories yourself; verify runs `commands.storybook` when set.
+
 ## impeccable mode
 
 `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" design` prints the repo's design mode. In `impeccable` mode the system is `DESIGN.md` (and `.impeccable/design.json`), which `<docs>/design-system.md` points to; review against it with the same checklist. Add impeccable's own evidence, through the launcher in its skill folder (`<skill dir>/scripts/impeccable`, `impeccable.cmd` on Windows; the folder holding impeccable's `SKILL.md`, e.g. `.claude/skills/impeccable/`):

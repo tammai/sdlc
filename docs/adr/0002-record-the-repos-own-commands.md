@@ -13,7 +13,7 @@ Trying it showed the cost: `just` is one more tool everyone must install, and on
 
 Setup records the commands the repo already uses in `.sdlc/config.json`. No wrapper tool.
 
-- `commands` holds `install`, `test`, `lint`, `typecheck`, `build` exactly as the team runs them (`pnpm test`, `go test ./...`, `make lint`, `./gradlew build`). A step that doesn't apply to a stack is `null`. `verify.order` (default lint, typecheck, build, test) is the sequence Stage 5 and CI run.
+- `commands` holds `install`, `test`, `lint`, `typecheck`, `build` (and, opted in, `storybook`: spec 10) exactly as the team runs them (`pnpm test`, `go test ./...`, `make lint`, `./gradlew build`). A step that doesn't apply to a stack is `null`. `verify.order` (default lint, typecheck, build, storybook, test) is the sequence Stage 5 and CI run.
 - A monorepo lists `packages: [{name, path, stack, commands}]`, each run from its path. A polyglot repo is packages with different stacks. A workspace-wide test command (`turbo run test`, `pnpm -r test`) may sit in root `commands.test` and counts for every package.
 - **Freshness is per package.** An edit marks the owning package stale (a file outside every package: all of them); that package's test command run in its directory makes it fresh. The Stop block names each stale package and the exact command.
 - **CI is generated** from the commands (`scaffold.py render builtin:ci`): one toolchain setup per stack, then install and the verify steps per package with `working-directory`, every step under `shell: bash` (Git Bash on Windows runners), over an OS matrix from config. Recorded as seeded, so upgrades regenerate it and ask first if it was edited.
