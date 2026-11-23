@@ -11,9 +11,9 @@ No migration: every new config key (`mode`, `skip`, `team`, `done`, `storybook`)
 CHECKS_PLACEHOLDER
 
 ### Known issues
-- **A read-only repo made writable in `workbench.json` takes writes until the edit is undone.** The watch reports the change and blocks the end of the turn until you accept it or revert it, but in between, the per-call write guard follows the edited file, so a write into that repo goes through (smoke test K5).
-- **An untracked file in an app repo stops `state.py repo`, and the guard denies cleaning it up** until the repo is branched: the agent asks you to remove it (for example a `__pycache__` folder) yourself.
 - **sdlc's turn-end, commit and push reviews get no credentials when you sign in with `/login`** on some machines (seen on Windows, in 3.14.0 too): the hooks say once a week that the review isn't running. An `ANTHROPIC_API_KEY` in the environment turns them on.
+- **An advisory greenfield setup ends with doctor failing `repo.commands`.** Advisory mode skips the stack and its commands by design, but doctor still asks for them, and it doesn't name the mode (the session status line does).
+- **`/sdlc:setup objects` can write `None` under `## Avoid`**, which `scaffold.py objects --enable` rejects; the agent then drops the section. Leave `## Avoid` empty when nothing is to be avoided.
 
 ### Added
 - **Team mode** (`/sdlc:setup team on`). An M or L feature's stages run as role agents, each starting fresh from the record, with the main session as their coordinator: `sdlc:analyst` writes the change file (on opus), `sdlc:builder` builds and fixes review findings, the reviewers review, `sdlc:releaser` ships. The role guard holds each to its files: the analyst writes only the record, the builder never the change file's criteria, a reviewer's report or the state file, the releaser no product code.
