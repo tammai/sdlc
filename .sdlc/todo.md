@@ -6,6 +6,7 @@
 - [ ] Runbook E4 checks a review agent's model in `.sdlc/.work/dispatches.jsonl`, but an S code review through the built-in `code-review` skill writes none; update the check or log the skill's subagent — 3.15.0 smoke test P2 (2026-11-23)
 - [ ] `state.py new --task` splits a file note like `src/x.test.ts (test)` into a stray `(test)` file — 3.15.0 smoke test P5 (2026-11-23)
 - [ ] Ignored `.sdlc/state/*.json` of features on unmerged branches stay in the working tree, and `/sdlc:status` on main lists those features and guesses the scaffold is out of date — 3.15.0 smoke test P4 (2026-11-23)
+- [ ] Workbench: `accept read-only <repo>` accepts a non-app repo made writable in workbench.json, which sdlc's scripts then reject (`only an app repo can be writable`), blocking every feature step until it's undone; warn at the accept — 3.15.0 smoke test K re-run (2026-11-23)
 
 ## Done
 - [x] `claude plugin test plugins/sdlc-stepper` fails on Windows (21 of 26 at 3.15.0, 18 of 22 at 3.14.0): the test kit's `fs.list` hook is skipped with `ENOENT C:\...\plugins\sdlc-stepper`; passes on macOS. Find whether the kit or the test's paths are at fault (2026-11-23) — done 2026-11-23 (PR #132: the test's fake file system now takes backslash paths)
