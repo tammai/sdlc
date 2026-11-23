@@ -7,7 +7,7 @@ import sys
 import tempfile
 import unittest
 
-from helpers import PLUGIN_ROOT, ProjectTestCase, run_hook
+from helpers import PLUGIN_ROOT, ProjectTestCase, rmtree, run_hook
 
 SCRIPT = os.path.join(PLUGIN_ROOT, "scripts", "scaffold.py")
 
@@ -1485,7 +1485,7 @@ class ScaffoldTest(ProjectTestCase):
             self.assertTrue(p.untracked("a.txt"))  # git refuses: kept, never overwritten
         finally:
             os.environ.pop("GIT_DIR") if old is None else os.environ.__setitem__("GIT_DIR", old)
-        shutil.rmtree(self.path(".git"))
+        rmtree(self.path(".git"))
         self.write(".git", "gitdir: nowhere\n")  # a broken worktree link above the project
         self.assertTrue(p.untracked("a.txt"))
         # end review SP-H1: the project opened through a link from outside the repo still finds the real parents

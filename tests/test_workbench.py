@@ -6,7 +6,7 @@ import os
 import sys
 import unittest
 
-from helpers import HOOKS, PLUGIN_ROOT, ProjectTestCase
+from helpers import HOOKS, PLUGIN_ROOT, ProjectTestCase, rmtree
 
 sys.path.insert(0, HOOKS)
 sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
@@ -64,17 +64,6 @@ class ScopeParsing(ProjectTestCase):
             text = f.read()
         self.assertNotIn("→ `project` (`stack`, and `packages`", text)
         self.assertIn("top-level `packages`", text)
-
-
-def rmtree(path):
-    """shutil.rmtree that also removes git's read-only object files (Windows refuses to delete them)."""
-    import shutil
-    import stat
-
-    def writable(func, p, _):
-        os.chmod(p, stat.S_IWRITE)
-        func(p)
-    shutil.rmtree(path, onerror=writable)
 
 
 def git(cwd, *args):
@@ -2058,6 +2047,14 @@ class StopReviewRepo(WorkbenchFeatureCase):
     """The turn-end review's repo: from the workbench root, the app repo the turn edited, not the root, whose
     .gitignore hides every app file (todo: the Stop review resolves one repo per turn)."""
 
+    def assertEqual(self, first, second, msg=None):
+        # git spells a repo root with forward slashes on Windows (C:/x): compare the paths, not the spelling
+        def norm(v):
+            return os.path.normcase(os.path.normpath(v)) if isinstance(v, str) and os.path.isabs(v) else v
+        if isinstance(first, tuple) and isinstance(second, tuple):
+            first, second = tuple(map(norm, first)), tuple(map(norm, second))
+        super().assertEqual(norm(first), norm(second), msg)
+
     def test_a_turn_at_the_root_is_reviewed_in_the_app_repo_it_edited(self):
         import reporesolve as rr
         api, web = self.path("api"), self.path("web")
@@ -2168,7 +2165,9 @@ class StopReviewEveryRepo(WorkbenchFeatureCase):
             time.sleep(0.05)
         self.env = {"SECURITY_WARNINGS_STATE_DIR": self.path("state"), "ANTHROPIC_API_KEY": "test",
                     "ANTHROPIC_BASE_URL": f"http://127.0.0.1:{port}", "SDLC_SECURITY_REVIEW": "always",
-                    "SECURITY_GUIDANCE_DEBUG_LOG": self.path("state/debug.log")}
+                    "SECURITY_GUIDANCE_DEBUG_LOG": self.path("state/debug.log"), "PYTHONUTF8": "1"}
+        # as if the SDK install had just started: no test starts a real one in the background
+        open(self.path("state/.sdk_bootstrap_spawned"), "w").close()
 
     def hook(self, payload, cwd):
         from helpers import run_hook
@@ -2284,7 +2283,8 @@ class StopReviewEveryRepo(WorkbenchFeatureCase):
         import stop_repos
         os.makedirs(self.path("api/src"), exist_ok=True)
         touched = [self.path("api/src/a.py"), self.path("web/b.py")]
-        self.assertEqual(stop_repos.other_repos(self.path("api/src"), touched, self.path("api/src")),
+        self.assertEqual([os.path.normpath(r) for r in stop_repos.other_repos(self.path("api/src"), touched,
+                                                                              self.path("api/src"))],
                          [self.path("web")])
         self.assertEqual(stop_repos.name_prefix(self.path("web"), self.root), "web/")
         self.assertEqual(stop_repos.name_prefix(self.path("api"), self.path("api")), "")

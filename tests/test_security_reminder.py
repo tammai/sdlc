@@ -52,6 +52,29 @@ class SecurityReminderTest(ProjectTestCase):
         self.assertEqual(json.loads(raw.splitlines()[-1])["metrics"]["sdk_bootstrap"], 11)  # after the async line
         self.assertFalse(os.path.exists(self.path("state/agent-sdk-venv")))
 
+    def test_the_background_sdk_install_never_runs_in_the_project_folder(self):
+        # Windows can't delete or rename a folder a running process sits in, and the install can run for minutes
+        import sys
+        from unittest import mock
+        sys.path.insert(0, HOOKS)
+        import security_reminder_hook as hook
+        env = {k: v for k, v in os.environ.items() if k != "CLAUDE_PROJECT_DIR"}
+        env["SECURITY_WARNINGS_STATE_DIR"] = self.path("state")
+        self.addCleanup(os.chdir, os.getcwd())
+        os.chdir(self.root)  # a hook runs in the project
+        with mock.patch.dict(os.environ, env, clear=True), \
+                mock.patch("importlib.util.find_spec", return_value=None), \
+                mock.patch.object(hook, "llm_reviews_switched_off", return_value=False), \
+                mock.patch.object(hook, "agent_sdk_installed", return_value=False), \
+                mock.patch.object(hook.sdlc_review_gate, "review_wanted", return_value=True), \
+                mock.patch.object(hook, "_SDK_BOOTSTRAP_THROTTLE", self.path("state/.sdk_bootstrap_spawned")), \
+                mock.patch.object(hook.subprocess, "Popen") as popen:
+            hook._maybe_bootstrap_agent_sdk_async(self.root)
+        kwargs = popen.call_args.kwargs
+        self.assertNotEqual(os.path.realpath(kwargs.get("cwd") or os.getcwd()), self.root)
+        # the installer still learns the project, as it did from its working directory
+        self.assertEqual(kwargs.get("env", {}).get("CLAUDE_PROJECT_DIR"), self.root)
+
 
 if __name__ == "__main__":
     unittest.main()

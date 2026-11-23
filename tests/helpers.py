@@ -10,6 +10,16 @@ PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOOKS = os.path.join(PLUGIN_ROOT, "hooks")
 # Bare "bash" on Windows resolves to System32\bash.exe (WSL) before PATH; shutil.which follows PATH, so it finds Git Bash.
 BASH = shutil.which("bash") or "bash"
+def rmtree(path):
+    """shutil.rmtree that also removes git's read-only object files (Windows refuses to delete them)."""
+    import stat
+
+    def writable(func, p, _):
+        os.chmod(p, stat.S_IWRITE)
+        func(p)
+    shutil.rmtree(path, onerror=writable)
+
+
 AGENT_MARKERS = ("CLAUDE", "CODEX_", "CURSOR_", "ANTIGRAVITY_", "AI_AGENT")
 
 

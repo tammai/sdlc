@@ -2941,10 +2941,17 @@ def _maybe_bootstrap_agent_sdk_async(cwd=None):
         open(_SDK_BOOTSTRAP_THROTTLE, "w").close()
         script = os.path.join(
             os.path.dirname(os.path.abspath(__file__)), "ensure_agent_sdk.py")
+        # sdlc patch: started in the state dir, not the project: on Windows a
+        # folder a running process sits in can't be deleted or renamed, and the
+        # install can run for minutes. The project goes along as
+        # CLAUDE_PROJECT_DIR, which the installer reads before its cwd.
+        env = dict(os.environ)
+        env.setdefault("CLAUDE_PROJECT_DIR", os.path.abspath(cwd or os.getcwd()))
         subprocess.Popen(
             [sys.executable, script, "--now"],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             stdin=subprocess.DEVNULL, start_new_session=True,
+            cwd=os.path.dirname(_SDK_BOOTSTRAP_THROTTLE), env=env,
         )
     except Exception:
         pass  # best-effort; never break the hook over a bootstrap attempt

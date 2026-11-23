@@ -39,6 +39,7 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ### Fixed
 - **Cursor's hooks run on Windows.** Cursor runs a hook command there through Windows PowerShell, where `python3` is often missing or the Microsoft Store stub, so every sdlc hook did nothing. The command now reads in both sh and PowerShell; on Windows it runs the first working `python3`, `python` or `py -3` and hands it the event.
+- **The background Agent SDK install no longer runs in your project folder.** On Windows, a folder a running process sits in can't be deleted or renamed, and the install can take minutes; it now runs in the plugin's state folder.
 - **Eject removes a linked `.sdlc/.work` as a link** instead of crashing after the lock was gone.
 - **`.impeccable/config.json` is never read through a committed link**, and an upgrade or eject never overwrites an untracked file in a project below the git toplevel or opened through a link.
 - **`accept read-only` names the repos it stopped watching.**
