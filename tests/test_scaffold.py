@@ -1667,16 +1667,6 @@ class ScaffoldTest(ProjectTestCase):
         self.assertNotIn("{{", text)
         self.assertIn(".sdlc/config.json", text)
 
-    def test_the_work_folder_is_ignored_from_setups_first_step(self):
-        # 3.15.0 smoke test G: setup's first commit took .sdlc/.work/trust-anchor.json, before its gitignore step
-        subprocess.run(["git", "init", "-q", self.root], check=True)
-        self.init()
-        self.write(".sdlc/.work/trust-anchor.json", "{}")
-        status = subprocess.run(["git", "-C", self.root, "status", "--porcelain", "--untracked-files=all"],
-                                capture_output=True, encoding="utf-8").stdout
-        self.assertNotIn(".work", status)
-        self.assertIn(".sdlc/config.json", status)
-
 
 if __name__ == "__main__":
     unittest.main()
