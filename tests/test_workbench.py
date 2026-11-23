@@ -482,6 +482,9 @@ class WorkbenchFeature(WorkbenchFeatureCase):
         self.assertEqual(code, 1, out)
         self.assertIn("web", json.loads(out)["error"])
         self.assertIn("uncommitted", json.loads(out)["error"])
+        # 3.15.0 smoke test K4: the guard holds writes there until it's branched, so the agent can't clean it up
+        self.assertIn("wip.txt", json.loads(out)["error"])
+        self.assertIn("ask the user", json.loads(out)["error"])
         self.assertEqual(git_out(self.path("web"), "rev-parse", "--abbrev-ref", "HEAD"), "main")
         self.assertNotIn("web", sdlc_scopes.feature_repos(self.state_text()))
         # A read-only repo records the commit read; an unlisted name or a bad one is refused

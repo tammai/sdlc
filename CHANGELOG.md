@@ -39,6 +39,7 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 - **impeccable's machine-local `config.local.json` is never read through a link** out of the repo or into `.git`, at the file or its `.impeccable` folder, like its committed `config.json`. Doctor and `/sdlc:setup design` name such a file and say to replace the link, instead of advising `/impeccable hooks on`.
 
 ### Fixed
+- **Workbench: an app repo with stray files tells the agent to ask you.** `state.py repo` names the uncommitted or untracked files (a `__pycache__` folder) and says to ask you to commit, remove or ignore them, since sdlc holds writes there until the feature branches it; before, it told the agent to clean up, which the guard then denied.
 - **Cursor's hooks run on Windows.** Cursor runs a hook command there through Windows PowerShell, where `python3` is often missing or the Microsoft Store stub, so every sdlc hook did nothing. The command now reads in both sh and PowerShell; on Windows it runs the first working `python3`, `python` or `py -3` and hands it the event.
 - **The background Agent SDK install no longer runs in your project folder.** On Windows, a folder a running process sits in can't be deleted or renamed, and the install can take minutes; it now runs in the plugin's state folder.
 - **Eject removes a linked `.sdlc/.work` as a link** instead of crashing after the lock was gone.
