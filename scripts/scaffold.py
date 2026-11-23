@@ -454,9 +454,25 @@ def cmd_init(p, a):
               "migrations": {"applied": [], "skipped": {}},
               "setup": {"kind": a.kind, "completed_steps": [], "complete": False}}
     p.save()
+    _ignore_work_folder(p.root)
     return {"initialized": True, "scaffold_version": version, "host": host, "kind": a.kind,
             "docs_dir": p.config.get("docs_dir"),
             "legacy_features": legacy}
+
+
+def _ignore_work_folder(root):
+    """`.sdlc/.work/` ignores itself (a `.gitignore` of `*` inside), so setup's first commits never take the files
+    hooks write there before the gitignore step adds it to the repo's .gitignore (3.15.0 smoke test G). Never writes
+    through a link."""
+    rel = ".sdlc/.work/.gitignore"
+    if link_problem(root, ".sdlc/.work") or os.path.lexists(os.path.join(root, rel)):
+        return
+    try:
+        os.makedirs(os.path.join(root, ".sdlc", ".work"), exist_ok=True)
+        with open(os.path.join(root, rel), "x", encoding="utf-8") as f:
+            f.write("# sdlc's working files: never committed\n*\n")
+    except OSError:
+        pass  # the gitignore step still adds .sdlc/.work/ to the repo's .gitignore
 
 
 def team_rules(p):
