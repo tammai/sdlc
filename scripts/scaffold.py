@@ -721,10 +721,15 @@ def plugin_enabled(root, plugin_id):
 def impeccable_hook_off(root):
     """impeccable's own off switch for its detector hook (`/impeccable hooks off`): `hook.enabled: false` in
     `.impeccable/config.json` or the machine's `config.local.json`, the later winning. Both are read through
-    sdlc_scopes.read_repo_text: a link out of the repo or into .git, at the file or its folder, reads as absent."""
+    sdlc_scopes.read_repo_text, never through a link out of the repo or into .git (at the file or its folder); such
+    a file, or one that can't be read, counts as off, so sdlc keeps its own UI guardrail rather than lose both."""
     off = False
     for name in ("config.json", "config.local.json"):
-        text = sdlc_scopes.read_repo_text(root, f".impeccable/{name}")
+        rel = f".impeccable/{name}"
+        text = sdlc_scopes.read_repo_text(root, rel)
+        if text is None and os.path.lexists(os.path.join(root, rel)):
+            off = True
+            continue
         try:
             data = json.loads(text) if text is not None else {}
         except json.JSONDecodeError as e:
@@ -2568,8 +2573,8 @@ def runbook_path(root, value):
         return None
     for path in (norm, os.path.relpath(real, real_root).replace(os.sep, "/")):
         parts = path.split("/")
-        if not path.lower().endswith(".md") or parts[0].rstrip(". ").lower() in RUNBOOK_EXCLUDED or \
-                any(_git_segment(x) for x in parts):  # a git dir at any depth, in any spelling
+        if not path.lower().endswith(".md") or any(sdlc_scopes.dot_segment(parts[0], n) for n in RUNBOOK_EXCLUDED) \
+                or any(_git_segment(x) for x in parts):  # a git dir at any depth; all three at the top; any spelling
             return None
     return norm
 
