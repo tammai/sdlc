@@ -101,6 +101,32 @@ class TeamModeTest(ProjectTestCase):
         for rel in ("src/fixtures/a~1.json", "notes/12:30.md"):
             self.assertIsNone(self.write_as("builder", rel), rel)  # product names, nowhere near the record
 
+    # AC-001 (2026-11-23-s-team-guard-followups)
+    def test_the_builder_leaves_the_review_and_the_state_alone(self):
+        self.write(".sdlc/config.json", json.dumps({"docs_dir": "docs/sdlc"}))
+        folded = (".sdlc/.WORK/findings/login/r1.md",) if sys.platform in ("darwin", "win32") else ()
+        for rel in (".sdlc/.work/findings/login/code-reviewer-r1.md", ".sdlc/state/login.md") + folded:
+            self.assertEqual(self.write_as("builder", rel), "deny", rel)
+        for rel in ("src/app.py", "tests/test_app.py", ".sdlc/state/login/backlog.md", ".sdlc/.work/scratch.txt"):
+            self.assertIsNone(self.write_as("builder", rel), rel)
+        self.write(".sdlc/config.json", json.dumps({}))
+        self.write(".sdlc/login/state.md", "# login\n")
+        self.assertEqual(self.write_as("builder", ".sdlc/login/state.md"), "deny")
+        self.assertIsNone(self.write_as("builder", ".sdlc/login/backlog.md"))
+
+    # AC-002 (2026-11-23-s-team-guard-followups)
+    def test_an_objects_path_through_a_link_is_judged_where_it_leads(self):
+        os.makedirs(self.path(".claude/agents"))
+        os.makedirs(self.path("docs"))
+        os.symlink(self.path(".claude/agents"), self.path("docs/agents"))
+        self.write(".sdlc/config.json", json.dumps({"objects": "docs/agents/objects.md"}))
+        self.assertEqual(self.write_as("analyst", "docs/agents/objects.md"), "deny")
+        absolute = self.path("docs/domain/objects.md")
+        self.write(".sdlc/config.json", json.dumps({"objects": absolute}))
+        self.assertEqual(self.write_as("analyst", "docs/domain/objects.md"), "deny")
+        self.write(".sdlc/config.json", json.dumps({"objects": "docs/domain/objects.md"}))
+        self.assertIsNone(self.write_as("analyst", "docs/domain/objects.md"))
+
     @unittest.skipUnless(sys.platform in ("darwin", "win32"), "a case-insensitive file system")
     def test_the_builder_never_writes_the_change_file_by_another_case(self):
         self.write(".sdlc/config.json", json.dumps({"docs_dir": "docs/sdlc"}))
