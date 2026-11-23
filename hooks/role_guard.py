@@ -80,7 +80,7 @@ def problem(agent, tool, rel, root):
     if agent == "builder" and tool in WRITES and builder_off_limits(rel):
         return ("sdlc: the builder doesn't write the reviewers' reports or the state file: a review's findings are "
                 "its reviewer's, and the state changes through state.py.")
-    if agent == "releaser" and tool in WRITES and not (in_sdlc and plain or shipping(rel)):
+    if agent == "releaser" and tool in WRITES and not (in_sdlc and plain or shipping(rel) or app_shipping(rel, root)):
         return ("sdlc: the releaser ships: Learn's lessons (knowledge/, CLAUDE.md, .claude/rules/, hookify rules), "
                 "CHANGELOG.md and the record, never product code. A code fix goes back to the builder.")
     if agent == "qa-tester":
@@ -176,6 +176,20 @@ def objects_files(root):
     except Exception:
         pass
     return out
+
+
+def app_shipping(rel, root):
+    """In a workbench, a Learn file inside a writable repo the manifest lists, judged from that repo's folder (an app
+    repo without its own config is judged against the workbench); never a read-only repo's or an unlisted folder's."""
+    try:
+        import sdlc_scopes  # noqa: PLC0415
+        if not sdlc_scopes.is_workbench(root):
+            return False
+        head, _, rest = (canon(rel) or "").partition("/")
+        writable = {canon(r["name"]) for r in sdlc_scopes.manifest(root) if r["write"]}
+        return bool(rest) and head in writable and ":" not in rel and not re.search(r"~\d", rel) and shipping(rest)
+    except Exception:
+        return False
 
 
 def shipping(rel):

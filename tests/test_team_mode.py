@@ -144,6 +144,18 @@ class TeamModeTest(ProjectTestCase):
         for rel in (".claude/hookifyx.py", ".claude/hookify", ".claude/settings.json"):
             self.assertEqual(self.write_as("releaser", rel), "deny", rel)
 
+    # AC-001 (2026-11-23-s-team-workbench-learn)
+    def test_the_releaser_files_lessons_in_a_workbench_app_repo(self):
+        self.write(".sdlc/config.json", json.dumps({"workbench": True}))
+        self.write("workbench.json", json.dumps({"repos": [
+            {"name": "api", "url": "u1", "role": "app", "write": True},
+            {"name": "specs", "url": "u2", "role": "specs"}]}))
+        for rel in ("api/.claude/rules/api.md", "api/knowledge/gotchas/x.md", "api/.claude/hookify.x.local.md",
+                    "api/CLAUDE.md", "knowledge/gotchas/y.md"):
+            self.assertIsNone(self.write_as("releaser", rel), rel)
+        for rel in ("api/src/app.py", "specs/.claude/rules/x.md", "other/.claude/rules/x.md"):
+            self.assertEqual(self.write_as("releaser", rel), "deny", rel)
+
     # AC-005
     def test_the_analyst_runs_on_the_top_tier(self):
         self.write(".sdlc/login/state.md", "# login\nStatus: active\nProcess: 3\nTrack: M\nRisk: low\nTop model: opus\n")
