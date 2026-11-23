@@ -16,7 +16,7 @@ check, so this can't prevent a change; it makes one visible. For each active fea
   - a feature seen active stopped being active, other than by finishing (`Status: done`)
 Only current features (`Process: 3`) are anchored; an older one is migrated by `state.py migrate`, and a current one whose `Process:`
 line changes keeps its anchor, so the change is a notice. A new notice blocks the stop once, with a systemMessage so the user sees it; it doesn't block again. The user's
-reply accepts it: the current values become the new anchor. Only the user's reply clears a notice: a prompt, or their
+reply accepts it: the values its notices showed become the new anchor. Only the user's reply clears a notice: a prompt, or their
 answer to an AskUserQuestion headed `Trust anchor` that user_answer.py saw asked without answers. A damaged record is a notice too; a deleted one can't be told from a first run (Known
 gaps in spec 02). State: .sdlc/.work/trust-anchor.json. Any error: no output.
 """
@@ -225,6 +225,61 @@ def changed_since_full_run(root, name):
     return sorted(changed)
 
 
+def config_notice(root, saved, replied):
+    """A notice when `mode` or `skip` asks for fewer checks than the user accepted (full → advisory, a step newly
+    skipped), said even in advisory mode. The record lives where the mode is set (sdlc_scopes.gate_root, which the
+    hooks read too); a missing record starts from HEAD's committed config, a malformed one is said and reset to it.
+    The user's reply accepts what the notice showed, never what config says by then; a change toward more checks
+    becomes the accepted value at once."""
+    import sdlc_scopes  # noqa: PLC0415
+    gate = sdlc_scopes.gate_root(root) or root
+    own = os.path.realpath(gate) == os.path.realpath(root)
+    record = saved
+    if not own:
+        try:
+            with open(sdlc_scopes._inside(gate, sdlc_scopes.ANCHOR), encoding="utf-8") as f:
+                record = json.load(f)
+        except (OSError, ValueError):
+            record = {}
+        record = record if isinstance(record, dict) else {}
+    damaged = None
+    entry = record.get(sdlc_scopes.CONFIG_KEY)
+    if not sdlc_scopes.valid_record(entry):
+        if entry is not None:
+            damaged = "the trust anchor's record of the accepted mode and skips was damaged; it was reset to the committed config"
+        mode, skip = sdlc_scopes.committed(gate)
+        entry = record[sdlc_scopes.CONFIG_KEY] = {"mode": mode, "skip": skip, "notices": []}
+    want_mode, want_skip = sdlc_scopes.configured(gate)
+    if replied:
+        shown = entry.pop("shown", None)
+        if sdlc_scopes.valid_record(shown):
+            entry.update(mode=shown["mode"], skip=list(shown["skip"]))
+        entry["notices"] = []
+        notice = None
+    else:
+        relaxed = []
+        if entry["mode"] == "full" and want_mode == "advisory":
+            relaxed.append("mode: full → advisory (no hook gates anything)")
+        added = sorted(set(want_skip) - set(entry["skip"])) if entry["mode"] == want_mode == "full" else []
+        if added:
+            relaxed.append(f"skip: now skips {', '.join(added)}")
+        if not relaxed:
+            if (want_mode, want_skip) != (entry["mode"], sorted(entry["skip"])):
+                entry.update(mode=want_mode, skip=want_skip)  # as strict or stricter: accepted at once
+            entry.pop("shown", None)
+            entry["notices"] = []
+            notice = None
+        else:
+            notice = "; ".join(relaxed) + " (.sdlc/config.json)"
+            entry["shown"] = {"mode": want_mode, "skip": want_skip}
+            fresh = notice not in entry.get("notices", [])
+            entry["notices"] = [notice]
+            notice = notice if fresh else None
+    if not own:  # unwritten: the next look starts from HEAD again, so a relaxation still waits (fail closed)
+        sdlc_scopes.write_record(gate, sdlc_scopes.ANCHOR, record)
+    return "; ".join(n for n in (damaged, notice) if n) or None
+
+
 def accept(anchor):
     """The user has seen the notices: what they flagged becomes the new anchor."""
     anchor["fields"] = anchor.get("fields_seen", anchor.get("fields", {}))
@@ -244,21 +299,24 @@ def main():
     replied = event == "UserPromptSubmit" or bool(user_answer.answered(root, data, HEADER))
     if event == "PostToolUse" and not replied:
         return
-    path = os.path.join(root, STATE)
     corrupt = False
+    import sdlc_scopes  # noqa: PLC0415
     try:
-        saved = json.load(open(path, encoding="utf-8"))
-        corrupt = not isinstance(saved, dict)
-    except OSError:
+        with open(sdlc_scopes._inside(root, STATE), encoding="utf-8") as f:  # a regular file only: a FIFO hangs
+            saved = json.load(f)
+        corrupt = not isinstance(saved, dict) or not all(isinstance(v, dict) for v in saved.values())
+    except FileNotFoundError:
         saved = {}
-    except ValueError:
+    except (OSError, ValueError):
         corrupt = True
     if corrupt:  # its own record was damaged: start over, but say so
         saved = {}
+    relaxed = config_notice(root, saved, replied)
+    advisory = sdlc_scopes.advisory(sdlc_scopes.gate_root(root) or root)
     features, left = {}, []
     seen = set()
     located = sdlc_layout.features(root)
-    for name, f in located.items():
+    for name, f in ({} if advisory else located).items():  # advisory: only the mode change is said
         text = read(os.path.join(root, f["state"])) or ""
         seen.add(name)
         status = (field(text, "Status") or "").lower()
@@ -272,15 +330,17 @@ def main():
                 left.append(f"{name}: Status: active → {status or 'missing'} at Stage {was.get('stage')}")
             was["status"] = status
     for name, was in saved.items():
+        if advisory or name == sdlc_scopes.CONFIG_KEY:
+            continue
         if was.get("status") == "active" and name not in seen:
             left.append(f"{name}: its state.md was removed while active")
             was["status"] = "removed"
     if replied:
-        for anchor in saved.values():
-            if anchor.get("notices"):
+        for name, anchor in saved.items():
+            if anchor.get("notices") and name != sdlc_scopes.CONFIG_KEY:
                 accept(anchor)
     else:
-        new, shown = list(left), []
+        new, shown = list(left) + ([relaxed] if relaxed else []), []
         for name, text in features.items():
             anchor = saved.setdefault(name, {})
             anchor["status"] = "active"
@@ -305,9 +365,7 @@ def main():
                                   f"header `{HEADER}`, without `answers` (options such as Accept, Undo it); don't undo "
                                   "or redo it on your own. Their answer, or their next message, accepts it. In an --autopilot "
                                   "session no one can answer: say what changed and end; don't ask."}))
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(saved, f, indent=2)
+    sdlc_scopes.write_record(root, STATE, saved)  # a fresh file swapped in: never through a FIFO or a link
 
 
 if __name__ == "__main__":

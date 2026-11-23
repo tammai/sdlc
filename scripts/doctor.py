@@ -411,7 +411,8 @@ def check_repo(r, root):
             r.add(g, ".gitignore", "ok", ".sdlc/.work/ and the control contract ignored", None)
 
     files = repo_files(root)
-    if status["setup"] == "complete":
+    advisory = scaffold.configured_advisory(p)  # advisory setup asks for no PRD or design system (ADR 0030)
+    if status["setup"] == "complete" and not advisory:
         prd = sdlc_layout.prd(root)
         has_prd = os.path.isfile(os.path.join(root, prd))
         r.add(g, "PRD", "ok" if has_prd else "warn",
@@ -469,7 +470,7 @@ def check_repo(r, root):
                   "python3 scripts/scaffold.py enable-plugin turns the plugin off for this repo only"
                   if still_on else "keep it, or remove its files from the repo (the team's call)")
         ui = scaffold.effective_config(p.config).get("areas", {}).get("ui", [])
-        if any(glob_matches(x, files) for x in ui):
+        if any(glob_matches(x, files) for x in ui) and not advisory:
             design_system = sdlc_layout.paths(root)["design_system"]
             ds = os.path.exists(os.path.join(root, design_system))
             r.add(g, "design system", "ok" if ds else "warn",

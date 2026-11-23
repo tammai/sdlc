@@ -66,7 +66,7 @@ Auth, payments, secrets, PII, schema migrations, or a breaking public API change
 
 - **Keep `areas.sensitive` and `areas.migrations` right** in `.sdlc/config.json`. A sensitive path they miss gets no security review.
 - **While you build:** security hooks warn on risky edits. On a security-touched feature they also review the diff at turn end and after a commit. Build commits on a feature branch are batched and reviewed with the next review-ready commit. Address each finding, or acknowledge it with a reason.
-- **After the build:** a **security review** runs (a `code-reviewer` with the security-only brief plus a dependency audit). On S it always runs. On M and L, where you pick, you can decline it. On a backlog it runs once, at feature close.
+- **After the build:** a **security review** runs (a `code-reviewer` with the security-only brief plus a dependency audit). On S it always runs, unless the repo's config skips it (`skip: security-review`). On M and L, where you pick, you can decline it. On a backlog it runs once, at feature close.
 - **Gate:** no critical or high finding open and no secrets in the diff, recorded in `## Review`.
 - **DB migrations and production deploys are hard stops.** Say go explicitly.
 

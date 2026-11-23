@@ -265,6 +265,13 @@ def _branch_point(root):
     return None
 
 
+def _review_skipped(repo_root):
+    """config's `skip` turns the feature reviews off: `security-review` among the accepted skips where the mode is set
+    (sdlc_scopes.gate_root: an app repo's workbench, never the app repo's own config)."""
+    import sdlc_scopes  # noqa: PLC0415
+    return "security-review" in sdlc_scopes.skipped(sdlc_scopes.gate_root(repo_root))
+
+
 def review_wanted(repo_root):
     """For the Stop review: True only when SDLC_SECURITY_REVIEW=always, or the one active feature's change (committed
     since Base:, uncommitted or untracked) is security-touched; in a workbench's app repo, the workbench feature that
@@ -273,6 +280,8 @@ def review_wanted(repo_root):
     try:
         if _always():
             return True
+        if _review_skipped(repo_root):  # the project chose to skip it (config `skip`): the push review still runs
+            return False
         member, owner = _workbench_feature(repo_root)
         if member:  # a workbench's app repo: the workbench's feature decides, as for its commits (decide)
             if owner is None:
@@ -302,6 +311,8 @@ def decide(repo_root, shas, reviewed):
     gate applied, so an amend is reviewed whole, never as a delta. Never raises."""
     given = {"defer": False, "shas": list(shas), "own": list(shas), "range": None, "active": False}
     try:
+        if not _always() and _review_skipped(repo_root):  # config `skip`: no commit review; the push review runs
+            return {"defer": True, "off": True, "shas": [], "own": [], "range": None, "active": False}
         member, owner = _workbench_feature(repo_root)
         if member:  # a workbench's repo: its own state and config never decide (the agent can write them)
             if owner is None and not _always():

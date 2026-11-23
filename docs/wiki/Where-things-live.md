@@ -94,7 +94,7 @@ Put in tier 1 only what nearly every task needs. **Learn** (before the final com
 | Living spec, if on | `docs/sdlc/capabilities/<name>.md` (old layout: `.sdlc/capabilities/`), written by Ship |
 | Domain model, if on | `docs/sdlc/objects.md` (old layout: `.sdlc/objects.md`) |
 | Work folder (committed) | `.sdlc/state/<feature>/`: `backlog.md`, `plan-B<n>.md`, `qa-report.md`, `release.md` (only if you ask) |
-| Scratch (git-ignored) | `.sdlc/.work/`: `verify.json`, `verify-freshness.json`, `trust-anchor.json`, `review-rounds.json` (per feature: round reached, rounds your answers allow, the cap's ceiling), `stuck-turn.json`, `dispatches.jsonl`, `findings/<feature>/` (review reports) |
+| Scratch (git-ignored) | `.sdlc/.work/`: `verify.json`, `verify-freshness.json`, `trust-anchor.json` (its `_config` entry: the mode and skips you accepted), `review-rounds.json` (per feature: round reached, rounds your answers allow, the cap's ceiling), `stuck-turn.json`, `dispatches.jsonl`, `findings/<feature>/` (review reports) |
 | Ralph loop state | `.claude/ralph-loop.local.md` |
 | Personal hookify rules | `.claude/hookify.<name>.local.md` (git-ignored) |
 | Team hookify rules | `.claude/hookify/<name>.md` (committed) |

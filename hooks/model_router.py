@@ -65,6 +65,9 @@ def main():
         if data.get("tool_name") not in ("Agent", "Task"):
             return
         root = os.environ.get("CLAUDE_PROJECT_DIR") or data.get("cwd") or os.getcwd()
+        import sdlc_scopes  # noqa: PLC0415
+        if sdlc_scopes.advisory_from(data.get("cwd") or root):  # advisory: nothing gates
+            return
         states = active_states(root)
         reason = problem(data.get("tool_input") or {}, states) if states else None
         if reason:

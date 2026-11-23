@@ -15,7 +15,7 @@
 | **M** feature | A few files, approach mostly clear | Merge. At high risk, also the plan and which reviews run |
 | **L** project | Several parts, or approach unclear | Merge. Also the plan and reviews, if its own checks leave a doubt |
 
-The agent stops at the open PR with CI green. **Merging, production deploys and database migrations are always your call.**
+The agent stops at the open PR with CI green (or after the local commit, when the repo skips the PR step). **Merging, production deploys and database migrations are always your call.**
 
 **Resume:** in a new session, run `/sdlc:start` with no argument.
 

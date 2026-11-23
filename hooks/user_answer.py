@@ -55,7 +55,8 @@ def main():
     if data.get("hook_event_name") != "PreToolUse" or data.get("tool_name") != TOOL:
         return
     root = vf.project_root(data.get("cwd"))
-    if not root or not list(sdlc_layout.active(root)):  # setup asks too, before it ignores .sdlc/.work/
+    import sdlc_scopes  # noqa: PLC0415
+    if not root or sdlc_scopes.advisory_from(root) or not list(sdlc_layout.active(root)):  # setup asks too, before it ignores .sdlc/.work/
         return
     if (data.get("tool_input") or {}).get("answers"):
         print(json.dumps({"hookSpecificOutput": {

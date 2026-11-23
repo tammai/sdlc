@@ -617,7 +617,11 @@ def design_mode(p):
 
 def shipped_files(p=None):
     """(template, dest, class) for every plugin file setup always installs: policy rules and guardrails.
-    Lint snippets and CI are left out: setup adds those only by choice."""
+    Lint snippets and CI are left out: setup adds those only by choice. An advisory repo (as configured) installs
+    only the advisory note as `.claude/rules/sdlc.md`, so upgrade, doctor and the design swap add nothing that
+    enforces there."""
+    if p is not None and configured_advisory(p):
+        return [("templates/project/advisory/sdlc.md", ".claude/rules/sdlc.md", "generated")]
     skip = IMPECCABLE_REPLACES if design_mode(p) == "impeccable" else None
     out = []
     rules = os.path.join(PLUGIN_ROOT, "templates", "project", "rules")
@@ -632,6 +636,12 @@ def shipped_files(p=None):
     return out
 
 
+def configured_advisory(p):
+    """The repo's config asks for advisory mode (sdlc_scopes.configured): what setup, upgrade and doctor install
+    follows the team's stated choice; the hooks honour it only once accepted (sdlc_scopes.effective)."""
+    return sdlc_scopes._gating(p.config or {})[0] == "advisory"  # this command's config, saved or about to be
+
+
 def guardrail_list(p):
     return [(t, d) for t, d, cls in shipped_files(p) if t.startswith("templates/project/hookify/")]
 
@@ -641,6 +651,8 @@ def cmd_guardrails(p, a):
     recorded, in one call: setup's step used to loop over this list in the shell, and on Windows a `\\r` on each
     path made every render fail unseen (3.12.0 smoke C3). A guardrail the user edited, a file the plugin never
     wrote, and one the user declined (`forget`) are left as they are."""
+    if configured_advisory(p):  # nothing that enforces lands in an advisory repo
+        return {"design": design_mode(p), "guardrails": [], "advisory": True}
     listed = guardrail_list(p)
     out = {"design": design_mode(p), "guardrails": [{"template": t, "dest": d} for t, d in listed]}
     if not a.render:
@@ -853,6 +865,107 @@ def cmd_review_rounds(p, a):
                         "the user typed /sdlc:setup review-rounds <n> themselves")}
 
 
+def gate_of(p):
+    """Where this repo's mode and skips are set (sdlc_scopes.gate_root from --root, as the hooks resolve it): a
+    workbench's app repo is set at the workbench. Writing them anywhere else would be read by nothing."""
+    gate = sdlc_scopes.gate_root(p.root, session=False) or p.root
+    if os.path.realpath(gate) != os.path.realpath(p.root):
+        raise Refused(f"the mode and skips here are set at {gate} (where the hooks read them); run this there")
+    covered, session = session_gate(p)
+    if covered and not session:
+        raise Refused("this session's hooks read no mode here (its folder has no .sdlc above it); start the session "
+                      "in the repo to set it")
+    if session and os.path.realpath(session) != os.path.realpath(gate):
+        raise Refused(f"this session's hooks read the mode and skips at {session}, not here; run this there")
+    return gate
+
+
+def session_gate(p):
+    """(covered, gate): whether this session (CLAUDE_PROJECT_DIR) covers --root, and the folder its hooks read the
+    mode at (None when they read none there)."""
+    project = os.environ.get("CLAUDE_PROJECT_DIR")
+    if not project:
+        return False, None
+    real_project, real_root = os.path.realpath(project), os.path.realpath(p.root)
+    if real_root != real_project and not real_root.startswith(real_project + os.sep):
+        return False, None
+    return True, sdlc_scopes.gate_root(p.root)
+
+
+def rule_for_mode(p):
+    """Put `.claude/rules/sdlc.md` in line with the configured mode: the workflow rule in full mode, the advisory
+    note in advisory, re-rendered only while unedited (a generated file); a switch otherwise left upgrade carrying the
+    old one. Returns what it did, or None."""
+    lock = p.lock
+    if lock is None or "claude-code" not in hosts(p):
+        return None
+    dest = ".claude/rules/sdlc.md"
+    want = "templates/project/advisory/sdlc.md" if configured_advisory(p) else "templates/project/rules/sdlc.md"
+    entry = lock["files"].get(dest)
+    if not entry or entry.get("template") == want:
+        return None
+    if p.file_state(dest, entry) == "modified" or p.merged(entry):
+        return {"kept": dest, "why": "edited since the plugin wrote it: switch it by hand"}
+    full = p.path(dest)
+    with open(full, "w", encoding="utf-8", newline="\n") as f:
+        f.write(render_source(want, p))
+    lock["files"][dest] = {"class": "generated", "sha256": sha256(full), "template": want}
+    return {"rendered": dest}
+
+
+def cmd_mode(p, a):
+    """The repo's sdlc mode: `full` (default) or `advisory` (skills and agents as aids; no hook gates anything). With
+    a mode, records it; the trust anchor shows a move to advisory to the user at the next turn end."""
+    out = {}
+    if a.mode is not None:
+        if a.mode not in sdlc_scopes.MODES:
+            raise Refused(f"mode is one of {', '.join(sdlc_scopes.MODES)}, not {a.mode!r}")
+        gate_of(p)
+        p.config = p.config or {}
+        p.config["mode"] = a.mode
+        if a.mode == "advisory":
+            p.config.pop("skip", None)  # nothing gates in advisory: a skip list would only mislead
+        rule = rule_for_mode(p)
+        if rule:
+            out["rule"] = rule
+        p.save()
+    return {**gating_report(p), **out}
+
+
+def gating_report(p):
+    """What config asks (`mode`, `skip`) and what the hooks honour now (`effective`): a relaxation counts once the
+    trust anchor has shown it and the user replied."""
+    covered, session = session_gate(p)
+    if covered and not session:  # the hooks read no mode here: nothing counts but full
+        return {"mode": "full", "skip": [], "effective": {"mode": "full", "skip": []}}
+    gate = session or sdlc_scopes.gate_root(p.root, session=False) or p.root  # what the hooks read
+    mode, skip = sdlc_scopes.configured(gate)
+    honoured = sdlc_scopes.effective(gate)
+    out = {"mode": mode, "skip": skip, "effective": {"mode": honoured[0], "skip": honoured[1]}}
+    if honoured != (mode, skip):
+        out["pending"] = "the user's reply to the trust anchor's notice at the next turn end makes it count"
+    return out
+
+
+def cmd_skip(p, a):
+    """The steps a full-mode repo skips (config's `skip`): any of security-review, code-review, ui-review, pr. With
+    names, records them; --clear removes the list. The trust anchor shows a newly skipped step to the user."""
+    if a.clear or a.steps:
+        gate_of(p)
+        if a.steps and sdlc_scopes.configured(p.root)[0] != "full":
+            raise Refused("skip applies to full mode; this repo is advisory, where no step gates anything")
+        bad = [x for x in a.steps if x not in sdlc_scopes.SKIPPABLE]
+        if bad:
+            raise Refused(f"only {', '.join(sdlc_scopes.SKIPPABLE)} can be skipped, not {', '.join(bad)}")
+        p.config = p.config or {}
+        if a.clear:
+            p.config.pop("skip", None)
+        else:
+            p.config["skip"] = sorted(set(a.steps))  # the whole list: the steps named replace the old ones
+        p.save()
+    return gating_report(p)
+
+
 def swap_ui_guardrail(p, loads_later=False):
     """Make the installed UI guardrail match the mode, whenever the mode is set (setup renders guardrails before it
     asks the mode). impeccable: removed only once impeccable's detector hook runs here, so nothing goes unchecked in
@@ -861,8 +974,8 @@ def swap_ui_guardrail(p, loads_later=False):
     not declined, so builtin can bring it back; an edited one is the user's call. builtin: rendered again unless the
     user declined it."""
     tpl, dest = f"templates/project/hookify/{IMPECCABLE_REPLACES}", f".claude/hookify/{IMPECCABLE_REPLACES}"
-    if p.lock is None or "claude-code" not in hosts(p) or not template_exists(tpl):
-        return None
+    if p.lock is None or "claude-code" not in hosts(p) or not template_exists(tpl) or configured_advisory(p):
+        return None  # advisory: no guardrail to swap in
     files = p.lock["files"]
     entry = files.get(dest)
     if design_mode(p) == "impeccable":
@@ -3170,6 +3283,15 @@ def build_parser():
                                              "record it")
     s.add_argument("rounds", nargs="?")
     s.set_defaults(fn=cmd_review_rounds)
+    s = sub.add_parser("mode", help="full (default) or advisory (skills and agents as aids, no gates); with a mode, "
+                                    "record it")
+    s.add_argument("mode", nargs="?")
+    s.set_defaults(fn=cmd_mode)
+    s = sub.add_parser("skip", help="steps a full-mode repo skips (the names given replace the list): "
+                                    "security-review, code-review, ui-review, pr")
+    s.add_argument("steps", nargs="*")
+    s.add_argument("--clear", action="store_true", help="skip nothing")
+    s.set_defaults(fn=cmd_skip)
     s = sub.add_parser("guardrails", help="the guardrails setup renders for this repo's design mode")
     s.add_argument("--render", action="store_true",
                    help="write every one (seeded), leaving edited, foreign and declined ones as they are")

@@ -40,7 +40,8 @@ def main():
     data = json.load(sys.stdin)
     event = data.get("hook_event_name")
     root = vf.project_root(data.get("cwd"))
-    if not root:
+    import sdlc_scopes  # noqa: PLC0415
+    if not root or sdlc_scopes.advisory_from(root):
         return
     path = os.path.join(root, STATE)
     if event == "UserPromptSubmit":

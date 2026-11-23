@@ -104,6 +104,8 @@ def _inside(base, rel):
         inside = False
     if not inside or any(git_segment(x) for x in os.path.relpath(real, real_base).split(os.sep)):
         raise OSError(f"{rel} is a link out of the repo or into .git: not read")
+    if os.path.exists(real) and not os.path.isfile(real):  # a FIFO, device or folder would hang or fail the hook
+        raise OSError(f"{rel} isn't a regular file: not read")
     return full
 
 
@@ -122,6 +124,169 @@ def read_repo_json(base, rel):
     import json
     with open(_inside(base, rel), encoding="utf-8") as f:
         return json.load(f)
+
+
+MODES = ("full", "advisory")
+SKIPPABLE = ("security-review", "code-review", "ui-review", "pr")
+ANCHOR = ".sdlc/.work/trust-anchor.json"  # the trust anchor's record; its `_config` holds the accepted mode and skips
+CONFIG_KEY = "_config"
+
+
+def gate_root(path, session=True):
+    """The folder whose config sets the mode and skips for a call at `path`, the same for every reader and the trust
+    anchor: from the session's project folder (CLAUDE_PROJECT_DIR) when set, else `path`, the outermost folder
+    holding `.sdlc` up to its git top level (a nested `.sdlc` inside the repo can't redirect it), else the nearest one
+    up; for an app repo of a workbench, the workbench. None when no folder up holds `.sdlc`: nothing is read or
+    written then."""
+    import os
+    start = os.path.abspath((os.environ.get("CLAUDE_PROJECT_DIR") if session else None) or path or os.getcwd())
+    d = start if os.path.isdir(start) else os.path.dirname(start)
+    held = []
+    probe = d
+    while True:
+        if os.path.isdir(os.path.join(probe, ".sdlc")):
+            held.append(probe)
+        if os.path.exists(os.path.join(probe, ".git")) and held:
+            break  # the repo's top: the outermost `.sdlc` within it decides
+        parent = os.path.dirname(probe)
+        if parent == probe:
+            break
+        probe = parent
+    if not held:
+        return None
+    root = held[-1] if os.path.exists(os.path.join(probe, ".git")) else held[0]
+    parent = os.path.dirname(os.path.realpath(root))
+    try:
+        if os.path.isfile(os.path.join(parent, WORKBENCH_FILE)) and guarded_workbench(parent):
+            return parent
+    except Exception:
+        pass
+    return root
+
+
+def _gating(raw):
+    """(mode, skips) as a config object states them: unknown values count as full and are left out."""
+    raw = raw if isinstance(raw, dict) else {}
+    mode = raw.get("mode") if raw.get("mode") in MODES else "full"
+    listed = raw.get("skip") if isinstance(raw.get("skip"), list) else []
+    return mode, (sorted({x for x in listed if x in SKIPPABLE}) if mode == "full" else [])
+
+
+def _config(root):
+    """The config object at `root`, read only from a regular file inside the repo (a FIFO or a link out reads as
+    none): {} on any doubt."""
+    try:
+        cfg = read_repo_json(root, ".sdlc/config.json")  # _inside: inside the repo, a regular file
+    except Exception:
+        return {}
+    return cfg if isinstance(cfg, dict) else {}
+
+
+def configured(root):
+    """(mode, skips) the working config at `root` asks for, accepted or not."""
+    return _gating(_config(root))
+
+
+def committed(root):
+    """(mode, skips) HEAD's committed config at `root` states, or full with none when git can't say (a short
+    timeout: a stalled git must not hold a hook to its own limit)."""
+    import json
+    import subprocess
+    try:
+        p = subprocess.run(["git", "-C", root, "show", "HEAD:./.sdlc/config.json"], capture_output=True,
+                           encoding="utf-8", errors="replace", timeout=2)
+        return _gating(json.loads(p.stdout)) if p.returncode == 0 else ("full", [])
+    except Exception:
+        return "full", []
+
+
+def accepted(root):
+    """(mode, skips) the user has accepted here: the trust anchor's record; with no readable, well-formed record,
+    HEAD's committed config (a team's choice on a fresh clone)."""
+    import json
+    try:
+        with open(_inside(root, ANCHOR), encoding="utf-8") as f:  # a regular file inside the repo only
+            entry = json.load(f).get(CONFIG_KEY)
+        if valid_record(entry):
+            return _gating(entry)
+    except Exception:
+        pass
+    return committed(root)
+
+
+def write_record(base, rel, data):
+    """Write the JSON record `rel` under `base` as a fresh regular file swapped into place: a FIFO there can't hang
+    the hook and a link there is replaced, never written through. False when it can't be written."""
+    import json
+    import os
+    import tempfile
+    full = os.path.join(base, rel)
+    try:
+        os.makedirs(os.path.dirname(full), exist_ok=True)
+        folder = os.path.realpath(os.path.dirname(full))
+        real_base = os.path.realpath(base)
+        if folder != real_base and not folder.startswith(real_base + os.sep):
+            return False  # a linked folder would carry the record out of the repo
+        fd, tmp = tempfile.mkstemp(prefix=".tmp-", dir=os.path.dirname(full))
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+        os.replace(tmp, full)
+        return True
+    except OSError:
+        try:
+            os.remove(tmp)
+        except (OSError, NameError):
+            pass
+        return False
+
+
+def valid_record(entry):
+    """The trust anchor's accepted mode-and-skips record is well formed: a known mode and a list of known step
+    names. Anything else counts as damaged (never as accepted)."""
+    return (isinstance(entry, dict) and entry.get("mode") in MODES and isinstance(entry.get("skip"), list)
+            and all(isinstance(x, str) and x in SKIPPABLE for x in entry["skip"]))
+
+
+def effective(root):
+    """(mode, skips) the hooks honour at `root`: what config asks, but only as far as the user accepted it, so a
+    relaxing edit counts only once the trust anchor has shown it and the user replied (ADR 0030)."""
+    want_mode, want_skip = configured(root)
+    if want_mode == "full" and not want_skip:
+        return "full", []  # nothing to relax: no record or git read on this, the common path
+    ok_mode, ok_skip = accepted(root)
+    if want_mode == "advisory":
+        return ("advisory", []) if ok_mode == "advisory" else ("full", [])
+    return "full", ([x for x in want_skip if x in ok_skip] if ok_mode == "full" else want_skip)
+
+
+def mode(root):
+    """The effective mode at `root` (effective): `advisory` (skills and agents as aids, no hook gates anything) or
+    `full`, the default. Never raises."""
+    try:
+        return effective(root)[0] if root else "full"
+    except Exception:
+        return "full"
+
+
+def advisory(root):
+    """Whether the hooks stay silent at `root` (a gate_root): the effective mode is advisory."""
+    return mode(root) == "advisory"
+
+
+def advisory_from(path):
+    """advisory() for a call at `path` (a cwd or file), through gate_root. Never raises."""
+    try:
+        return advisory(gate_root(path))
+    except Exception:
+        return False
+
+
+def skipped(root):
+    """The steps the effective config skips at `root` (full mode only, known names only, accepted only)."""
+    try:
+        return effective(root)[1] if root else []
+    except Exception:
+        return []
 
 
 def is_workbench(root, need_manifest=True):
