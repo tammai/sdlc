@@ -1,14 +1,14 @@
 # Todo
 
 ## Open
-- [ ] Advisory greenfield setup ends with doctor ❌ `repo.commands` (advisory skips the stack and commands by design), `repo.guardrails` says rules were written, and doctor never names the mode — 3.15.0 smoke test D4/P1 (2026-11-23)
-- [ ] `/sdlc:setup objects` writes `None` under `## Avoid` when nothing is avoided; `scaffold.py objects --enable` rejects it and the agent drops the section; write it empty — 3.15.0 smoke test C8/P3 (2026-11-23)
-- [ ] Runbook E4 checks a review agent's model in `.sdlc/.work/dispatches.jsonl`, but an S code review through the built-in `code-review` skill writes none; update the check or log the skill's subagent — 3.15.0 smoke test P2 (2026-11-23)
-- [ ] `state.py new --task` splits a file note like `src/x.test.ts (test)` into a stray `(test)` file — 3.15.0 smoke test P5 (2026-11-23)
-- [ ] Ignored `.sdlc/state/*.json` of features on unmerged branches stay in the working tree, and `/sdlc:status` on main lists those features and guesses the scaffold is out of date — 3.15.0 smoke test P4 (2026-11-23)
-- [ ] Workbench: `accept read-only <repo>` accepts a non-app repo made writable in workbench.json, which sdlc's scripts then reject (`only an app repo can be writable`), blocking every feature step until it's undone; warn at the accept — 3.15.0 smoke test K re-run (2026-11-23)
 
 ## Done
+- [x] Advisory greenfield setup ends with doctor ❌ `repo.commands` (advisory skips the stack and commands by design), `repo.guardrails` says rules were written, and doctor never names the mode — 3.15.0 smoke test D4/P1 (2026-11-23) — done 2026-11-23 (2026-11-23-s-doctor-advisory)
+- [x] `/sdlc:setup objects` writes `None` under `## Avoid` when nothing is avoided; `scaffold.py objects --enable` rejects it and the agent drops the section; write it empty — 3.15.0 smoke test C8/P3 (2026-11-23) — done 2026-11-23 (2026-11-23-s-objects-avoid-none)
+- [x] Runbook E4 checks a review agent's model in `.sdlc/.work/dispatches.jsonl`, but an S code review through the built-in `code-review` skill writes none; update the check or log the skill's subagent — 3.15.0 smoke test P2 (2026-11-23) — done 2026-11-23 (runbook E4 updated)
+- [x] `state.py new --task` splits a file note like `src/x.test.ts (test)` into a stray `(test)` file — 3.15.0 smoke test P5 (2026-11-23) — done 2026-11-23 (2026-11-23-s-task-file-notes)
+- [x] Ignored `.sdlc/state/*.json` of features on unmerged branches stay in the working tree, and `/sdlc:status` on main lists those features and guesses the scaffold is out of date — 3.15.0 smoke test P4 (2026-11-23) — done 2026-11-23 (commands/status.md skips them)
+- [x] Workbench: `accept read-only <repo>` accepts a non-app repo made writable in workbench.json, which sdlc's scripts then reject (`only an app repo can be writable`), blocking every feature step until it's undone; warn at the accept — 3.15.0 smoke test K re-run (2026-11-23) — done 2026-11-23 (2026-11-23-s-accept-refused-manifest)
 - [x] `claude plugin test plugins/sdlc-stepper` fails on Windows (21 of 26 at 3.15.0, 18 of 22 at 3.14.0): the test kit's `fs.list` hook is skipped with `ENOENT C:\...\plugins\sdlc-stepper`; passes on macOS. Find whether the kit or the test's paths are at fault (2026-11-23) — done 2026-11-23 (PR #132: the test's fake file system now takes backslash paths)
 - [x] Workbench: a repo the watch recorded as read-only stays guarded per call until the user accepts its flip; today `role_guard` reads the live `workbench.json`, so `"write": true` lets writes through until it's reverted (the watch reports and blocks Stop) — 3.15.0 smoke test K5 (2026-11-23) — done 2026-11-23 (PR #130, 2026-11-23-s-flipped-repo-stays-guarded)
 - [x] Workbench: `state.py repo` refuses an app repo with only untracked files (a `__pycache__`), and the guard denies removing them before the repo is branched, so the agent must ask the user; ignore untracked-only changes, or say so in the deny — 3.15.0 smoke test K4 (2026-11-23) — done 2026-11-23 (PR #131: the refusal names the files and says to ask the user)

@@ -12,8 +12,6 @@ CHECKS_PLACEHOLDER
 
 ### Known issues
 - **sdlc's turn-end, commit and push reviews get no credentials when you sign in with `/login`** on some machines (seen on Windows, in 3.14.0 too): the hooks say once a week that the review isn't running. An `ANTHROPIC_API_KEY` in the environment turns them on.
-- **An advisory greenfield setup ends with doctor failing `repo.commands`.** Advisory mode skips the stack and its commands by design, but doctor still asks for them, and it doesn't name the mode (the session status line does).
-- **`/sdlc:setup objects` can write `None` under `## Avoid`**, which `scaffold.py objects --enable` rejects; the agent then drops the section. Leave `## Avoid` empty when nothing is to be avoided.
 
 ### Added
 - **Team mode** (`/sdlc:setup team on`). An M or L feature's stages run as role agents, each starting fresh from the record, with the main session as their coordinator: `sdlc:analyst` writes the change file (on opus), `sdlc:builder` builds and fixes review findings, the reviewers review, `sdlc:releaser` ships. The role guard holds each to its files: the analyst writes only the record, the builder never the change file's criteria, a reviewer's report or the state file, the releaser no product code.
@@ -50,6 +48,11 @@ CHECKS_PLACEHOLDER
 - **impeccable's machine-local `config.local.json` is never read through a link** out of the repo or into `.git`, at the file or its `.impeccable` folder, like its committed `config.json`. Doctor and `/sdlc:setup design` name such a file and say to replace the link, instead of advising `/impeccable hooks on`.
 
 ### Fixed
+- **Doctor names the mode, and an advisory repo passes.** A `mode` row shows full (with any skipped steps) or advisory; in advisory, missing commands and guardrails are expected, not failures.
+- **`- None` under `## Avoid` in `objects.md` means nothing to avoid**, instead of an Avoid line `/sdlc:setup objects` couldn't enable.
+- **A note after a task's file stays with it:** `--task "… | src/x.test.ts (test)"` no longer lists `(test)` as a file.
+- **Workbench: `accept read-only` says when sdlc's scripts refuse the manifest it accepts**, such as a non-app repo made writable.
+- **`/sdlc:status` doesn't count runtime files of features on another branch** as features or as an outdated scaffold.
 - **Workbench: an app repo with stray files tells the agent to ask you.** `state.py repo` names the uncommitted or untracked files (a `__pycache__` folder) and says to ask you to commit, remove or ignore them, since sdlc holds writes there until the feature branches it; before, it told the agent to clean up, which the guard then denied.
 - **Cursor's hooks run on Windows.** Cursor runs a hook command there through Windows PowerShell, where `python3` is often missing or the Microsoft Store stub, so every sdlc hook did nothing. The command now reads in both sh and PowerShell; on Windows it runs the first working `python3`, `python` or `py -3` and hands it the event.
 - **The background Agent SDK install no longer runs in your project folder.** On Windows, a folder a running process sits in can't be deleted or renamed, and the install can take minutes; it now runs in the plugin's state folder.
