@@ -20,6 +20,8 @@ flowchart LR
     end
 ```
 
+In an **advisory** repo (`"mode": "advisory"`, [ADR 0030](../adr/0030-modes-and-skips.md)) every hook below stays silent, except a workbench's read-only guard and watch; the trust anchor still says once that the repo moved to advisory.
+
 | Hook | Events | Does |
 |---|---|---|
 | **hookify** | PreToolUse, UserPromptSubmit, Stop | Runs rules from `.claude/hookify.*.local.md` (personal) and `.claude/hookify/*.md` (team); each rule warns or blocks. Started above sdlc repos or in a workbench: also applies each repo's rules there, and denies writes into a read-only repo (`write: false`), naming its owner, by an edit tool or a Bash, PowerShell or Monitor command. Spec-backed repo (`acceptance/manifest.json`): denies **everyone** any edit of a recorded acceptance test or the manifest, whether by an edit tool or a shell write (redirect, `tee`, `sed -i`, `cp`/`mv`, `rm`, `truncate`, `git checkout`/`restore`, PowerShell write cmdlets) |

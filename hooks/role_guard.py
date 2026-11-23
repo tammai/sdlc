@@ -733,7 +733,8 @@ def main():
         # A session started above the repo (a workbench of repos): judge the call against the repo it acts in
         root = sdlc_layout.target_repo(root, data.get("tool_name", ""), data.get("tool_input"), data.get("cwd")) or root
         reason = None
-        if agent.startswith(("sdlc:", "sdlc-extras:")):  # sdlc-extras: the companion's reviewers
+        import sdlc_scopes  # noqa: PLC0415
+        if agent.startswith(("sdlc:", "sdlc-extras:")) and not sdlc_scopes.advisory_from(root):  # sdlc-extras: the companion's reviewers
             rel = rel_path(root, data.get("tool_input") or {}, data.get("cwd"))
             reason = problem(agent.split(":", 1)[1], data.get("tool_name", ""), rel, root)
         if reason:

@@ -34,6 +34,15 @@ def status_line(root):
     parts = [f"setup {st['setup']}", f"drift {st['drift'] or 'n/a'}", f"layout {st['layout']}",
              f"change file {p['change']}", f"state file {p['state']}", f"work folder {p['work']}",
              f"remote {remote[0] if remote else 'none'}", f"active: {', '.join(active) or 'none'}"]
+    import sdlc_scopes  # noqa: PLC0415  (the mode and skips the orchestrator follows; they gate nothing here)
+    gate = sdlc_scopes.gate_root(root) or root
+    (mode, skip), honoured = sdlc_scopes.configured(gate), sdlc_scopes.effective(gate)
+    if mode == "advisory":
+        parts.append("mode advisory" + ("" if honoured[0] == "advisory" else " (asked, not yet accepted: full rules apply)"))
+    elif skip:
+        waiting = [x for x in skip if x not in honoured[1]]
+        parts.append(f"skip {', '.join(honoured[1]) or 'none'}"
+                     + (f" ({', '.join(waiting)} asked, not yet accepted)" if waiting else ""))
     prd = sdlc_layout.prd(root)
     parts.append(f"PRD {prd if os.path.isfile(os.path.join(root, prd)) else 'none'}")
     if st.get("pending_migrations"):

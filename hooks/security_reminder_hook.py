@@ -138,6 +138,15 @@ import diffstate  # noqa: E402  module ref for last_baseline_fail
 import gitutil  # noqa: E402  module ref for per-run counters
 import llm  # noqa: E402  module ref for reassignable globals (_last_call_claude_http_error etc.)
 import sdlc_review_gate  # noqa: E402  sdlc patch: one commit review per review-ready diff (NOTICE.md)
+
+
+def sdlc_scopes_advisory(cwd):
+    """sdlc patch: the repo at `cwd` is in advisory mode (sdlc_scopes.advisory_from); any error: no."""
+    try:
+        import sdlc_scopes  # noqa: PLC0415
+        return sdlc_scopes.advisory_from(cwd)
+    except Exception:
+        return False
 from llm import (  # noqa: E402,F401
     ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN, HAS_API_CREDENTIALS,
     SECURITY_REVIEW_MODEL, CLAUDE_CODE_SYSTEM_PROMPT,
@@ -2933,6 +2942,10 @@ def main():
     tool_input = input_data.get("tool_input", {})
     hook_event_name = input_data.get("hook_event_name", "")
     debug_log(f"Processing: hook_event={hook_event_name}, tool={tool_name}")
+    # sdlc patch: an advisory repo gets no warnings or reviews, unless SDLC_SECURITY_REVIEW=always asks for them
+    if not sdlc_review_gate._always() and sdlc_scopes_advisory(input_data.get("cwd")):
+        emit_metrics({"skipped": True, "skip_reason": 52})
+        sys.exit(0)
 
     # Load project-specific security guidance and custom patterns once
     # per invocation. Failures are non-fatal (debug-logged) so a malformed

@@ -26,6 +26,10 @@ def main():
     try:
         # Read input from stdin
         input_data = json.load(sys.stdin)
+        import sdlc_scopes  # noqa: PLC0415  (sdlc: an advisory repo runs no hookify rules)
+        if sdlc_scopes.advisory_from(input_data.get("cwd")):
+            print(json.dumps({}))
+            return
 
         # Load stop rules
         problems = []

@@ -478,7 +478,8 @@ def main():
     event = data.get("hook_event_name", "")
     global _root
     root = _root = project_root(data.get("cwd"))
-    if not root:
+    import sdlc_scopes  # noqa: PLC0415
+    if not root or sdlc_scopes.advisory_from(root):  # advisory: no freshness gate
         return
     if event in ("PostToolUse", "PostToolUseFailure") and data.get("tool_name") in SHELL_TOOLS:
         resp = data.get("tool_response") or {}

@@ -1,6 +1,6 @@
 ---
 description: Sets up this repo for sdlc (new or existing), covering commands, rules, guardrails, CI, constitution, knowledge. Runs on a branch and resumes if interrupted.
-argument-hint: "[what you're building, for a new repo] | design | deploy | objects | review-rounds"
+argument-hint: "[what you're building, for a new repo] | design | deploy | objects | review-rounds | mode <full|advisory> | skip <step…|--clear>"
 ---
 
 Use the `sdlc:setting-up-projects` skill now.
@@ -9,6 +9,7 @@ Use the `sdlc:setting-up-projects` skill now.
 - Arguments are `deploy`: run only the `deploy` step (record or change the deploy target, the environments and the runbook), as the skill's `/sdlc:setup deploy` sentence says; in a repo not set up yet, run **Setup**, which asks it.
 - Arguments are `objects`: draft the domain model's `objects.md` with the user and turn it on, following the skill's `references/objects.md`; it refuses in a spec-backed repo, and in a repo not set up yet it runs **Setup** first.
 - Arguments are `review-rounds` (optionally with a number): run only the `review-rounds` step, as the skill's table says, at any time, also mid-feature (with the number typed, the review-rounds hook already applied it from this prompt to the active features and wrote it into config: `$S review-rounds` shows it. Whether a feature is active comes from the `active:` field of the `sdlc session status` line (or `scaffold.py status`), never a guess. With one active, never switch branches or commit: the config change stays in the working tree and ships with that feature. With none, commit it on the current branch (`chore(sdlc): review rounds <n>`) so the next feature's Base holds it. If your next call is denied, the work is still held: tell the user it stays held until they answer the `Review cap` question or type a higher number); in a repo not set up yet, run **Setup**, which asks it.
+- Arguments are `mode full|advisory` or `skip <steps>` (`security-review`, `code-review`, `ui-review`, `pr`; `--clear`): run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" mode …` or `skip …` and commit the config change as the `review-rounds` line says (with a feature active, leave it in the working tree). Say that the trust anchor will show a relaxing change at the turn's end and that the user's reply accepts it. Advisory in a set-up repo: the guardrails and CI already installed stay until removed (`/sdlc:eject` keeps the rest); say so.
 - Otherwise run **Setup** (or resume it if `scaffold.py status` says `in_progress`). Always run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" host` first, even when the session status line says `setup complete`: that line doesn't show which agents set the repo up, and `joining: true` means **Join** (the skill's Which flow table). Only when it isn't joining and the project is already set up, say so and point to `/sdlc:upgrade`, `/sdlc:start`, `/sdlc:setup design` to change the design mode, `/sdlc:setup deploy` to record how it deploys, `/sdlc:setup objects` to turn on the domain model, or `/sdlc:setup review-rounds` to change how many review rounds run before it asks.
 
 Context from the user: $ARGUMENTS

@@ -206,7 +206,8 @@ def main():
     if tool not in ("Bash", "PowerShell", "Monitor"):
         return
     root = vf.project_root(data.get("cwd"))
-    if not root or not in_prove(root):
+    import sdlc_scopes  # noqa: PLC0415
+    if not root or sdlc_scopes.advisory_from(root) or not in_prove(root):
         return
     tin = data.get("tool_input") or {}
     command = str(tin.get("command") or "")

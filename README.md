@@ -15,7 +15,7 @@ You describe the work. sdlc decides how big it is, then takes it from intent to 
 ## What you get
 
 - **Work sized to fit.** A small fix runs straight through. A feature or a project gets a written plan first, and you approve it when the work is high-risk.
-- **Four phases.** Define → Build → Review → Ship, the same on every change.
+- **Four phases.** Define → Build → Review → Ship, the same on every change (a repo can skip named review or PR steps, or run sdlc in advisory mode: [ADR 0030](docs/adr/0030-modes-and-skips.md)).
 - **Test-first proof.** Each acceptance criterion has a test that fails before the code is written and passes after.
 - **Reviews picked from the diff.** Security, code, UI or none, depending on what the change touched.
 - **A record of every change.** Each change commits one file that says why it was made and how it was checked.
@@ -65,7 +65,7 @@ Optional companions from the same marketplace (`/sdlc:setup` offers them):
 | **M** feature | a few files, approach mostly clear | at high risk: the plan and which reviews run; merge |
 | **L** project | several parts, or an approach still unclear | the plan and reviews only if its own checks leave a doubt; merge |
 
-The agent stops at the open PR with CI green. Merging, production deploys and database migrations are always your call.
+The agent stops at the open PR with CI green (or after the local commit, when the repo skips the PR step). Merging, production deploys and database migrations are always your call.
 
 Run `/sdlc:start` with no argument in a new session to resume where you left off.
 
@@ -73,7 +73,7 @@ Run `/sdlc:start` with no argument in a new session to resume where you left off
 
 | Command | Does |
 |---|---|
-| `/sdlc:setup` | Set the repo up once (`/sdlc:setup design` changes the design mode later, `/sdlc:setup deploy` how it deploys, `/sdlc:setup objects` turns on the domain model, `/sdlc:setup review-rounds` how many review rounds run before you decide) |
+| `/sdlc:setup` | Set the repo up once (`/sdlc:setup design` changes the design mode later, `/sdlc:setup deploy` how it deploys, `/sdlc:setup objects` turns on the domain model, `/sdlc:setup review-rounds` how many review rounds run before you decide, `/sdlc:setup mode` full or advisory, `/sdlc:setup skip` the review or PR steps this repo skips) |
 | `/sdlc:start [request]` | Start work, or resume the active feature |
 | `/sdlc:status` | Where each feature stands |
 | `/sdlc:doctor` | Health check, with a fix for each problem |

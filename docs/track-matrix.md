@@ -104,6 +104,8 @@ sdlc doesn't pick a track from a label like "bugfix" or "MVP". It counts the fil
 | New product, MVP or a project with several distinct parts | L, in parts when it won't fit one session | the brainstorming interview, the full change file, the backlog |
 | PoC or spike | sized like any change | there is no throwaway mode: every track keeps the record and the tests |
 
+A repo's config can change this matrix ([ADR 0030](adr/0030-modes-and-skips.md)): `skip` turns off the security, code or UI review row, or 4.5–4.7 (`pr`: Ship ends after the local commit); advisory mode runs none of the tracks, only the skills and agents you ask for.
+
 ## Outside the tracks
 
 Not steps of any track; each runs only when you ask:

@@ -2,10 +2,8 @@
 
 ## Open
 
-- [ ] Let a project configure which sdlc stages run, e.g. skip the security review or the PR/CI step — not built yet; stage gates are fixed today in the orchestrator (2026-10-25)
 - [ ] Add a Definition of Done to the setup step so the agent knows when a job is done — not built yet (2026-10-25)
 - [ ] Add a team mode to the orchestrator: when active, role-based agents drive the sdlc stages — not built yet (2026-10-25)
-- [ ] Add an advisory-only use case: the sdlc skills and agents as aids, with no hooks, gates or guardrails, for projects that already have a workflow that would conflict; setup asks which mode to use — not built yet; related to the configurable-stages item above (2026-10-26)
 
 - [ ] Cursor's hooks call a bare `python3` (`hosts/cursor/hooks.json`), but Cursor on Windows runs hook commands through PowerShell, where `python3` may be the Store stub or missing; use a launcher that falls back to `python`/`py -3` as `hooks/sg-python.sh` does — whole-plugin review M/L, recovered (2026-11-20) — needs a Windows machine with Cursor: one hook command must run under both sh and Windows PowerShell 5.1 (no `||` there), and whether stdin survives a fallback from the Store stub can only be checked there; set aside for the Windows session (2026-11-22)
 - [ ] Codex started inside a Claude Code session inherits its `CLAUDE_*` env (reported by TokenEconomizer); `hosts/hook.py` already drops `CLAUDE_PROJECT_DIR` (since e8d53f0): check live that Codex resolves the right repo, and drop the other `CLAUDE_*` vars too if any matter (2026-11-19)
@@ -16,7 +14,14 @@
 - [ ] Any git folder in a seeded workbench that the manifest doesn't list counts as a member with unsure ownership, so a scratch clone gets a model review on every commit; limit it to names the watch's `members` has held — end-of-push review R2-L3 (hooks) (2026-11-22) — tried in 2026-11-22-todo-lanes (members the watch has held) and reverted: a repo added and dropped between the watch's looks escaped review; needs a record the agent can't outrun (2026-11-22)
 - [ ] Workbench turn-end review: a rewake re-sends another repo's code the agent left unchanged after a finding, so a declined finding there may be raised again (up to the rewake cap, 3); only the first repo's baseline moves past reviewed code — code review r4 CR4-1 of 2026-11-23-m-stop-review-every-repo (2026-11-23)
 
+- [ ] Modes (ADR 0030): on Codex (no CLAUDE_PROJECT_DIR) a nested repo with its own `.sdlc` may decide the mode if the hook payload's cwd follows the agent's `cd`; probe a live Codex session — security review R3-L1 of 2026-11-23-l-configurable-stages, unconfirmed (2026-11-23)
+- [ ] Modes: `_inside` checks a file is regular, then opens it, so a FIFO swapped in between can still win; open with O_NONBLOCK and fstat the descriptor — security review R3-L2, unconfirmed (2026-11-23)
+- [ ] Modes: the session status line is built at SessionStart only, so a mode or skip accepted mid-session shows stale until the next session — security review R3-L5 (2026-11-23)
+- [ ] Spec 02's Known gaps should name the mode/skip paths that count without a notice (a deleted record lets HEAD's committed config decide; a hand-written accepted entry counts) — security review R4-L4 (2026-11-23)
+
 ## Done
+- [x] Add an advisory-only use case: the sdlc skills and agents as aids, with no hooks, gates or guardrails, for projects that already have a workflow that would conflict; setup asks which mode to use — not built yet; related to the configurable-stages item above (2026-10-26) — done 2026-11-23: config `mode: advisory`, asked first in setup, ADR 0030
+- [x] Let a project configure which sdlc stages run, e.g. skip the security review or the PR/CI step — not built yet; stage gates are fixed today in the orchestrator (2026-10-25) — done 2026-11-23: config `skip` (security-review, code-review, ui-review, pr), ADR 0030
 - [x] SubagentStop at a workbench root now resolves to the app repo and skips (reason 11); `_merged` costs grow with every done feature that listed a repo; a locally deleted feature branch keeps ownership — end review SG-L1..L3 of 2026-11-22-todo-lanes (2026-11-22) — done 2026-11-23 (all three confirmed)
 - [x] A machine-local `.impeccable/config.local.json` that is a link (a dotfiles manager) now counts as hook off, and doctor and `/sdlc:setup design` advise `/impeccable hooks on` without saying the file was refused as a link; name it (`scripts/doctor.py`, `scaffold.swap_ui_guardrail`) — security review R2-4 of 2026-11-23-todo-fixes (2026-11-23) — done 2026-11-23
 - [x] `scaffold.runbook_path` bars `.claude` and `.sdlc` only at the top, so a nested `pkg/.claude/…` or an app repo's `.sdlc` in a workbench passes as a deploy runbook — security review S-4 of 2026-11-23-todo-fixes, unconfirmed, predates it (2026-11-23) — done 2026-11-23 (confirmed)

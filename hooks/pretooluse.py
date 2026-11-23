@@ -47,18 +47,28 @@ def _recorded_test_write(input_data):
         return None
 
 
-def _read_only_write(input_data):
-    """sdlc patch: the deny reason when this call writes into a read-only repo of the workbench the session started in,
-    or into a writable one the active feature hasn't branched (hooks/role_guard.py read_only_problem,
-    unbranched_problem); else None, and None on its own error."""
+def _unbranched_write(input_data):
+    """The unbranched-repo check alone (a process gate, off in advisory); None on its own error."""
     try:
         import role_guard
         import sdlc_scopes
         cwd = input_data.get('cwd') or os.getcwd()
-        # Hosts without CLAUDE_PROJECT_DIR (Codex): the nearest workbench at or above the call's folder
         root = os.path.abspath(os.environ.get('CLAUDE_PROJECT_DIR')
                                or sdlc_scopes.workbench_root(cwd, guarded=True) or cwd)
-        return role_guard.read_only_problem(input_data, root) or role_guard.unbranched_problem(input_data, root)
+        return role_guard.unbranched_problem(input_data, root)
+    except Exception:
+        return None
+
+
+def role_guard_read_only(input_data):
+    """The read-only guard alone, before anything reads the mode (a config that hangs can't delay it)."""
+    try:
+        import role_guard
+        import sdlc_scopes
+        cwd = input_data.get('cwd') or os.getcwd()
+        root = os.path.abspath(os.environ.get('CLAUDE_PROJECT_DIR')
+                               or sdlc_scopes.workbench_root(cwd, guarded=True) or cwd)
+        return role_guard.read_only_problem(input_data, root)
     except Exception:
         return None
 
@@ -87,10 +97,18 @@ def main():
     try:
         # Read input from stdin
         input_data = json.load(sys.stdin)
-        reason = _read_only_write(input_data) or _recorded_test_write(input_data) or _monitor_commit(input_data)
+        import sdlc_scopes  # noqa: PLC0415
+        reason = role_guard_read_only(input_data)  # first: the read-only guard holds in every mode
+        # advisory: only a workbench's read-only guard still decides (it protects other teams' repos)
+        advisory = not reason and sdlc_scopes.advisory_from(input_data.get("cwd"))
+        reason = reason or (None if advisory else _unbranched_write(input_data)) or (
+            None if advisory else _recorded_test_write(input_data) or _monitor_commit(input_data))
         if reason:
             print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
                                                      "permissionDecisionReason": reason}}))
+            return
+        if advisory:  # no hookify rules either
+            print(json.dumps({}))
             return
 
         # Determine event type for filtering

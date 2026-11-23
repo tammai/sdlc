@@ -4,6 +4,9 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
+### Added
+- **Advisory mode and configurable steps** ([ADR 0030](docs/adr/0030-modes-and-skips.md)). Setup now asks first whether a repo runs sdlc in **full** or **advisory** mode. Advisory gives the skills and agents as aids: every hook, gate and guardrail stays silent, except a workbench's read-only guard, and the orchestrator does what you ask without running its flow. A full repo can skip named steps with `/sdlc:setup skip security-review|code-review|ui-review|pr`; a skipped review is recorded in `## Review`, and `pr` ends Ship after the local commit. Define, tests and verify are never skippable. The trust anchor shows any change toward fewer checks for your confirmation; the session status line names the mode.
+
 ### Security
 - **A committed lock can't make an upgrade copy a file from outside the plugin.** `.sdlc/scaffold.lock.json` names each file's template, and an upgrade renders it without asking: an absolute, `../` or linked template path read any local file (an SSH key, a token) into the repo. A template is now only one of the plugin's own (a known `builtin:`, or a path under its `templates/` that resolves inside it), checked on the lock and on `render`, `record` and `preview`; and nothing is recorded, rendered or deleted in a `.git` folder, written or reached through a link, Windows aliases included.
 
