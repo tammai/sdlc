@@ -718,18 +718,39 @@ def plugin_enabled(root, plugin_id):
     return bool(on)
 
 
+def impeccable_config_refused(root):
+    """The impeccable config files that are there but that sdlc doesn't read: a link out of the repo or into .git
+    (at the file or its folder), or a file it can't read. Each counts as the hook being off."""
+    out = []
+    for name in ("config.json", "config.local.json"):
+        rel = f".impeccable/{name}"
+        if os.path.lexists(os.path.join(root, rel)) and sdlc_scopes.read_repo_text(root, rel) is None:
+            out.append(rel)
+    return out
+
+
+def refused_config_hint(root):
+    """What to say when impeccable's hook counts as off because sdlc doesn't read its config, or None."""
+    refused = impeccable_config_refused(root)
+    if not refused:
+        return None
+    return (f"{', '.join(refused)} links out of the repo or can't be read, so sdlc counts impeccable's detector hook "
+            "as off: replace the link with the file itself")
+
+
 def impeccable_hook_off(root):
     """impeccable's own off switch for its detector hook (`/impeccable hooks off`): `hook.enabled: false` in
     `.impeccable/config.json` or the machine's `config.local.json`, the later winning. Both are read through
     sdlc_scopes.read_repo_text, never through a link out of the repo or into .git (at the file or its folder); such
     a file, or one that can't be read, counts as off, so sdlc keeps its own UI guardrail rather than lose both."""
     off = False
+    refused = impeccable_config_refused(root)
     for name in ("config.json", "config.local.json"):
         rel = f".impeccable/{name}"
-        text = sdlc_scopes.read_repo_text(root, rel)
-        if text is None and os.path.lexists(os.path.join(root, rel)):
+        if rel in refused:
             off = True
             continue
+        text = sdlc_scopes.read_repo_text(root, rel)
         try:
             data = json.loads(text) if text is not None else {}
         except json.JSONDecodeError as e:
@@ -848,8 +869,9 @@ def swap_ui_guardrail(p, loads_later=False):
         if not entry:
             return None
         if loads_later or not impeccable_status(p.root)["hook"]:
-            return {"kept": dest, "why": "impeccable's detector hook doesn't run here yet: set the mode again once "
-                                         "it does (after a restart, or /impeccable hooks on)"}
+            return {"kept": dest, "why": refused_config_hint(p.root) or (
+                "impeccable's detector hook doesn't run here yet: set the mode again once it does (after a restart, "
+                "or /impeccable hooks on)")}
         state = p.file_state(dest, entry)
         if state == "outside":  # through a link out of the repo: never deleted
             return {"kept": dest, "why": "it resolves outside the project through a link: remove it by hand if wanted"}
