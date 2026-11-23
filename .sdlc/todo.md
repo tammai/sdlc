@@ -1,6 +1,9 @@
 # Todo
 
 ## Open
+- [ ] `claude plugin test plugins/sdlc-stepper` fails on Windows (21 of 26 at 3.15.0, 18 of 22 at 3.14.0): the test kit's `fs.list` hook is skipped with `ENOENT C:\...\plugins\sdlc-stepper`; passes on macOS. Find whether the kit or the test's paths are at fault (2026-11-23)
+- [ ] Workbench: a repo the watch recorded as read-only stays guarded per call until the user accepts its flip; today `role_guard` reads the live `workbench.json`, so `"write": true` lets writes through until it's reverted (the watch reports and blocks Stop) — 3.15.0 smoke test K5 (2026-11-23)
+- [ ] Workbench: `state.py repo` refuses an app repo with only untracked files (a `__pycache__`), and the guard denies removing them before the repo is branched, so the agent must ask the user; ignore untracked-only changes, or say so in the deny — 3.15.0 smoke test K4 (2026-11-23)
 
 ## Done
 - [x] The read-only guard's shell lexer still has bypasses (end-of-push review r2 of 2026-11-22-todo-fixes): a comment or ANSI-C quote placed by a raw previous character (R2-H1), `rm $'specs/a.md'` read by shlex with the `$` (R2-H2), a quote-split `$(` in an array subscript (R2-H5; the deny for it was pulled: it blocked `[ "$(cmd)" ]`), and `$((` that bash reads as `$( (…) )` (R2-H6); parked by the user as a documented limitation (docs/wiki/Limitations.md) — a real fix reads commands with a real shell parser, or moves the guard to the filesystem (2026-11-22) — closed as won't fix 2026-11-23 by the user's choice: the guard reads command text best effort (docs/wiki/Limitations.md), the watch behind it is the line

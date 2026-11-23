@@ -10,6 +10,11 @@ No migration: every new config key (`mode`, `skip`, `team`, `done`, `storybook`)
 
 CHECKS_PLACEHOLDER
 
+### Known issues
+- **A read-only repo made writable in `workbench.json` takes writes until the edit is undone.** The watch reports the change and blocks the end of the turn until you accept it or revert it, but in between, the per-call write guard follows the edited file, so a write into that repo goes through (smoke test K5).
+- **An untracked file in an app repo stops `state.py repo`, and the guard denies cleaning it up** until the repo is branched: the agent asks you to remove it (for example a `__pycache__` folder) yourself.
+- **sdlc's turn-end, commit and push reviews get no credentials when you sign in with `/login`** on some machines (seen on Windows, in 3.14.0 too): the hooks say once a week that the review isn't running. An `ANTHROPIC_API_KEY` in the environment turns them on.
+
 ### Added
 - **Team mode** (`/sdlc:setup team on`). An M or L feature's stages run as role agents, each starting fresh from the record, with the main session as their coordinator: `sdlc:analyst` writes the change file (on opus), `sdlc:builder` builds and fixes review findings, the reviewers review, `sdlc:releaser` ships. The role guard holds each to its files: the analyst writes only the record, the builder never the change file's criteria, a reviewer's report or the state file, the releaser no product code.
 - **Storybook as an opt-in living design system** (builtin design mode). `scaffold.py storybook on` (setup's design step) makes the stories the component catalog: each component a change touches gets a story for every state the spec names, the UI review treats a component without a story as off-system, and an optional `commands.storybook` runs in verify after `build`. Doctor warns when it's on with no `.storybook/` (the root's or a package's), in impeccable mode, or when a custom `verify.order` leaves it out; a Storybook build's `storybook-static/` is never drift, committed by Ship, or sent to the security reviews.
@@ -27,7 +32,7 @@ CHECKS_PLACEHOLDER
 - **A committed glob can't stall the commit review or doctor.** The security areas in `.sdlc/config.json` and a rule's `paths:` were turned into regexes that backtracked for minutes on `*a*a*a…` or a long brace list; the same globs are now run as a small automaton, in time linear in the path, with exactly the old meaning.
 - **The `.git` checks catch `.g\u200cit` and `.GIT`.** The code points HFS+ ignores, and case on macOS, no longer let a path through.
 - **A generated lock entry never overwrites or deletes a file git doesn't track.** An upgrade offers it for review and eject asks, when a local file such as `.env` differs from the lock.
-- **Workbench: editing `workbench.json` or the workbench config can't switch the guards off.** A read-only repo made writable or removed is reported until you accept it, and once sdlc has looked, `"workbench": false` leaves the guards, the watch and the app review on.
+- **Workbench: editing `workbench.json` or the workbench config can't switch the guards off unnoticed.** A read-only repo made writable or removed is reported, and blocks the end of the turn, until you accept it; once sdlc has looked, `"workbench": false` leaves the guards, the watch and the app review on.
 - **Workbench: a recorded PR doesn't end the review of an app repo's commits** while the repo is on the feature's branch, and the turn-end security review now covers an app repo's uncommitted change.
 - **The read-only guard denies shell syntax it knows it reads differently from the shell** (ANSI-C quoting that ends apart from `'…'`, a substitution inside `$(( ))`, zsh's `>!` and `>>|`, a `#` after an escaped delimiter), instead of letting a write hide in it. It remains a seatbelt: other spellings can still get past it (docs/wiki/Limitations.md), and the read-only watch reports what changed.
 - **A Monitor command can't commit or push:** run those with Bash, where the commit and push security reviews run.
