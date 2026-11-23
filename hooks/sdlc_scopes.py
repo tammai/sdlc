@@ -80,6 +80,12 @@ def dot_segment(seg, name):
     return seg.casefold() in names or seg.upper().casefold() in names
 
 
+def odd_name(text):
+    """Whether a name has a control or format character, which could fake a section of a brief or hide a name."""
+    import unicodedata
+    return any(unicodedata.category(c) in ("Cc", "Cf", "Zl", "Zp") for c in str(text))
+
+
 def git_segment(seg):
     """A path segment a filesystem opens as a git dir (dot_segment for `.git`)."""
     return dot_segment(seg, ".git")

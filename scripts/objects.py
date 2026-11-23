@@ -22,7 +22,6 @@ import os
 import re
 import subprocess
 import sys
-import unicodedata
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(HERE), "hooks"))
@@ -94,8 +93,9 @@ def target(root, value):
 
 
 def _odd(text):
-    """Whether a name has a control or format character, which could fake a brief section or hide a name."""
-    return any(unicodedata.category(c) in ("Cc", "Cf", "Zl", "Zp") for c in text)
+    """Whether a name has a control or format character (sdlc_scopes.odd_name, shared with the runbook path)."""
+    import sdlc_scopes
+    return sdlc_scopes.odd_name(text)
 
 
 def _refused(rel, barred, legacy):
