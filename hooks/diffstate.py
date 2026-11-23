@@ -117,10 +117,11 @@ def consume_stop_state(session_id, clear=True):
         }
         # touched_paths is cleared per Stop, but one baseline can be
         # reviewed by several Stops (rewakes). turn_touched keeps every path
-        # recorded since the baseline; only telemetry reads it.
-        turn = list(dict.fromkeys(
-            [p for p in state.get("turn_touched", []) if isinstance(p, str)]
-            + snap["touched_paths"]))[-200:]
+        # recorded since the baseline: telemetry reads it, and (sdlc patch)
+        # stop_repos finds the turn's other workbench repos from it, so a path
+        # touched again counts as recent and survives the cut to 200.
+        both = [p for p in state.get("turn_touched", []) if isinstance(p, str)] + snap["touched_paths"]
+        turn = list(reversed(list(dict.fromkeys(reversed(both)))))[-200:]
         snap["turn_touched"] = turn
         if clear:
             state["turn_touched"] = turn
