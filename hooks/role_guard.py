@@ -9,7 +9,9 @@ writes, moves or removes one (a redirect, tee, sed -i, cp/mv, rm, truncate, git 
 cmdlets; through cd, git -C and bash -c too). It reads command text only: a program that opens the file itself isn't
 seen (a guard is not a sandbox).
 Read-only repos of a workbench: read_only_problem(), also called from hooks/pretooluse.py, denies the same writes into
-a `write: false` repo's folder (and touch, mkdir, and git commands that change that repo), naming its owner.
+a `write: false` repo's folder (and touch, mkdir, and git commands that change that repo), naming its owner, and
+into a repo the read-only watch still holds as read-only after workbench.json made it writable, until the user
+accepts.
 Roles: Claude Code names the subagent making a call in `agent_type` (`sdlc:<agent>`); calls from the main session
 or other plugins' agents get no output from this part. Denies, with the reason the agent sees:
   - a reviewer editing any file but its report under .sdlc/.work/findings/: reviewers report, they don't fix
@@ -763,7 +765,8 @@ def written(data, root, protected, folders=False):
 
 def read_only_problem(data, root):
     """The deny reason when this call writes into a `write: false` repo of the workbench at root, naming the repo and
-    its owner; None outside a workbench. Entries are read one by one, so one malformed entry never unguards the
+    its owner, or into one the read-only watch still holds as read-only (made writable or dropped in workbench.json,
+    not yet accepted); None outside a workbench. Entries are read one by one, so one malformed entry never unguards the
     others; a file that isn't JSON with a `repos` list fails closed: every folder of the workbench that isn't its own
     (sdlc_scopes.RESERVED, dot folders) is guarded until the file is fixed."""
     import sdlc_scopes
@@ -789,15 +792,52 @@ def read_only_problem(data, root):
                     f"tell whether {found} is in a read-only repo: fix {sdlc_scopes.WORKBENCH_FILE} first "
                     "(scaffold.py workbench list names the problem).")
         return None
-    for name, owner in names.items():
+    flipped = {n: None for n in _watched_read_only(root) if n not in names}
+    for name, owner in list(names.items()) + list(flipped.items()):
         found = written(data, root, {canon(name)}, folders=True)
         if deep_reason(found):
             return deep_reason(found)
+        if found and name in flipped:
+            return (f"sdlc: {found} is in {name}/, which the read-only watch holds as read-only: "
+                    f"{sdlc_scopes.WORKBENCH_FILE} made it writable (or dropped it) since the user last accepted, "
+                    f"and that counts only once they send `accept read-only {name}`. Ask them.")
         if found:
             owner = owner or "its owners"
             return (f"sdlc: {found} is in {name}/, a read-only repo owned by {owner} (workbench.json): "
                     f"sdlc doesn't change other teams' repos. Ask {owner} for the change.")
     return None
+
+
+def _watched_read_only(root):
+    """The repos the read-only watch holds as read-only (its baseline, outside the repo). A repo made writable or
+    dropped in workbench.json stays in it until the user accepts, so a control-file edit never lifts the guard first
+    (3.15.0 smoke test K5). The baseline is the one the workbench's marker names, which every host's accept rewrites;
+    this host's own only when that one can't be read (a stale own file would deny a repo accepted elsewhere, security
+    review SR1-M2). Only adds guards: any error reading a baseline adds nothing from it, and the manifest's own guard
+    stands (SR1-M1)."""
+    import sdlc_scopes
+    try:
+        import read_only_watch as watch
+    except Exception:
+        return set()
+    listed = None
+    for where in (watch.baseline_path, watch.default_baseline_path):
+        try:
+            data = watch.load(where(root))
+            listed = watch._names(data.get("read_only")) if data is not None else None
+        except Exception:
+            listed = None
+        if listed is not None:
+            break
+    names = set()
+    for name in listed or []:
+        try:
+            name = sdlc_scopes.check_name(name)
+        except ValueError:
+            continue
+        if name.lower() not in sdlc_scopes.RESERVED:
+            names.add(name)
+    return names
 
 
 def unbranched_problem(data, root):
