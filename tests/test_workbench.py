@@ -1472,6 +1472,13 @@ class ReadOnlyBackstop(WorkbenchFeatureCase):
         self.write_json("workbench.json", {"repos": [dict(r, write=True) if r["name"] == "specs" else r
                                                      for r in manifest["repos"]]})
 
+    def test_an_accept_says_when_sdlc_refuses_the_manifest_it_accepts(self):
+        # 3.15.0 smoke test K re-run: a specs repo made writable was accepted, then every script refused workbench.json
+        self.assertEqual(self.watch("SessionStart"), {})
+        self.make_specs_writable()
+        self.watch("PostToolUse")
+        self.assertIn("only an app repo can be writable", self.accept("specs").get("systemMessage", ""))
+
     def test_a_repo_made_writable_stays_guarded_until_the_user_accepts(self):
         # 3.15.0 smoke test K5: `"write": true` in workbench.json lifted the per-call guard before any accept
         self.assertEqual(self.watch("SessionStart"), {})
