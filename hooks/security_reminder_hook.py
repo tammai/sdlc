@@ -2681,6 +2681,13 @@ def handle_stop_hook(input_data):
     if is_subagent and repo_cwd:
         _pd = os.environ.get("CLAUDE_PROJECT_DIR")
         _pd_root = _git_toplevel(_pd) if _pd and os.path.isdir(_pd) else None
+        try:  # sdlc patch: an app repo of the workbench the session sits in is the session's (end review SG-L1)
+            import sdlc_scopes  # noqa: PLC0415
+            if (_pd_root and os.path.dirname(os.path.realpath(repo_cwd)) == os.path.realpath(_pd_root)
+                    and sdlc_scopes.guarded_workbench(_pd_root)):
+                _pd_root = repo_cwd
+        except Exception as e:
+            debug_log(f"Stop hook: workbench check skipped: {e}")
         if _pd_root and _pd_root != repo_cwd:
             debug_log(f"Stop hook: SubagentStop in {repo_cwd!r}, session repo is {_pd_root!r}")
             v2_metrics = dict(res_metrics)

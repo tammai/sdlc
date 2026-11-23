@@ -80,18 +80,58 @@ def _active_feature(root, shas=()):
     return found[0] if len(found) == 1 else None
 
 
-def _merged(repo, branch, base):
+def _remote_default(repo, cache):
+    """The remote's default branch as a ref (origin/HEAD, else origin/main, origin/master), or None; looked up once
+    per check and kept in `cache` for its other features (never longer: a fetch during the session must count)."""
+    if repo not in cache:
+        cache[repo] = next((ref for ref in ("refs/remotes/origin/HEAD", "refs/remotes/origin/main",
+                                            "refs/remotes/origin/master")
+                            if _git(repo, "rev-parse", "--verify", "-q", f"{ref}^{{commit}}")), None)
+    return cache[repo]
+
+
+def _reflog_tip(repo, branch):
+    """A deleted branch's last tip as HEAD saw it: the old value of HEAD's newest `checkout: moving from <branch> to`
+    entry, read from its own raw reflog line (so pruned neighbours don't matter); None when the reflog doesn't say
+    (end review SG-L3: `gh pr merge --delete-branch`)."""
+    path = _git(repo, "rev-parse", "--git-path", "logs/HEAD")
+    if not path:
+        return None
+    import collections  # noqa: PLC0415
+    import stat  # noqa: PLC0415
+    full = path if os.path.isabs(path) else os.path.join(repo, path)
+    try:  # a regular file only (a FIFO would block the hook, a link could be anything), and only its tail
+        if not stat.S_ISREG(os.lstat(full).st_mode):
+            return None
+        with open(full, encoding="utf-8", errors="replace") as f:
+            lines = [line.rstrip("\n") for line in collections.deque(f, 5000)]
+    except OSError:
+        return None
+    for line in reversed(lines):
+        head, _, message = line.partition("\t")
+        if message.startswith(f"checkout: moving from {branch} to "):
+            return head.split(" ", 1)[0] or None
+    return None
+
+
+def _merged(repo, branch, base, cache=None):
     """The feature's branch for this repo holds work past its base and is in the remote's default branch
-    (origin/HEAD, else origin/main, origin/master; never a local branch, which a plain `git merge` moves). No fetch:
-    a stale remote ref only keeps the feature longer. Anything it can't tell: False."""
+    (_remote_default; never a local branch, which a plain `git merge` moves). A branch deleted here is judged by its
+    last tip (_reflog_tip). No fetch: a stale remote ref only keeps the feature longer. Anything it can't tell:
+    False."""
     tip = _git(repo, "rev-parse", "--verify", "-q", f"refs/heads/{branch}^{{commit}}")
+    pushed = None
+    if not tip:
+        last = _reflog_tip(repo, branch)
+        tip = last and _git(repo, "rev-parse", "--verify", "-q", f"{last}^{{commit}}")
+        # HEAD's reflog misses commits made in another worktree or moved without HEAD: the pushed branch, while the
+        # remote still has it, must be merged too (security review S-1 of 2026-11-23-s-gate-ownership-leftovers)
+        pushed = _git(repo, "rev-parse", "--verify", "-q", f"refs/remotes/origin/{branch}^{{commit}}")
     start = base and _git(repo, "rev-parse", "--verify", "-q", f"{base}^{{commit}}")
     if not tip or not start or tip == start or _git(repo, "merge-base", "--is-ancestor", start, tip) is None:
         return False  # at its base, the branch is trivially in the default branch: nothing merged yet
-    for ref in ("refs/remotes/origin/HEAD", "refs/remotes/origin/main", "refs/remotes/origin/master"):
-        if _git(repo, "rev-parse", "--verify", "-q", f"{ref}^{{commit}}"):
-            return _git(repo, "merge-base", "--is-ancestor", tip, ref) is not None
-    return False
+    ref = _remote_default(repo, {} if cache is None else cache)
+    return bool(ref) and all(_git(repo, "merge-base", "--is-ancestor", t, ref) is not None for t in filter(None, (tip, pushed)))
 
 
 def _workbench_feature(repo_root):
@@ -117,7 +157,7 @@ def _workbench_feature(repo_root):
         # a seeded workbench's unlisted folder: unsure, so reviewed. A scratch clone pays a review; telling it from a
         # repo dropped from the manifest needs a record the agent can't outrun (end review r2 of 2026-11-22-todo-lanes)
         return True, ""
-    owners = []  # (text, active)
+    owners, remote = [], {}  # (text, active); the remote's default branch, looked up once (_remote_default)
     for f in sdlc_layout.features(wb).values():
         try:
             with open(os.path.join(wb, f["state"]), encoding="utf-8") as fh:
@@ -129,7 +169,7 @@ def _workbench_feature(repo_root):
         active = bool(re.search(r"^Status:[ \t]*active[ \t]*(\(|$)", text, re.M | re.I))
         rec = sdlc_scopes.feature_repos(text).get(name) or {}
         shipping = (not active and bool(rec.get("branch")) and bool(re.search(r"^Status:[ \t]*done", text, re.M | re.I))
-                    and not _merged(repo, rec["branch"], rec.get("base")))
+                    and not _merged(repo, rec["branch"], rec.get("base"), remote))
         if active or shipping:
             owners.append((text, active))
     if listed is None:
