@@ -638,7 +638,8 @@ def test_command(root):
 
 
 def task_lines(specs):
-    """`--task "<title> | <ACs> | <files>"` → the numbered `## Tasks` entries (files space- or comma-separated)."""
+    """`--task "<title> | <ACs> | <files>"` → the numbered `## Tasks` entries (files space- or comma-separated; a
+    `(note)` after a file stays beside it, as in `src/x.test.ts (test)`)."""
     out = []
     for n, spec in enumerate(specs, 1):
         parts = [p.strip() for p in spec.split("|")]
@@ -646,7 +647,22 @@ def task_lines(specs):
             raise Refused(f"--task is \"<title> | <ACs> | <files>\", not {spec!r}")
         title, acs, files = parts
         out.append(f"{n}. **{title}**" + (f" — {acs}" if acs else ""))
-        out.append("   - Files: " + ", ".join(f"`{f}`" for f in re.split(r"[,\s]+", files) if f))
+        names, note = [], None
+        for f in re.split(r"[,\s]+", files):
+            if not f:
+                continue
+            if note is None and f.startswith("(") and names:
+                note = []  # a note on the file before it, kept outside its backticks (`app/(group)/x` is a file)
+            if note is not None:
+                note.append(f)
+                if f.endswith(")"):
+                    names[-1] += " " + " ".join(note)
+                    note = None
+            else:
+                names.append(f"`{f}`")
+        if note:
+            names[-1] += " " + " ".join(note)
+        out.append("   - Files: " + ", ".join(names))
     return out
 
 
