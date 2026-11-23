@@ -472,6 +472,52 @@ class ModesTest(ProjectTestCase):
         self.assertFalse(sdlc_scopes.write_record(self.root, sdlc_scopes.ANCHOR, {}))
         self.assertEqual(os.listdir(outside), [])
 
+    def test_a_file_swapped_for_a_fifo_after_the_check_is_never_waited_on(self):
+        # security review R3-L2 of 2026-11-23-l-configurable-stages: the check and the open are one step
+        from unittest import mock
+        import threading
+        import sdlc_scopes
+        if not hasattr(os, "mkfifo"):
+            self.skipTest("no FIFOs here")
+        os.makedirs(self.path(".sdlc"), exist_ok=True)
+        os.mkfifo(self.path(".sdlc/config.json"))
+        result = []
+        with mock.patch("os.path.isfile", return_value=True), mock.patch("os.path.exists", return_value=False):
+            t = threading.Thread(target=lambda: result.append(sdlc_scopes.configured(self.root)), daemon=True)
+            t.start()
+            t.join(5)
+        if t.is_alive():
+            with open(self.path(".sdlc/config.json"), "w"):
+                pass
+            self.fail("a FIFO was opened and waited on")
+        self.assertEqual(result, [("full", [])])
+
+    def test_an_accepted_mode_change_reaches_the_agent_at_once(self):
+        # security review R3-L5: the status line is built at session start; the reply that accepts says the new mode
+        self.write(".sdlc/state/login.md", STATE.format(stage=2))
+        self.config(mode="full", accept=False)
+        self.stop_blocked()
+        self.config(skip=["pr"], accept=False)
+        self.assertTrue(self.stop_blocked()[0])
+        _, out, raw, _ = run_hook(HOOK("trust_anchor.py"), {"hook_event_name": "UserPromptSubmit", "cwd": self.root,
+                                                            "prompt": "ok"}, self.root)
+        context = (out or {}).get("hookSpecificOutput", {}).get("additionalContext", "")
+        self.assertIn("skip pr", context, raw)
+
+    def test_the_acceptance_message_names_what_is_enforced(self):
+        # security review SEC-4: config changed between the notice and the reply: the message follows effective()
+        self.write(".sdlc/state/login.md", STATE.format(stage=2))
+        self.config(mode="full", accept=False)
+        self.stop_blocked()
+        self.config(mode="advisory", accept=False)
+        self.assertTrue(self.stop_blocked()[0])
+        self.config(mode="full", accept=False)  # changed back before the reply
+        _, out, raw, _ = run_hook(HOOK("trust_anchor.py"), {"hook_event_name": "UserPromptSubmit", "cwd": self.root,
+                                                            "prompt": "ok"}, self.root)
+        context = (out or {}).get("hookSpecificOutput", {}).get("additionalContext", "")
+        self.assertNotIn("advisory: no sdlc hook", context, raw)
+        self.assertIn("full, nothing skipped", context, raw)  # said, and as the hooks enforce it
+
     # AC-008
     def test_the_flow_text_names_skip_and_advisory(self):
         def text(rel):

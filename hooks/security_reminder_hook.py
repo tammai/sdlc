@@ -2499,6 +2499,7 @@ def handle_stop_hook(input_data):
             _TAIL_METRICS["primary_skip"] = primary_skip  # only other repos were reviewed
         import time as _time
         stop_review_start = _time.time()
+        _diff_hashes = {fp: hashlib.sha256(c.encode("utf-8", "replace")).hexdigest() for fp, c in diff_files}
 
         # Stop hook is single-shot only. Agentic review is wired into
         # handle_commit_review_posttooluse (PostToolUse on `git commit`) — commits
@@ -2527,6 +2528,23 @@ def handle_stop_hook(input_data):
             if n_deduped and not vulns:
                 debug_log("Stop hook: all findings already delivered by commit-review")
                 _skip(35, deduped=n_deduped, review_ms=review_ms)
+            # sdlc patch: a finding already reported on byte-identical code (same file diff) is dropped: a rewake
+            # sends the other workbench repos' code again from the turn's start, and code the agent declined to
+            # change must not raise the same finding up to the rewake cap. Changed code keeps it.
+            # Dropped only for the same file, category and vulnerable code, on the same diff, in this same turn
+            # (security review SEC-1, SEC-2 of 2026-11-23-todo-mode-tickets).
+            _turn = snap.get("prompt_at")
+            _seen = {(f.get("filePath", ""), f.get("category", ""), " ".join(str(f.get("vulnerableCode", "")).split()),
+                      f.get("diffHash")) for f in previous_findings
+                     if isinstance(f, dict) and f.get("diffHash") and _turn is not None and f.get("turn") == _turn}
+            _unchanged = [v for v in vulns if (v.get("filePath", ""), v.get("category", "Unknown"),
+                                               " ".join(str(v.get("vulnerableCode", "")).split()),
+                                               _diff_hashes.get(v.get("filePath", ""), "-")) in _seen]
+            if _unchanged:
+                vulns = [v for v in vulns if v not in _unchanged]
+                debug_log(f"Stop hook: {len(_unchanged)} findings already reported on unchanged code, dropped")
+                if not vulns:
+                    _skip(36, deduped=len(_unchanged), review_ms=review_ms)
             concrete_guidance = _format_vulns_guidance(vulns)
 
         if concrete_guidance:
@@ -2535,6 +2553,9 @@ def handle_stop_hook(input_data):
                     "filePath": v.get("filePath", ""),
                     "category": v.get("category", "Unknown"),
                     "vulnerableCode": v.get("vulnerableCode", ""),
+                    # sdlc patch: the code it was found in; a subagent's review drops nothing for the main Stop
+                    "diffHash": None if is_subagent else _diff_hashes.get(v.get("filePath", "")),
+                    "turn": snap.get("prompt_at"),  # sdlc patch: and the turn it was found in
                 }
                 for v in vulns
             ]
@@ -2559,12 +2580,22 @@ def handle_stop_hook(input_data):
                 # context lines that drift between fires, so byte-identical
                 # matching let the same finding accumulate as "new" each fire.
                 existing = [f for f in state.get("previous_findings", []) if isinstance(f, dict)]
-                seen = {(f.get("filePath", ""), f.get("category", "")) for f in existing}
+                seen = {(f.get("filePath", ""), f.get("category", "")): f for f in existing}
                 for f in finding_snapshots:
                     key = (f["filePath"], f["category"])
                     if key not in seen:
-                        seen.add(key)
+                        seen[key] = f
                         existing.append(f)
+                    elif f.get("diffHash"):  # sdlc patch: re-flagged: remember this code, its turn and its diff
+                        seen[key].update(diffHash=f["diffHash"], turn=f.get("turn"),
+                                         vulnerableCode=f.get("vulnerableCode", ""))
+                # sdlc patch: a stored finding in a file this fire reviewed without flagging it no longer stands on
+                # that file's code (fixed, maybe reverted later): it can't drop a later report of it
+                flagged = {(f["filePath"], f["category"]) for f in finding_snapshots}
+                reviewed = set(_diff_hashes)
+                for f in existing:
+                    if f.get("filePath") in reviewed and (f.get("filePath"), f.get("category")) not in flagged:
+                        f["diffHash"] = None
                 state["previous_findings"] = existing
                 state["previous_findings_ts"] = _time.time()
                 if new_sha:

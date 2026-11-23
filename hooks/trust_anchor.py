@@ -225,6 +225,9 @@ def changed_since_full_run(root, name):
     return sorted(changed)
 
 
+ACCEPTED = []  # a mode or skips the user's reply just accepted (config_notice), told to the agent by main
+
+
 def config_notice(root, saved, replied):
     """A notice when `mode` or `skip` asks for fewer checks than the user accepted (full → advisory, a step newly
     skipped), said even in advisory mode. The record lives where the mode is set (sdlc_scopes.gate_root, which the
@@ -237,7 +240,7 @@ def config_notice(root, saved, replied):
     record = saved
     if not own:
         try:
-            with open(sdlc_scopes._inside(gate, sdlc_scopes.ANCHOR), encoding="utf-8") as f:
+            with sdlc_scopes.open_regular(sdlc_scopes._inside(gate, sdlc_scopes.ANCHOR)) as f:
                 record = json.load(f)
         except (OSError, ValueError):
             record = {}
@@ -254,6 +257,7 @@ def config_notice(root, saved, replied):
         shown = entry.pop("shown", None)
         if sdlc_scopes.valid_record(shown):
             entry.update(mode=shown["mode"], skip=list(shown["skip"]))
+            ACCEPTED.append(shown)  # said to the agent now: the session status line was built at its start
         entry["notices"] = []
         notice = None
     else:
@@ -302,7 +306,7 @@ def main():
     corrupt = False
     import sdlc_scopes  # noqa: PLC0415
     try:
-        with open(sdlc_scopes._inside(root, STATE), encoding="utf-8") as f:  # a regular file only: a FIFO hangs
+        with sdlc_scopes.open_regular(sdlc_scopes._inside(root, STATE)) as f:  # never a FIFO (it would hang)
             saved = json.load(f)
         corrupt = not isinstance(saved, dict) or not all(isinstance(v, dict) for v in saved.values())
     except FileNotFoundError:
@@ -365,7 +369,14 @@ def main():
                                   f"header `{HEADER}`, without `answers` (options such as Accept, Undo it); don't undo "
                                   "or redo it on your own. Their answer, or their next message, accepts it. In an --autopilot "
                                   "session no one can answer: say what changed and end; don't ask."}))
-    sdlc_scopes.write_record(root, STATE, saved)  # a fresh file swapped in: never through a FIFO or a link
+    written = sdlc_scopes.write_record(root, STATE, saved)  # a fresh file swapped in: never through a FIFO or a link
+    if ACCEPTED and written and event in ("UserPromptSubmit", "PostToolUse"):
+        # what the hooks now enforce (config as it is, as far as accepted), not what the notice showed
+        mode, skip = sdlc_scopes.effective(sdlc_scopes.gate_root(root) or root)
+        said = ("advisory: no sdlc hook, gate or flow applies; use the skills and agents on request"
+                if mode == "advisory" else f"full, skip {', '.join(skip)}" if skip else "full, nothing skipped")
+        print(json.dumps({"hookSpecificOutput": {"hookEventName": event, "additionalContext":
+                          f"sdlc: the user accepted the repo's mode and skips; they are now {said}."}}))
 
 
 if __name__ == "__main__":

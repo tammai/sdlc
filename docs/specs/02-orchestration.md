@@ -79,6 +79,7 @@ Citations: "orchestrator: core" is `SKILL.md`; "orchestrator: start", "define", 
 ## Known gaps
 
 - The trust anchor makes changes visible, it doesn't prevent them: its own state (`.sdlc/.work/trust-anchor.json`), the freshness state and the dispatch log are files the main session can write (the role guard keeps the plugin's subagents off them). A damaged record is a notice, but a deleted one looks like a first run, and editing the hooks isn't detected.
+- A relaxed mode or skip (ADR 0030) counts without a notice in two ways: with the trust anchor's record deleted, HEAD's committed config decides (a committed relaxation counts, visible in git history); and an accepted entry written straight into that record counts, with nothing in git (docs/wiki/Limitations.md).
 - Which reviews run is the agent's judgment (the user's on M and L). On S a recommendation of none means no agent reads the tests against the criteria, so a test that runs and passes but asserts the wrong thing is caught only by its red record.
 - Whether the agent asked enough before building is its own judgment; nothing checks that a question it should have asked was asked.
 - Push, PR and the single CI fix are instructed; nothing checks that Ship stopped at the PR rather than merging.

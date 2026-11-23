@@ -2233,9 +2233,9 @@ class StopReviewEveryRepo(WorkbenchFeatureCase):
                 return data
         return {}
 
-    def answer(self, file_path):
+    def answer(self, file_path, code="subprocess.call(cmd, shell=True)"):
         finding = {"filePath": file_path, "category": "Command Injection", "severity": "high",
-                   "vulnerableCode": "subprocess.call(cmd, shell=True)", "fix": "no shell",
+                   "vulnerableCode": code, "fix": "no shell",
                    "explanation": "shell"}
         with open(self.sent + ".answer", "w", encoding="utf-8") as f:
             json.dump({"hasVulnerabilities": True, "vulnerabilities": [finding]}, f)
@@ -2317,6 +2317,60 @@ class StopReviewEveryRepo(WorkbenchFeatureCase):
             calls = f.read().splitlines()
         self.assertEqual(len(calls), 2, raw + err)
         self.assertIn("web/b.py", calls[1])
+
+    def test_a_declined_finding_on_unchanged_code_is_not_raised_again(self):
+        # code review r4 CR4-1 of 2026-11-23-m-stop-review-every-repo: a rewake re-sends another repo's code; a finding
+        # already reported on byte-identical code is dropped, and one on changed code still stands
+        self.answer("web/b.py")
+        self.turn(self.root, ["api/a.py", "web/b.py"])
+        stop = {"hook_event_name": "Stop", "stop_hook_active": False}
+        code, out, raw, err = self.hook(stop, self.root)  # the agent declined it: no edit, the rewake fires
+        self.assertEqual(code, 0, raw + err)
+        body = "import subprocess\ndef run_b(cmd):\n    return subprocess.call(cmd + ' x', shell=True)\n"
+        self.write("web/b.py", body)
+        self.hook({"hook_event_name": "PostToolUse", "tool_name": "Write",
+                   "tool_input": {"file_path": self.path("web/b.py"), "content": body}}, self.root)
+        code, out, raw, err = self.hook(stop, self.root)
+        self.assertEqual(code, 2, raw + err)  # changed code: the finding stands
+
+    def test_a_fix_reverted_in_the_same_turn_is_raised_again(self):
+        # security review r2 M-1: fire 1 flags web/b.py, the agent fixes it, fire 2 flags only api, the agent reverts
+        # the fix: fire 3 must report it again
+        self.answer("web/b.py")
+        self.turn(self.root, ["api/a.py", "web/b.py"])
+        stop = {"hook_event_name": "Stop", "stop_hook_active": False}
+        with open(self.path("web/b.py"), encoding="utf-8") as f:
+            original = f.read()
+        fixed = "def run_b(cmd):\n    return None\n"
+        for body, flagged in ((fixed, "api/a.py"), (original, "web/b.py")):
+            self.write("web/b.py", body)
+            self.hook({"hook_event_name": "PostToolUse", "tool_name": "Write",
+                       "tool_input": {"file_path": self.path("web/b.py"), "content": body}}, self.root)
+            self.answer(flagged)
+            code, out, raw, err = self.hook(stop, self.root)
+            self.assertEqual(code, 2, (flagged, raw + err))
+
+    def test_a_new_issue_in_an_unchanged_file_still_blocks(self):
+        # security review SEC-1 of 2026-11-23-todo-mode-tickets: same file and category, other vulnerable code
+        self.answer("web/b.py")
+        self.turn(self.root, ["api/a.py", "web/b.py"])
+        self.answer("web/b.py", code="os.system(user_input)")
+        code, out, raw, err = self.hook({"hook_event_name": "Stop", "stop_hook_active": False}, self.root)
+        self.assertEqual(code, 2, raw + err)
+
+    def test_a_finding_from_an_earlier_turn_is_raised_again(self):
+        # security review SEC-2: the drop holds only within the turn that reported it
+        self.answer("web/b.py")
+        self.turn(self.root, ["api/a.py", "web/b.py"])
+        self.hook({"hook_event_name": "UserPromptSubmit", "prompt": "next"}, self.root)  # the next turn
+        for rel in ("api/a.py", "web/b.py"):  # the same code written again in both repos: the same diffs
+            with open(self.path(rel), encoding="utf-8") as f:
+                body = f.read()
+            self.write(rel, body)
+            self.hook({"hook_event_name": "PostToolUse", "tool_name": "Write",
+                       "tool_input": {"file_path": self.path(rel), "content": body}}, self.root)
+        code, out, raw, err = self.hook({"hook_event_name": "Stop", "stop_hook_active": False}, self.root)
+        self.assertEqual(code, 2, raw + err)
 
     def test_the_first_repos_files_keep_priority_under_the_cap(self):
         # code review r3 CR3-3: with one slot, api (the first repo: two of its paths against one) keeps it
