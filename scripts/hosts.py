@@ -131,9 +131,18 @@ def codex_hooks():
 
 
 def cursor_hooks():
-    """hosts/hook.py on Cursor's events, named by the Claude Code event it stands for."""
+    """hosts/hook.py on Cursor's events, named by the Claude Code event it stands for. Cursor has no Windows variant
+    of a command: it runs the same text through $SHELL (else /bin/sh), and on Windows as a Windows PowerShell 5.1
+    script file, where python3 may be missing or the Store stub. So the command reads in both: sh sees `set` with one
+    quoted argument, runs python3 and stops at `#`; PowerShell's string ends at `\\"` and `<# … #>` is a comment.
+    Cursor's PowerShell script pipes the event into the command's first statement only (`$input | <command>`, no
+    stdin), so `set` (Set-Variable) keeps it in the variable `\\`, which goes on to hosts/cursor/hook.ps1; it finds a
+    Python that works. No `exit` or `exec`: Cursor's script (in sh too) reads the exit code after the command."""
     def entry(event, matcher=None):
-        hook = {"command": 'python3 "${CURSOR_PLUGIN_ROOT}/hosts/hook.py" cursor ' + event, "timeout": 60}
+        args = "cursor " + event
+        command = ('set "\\" <# "; python3 "${CURSOR_PLUGIN_ROOT}/hosts/hook.py" ' + args + ' #>; '
+                   '${\\} | & "${CURSOR_PLUGIN_ROOT}/hosts/cursor/hook.ps1" ' + args)
+        hook = {"command": command, "timeout": 60}
         return [dict(hook, matcher=matcher) if matcher else hook]
     return {"version": 1, "hooks": {"preToolUse": entry("PreToolUse", "^(Shell|Write|Delete)$"),
                                     "postToolUse": entry("PostToolUse", "^(Shell|Write|Delete)$"),
