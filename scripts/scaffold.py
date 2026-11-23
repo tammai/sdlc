@@ -720,18 +720,15 @@ def plugin_enabled(root, plugin_id):
 
 def impeccable_hook_off(root):
     """impeccable's own off switch for its detector hook (`/impeccable hooks off`): `hook.enabled: false` in
-    `.impeccable/config.json` or the machine's `config.local.json`, the later winning. The committed one is read
-    through sdlc_scopes.read_repo_text: a link out of the repo or into .git reads as absent."""
+    `.impeccable/config.json` or the machine's `config.local.json`, the later winning. Both are read through
+    sdlc_scopes.read_repo_text: a link out of the repo or into .git, at the file or its folder, reads as absent."""
     off = False
     for name in ("config.json", "config.local.json"):
-        if name == "config.json":
-            text = sdlc_scopes.read_repo_text(root, ".impeccable/config.json")
-            try:
-                data = json.loads(text) if text is not None else {}
-            except json.JSONDecodeError as e:
-                raise ValueError(f"{os.path.join(root, '.impeccable', name)} is not valid JSON: {e}")
-        else:
-            data = read_json(os.path.join(root, ".impeccable", name), {})
+        text = sdlc_scopes.read_repo_text(root, f".impeccable/{name}")
+        try:
+            data = json.loads(text) if text is not None else {}
+        except json.JSONDecodeError as e:
+            raise ValueError(f"{os.path.join(root, '.impeccable', name)} is not valid JSON: {e}")
         hook = data.get("hook") if isinstance(data, dict) else None
         if isinstance(hook, dict) and "enabled" in hook:
             off = hook["enabled"] is False

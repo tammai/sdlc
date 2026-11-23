@@ -1164,6 +1164,29 @@ class ScaffoldTest(ProjectTestCase):
                 self.skipTest("symlinks unavailable")
             self.assertFalse(scaffold.impeccable_hook_off(self.root), target)
 
+    def test_impeccable_local_config_linked_out_of_the_repo_reads_as_absent(self):
+        # lane A of 2026-11-22-todo-lanes: config.local.json (the winning file) was read through a link too, as
+        # was either file when the .impeccable folder itself links out of the repo
+        sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
+        import scaffold
+        off = json.dumps({"hook": {"enabled": False}})
+        self.write(".impeccable/config.local.json", off)
+        self.assertTrue(scaffold.impeccable_hook_off(self.root))  # a plain file still reads
+        outside = os.path.realpath(tempfile.mkdtemp(prefix="sdlc-outside-"))
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        for name in ("config.json", "config.local.json"):
+            with open(os.path.join(outside, name), "w", encoding="utf-8") as f:
+                f.write(off)
+        os.remove(self.path(".impeccable/config.local.json"))
+        try:  # Windows without the symlink privilege can't make one
+            os.symlink(os.path.join(outside, "config.local.json"), self.path(".impeccable/config.local.json"))
+        except (OSError, NotImplementedError):
+            self.skipTest("symlinks unavailable")
+        self.assertFalse(scaffold.impeccable_hook_off(self.root), "linked config.local.json")
+        shutil.rmtree(self.path(".impeccable"))
+        os.symlink(outside, self.path(".impeccable"), target_is_directory=True)
+        self.assertFalse(scaffold.impeccable_hook_off(self.root), "linked .impeccable folder")
+
     def test_a_skill_folder_impeccable_needs_its_hook_manifest(self):
         self.init()
         home = {"HOME": self.path("home"), "USERPROFILE": self.path("home")}
