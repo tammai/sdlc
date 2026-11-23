@@ -569,8 +569,13 @@ def record_repo(root, name, text):
     if code:
         raise Refused(f"{name}: git status failed ({err})")
     if dirty:
-        raise Refused(f"{name} has uncommitted changes: commit or stash them in {name}/ before the feature branches "
-                      "there")
+        # Ship stages untracked files too, so they'd ship in the feature's commit; and the guard holds every write in
+        # the repo until it's branched, so the agent can't clean up: the user does (3.15.0 smoke test K4)
+        files = [line.split(None, 1)[-1] for line in dirty.splitlines() if line.strip()]
+        shown = ", ".join(files[:5]) + (f" and {len(files) - 5} more" if len(files) > 5 else "")
+        raise Refused(f"{name} has uncommitted changes ({shown}): ask the user to commit, stash or remove them in "
+                      f"{name}/, or add them to its .gitignore; sdlc holds writes there until the feature branches it, "
+                      "so you can't clean it up yourself. Then run this again.")
     code, branch, _ = git_run(root, "rev-parse", "--abbrev-ref", "HEAD")
     if code or not branch or branch == "HEAD":
         raise Refused("the workbench isn't on a branch: check out the feature's branch there first")
