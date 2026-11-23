@@ -23,7 +23,7 @@ Build's single command. Three modes:
 | Command | Does |
 |---|---|
 | `verify.py red AC-001 AC-002 …` | Records each AC test **failing** before its code. If any test passes, can't be found or can't run, the whole batch is refused |
-| `verify.py` | Full run: the project's verify plan (lint, typecheck, build, full suite), every AC's test, and the drift check. Prints the head and tree that `state.py verified` takes |
+| `verify.py` | Full run: the project's verify plan (lint, typecheck, build, Storybook when set, full suite), every AC's test, and the drift check. Prints the head and tree that `state.py verified` takes |
 | `verify.py status` | Short JSON. `reuse: true` when the last run passed, both records agree and the code hasn't changed, so Review and Ship skip a rerun |
 
 ```mermaid

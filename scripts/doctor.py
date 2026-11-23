@@ -412,6 +412,19 @@ def check_repo(r, root):
 
     files = repo_files(root)
     advisory = scaffold.configured_advisory(p)  # advisory setup asks for no PRD or design system (ADR 0030)
+    if (p.config or {}).get("storybook") is True:  # Storybook as the design system: a catalog must be there
+        found = scaffold.storybook_found(p)
+        problem = ("storybook is on but the design mode is impeccable, whose DESIGN.md is the system"
+                   if scaffold.design_mode(p) == "impeccable" else
+                   None if found else "storybook is on in .sdlc/config.json but there is no .storybook/ folder: the UI "
+                   "review has no catalog") or scaffold.storybook_unrun(p)
+        fix = (None if not problem else
+               "/sdlc:setup design (turn Storybook off: impeccable keeps its own system)"
+               if scaffold.design_mode(p) == "impeccable" else
+               "set Storybook up (npx storybook init), or turn it off with /sdlc:setup design" if not found else
+               'add "storybook" to verify.order in .sdlc/config.json (after "build")')
+        r.add(g, "storybook", "warn" if problem else "ok", problem or "the design system's components live in Storybook",
+              fix)
     if status["setup"] == "complete" and not advisory:
         prd = sdlc_layout.prd(root)
         has_prd = os.path.isfile(os.path.join(root, prd))

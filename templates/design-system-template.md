@@ -6,6 +6,7 @@
 - Library: <e.g. shadcn/ui on Radix · MUI 6 · Vuetify 3 · Flutter Material 3 · none, our own components>
 - Tokens: <path: src/styles/tokens.css · tailwind.config.ts `theme` · @theme in app.css · lib/theme.dart>
 - Components: <path to the project's component folder; Storybook URL if any>
+- <Storybook on (`scaffold.py storybook`): the stories are the source of truth for components, every component has a story for each state it shows — or delete this line when Storybook is off>
 - Icons: <set, e.g. lucide-react>; never emoji as icons
 - Fonts: <families, where they're loaded>
 - Themes: <light only | light + dark>

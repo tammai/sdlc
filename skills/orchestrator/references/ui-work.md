@@ -6,6 +6,14 @@ Read when the spec has screens or the change lands in `areas.ui`, at the step th
 - Before the build, map each changed screen to the components, tokens and patterns of `<docs>/design-system.md` in the state file's `## UI mapping` (S too), so the builder and `sdlc:ui-reviewer` read it from a file. With the domain model on (the brief's `objects:` section; M and L), the mapping also names, for each object on the screen, the component its `Shown as` line gives for that view and the actions offered there, each one its `Actions` line lists; a new component or action is an edit to the objects file, recorded in `## Decisions`. Anything the system lacks goes to the user first; an approved addition goes into `<docs>/design-system.md` before the build, logged with `state.py log`.
 - Review: a diff touching `areas.ui` always gets the UI review recommended (`flow.md`'s Review, `s-track.md`); on M and L the user can decline it, on S it runs. `sdlc:ui-reviewer` gets `<docs>/design-system.md`, the spec and the diff, and the objects file when the domain model is on. Its high findings are off-system values or components, generic AI-slop styling, missing states and accessibility blockers.
 
+## Storybook (`scaffold.py storybook` says `true`)
+
+The stories are the design system's component catalog; `<docs>/design-system.md` points at them for components and keeps the tokens.
+
+- **Define:** the `## UI mapping` names, for each component on a changed screen, its story (`<file>` › `<story>`). A component the catalog lacks is a new one: it goes to the user first, as above. Each new or changed component gets a story for every state the spec names (loading, empty, error, success, disabled), as a task in this change with an AC that names those stories.
+- **Build:** write the stories with the component, not after; use the system's tokens in them too. With `commands.storybook` set, verify runs it right after `build`.
+- **Review:** `sdlc:ui-reviewer` reads the stories as the system (its Storybook section).
+
 ## impeccable mode (`scaffold.py design` says `impeccable`)
 
 UI design work goes to the impeccable skill; sdlc keeps the record, the gates and the review verdict. `<docs>/design-system.md` points at `DESIGN.md`, which is the system the lines above mean.
