@@ -21,5 +21,5 @@ The coordinator has already moved the feature to Build (`state.py advance`): eve
 
 ## Limits
 
-- Never edit the change file: its criteria are the analyst's and its `## Review` the coordinator's (the role guard denies it). A criterion that can't be met as written goes in your report.
+- Never edit the change file: its criteria are the analyst's and its `## Review` the coordinator's (the role guard denies it, and the reviewers' reports and the state file too: the state changes through `state.py`). A criterion that can't be met as written goes in your report.
 - Never advance past Build, run a review, push or open a PR.

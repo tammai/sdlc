@@ -14,9 +14,9 @@
 
 ## Done
 - [x] Add a team mode to the orchestrator: when active, role-based agents drive the sdlc stages — not built yet (2026-10-25) — done 2026-11-23: config `team`, agents analyst/builder/releaser
-- [ ] Team mode's builder can still write the reviewers' reports under `.sdlc/.work/findings/` and the state file by hand (role_guard allows it anything but the change file); decide whether to deny them too — unconfirmed L3 of the team-mode review (2026-11-23)
-- [ ] role_guard `objects_files()` checks the barred folders (.git, .claude, .sdlc) only on the path config's `objects` names, not where a link leads, and admits an absolute path; apply `objects.target()`'s checks to the resolved path — L1 of team-mode review r4 (2026-11-23)
-- [ ] role_guard computes `team_place()` (config reads, stats) for every sdlc subagent's file call; compute it only for analyst, builder and releaser — L2 of team-mode review r4 (2026-11-23)
+- [x] Team mode's builder can still write the reviewers' reports under `.sdlc/.work/findings/` and the state file by hand (role_guard allows it anything but the change file); decide whether to deny them too — unconfirmed L3 of the team-mode review (2026-11-23) — done 2026-11-23 (2026-11-23-s-team-guard-followups)
+- [x] role_guard `objects_files()` checks the barred folders (.git, .claude, .sdlc) only on the path config's `objects` names, not where a link leads, and admits an absolute path; apply `objects.target()`'s checks to the resolved path — L1 of team-mode review r4 (2026-11-23) — done 2026-11-23 (2026-11-23-s-team-guard-followups)
+- [x] role_guard computes `team_place()` (config reads, stats) for every sdlc subagent's file call; compute it only for analyst, builder and releaser — L2 of team-mode review r4 (2026-11-23) — done 2026-11-23 (2026-11-23-s-team-guard-followups)
 - [ ] Team mode in a workbench: an app repo without its own config can't take the releaser's Learn files (`.claude/rules/`, `knowledge/`) — L3 of team-mode review r2 (2026-11-23)
 - [x] Adopt Storybook as a living design system, as an optional opt-in (not the default) — not built yet; today the design system is `.sdlc/design-system.md` and the ui-reviewer checks against it (2026-11-20) — done 2026-11-23: config `storybook` (builtin mode), `commands.storybook` in verify
 - [x] Add a Definition of Done to the setup step so the agent knows when a job is done — not built yet (2026-10-25) — done 2026-11-23: config `done`, checked by ship.py

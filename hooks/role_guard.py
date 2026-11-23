@@ -13,7 +13,8 @@ a `write: false` repo's folder (and touch, mkdir, and git commands that change t
 Roles: Claude Code names the subagent making a call in `agent_type` (`sdlc:<agent>`); calls from the main session
 or other plugins' agents get no output from this part. Denies, with the reason the agent sees:
   - a reviewer editing any file but its report under .sdlc/.work/findings/: reviewers report, they don't fix
-  - team mode's analyst writing anything but a feature's change file, state file and work folder, and objects.md; its builder writing a change file (or a Windows short name or stream path, which could be one); its releaser writing product
+  - team mode's analyst writing anything but a feature's change file, state file and work folder, and objects.md; its builder writing a change file (or a Windows short name or stream path, which could be one), a reviewer's
+    report or a state file; its releaser writing product
     code (anything but the record, knowledge/, CLAUDE.md, AGENTS.md, CHANGELOG.md, .claude/rules/ and hookify rules)
   - the qa-tester reading or searching project files other than .sdlc/, the docs folder (docs_dir) and READMEs, or
     writing anything but qa-report.md and .sdlc/.work/qa/
@@ -66,7 +67,7 @@ def problem(agent, tool, rel, root):
                 ".sdlc/.work/findings/ and put the fix in it.")
     # Team mode's stage agents (config `team`): the analyst writes the record, the builder never rewrites its criteria,
     # the releaser ships without touching product code
-    place = team_place(rel, root)
+    place = team_place(rel, root) if agent in ("analyst", "builder", "releaser") else None
     if agent == "analyst" and tool in WRITES and place not in ("change", "record"):
         return ("sdlc: the analyst writes the feature's change file, its state file and work files (and objects.md), "
                 "nothing else: the builder writes code and tests, and config is the user's.")
@@ -76,6 +77,9 @@ def problem(agent, tool, rel, root):
     if agent == "builder" and tool in WRITES and place in ("change", "stray"):
         return ("sdlc: the builder doesn't write the change file: its criteria are the analyst's and its ## Review the "
                 "coordinator's. Raise what's wrong with it in your report.")
+    if agent == "builder" and tool in WRITES and builder_off_limits(rel):
+        return ("sdlc: the builder doesn't write the reviewers' reports or the state file: a review's findings are "
+                "its reviewer's, and the state changes through state.py.")
     if agent == "releaser" and tool in WRITES and not (in_sdlc and plain or shipping(rel)):
         return ("sdlc: the releaser ships: Learn's lessons (knowledge/, CLAUDE.md, .claude/rules/, hookify rules), "
                 "CHANGELOG.md and the record, never product code. A code fix goes back to the builder.")
@@ -141,6 +145,16 @@ def team_place(rel, root):
     return "record" if c in objects_files(root) else None
 
 
+def builder_off_limits(rel):
+    """The reviewers' reports (.sdlc/.work/findings/) and a feature's state file (either layout), in canon()
+    spelling: the builder fixes what a review found but never rewrites the review or the gate log."""
+    c = canon(rel) or ""
+    parts = c.split("/")
+    return (c.startswith(".sdlc/.work/findings/")
+            or len(parts) == 3 and parts[:2] == [".sdlc", "state"] and parts[2].endswith(".md")
+            or len(parts) == 3 and parts[0] == ".sdlc" and parts[1] not in RESERVED | {".work"} and parts[2] == "state.md")
+
+
 def objects_files(root):
     """The domain model's file in canon() spelling: the default places, and a path config's `objects` names when
     objects.py would take it (a .md file inside the repo, not in .git, .claude or .sdlc, no link out)."""
@@ -148,12 +162,16 @@ def objects_files(root):
     try:
         import sdlc_scopes  # noqa: PLC0415
         named = sdlc_scopes._config(root).get("objects")
-        if isinstance(named, str) and named.lower().endswith(".md"):
+        if isinstance(named, str) and named.lower().endswith(".md") and not os.path.isabs(named) \
+                and not re.match(r"[A-Za-z]:|[\\/]", named):
             c = canon(named)
             real = os.path.realpath(os.path.join(root, named))
             top = os.path.realpath(root)
-            if c and c.split("/")[0] not in (".git", ".claude", ".sdlc") and \
-                    os.path.commonpath([real, top]) == top and not any(ch in named for ch in ":~"):
+            barred = (".git", ".claude", ".sdlc")
+            inside = os.path.commonpath([real, top]) == top
+            leads = canon(os.path.relpath(real, top).replace(os.sep, "/")) if inside else None
+            if c and leads and c.split("/")[0] not in barred and leads.split("/")[0] not in barred \
+                    and not any(ch in named for ch in ":~"):
                 out.add(c)
     except Exception:
         pass
