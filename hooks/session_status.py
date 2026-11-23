@@ -37,6 +37,8 @@ def status_line(root):
     import sdlc_scopes  # noqa: PLC0415  (the mode and skips the orchestrator follows; they gate nothing here)
     gate = sdlc_scopes.gate_root(root) or root
     (mode, skip), honoured = sdlc_scopes.configured(gate), sdlc_scopes.effective(gate)
+    if honoured[0] == "full" and sdlc_scopes._config(gate).get("team") is True:
+        parts.append("team (role agents run M and L stages: the orchestrator's Team mode)")
     if mode == "advisory":
         parts.append("mode advisory" + ("" if honoured[0] == "advisory" else " (asked, not yet accepted: full rules apply)"))
     elif skip:

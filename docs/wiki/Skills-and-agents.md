@@ -20,6 +20,7 @@
 | `code-reviewer` | Review: the code review (one full depth) with the shared reviewer brief; the security review with the security-only brief |
 | `ui-reviewer` | Review, when the diff touches UI files: design-system conformance, AI-slop styling, states, accessibility; screenshots on request |
 | `qa-tester` | On request: runs the feature as a user would, without reading the code |
+| `analyst`, `builder`, `releaser` | Team mode (config `team`): Define, Build and Ship of an M or L feature, each a fresh agent the orchestrator coordinates, held to its role by the role guard |
 | `pr-test-analyzer`, `silent-failure-hunter` | `/sdlc:review-pr`, chosen by the diff |
 | `sdlc-extras:comment-analyzer`, `sdlc-extras:type-design-analyzer`, `sdlc-extras:code-simplifier` | `/sdlc:review-pr`, chosen by the diff, when the `sdlc-extras` plugin is installed (skipped, and said so, otherwise) |
 | `sdlc-extras:conversation-analyzer` | `/sdlc:hookify`: find behaviors worth preventing with hooks, when `sdlc-extras` is installed (otherwise the session does the analysis) |

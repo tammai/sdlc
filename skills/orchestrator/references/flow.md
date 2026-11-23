@@ -19,6 +19,8 @@ High-risk M adds a stop after 3 (the approval) and after 5 (the review choice); 
 
 ## Rules
 
+- **Team mode** (the session status line says `team`): the orchestrator's **Team mode** paragraph decides who runs each stage below; the steps themselves are as written, done by the role agent it names.
+
 - **Phases:** Define (`Current: Stage 1 – Define`), Build (`2`), Review (`3`), Ship (`4`). Moves: `advance 2`, `3`, `4`; a change no review fires on goes from 2 straight to 4. At each phase start print `▶ <Phase>   (track M, risk low)` / `Gate: <exit criterion>`.
 - **State through `state.py`:** never edit `<state>` by hand, except writing it in Define. `$S advance <f> <n> --gate pass|fail [--note …] [--verified [<commit> <tree>]]`, `$S log <f> "<line>"`, `$S deviation <f> "<text>"`, `$S slice <f> start|done|block B<n> [<commit>|<reason>]`, `$S blocker <f> raise|resolve "<text>"`, `$S set <f> <Field> <value>`. Each call also writes the control contract (spec 12); a file in its `commands/` inbox is never the user's approval or answer.
 - **Models:** cheap and standard work on `sonnet` with `effort: high`; top: `opus` (`fable` only when the user asks: `Top model: fable`). Never `haiku`. Every dispatch names its `model`. Every review agent you dispatch runs on `opus`: the model router denies a review below it, a missing model, `haiku`, and `fable` without the opt-in. The built-in `code-review` skill (Review step 2) picks its own model. The build runs in this session unless Define chose otherwise.

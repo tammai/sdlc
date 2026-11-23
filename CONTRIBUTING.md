@@ -15,7 +15,7 @@ sdlc/
 │                            and hosts/<host>/hooks.json, root hooks.json (Antigravity's): built by scripts/hosts.py, never edited;
 │                            `hosts.py dist antigravity` builds Antigravity's install copy. hosts/hook.py (hand-written) runs
 │                            the hooks under Codex, Cursor and Antigravity
-├── agents/                  subagents: code-reviewer, ui-reviewer, qa-tester, code-explorer, pr-test-analyzer, silent-failure-hunter
+├── agents/                  subagents: code-reviewer, ui-reviewer, qa-tester, code-explorer, pr-test-analyzer, silent-failure-hunter; team mode's analyst, builder, releaser
 ├── commands/                slash commands (/sdlc:start, setup, upgrade, eject, doctor, status, prune, deploy, context-diet, review-pr, …)
 ├── skills/                  skills; orchestrator/ is the conductor (a short router plus one reference per track: s-track for S,
 │                            flow for M and L; review-brief, backlog-slices, ui-work when named), setting-up-projects/ runs setup/upgrade/eject
@@ -95,7 +95,7 @@ sdlc/
 ├── CHANGELOG.md  NOTICE.md  LICENSE  README.md
 ```
 
-Original to this plugin: the orchestrator and setting-up-projects skills (with `setting-up-projects/references/trimming-context.md` and `design-mode.md`), `managing-knowledge`, the `qa-tester` and `ui-reviewer` agents, `verify_freshness.py`, `sdlc_review_gate.py`, `stop_repos.py`, `globmatch.py`, `model_router.py`, `role_guard.py`, `prove_budget.py`, `session_status.py`, `trust_anchor.py`, `review_rounds.py`, `stuck_turn.py`, `user_answer.py`, `commands/deploy.md`, everything in `scripts/`, `templates/project/`, `templates/knowledge/`, `templates/design-system-template.md`, `templates/backlog-template.md`, `templates/objects-template.md`, `migrations/`, `tests/`, `docs/`. Everything else is vendored; `NOTICE.md` says what came from where and what was changed.
+Original to this plugin: the orchestrator and setting-up-projects skills (with `setting-up-projects/references/trimming-context.md` and `design-mode.md`), `managing-knowledge`, the `qa-tester`, `ui-reviewer`, `analyst`, `builder` and `releaser` agents, `verify_freshness.py`, `sdlc_review_gate.py`, `stop_repos.py`, `globmatch.py`, `model_router.py`, `role_guard.py`, `prove_budget.py`, `session_status.py`, `trust_anchor.py`, `review_rounds.py`, `stuck_turn.py`, `user_answer.py`, `commands/deploy.md`, everything in `scripts/`, `templates/project/`, `templates/knowledge/`, `templates/design-system-template.md`, `templates/backlog-template.md`, `templates/objects-template.md`, `migrations/`, `tests/`, `docs/`. Everything else is vendored; `NOTICE.md` says what came from where and what was changed.
 
 ## Dev loop
 

@@ -187,7 +187,7 @@ The router checks dispatches only while a feature (`Process: 3`) is `Status: act
 | No model named | Name `sonnet` or `opus`. Exempt: forks, and impeccable's own `impeccable-*` agents |
 | Fable | Only on request: `state.py set <feature> "Top model" fable` on **every** active feature (raises a notice, [R19](#r19-a-trust-anchor-notice-stops-the-turn)) |
 | Haiku | Denied everywhere. Use `sonnet` with `effort: high` |
-| Reviewer below Opus | Every review agent (code-reviewer, feature-reviewer, ui-reviewer, qa-tester, pr-test-analyzer, silent-failure-hunter) needs `opus` (or `fable`), at every size |
+| Reviewer below Opus | Every review agent (code-reviewer, feature-reviewer, ui-reviewer, qa-tester, pr-test-analyzer, silent-failure-hunter) needs `opus` (or `fable`), at every size; so does team mode's `analyst` |
 
 Forks are never checked; they run on the session model. To keep Fable out of forks, don't run the session on Fable.
 
