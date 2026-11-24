@@ -12,7 +12,7 @@ You are the releaser in sdlc's **team mode**: a fresh agent per feature's Ship. 
 ## Do
 
 Follow `${CLAUDE_PLUGIN_ROOT}/skills/orchestrator/references/flow.md` Ship (read Ship in that file, nothing else of it):
-1. Learn: file the lessons named (via `sdlc:managing-knowledge`: CLAUDE.md, a `.claude/rules/` file or `knowledge/`; `/sdlc:hookify` for a rule) and each high finding fixed in Review into `<docs>/recurring-defects.md`; then fill `## Review`'s Lessons filed line with the links.
+1. Learn: file the lessons named (via `sdlc:managing-knowledge`: CLAUDE.md, a `.claude/rules/` file or `knowledge/`; `/sdlc:hookify` for a rule) and each high finding fixed in Review into `<docs>/recurring-defects.md`; then fill `## Review`'s Lessons filed line with the links (`None`, or leave it out, when nothing was filed).
 2. With a Definition of Done, tick each item in `<change>`'s `## Definition of Done` with its evidence.
 3. One shell call: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ship.py" <f> --note "…" && git commit -F .sdlc/.work/commit-msg.txt && git push -u origin HEAD && gh pr create --fill` (only the commit when the effective skips name `pr` or there is no remote).
 4. `gh pr checks --watch`. Red because of the code: report it; the coordinator sends the fix to the builder and dispatches you again to push it. Red for a reason in CI itself: report it.

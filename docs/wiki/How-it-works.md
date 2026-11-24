@@ -63,7 +63,7 @@ Which step runs on which track (also as text: [track-matrix.md](../track-matrix.
 | **Define** (1) | Change file up to `## Review`, state file plan (+ `backlog.md` if split) | S: none. M/L: your approval where the track says. Every AC has a test row, out of scope is filled |
 | **Build** (2) | Code, tests, red records, a passing `verify.py` | Every task done; every AC test recorded red then passing; drift recorded as deviations |
 | **Review** (3) | `## Review` in the change file | `verify.py` passes on current code; every chosen review's verdict is `PASS` or its highs are fixed or waived. If security-touched: no critical/high finding, no secrets |
-| **Ship** (4) | Learn notes, commit, push, PR | Learn done, green locally and on CI, PR open. **Never merged without you** |
+| **Ship** (4) | Learn notes, commit, push, PR | Learn considered (may file nothing), green locally and on CI, PR open. **Never merged without you** |
 
 Each track phase by phase, with its skills, subagents, hooks and gates:
 

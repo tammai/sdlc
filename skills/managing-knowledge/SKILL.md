@@ -49,7 +49,7 @@ For each candidate (from a retro, a review, a debugging session, or the user say
    - `knowledge/features/<slug>.md` — `type: feature` (one paragraph + a link to `<change>`)
    Template: `${CLAUDE_PLUGIN_ROOT}/templates/knowledge/doc.md`. Link related docs with relative Markdown links.
 6. **Wire it in:** add one line to `knowledge/index.md` (path + ≤12-word description) and, for path-related docs, a link from the matching tier-2 rule. An unlinked tier-3 doc is invisible — never leave one.
-7. **Log it:** `knowledge/log.md` → `- YYYY-MM-DD <add|update|remove> <path> — <why> (from <feature>)`.
+7. **Log it, optionally:** where the repo keeps `knowledge/log.md`, add `- YYYY-MM-DD <add|update|remove> <path> — <why> (from <feature>)`. It's a convenience: git history and the change file's Lessons filed line are the record, and nothing checks the log.
 8. **Changed CLAUDE.md, a rule or AGENTS.md?** Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" agents` so the other agents' copy in `AGENTS.md` (and Claude Code's copy of the team's `AGENTS.md` text) follows. It does nothing in a repo only Claude Code uses.
 
 ## Audit (run when CLAUDE.md > 60 lines, or every few features)
@@ -61,7 +61,7 @@ Go through CLAUDE.md line by line:
 - Explanation, example or history → move to a tier-3 doc; leave at most a one-line pointer.
 - Multi-step procedure → tier-3 runbook (or a skill if it's a repeated workflow).
 - Duplicates a hook, linter, formatter or type-checker → delete.
-- Stale or contradicted → delete (log it).
+- Stale or contradicted → delete (and log it, where the repo keeps a log).
 
 Then check: every tier-3 doc is linked from the index; every rule's `paths` still match real files; no rule exceeds 30 lines.
 
