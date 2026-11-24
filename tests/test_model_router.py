@@ -60,6 +60,14 @@ class ModelRouterTest(ProjectTestCase):
         self.assertEqual(out["hookSpecificOutput"]["permissionDecision"], "deny")
         self.assertIn("name the subagent's model", out["hookSpecificOutput"]["permissionDecisionReason"])
 
+    def test_a_review_agent_without_a_model_is_told_to_use_opus(self):
+        # One refusal names the only model it takes, so the agent's next dispatch goes through
+        out = self.dispatch(subagent_type="sdlc:ui-reviewer")
+        self.assertEqual(out["hookSpecificOutput"]["permissionDecision"], "deny")
+        reason = out["hookSpecificOutput"]["permissionDecisionReason"]
+        self.assertIn("ui-reviewer", reason)
+        self.assertIn("model: opus", reason)
+
     def test_active_feature_in_the_new_layout_is_seen(self):
         os.remove(self.path(".sdlc/login/state.md"))
         self.write(".sdlc/config.json", json.dumps({"docs_dir": "docs/sdlc"}))
