@@ -85,4 +85,4 @@
 - **Tickets:** [findings left for later because they aren't bugs in this change: improvements, code it didn't touch; "None"]
 - **Drift and manual checks:** [each Deviations line from the state file, and each `manual` AC with how it was checked; "None"]
 - **Security:** [only when a security review ran: findings, the dependency audit, the hooks' findings; else delete this line]
-- **Lessons filed:** [links to the knowledge or rule each lesson went into; "None"]
+- **Lessons filed:** [links to the knowledge or rule each lesson went into; "None" or drop the line when nothing was learned]
