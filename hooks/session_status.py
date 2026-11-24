@@ -61,7 +61,9 @@ def status_line(root):
                         if "s_tests" in honoured_guards else "")
                      + (" (dependencies, lint-config: verify fails on each new dependency, lint or type config change "
                         "or added suppression until the user allows it, header `Allow change`)"
-                        if {"dependencies", "lint_config"} & set(honoured_guards) else ""))
+                        if {"dependencies", "lint_config"} & set(honoured_guards) else "")
+                     + (" (ui-evidence: Ship needs screenshots of a UI change in the work folder's ui/, ui-work.md)"
+                        if "ui_evidence" in honoured_guards else ""))
     prd = sdlc_layout.prd(root)
     parts.append(f"PRD {prd if os.path.isfile(os.path.join(root, prd)) else 'none'}")
     if st.get("pending_migrations"):
