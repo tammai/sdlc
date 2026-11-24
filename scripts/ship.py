@@ -260,6 +260,7 @@ def ship(root, feature, message, review=None, note=None, timeout=1800, waive_bas
         raise Refused(f"Owner is {owner}, not {me}: ask the user before taking it over", "owner_differs",
                       fix="ask the user whether to take it over (state.py set <feature> Owner <you>)")
     check_done(root, paths["change"], field(state, "Base"), feature)  # reads only: a refusal writes nothing
+    allowed = guarded_allowed(root, feature, field(state, "Base"))  # reads only, before anything moves
     if review:
         add_review(root, paths["change"], review)
     # Every refusal comes before the state moves, so a refusal leaves the state file as it was
@@ -276,6 +277,8 @@ def ship(root, feature, message, review=None, note=None, timeout=1800, waive_bas
     written = living_spec(root, feature, write=True)
     if waiver:
         state_py(root, "log", feature, waiver)
+    if allowed:  # the user's allows live in a gitignored store: the record keeps them (ADR 0032)
+        state_py(root, "log", feature, "guarded changes allowed by the user: " + "; ".join(allowed))
     state_py(root, "advance", feature, "4", "--gate", "pass", "--verified", head, tree, *(["--note", note] if note else []),
           ok="already at Stage 4")
     state_py(root, "set", feature, "Status", "done")
@@ -295,6 +298,20 @@ def ship(root, feature, message, review=None, note=None, timeout=1800, waive_bas
 
 DONE_LINE = re.compile(r"^\s*[-*]\s*\[([ xX])\]\s*(.*?)\s*$")
 DONE_FORMAT = "`- [x] <item> — <evidence>` (or `- [x] <item> — n/a: <reason>`)"
+
+
+def guarded_allowed(root, feature, base):
+    """Labels of the guarded changes (ADR 0032) the user allowed for this feature, while a guard is on."""
+    guards = [g for g in sdlc_scopes.guards(sdlc_scopes.gate_root(root) or root) if g in ("dependencies", "lint_config")]
+    if not guards:
+        return []
+    import guarded_changes  # noqa: PLC0415  (sibling hook)
+    m = re.match(r"`?([0-9a-f]{4,40})`?$", (base or "").strip())
+    try:
+        return guarded_changes.allowed_labels(root, m.group(1) if m else None, guards, feature,
+                                              verify.branched_repos(root, feature))
+    except Exception as e:  # fail closed, before anything moves
+        raise Refused(f"guarded changes not checked: {e}", "guarded_not_checked")
 
 
 def accepted_done(root, feature, base):

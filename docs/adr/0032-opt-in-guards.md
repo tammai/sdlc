@@ -1,4 +1,4 @@
-# ADR 0032: Opt-in guards in config `guards`, turned off only with the user's acceptance
+# ADR 0032: Opt-in guards in config `guards` (S test lock, dependencies, lint config), turned off only with the user's acceptance
 
 - **Status:** Accepted, 2026-11-24. Records: `.sdlc/2026-11-24-s-gh-92-s-test-lock/change.md`. Issue: #92 (part 2; part 3 adds more guards). Related: [0030](0030-modes-and-skips.md), [0031](0031-approval-policy.md).
 - **Deciders:** Tâm Mai.
@@ -19,7 +19,19 @@ S is the most common track and usually gets no review. Since #56 P3, the red ste
    - with no record, HEAD's committed config decides.
 
    A trust-anchor record without `guards` stays valid.
-3. **Part 3 of #92 adds its guards here**, under the same key and the same acceptance rule.
+3. **`guards.dependencies` and `guards.lint_config`** (#92 part 3, `.sdlc/2026-11-24-m-gh-92-guarded-changes/change.md`).
+   - **What fails.** `verify.py`'s full run fails on each guarded change since the feature's Base that the user hasn't allowed:
+     - a dependency name new in a known manifest (`package.json`, `composer.json`, `pyproject.toml`, `Cargo.toml`, `pubspec.yaml`, `go.mod`, `Gemfile`, `requirements*.txt`);
+     - any change to a known lint or type config file, or to its lint sections in `pyproject.toml`, `setup.cfg` or `tox.ini`;
+     - a suppression comment (`@ts-ignore`, `eslint-disable`, `# type: ignore`, `# noqa`, …) whose count in a source file grew.
+   - **What doesn't.** A version bump, or a removed or moved suppression.
+   - **The lists are the plugin's**, never the repo's config. TOML, YAML and `go.mod` are read by a name rule that over-flags rather than misses, since there's no `tomllib` before Python 3.11.
+   - **Why verify is the gate.** It runs before every part's commit, Review and Ship, and sees every route: file tools, a package manager in the shell, other hosts. The edit itself isn't prevented, only kept from being built on, reviewed or shipped.
+   - **How the user allows an item.** `hooks/guarded_changes.py` records the answer `Allow` to a question headed `Allow change` that names the item's label (or a typed `allow`, which allows every item the last verify listed).
+   - **Item ids carry content**: the name, the file's hash, the suppression's count. A later change asks again.
+   - **Allowed items are logged.** `ship.py` writes them into the Gate log.
+   - **An allowed dependency makes Review run the stack's dependency audit** (instructed).
+   - With no guard on, nothing is checked: the only read is the guards lookup itself. Git failing, or no Base, fails verify (`guarded changes not checked`) rather than passing. A workbench feature's branched repos are checked too, their items named from the workbench (`api/package.json`).
 
 ## Consequences
 

@@ -10,7 +10,8 @@ processes, and turns their output back into the host's:
   - PostToolUse(Failure) hooks/verify_freshness.py                      edits make Stage 3 results stale, full runs fresh
   - PreToolUse, PostToolUse(Failure), Stop: hooks/read_only_watch.py      a change in a workbench's read-only repo is
                        said (its first look before the first call)
-  - UserPromptSubmit   hooks/userpromptsubmit.py, hooks/trust_anchor.py, hooks/review_rounds.py, hooks/plan_approval.py
+  - UserPromptSubmit   hooks/userpromptsubmit.py, hooks/trust_anchor.py, hooks/review_rounds.py, hooks/plan_approval.py,
+                       hooks/guarded_changes.py
   - Stop               hooks/stop.py, hooks/verify_freshness.py, hooks/trust_anchor.py, hooks/read_only_watch.py
                        a block from any keeps the agent going
 Left out: the security review and the Ralph loop (bash launchers and model calls), the role guard (no host names the
@@ -41,7 +42,7 @@ SCRIPTS = {
     "PostToolUse": ["verify_freshness.py", "read_only_watch.py"],
     "PostToolUseFailure": ["verify_freshness.py", "read_only_watch.py"],
     "UserPromptSubmit": ["userpromptsubmit.py", "trust_anchor.py", "review_rounds.py", "read_only_watch.py",
-                         "plan_approval.py"],
+                         "plan_approval.py", "guarded_changes.py"],
     "Stop": ["stop.py", "verify_freshness.py", "trust_anchor.py", "read_only_watch.py"],
 }
 CHILD_TIMEOUT = 10  # each script's own timeout in hooks/hooks.json

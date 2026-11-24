@@ -504,6 +504,7 @@ def full(root, feature, timeout=1800, whole=False):
             build.close()
     backed = spec_lock.spec_backed_repo(root)  # sdlc 3.5: cited criteria, in such a repo only
     failures += lock_failures(root, feature, rows or [], rec)  # whatever lock the red step wrote (#56 P3)
+    failures += guarded_failures(root, feature)  # #92 part 3: what the user must allow first
     drifted = drift(root, feature, later)
     if drifted is None:
         notes.append(P.problem("drift_not_checked", "no plan (the state file's ## Tasks) or no Base:, so drift "
@@ -551,6 +552,31 @@ def locks_tests(root, feature):
         import sdlc_scopes  # noqa: PLC0415
         return "s_tests" in sdlc_scopes.guards(sdlc_scopes.gate_root(root) or root)
     return bool(m) and m.group(1) in ("M", "L")
+
+
+def guarded_failures(root, feature):
+    """Each guarded change (ADR 0032: a new dependency, a changed lint config, an added suppression) the user hasn't
+    allowed, while config's `guards.dependencies` or `guards.lint_config` is on. No guard on: only the guards lookup."""
+    import sdlc_scopes  # noqa: PLC0415
+    guards = [g for g in sdlc_scopes.guards(sdlc_scopes.gate_root(root) or root) if g in ("dependencies", "lint_config")]
+    if not guards:
+        return []
+    text = read(os.path.join(root, sdlc_layout.paths(root, feature)["state"])) or ""
+    m = re.search(r"^Base:\s*`?([0-9a-f]{4,40})`?\s*$", text, re.M)  # a commit, and nothing git could read as an option
+    import guarded_changes  # noqa: PLC0415  (sibling hook: the items and the user's allow)
+    repos = branched_repos(root, feature)
+    if not m and not repos:
+        return [P.problem("guarded_not_checked", "guarded changes not checked: the state file has no Base: commit",
+                          target="Base")]
+    try:
+        left = guarded_changes.unallowed(root, m.group(1) if m else None, guards, feature, repos)
+    except Exception as e:  # git failing, or anything unexpected: fail closed, never a traceback
+        return [P.problem("guarded_not_checked", f"guarded changes not checked: {e}", target="Base")]
+    return [P.problem("guarded_change", f"guarded change not allowed by the user: {label}", target=label,
+                      fix=f"ask with AskUserQuestion, header `{guarded_changes.HEADER}`, options `Allow` and `Undo it`, "
+                          "naming each label as written, without `answers` (or the user types `allow`); undo what "
+                          "they don't allow")
+            for _, label in left]
 
 
 def file_sha(path):

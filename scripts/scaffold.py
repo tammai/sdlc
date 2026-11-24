@@ -1054,7 +1054,8 @@ def cmd_approval(p, a):
 
 
 def cmd_guard(p, a):
-    """An opt-in guard (config `guards`, ADR 0032): `s-tests`. With on or off, records it; the trust anchor shows a
+    """An opt-in guard (config `guards`, ADR 0032): `s-tests`, `dependencies` or `lint-config`. With on or off, records
+    it; the trust anchor shows a
     guard turned off to the user at the next turn end."""
     names = {sdlc_scopes.guard_name(k): k for k in sdlc_scopes.GUARDS}
     if a.name is not None:
@@ -3442,7 +3443,8 @@ def build_parser():
     s.add_argument("steps", nargs="*")
     s.add_argument("--clear", action="store_true", help="skip nothing")
     s.set_defaults(fn=cmd_skip)
-    s = sub.add_parser("guard", help="an opt-in guard: s-tests (an S feature's red step locks its tests); on or off")
+    s = sub.add_parser("guard", help="an opt-in guard: s-tests (an S feature's red step locks its tests), "
+                                     "dependencies or lint-config (verify waits for the user's allow); on or off")
     s.add_argument("name", nargs="?")
     s.add_argument("state", nargs="?")
     s.set_defaults(fn=cmd_guard)

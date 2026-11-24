@@ -58,7 +58,10 @@ def status_line(root):
         parts.append(f"guards {', '.join(sdlc_scopes.guard_name(g) for g in honoured_guards)}"
                      + (f" ({', '.join(waiting_off)} off asked, not yet accepted)" if waiting_off else "")
                      + (" (s-tests: an S feature's red step locks its tests, as on M and L)"
-                        if "s_tests" in honoured_guards else ""))
+                        if "s_tests" in honoured_guards else "")
+                     + (" (dependencies, lint-config: verify fails on each new dependency, lint or type config change "
+                        "or added suppression until the user allows it, header `Allow change`)"
+                        if {"dependencies", "lint_config"} & set(honoured_guards) else ""))
     prd = sdlc_layout.prd(root)
     parts.append(f"PRD {prd if os.path.isfile(os.path.join(root, prd)) else 'none'}")
     if st.get("pending_migrations"):
