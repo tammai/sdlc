@@ -88,6 +88,8 @@ A part that checks something the release changed also gets that check written in
 7. Layout question (should): in a third throwaway repo, `/sdlc:setup a web app and an API for a todo list`: before any stack is generated it asks which layout, one repo (monorepo) or a workbench of one repo per app, with a recommendation; answer and stop there (Esc).
 8. Domain model setup (should): in the greenfield repo after setup, `/sdlc:setup objects`: on branch `sdlc/objects` it shows objects for approval and writes nothing before you approve; then `docs/sdlc/objects.md` passes `objects.py check`, `.sdlc/config.json` has `"objects": true` with its other keys kept, one commit, merged locally. `scaffold.py objects --enable` in a second repo whose setup isn't finished is refused.
 
+9. Solo or shared (should, from 3.16.0): in full mode, setup asks whether the repo is solo or shared in the same message as the mode; answering shared writes `"approval": "ml"` and every guard in `.sdlc/config.json`, and the session status line then shows `approval ml` and `guards …`.
+
 **D. Guardrails reach Claude (must)**
 1. Ask: "add a comment `// Step 1: add the numbers` above the add function". A hookify warning shows, **and Claude's reply acknowledges it** (proof the warning reaches Claude, not only you).
 2. Ask: "run `git push --force origin main`". It's blocked, and Claude can say why.
@@ -105,6 +107,9 @@ A part that checks something the release changed also gets that check written in
 9. Living spec and code graph (should): in a repo with `"living_spec": true`, an M change's `## Capabilities` (`- add <name>: AC-001 — <purpose>`) ends up as `<docs>/capabilities/<name>.md` in Ship's commit. With a `graphify-out/graph.json` committed, `brief.py` has the graphify section, and editing a file under `graphify-out/` during Build is neither drift nor a code change.
 10. Trust anchor (should): in a new S feature, ask Claude to run `state.py set <feature> Risk high`: a "Stricter process" message, no block. Then `Risk low`: the stop is blocked once, Claude asks in a `Trust anchor` dialog, and your answer clears it.
 11. Stuck turn (should): with a feature in Build, ask Claude, in one prompt, to run `node -e "process.exit(1)"` four times, one call each, and then say what it saw. After the third failure the stuck-turn note reaches Claude: its reply mentions `sdlc:systematic-debugging`, and `.sdlc/.work/stuck-turn.json` shows that turn as nudged.
+
+12. Plan approval (should, from 3.16.0): with `/sdlc:setup approval ml` accepted, `/sdlc:start` a low-risk M change: after Define it stops with an `Approve plan` dialog and writes no test; `Change something` keeps it stopped (`state.py advance … 2` refuses); `Approve` lets the red step run, and the Gate log says the plan was approved by the user.
+13. Guarded changes (should, from 3.16.0): with `/sdlc:setup guard dependencies on`, an S change that adds a package: `verify.py` fails with `guarded change not allowed by the user: dependency <name> (package.json)`, Claude asks in an `Allow change` dialog naming it, `Allow` lets verify pass, and Ship's Gate log lists it.
 
 **F. Security hooks (should)**
 1. Ask Claude to add `eval(input)` to a file: a security warning appears in Claude's context.
@@ -125,7 +130,7 @@ A part that checks something the release changed also gets that check written in
 6. From an older scaffold, `/sdlc:upgrade` offers the regenerated `.sdlc/ci/invariants.py`, and after it `python3 .sdlc/ci/invariants.py --json` prints one JSON document.
 
 **K. Workbench (must when in scope)**
-1. Make a workbench by hand in a throwaway folder: `git init`, `.sdlc/config.json` `{"workbench": true}`, then `python3 "<checkout>/scripts/scaffold.py" workbench add <a local repo> --name api --role app --write` and `workbench add <another local repo> --name specs --role specs --owner @org/ba`. `workbench.json` lists both, `.gitignore` has `/api/` and `/specs/`, and `git -C specs remote get-url --push origin` doesn't point at the real URL.
+1. Make a workbench by hand in a throwaway folder: `git init`, `.sdlc/config.json` `{"workbench": true}`, one commit (`state.py repo` needs a branch with a commit), then `python3 "<checkout>/scripts/scaffold.py" workbench add <a local repo> --name api --role app --write` and `workbench add <another local repo> --name specs --role specs --owner @org/ba`. `workbench.json` lists both, `.gitignore` has `/api/` and `/specs/`, and `git -C specs remote get-url --push origin` doesn't point at the real URL.
 2. Start `claude` in the workbench. Ask it to append a line to `specs/README.md`: denied, naming `@org/ba`. Ask it to run `(cd specs && echo x >> README.md)`: denied too.
 3. Make the change yourself in another terminal (`echo x >> specs/README.md`), then ask Claude for any small edit in the workbench: after that call it's told a read-only repo changed, naming `specs/`, and ending the turn is blocked once. Send `accept read-only specs` as your message: it's accepted, and the next turn ends normally.
 4. `/sdlc:start` a tiny S change in `api/`: before its first edit there, it runs `state.py repo <feature> api` (a write into `api/` before that is denied, naming the command), and Ship lists the workbench and `api` with a commit message and PR body each.
