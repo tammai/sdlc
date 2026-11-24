@@ -256,12 +256,17 @@ def config_notice(root, saved, replied):
         if entry is not None:
             damaged = "the trust anchor's record of the accepted mode and skips was damaged; it was reset to the committed config"
         mode, skip = sdlc_scopes.committed(gate)
-        entry = record[sdlc_scopes.CONFIG_KEY] = {"mode": mode, "skip": skip, "notices": []}
+        entry = record[sdlc_scopes.CONFIG_KEY] = {"mode": mode, "skip": skip, "notices": [],
+                                                  "approval": sdlc_scopes.approval_committed(gate)}
+    if "approval" not in entry:  # a record from before 3.16: the committed policy is the accepted one
+        entry["approval"] = sdlc_scopes.approval_committed(gate)
     want_mode, want_skip = sdlc_scopes.configured(gate)
+    want_approval = sdlc_scopes.approval_configured(gate)
+    order = sdlc_scopes.APPROVALS
     if replied:
         shown = entry.pop("shown", None)
         if sdlc_scopes.valid_record(shown):
-            entry.update(mode=shown["mode"], skip=list(shown["skip"]))
+            entry.update(mode=shown["mode"], skip=list(shown["skip"]), approval=shown.get("approval", entry["approval"]))
             ACCEPTED.append(shown)  # said to the agent now: the session status line was built at its start
         entry["notices"] = []
         notice = None
@@ -272,15 +277,17 @@ def config_notice(root, saved, replied):
         added = sorted(set(want_skip) - set(entry["skip"])) if entry["mode"] == want_mode == "full" else []
         if added:
             relaxed.append(f"skip: now skips {', '.join(added)}")
+        if order.index(want_approval) < order.index(entry["approval"]):
+            relaxed.append(f"approval: {entry['approval']} → {want_approval} (fewer plans wait for your approval)")
         if not relaxed:
-            if (want_mode, want_skip) != (entry["mode"], sorted(entry["skip"])):
-                entry.update(mode=want_mode, skip=want_skip)  # as strict or stricter: accepted at once
+            if (want_mode, want_skip, want_approval) != (entry["mode"], sorted(entry["skip"]), entry["approval"]):
+                entry.update(mode=want_mode, skip=want_skip, approval=want_approval)  # as strict or stricter: at once
             entry.pop("shown", None)
             entry["notices"] = []
             notice = None
         else:
             notice = "; ".join(relaxed) + " (.sdlc/config.json)"
-            entry["shown"] = {"mode": want_mode, "skip": want_skip}
+            entry["shown"] = {"mode": want_mode, "skip": want_skip, "approval": want_approval}
             fresh = notice not in entry.get("notices", [])
             entry["notices"] = [notice]
             notice = notice if fresh else None
@@ -381,7 +388,8 @@ def main():
         said = ("advisory: no sdlc hook, gate or flow applies; use the skills and agents on request"
                 if mode == "advisory" else f"full, skip {', '.join(skip)}" if skip else "full, nothing skipped")
         print(json.dumps({"hookSpecificOutput": {"hookEventName": event, "additionalContext":
-                          f"sdlc: the user accepted the repo's mode and skips; they are now {said}."}}))
+                          f"sdlc: the user accepted the repo's mode, skips and approval policy; they are now {said}; plan approval "
+                          f"{sdlc_scopes.approval(sdlc_scopes.gate_root(root) or root)}."}}))
 
 
 if __name__ == "__main__":

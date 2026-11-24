@@ -325,6 +325,33 @@ def git_head(root):
     return p.stdout.strip() if p.returncode == 0 and p.stdout.strip() else "-"
 
 
+def approval_policy(root):
+    """The approval policy the gates honour here (ADR 0031); none in advisory mode, where no flow runs."""
+    import sdlc_scopes  # noqa: PLC0415
+    gate = sdlc_scopes.gate_root(root) or root
+    return "high-risk" if sdlc_scopes.advisory(gate) else sdlc_scopes.approval(gate)
+
+
+def plan_approval_by(root, feature, text):
+    """How the user approved this feature's plan, when config's `approval` needs it; None when it doesn't. Refused
+    when it needs one and none is recorded."""
+    import plan_approval  # noqa: PLC0415  (sibling hook: the user's recorded approval)
+    import sdlc_scopes  # noqa: PLC0415
+    policy = approval_policy(root)
+    track = (re.search(r"^Track:\s*(\S+)", text, re.M) or [None, ""])[1]
+    if not sdlc_scopes.needs_approval(policy, track):
+        return None
+    by = plan_approval.approved(sdlc_scopes.gate_root(root) or root, feature)  # where the hook records it
+    if by:
+        return by
+    raise Refused(f"plan approval needed (config approval: {policy}): show the plan, then ask the user with "
+                  f"AskUserQuestion, header `{plan_approval.HEADER}`, without `answers`, options `Approve` and "
+                  f"`Change something`, naming {feature} in the question; their Approve lets this advance run. Where "
+                  f"there is no question tool, end the turn asking them to type `approve {feature}` (headless Cursor "
+                  "sends no prompt event, so it can't arrive there). In an --autopilot session no one can answer: "
+                  "block the part and end.")
+
+
 def apply(a, text, backlog_raw):
     """(new state.md text, new backlog.md text or None, event or None) for one command."""
     stage = check(text)
@@ -333,6 +360,13 @@ def apply(a, text, backlog_raw):
             raise Refused(f"no Stage {a.stage}")
         if a.stage == stage:  # a repeated advance would tick the stage before its gate ran
             raise Refused(f"already at Stage {stage}")
+        spent = None
+        if stage == 1 and a.stage > 1:  # ADR 0031: no way out of Define skips the plan approval config asks for
+            by = plan_approval_by(a.root, a.feature, text)
+            if by:
+                a.note = f"{a.note}; " if a.note else ""
+                a.note += f"plan approved by the user ({by})"
+                spent = a.feature  # run() drops it once the move is written: back at Define, it needs approving again
         if a.verified:  # a phase's end records its passing verify in the same call
             text = set_line(text, "Verified", f"{a.verified[0]} tree {a.verified[1]}")
         if a.gate:
@@ -343,7 +377,8 @@ def apply(a, text, backlog_raw):
         text = re.sub(r"^Current:.*$", lambda _: f"Current: Stage {a.stage} – {STAGES[a.stage]}", text, count=1,
                       flags=re.M)
         return text, None, {"type": "stage_entered", "from": stage, "stage": a.stage, "gate": a.gate,
-                            "note": a.note, **({"commit": a.verified[0], "tree": a.verified[1]} if a.verified else {})}
+                            "note": a.note, **({"commit": a.verified[0], "tree": a.verified[1]} if a.verified else {}),
+                            **({"_forget": spent} if spent else {})}
     if a.cmd == "verified":
         return set_line(text, "Verified", f"{a.commit} tree {a.tree}"), None, {
             "type": "verified", "commit": a.commit, "tree": a.tree}
@@ -504,6 +539,13 @@ def apply(a, text, backlog_raw):
     if a.cmd == "set":
         if a.field not in FIELDS:
             raise Refused(f"set takes one of: {', '.join(FIELDS)}")
+        if a.field == "Track" and stage == 1:  # ADR 0031: resizing at Define can't step around the plan stop
+            import sdlc_scopes  # noqa: PLC0415
+            policy = approval_policy(a.root)
+            old = (re.search(r"^Track:\s*(\S+)", text, re.M) or [None, ""])[1]
+            if sdlc_scopes.needs_approval(policy, old) and not sdlc_scopes.needs_approval(policy, a.value.split()[0]
+                                                                                       if a.value.split() else ""):
+                plan_approval_by(a.root, a.feature, text)  # refuses until the user approved the plan as it stands
         text = set_slice_gates(text, a.value) if a.field == "Slice gates" else set_line(text, a.field, a.value)
         if a.field == "Status" and a.value == "done":
             return text, None, {"type": "feature_done"}
@@ -782,7 +824,7 @@ def run(a):
         a.verified = current_verified(a.root, a.feature)
     new, new_backlog, event = apply(a, text, backlog_raw)
     check(new)
-    effects = {k: event.pop(k) for k in ("_write", "_move") if event and k in event}
+    effects = {k: event.pop(k) for k in ("_write", "_move", "_forget") if event and k in event}
     snap = snapshot(a.feature, new, new_backlog if new_backlog is not None else backlog_raw)
     snapshot_path, events_path = contract_paths(a.root, a.feature)
     written, findings = [], []
@@ -815,6 +857,10 @@ def run(a):
                     pass
         done = f"; already written: {', '.join(written)} (run sync once the cause is fixed)" if written else ""
         raise Refused(f"{type(e).__name__}: {e}{done}")
+    if effects.get("_forget"):  # the approval the move used, only once the move is written
+        import plan_approval  # noqa: PLC0415
+        import sdlc_scopes  # noqa: PLC0415
+        plan_approval.forget(sdlc_scopes.gate_root(a.root) or a.root, effects["_forget"])
     try:  # answered questions' files, after the state that resolves them; one left behind is filed next time
         for src, dst in effects.get("_move", []):
             if os.path.exists(os.path.join(a.root, src)):
