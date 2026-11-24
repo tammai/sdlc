@@ -15,7 +15,7 @@ jobs:
         with:
           python-version: "3.10"
       - run: git config --global user.email ci@example.com && git config --global user.name ci
-      - run: python3 -m unittest discover -s tests -t tests
+      - run: python3 tests/run_parallel.py
       # The Codex, Cursor and Antigravity files are built from the Claude Code sources; a stale one ships old behaviour
       - run: python3 scripts/hosts.py check
 

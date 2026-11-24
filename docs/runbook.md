@@ -7,10 +7,10 @@ Maintainer procedures: tests, vendored code, releases, the smoke test, phase rul
 ### Run the tests
 
 ```bash
-py -3.10 -m unittest discover -s tests -t tests   # once, on Python 3.10 only (macOS/Linux: python3.10)
+py -3.10 tests/run_parallel.py   # once, on Python 3.10 only (macOS/Linux: python3.10)
 ```
 
-Stdlib only; they must pass on Python 3.9. Each test runs a hook or script as a subprocess against a throwaway project. Run after any hook change and after updating vendored code. `claude plugin test` doesn't apply: it only runs TypeScript hook modules.
+Stdlib only; they must pass on Python 3.9. Each test runs a hook or script as a subprocess against a throwaway project. `run_parallel.py` runs the same tests as `-m unittest discover -s tests -t tests`, one job per test class on every core, each worker with its own temp, plugin-data and security-state folders: about 2 minutes on a 16-core Windows machine against 12 one at a time. `-j N` sets the workers; a name argument runs only matching modules. Run after any hook change and after updating vendored code. `claude plugin test` doesn't apply: it only runs TypeScript hook modules.
 
 ### Update vendored code
 
