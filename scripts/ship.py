@@ -242,11 +242,15 @@ def on_default_branch(root):
     return current == default if default else current in ("main", "master")
 
 
+def commits(f):
+    """Whether Ship commits this changed file (not its working files, the contract, or what a build generates)."""
+    return bool(f) and not f.startswith(".sdlc/.work/") and not CONTRACT.search(f) and not verify.GENERATED.search(f)
+
+
 def to_stage(root):
     tracked = git(root, "diff", "-z", "--name-only", "HEAD").split("\0")
     untracked = git(root, "ls-files", "-z", "--others", "--exclude-standard").split("\0")
-    return sorted({f for f in tracked + untracked
-                   if f and not f.startswith(".sdlc/.work/") and not CONTRACT.search(f) and not verify.GENERATED.search(f)})
+    return sorted({f for f in tracked + untracked if commits(f)})
 
 
 def ship(root, feature, message, review=None, note=None, timeout=1800, waive_baseline=False):
@@ -261,6 +265,7 @@ def ship(root, feature, message, review=None, note=None, timeout=1800, waive_bas
                       fix="ask the user whether to take it over (state.py set <feature> Owner <you>)")
     check_done(root, paths["change"], field(state, "Base"), feature)  # reads only: a refusal writes nothing
     allowed = guarded_allowed(root, feature, field(state, "Base"))  # reads only, before anything moves
+    evidence = ui_evidence(root, feature, paths, field(state, "Base"))  # likewise
     if review:
         add_review(root, paths["change"], review)
     # Every refusal comes before the state moves, so a refusal leaves the state file as it was
@@ -287,7 +292,7 @@ def ship(root, feature, message, review=None, note=None, timeout=1800, waive_bas
         git(root, "add", "-A", "--", *files)
     os.makedirs(os.path.join(root, ".sdlc", ".work"), exist_ok=True)
     with open(os.path.join(root, MESSAGE), "w", encoding="utf-8", newline="\n") as f:
-        f.write(f"{message}\n\nRecord: {paths['change']}\n")
+        f.write(f"{message}\n\nRecord: {paths['change']}\n" + (f"\nUI evidence:\n{evidence}\n" if evidence else ""))
     out = {"ok": True, "head": head, "tree": tree, "branch": branch, "staged": files, "message": MESSAGE}
     if written:
         out["capabilities"] = written
@@ -298,6 +303,76 @@ def ship(root, feature, message, review=None, note=None, timeout=1800, waive_bas
 
 DONE_LINE = re.compile(r"^\s*[-*]\s*\[([ xX])\]\s*(.*?)\s*$")
 DONE_FORMAT = "`- [x] <item> — <evidence>` (or `- [x] <item> — n/a: <reason>`)"
+
+
+IMAGES = (".png", ".jpg", ".jpeg", ".webp", ".gif")
+
+
+def ui_evidence(root, feature, paths, base):
+    """With config's `guards.ui_evidence` on and a change touching `areas.ui` since base (ADR 0032): the evidence
+    lines for the commit message, each screenshot in `<work>/ui/` or the change file's `## UI evidence` manual
+    reasons; refused when there's neither, or when it can't be checked (fail closed). Otherwise None."""
+    if "ui_evidence" not in sdlc_scopes.guards(sdlc_scopes.gate_root(root) or root):
+        return None
+    try:
+        return _ui_evidence(root, feature, paths, base)
+    except Refused:
+        raise
+    except Exception as e:
+        raise Refused(f"UI evidence not checked: {e}", "ui_evidence_not_checked")
+
+
+def ui_globs(root):
+    """The plugin's `areas.ui` globs plus any the repo's config adds: config is agent-writable, so it can add
+    areas, never take one away (as the commit review's security areas)."""
+    import scaffold  # noqa: PLC0415
+    globs = list(scaffold.effective_config({}).get("areas", {}).get("ui", []))
+    cfg = sdlc_scopes.read_repo_json(root, ".sdlc/config.json") or {}
+    if not isinstance(cfg, dict):
+        raise ValueError(".sdlc/config.json isn't an object")
+    areas = cfg.get("areas", {})
+    own = areas.get("ui", []) if isinstance(areas, dict) else None
+    if not isinstance(own, list) or not all(isinstance(g, str) for g in own):
+        raise ValueError("config's areas.ui isn't a list of globs")
+    return globs + [g for g in own if g not in globs]
+
+
+def changed_since(repo, base):
+    """Files changed in repo since base, committed or not, and untracked ones, as Ship would commit them."""
+    tracked = git(repo, "diff", "-z", "--name-only", base).split("\0")
+    untracked = git(repo, "ls-files", "-z", "--others", "--exclude-standard").split("\0")
+    return [f for f in tracked + untracked if commits(f)]
+
+
+def _ui_evidence(root, feature, paths, base):
+    import globmatch  # noqa: PLC0415  (sibling hook: a hostile glob can't stall it)
+    m = re.match(r"`?([0-9a-f]{4,40})`?$", (base or "").strip())
+    repos = verify.branched_repos(root, feature)
+    if not m and not repos:
+        raise Refused("UI evidence not checked: the state file has no Base: commit", "ui_evidence_not_checked")
+    changed = changed_since(root, m.group(1)) if m else []
+    for name, repo_base in repos:  # a workbench: the app repos' code, matched against the workbench's areas.ui
+        changed += [f"{name}/{f}" for f in changed_since(os.path.join(root, name), repo_base)]
+    globs = ui_globs(root)
+    if not any(globmatch.glob_match(g, f) for g in globs for f in changed):
+        return None
+    folder = os.path.join(root, paths["work"], "ui")
+    real = os.path.realpath(folder)
+    if os.path.lexists(folder) and (os.path.islink(folder) or not real.startswith(os.path.realpath(root) + os.sep)):
+        raise Refused(f"UI evidence not checked: {paths['work']}ui is a link or lies outside the repo",
+                      "ui_evidence_not_checked")
+    shots = sorted(f for f in (os.listdir(folder) if os.path.isdir(folder) else []) if f.lower().endswith(IMAGES))
+    change = verify.read(os.path.join(root, paths["change"])) or ""
+    section = (re.search(r"^## UI evidence\s*$(.*?)(?=^## |\Z)", change, re.M | re.S) or [None, ""])[1]
+    manual = [line.strip() for line in section.splitlines() if re.match(r"\s*[-*]\s*manual:\s*\S", line)]
+    if not shots and not manual:
+        raise Refused("UI evidence missing: this change touches areas.ui and config's guards.ui_evidence is on, but "
+                      f"{paths['work']}ui/ holds no screenshot and the change file has no `## UI evidence` manual line",
+                      "ui_evidence_missing",
+                      fix=f"save before/after screenshots of each screen in ## UI mapping to {paths['work']}ui/, or add "
+                          "`## UI evidence` to the change file with `- manual: <why none could be taken>`")
+    rel = paths["work"].rstrip("/") + "/ui/"
+    return "\n".join([f"- {rel}{s}" for s in shots] + manual)
 
 
 def guarded_allowed(root, feature, base):

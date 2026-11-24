@@ -1053,10 +1053,33 @@ def cmd_approval(p, a):
     return {"approval": sdlc_scopes.approval_configured(gate), "effective": sdlc_scopes.approval(gate)}
 
 
+def cmd_checks(p, a):
+    """How many checks the repo runs (#92): `shared` turns on plan approval for every M and L and every opt-in guard,
+    never lowering a stricter approval; `solo` takes them out, back to the plugin's defaults. The trust anchor shows a
+    move to fewer checks to the user. (Not the monorepo's lean/large `project.profile`.)"""
+    if a.name not in ("solo", "shared"):
+        raise Refused(f"checks is solo or shared, not {a.name!r}")
+    gate_of(p)
+    p.config = p.config or {}
+    if a.name == "solo":
+        p.config.pop("approval", None)
+        p.config.pop("guards", None)
+    else:
+        order = sdlc_scopes.APPROVALS
+        now = p.config.get("approval") if p.config.get("approval") in order else order[0]
+        p.config["approval"] = max(now, "ml", key=order.index)
+        p.config["guards"] = {k: True for k in sdlc_scopes.GUARDS}
+    p.save()
+    gate = sdlc_scopes.gate_root(p.root, session=False) or p.root
+    show = lambda keys: [sdlc_scopes.guard_name(k) for k in keys]  # noqa: E731
+    return {"checks": a.name, "approval": sdlc_scopes.approval_configured(gate),
+            "guards": show(sdlc_scopes.guards_configured(gate)),
+            "effective": {"approval": sdlc_scopes.approval(gate), "guards": show(sdlc_scopes.guards(gate))}}
+
+
 def cmd_guard(p, a):
-    """An opt-in guard (config `guards`, ADR 0032): `s-tests`, `dependencies` or `lint-config`. With on or off, records
-    it; the trust anchor shows a
-    guard turned off to the user at the next turn end."""
+    """An opt-in guard (config `guards`, ADR 0032): `s-tests`, `dependencies`, `lint-config` or `ui-evidence`.
+    With on or off, records it; the trust anchor shows a guard turned off to the user at the next turn end."""
     names = {sdlc_scopes.guard_name(k): k for k in sdlc_scopes.GUARDS}
     if a.name is not None:
         if a.name not in names or a.state not in ("on", "off"):
@@ -3443,8 +3466,13 @@ def build_parser():
     s.add_argument("steps", nargs="*")
     s.add_argument("--clear", action="store_true", help="skip nothing")
     s.set_defaults(fn=cmd_skip)
+    s = sub.add_parser("checks", help="solo (the plugin's defaults) or shared (plan approval for every M and L, every "
+                                      "opt-in guard on)")
+    s.add_argument("name")
+    s.set_defaults(fn=cmd_checks)
     s = sub.add_parser("guard", help="an opt-in guard: s-tests (an S feature's red step locks its tests), "
-                                     "dependencies or lint-config (verify waits for the user's allow); on or off")
+                                     "dependencies or lint-config (verify waits for the user's allow), ui-evidence (Ship needs "
+                                     "screenshots of a UI change); on or off")
     s.add_argument("name", nargs="?")
     s.add_argument("state", nargs="?")
     s.set_defaults(fn=cmd_guard)

@@ -6,6 +6,10 @@ Setup's first question: **full** (the whole workflow with its hooks and gates) o
 
 In full mode, ask in the same message whether role agents run each M or L feature's stages (team mode: an analyst for Define, a builder for Build, the reviewers, a releaser for Ship, with this session as their coordinator). Yes → `$S team on` after `init` (it is refused before); `/sdlc:setup team on|off` changes it later.
 
+## Solo or shared checks (full mode)
+
+In full mode, ask in the same message whether the repo is **solo** (the plugin's defaults: only a high-risk M stops for the plan) or **shared** with a team (every M and L waits for the user's plan approval, S locks its tests, verify waits for the user's allow on a new dependency, a changed lint config or an added suppression, and Ship needs screenshots of a UI change). Recommend solo for one maintainer, shared when others commit to the repo. Shared → `$S checks shared` after `init`; solo needs nothing. `/sdlc:setup checks solo|shared` changes it later; a move to fewer checks is shown by the trust anchor. This is how many checks run, not the monorepo's lean/large `project.profile` (`monorepo.md`), which sizes the layout: in a monorepo greenfield setup, take the one answer for both (a solo developer: `lean` and solo; a team: shared). Decision: `docs/adr/0031-approval-policy.md`, `docs/adr/0032-opt-in-guards.md`.
+
 ## Advisory setup
 
 After `detect`, run `$S mode advisory`. Then run only these steps:

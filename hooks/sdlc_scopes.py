@@ -370,7 +370,7 @@ def approval(root):
 
 
 # Opt-in guards (ADR 0032), each `"guards": {"<key>": true}` in config; the name people type is the key with dashes
-GUARDS = ("s_tests", "dependencies", "lint_config")
+GUARDS = ("s_tests", "dependencies", "lint_config", "ui_evidence")
 
 
 def guard_name(key):

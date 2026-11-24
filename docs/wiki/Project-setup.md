@@ -18,7 +18,7 @@ flowchart TD
 
 ![Setup phase in detail](../diagrams/sdlc_setup_phase.svg)
 
-Setup asks first whether the repo runs sdlc in **full** mode (the four phases with hooks, gates and guardrails) or **advisory** mode (the skills and agents as aids, for a repo whose own workflow would conflict). `/sdlc:setup mode full|advisory` changes it later, and a full repo can skip named steps with `/sdlc:setup skip` ([ADR 0030](../adr/0030-modes-and-skips.md)).
+Setup asks first whether the repo runs sdlc in **full** mode (the four phases with hooks, gates and guardrails) or **advisory** mode (the skills and agents as aids, for a repo whose own workflow would conflict). `/sdlc:setup mode full|advisory` changes it later, and a full repo can skip named steps with `/sdlc:setup skip` ([ADR 0030](../adr/0030-modes-and-skips.md)). In full mode it also asks whether the repo is **solo** or **shared**: shared makes every M and L plan wait for your approval and turns on the opt-in guards (an S test lock, new dependencies and lint config, UI evidence); `/sdlc:setup checks solo|shared` changes it later ([ADR 0031](../adr/0031-approval-policy.md), [ADR 0032](../adr/0032-opt-in-guards.md)).
 
 ## Principles
 
