@@ -39,6 +39,8 @@ def problem(tool_input, states):
         return None
     model = str(tool_input.get("model") or "").strip().lower()
     if not model:
+        if agent in ALWAYS_TOP:  # name the one model it takes, so the next dispatch goes through
+            return f"sdlc: name the subagent's model: {agent} runs on the top tier, so dispatch it with `model: opus`."
         return f"sdlc: name the subagent's model. Tiers: {TIERS}."
     if model == "haiku":
         return f"sdlc: no haiku dispatches; use sonnet for the cheap tier. Tiers: {TIERS}."
