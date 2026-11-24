@@ -24,7 +24,7 @@ import verify_freshness as vf  # sibling hook: project root
 
 HEADER = "Approve plan"  # the question tool caps a header at 12 characters
 STORE = os.path.join(".sdlc", ".work", "approvals.json")
-TYPED = re.compile(r"approve(?:\s+([A-Za-z0-9][\w.-]*))?[.!]?", re.I)
+TYPED = re.compile(r"approve(?:\s+([A-Za-z0-9][\w.-]*?))?[.!]?", re.I)
 
 
 def load(root):
@@ -68,15 +68,15 @@ def record(root, feature, by):
 def main():
     data = json.load(sys.stdin)
     event = data.get("hook_event_name")
-    root = vf.project_root(data.get("cwd"))
-    root = (sdlc_scopes.gate_root(root) or root) if root else root  # where state.py keeps the features
+    project = vf.project_root(data.get("cwd"))  # where user_answer.py records the questions asked
+    root = (sdlc_scopes.gate_root(project) or project) if project else project  # the store state.py reads
     if not root or event not in ("PostToolUse", "UserPromptSubmit") or sdlc_scopes.advisory_from(root):
         return
-    names = waiting(root)
+    names = sorted(set(waiting(root)) | set(waiting(project)))
     if not names:
         return
     if event == "PostToolUse":
-        answer = user_answer.answered(root, data, HEADER)
+        answer = user_answer.answered(project, data, HEADER)
         if not answer:
             return
         asked = " ".join(str(q.get("question") or "") for q in (data.get("tool_input") or {}).get("questions") or []
@@ -94,7 +94,9 @@ def main():
             for name in names:
                 forget(root, name)
             return
-        chosen = [m.group(1)] if m.group(1) in names else [] if m.group(1) else names if len(names) == 1 else []
+        named = [n for n in names if n == m.group(1)] or [n for n in names if m.group(1) and n.lower() == m.group(1).lower()]
+        named = named if len(named) == 1 else []  # two names differing only in case: say which exactly
+        chosen = named if m.group(1) else names if len(names) == 1 else []
         by = "typed"
     for name in chosen:
         record(root, name, by)

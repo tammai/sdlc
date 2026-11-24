@@ -63,7 +63,7 @@ Current: Stage 1 – Define   (then Stage 2 – Build, Stage 3 – Review, Stage
 ## Gate log
 ## Deviations          (state.py deviation: "What: … Why: … Effect: …")
 ## Criteria            (spec-backed: each cited criterion's lock hash, state.py cite)
-## Test lock           (M, L and spec-backed: each test file's sha256 at its red run, verify.py red)
+## Test lock           (M, L, S with guards.s_tests, and spec-backed: each test file's sha256 at its red run, verify.py red)
 ## Spec questions      (spec-backed: open questions on cited criteria, state.py question)
 ## Repos               (workbench: `<repo>: branch <b> base <commit>` or `<repo>: read <commit>`, state.py repo)
 ## PRs                 (workbench: `<repo>: <url>`, state.py pr; ship.py --status reads it)

@@ -5,6 +5,7 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 ## Unreleased
 
 ### Added
+- **An opt-in test lock on S** (`/sdlc:setup guard s-tests on`, [ADR 0032](docs/adr/0032-opt-in-guards.md), part 2 of [#92](https://github.com/tammai/sdlc/issues/92)). With it on, an S feature's red step locks its test files as on M and L, so a test weakened afterwards fails verify until the change is recorded with its reason and a red run at Base. Off by default; turning it off is shown by the trust anchor.
 - **Plan approval for teams** (`/sdlc:setup approval ml|always`, [ADR 0031](docs/adr/0031-approval-policy.md), part 1 of [#92](https://github.com/tammai/sdlc/issues/92)). Under `ml` every M and L waits after Define for your approval, and L no longer approves itself; under `always` S does too. Answer the `Approve plan` question with Approve (or type `approve <feature>` where there's no dialog): until then `state.py advance 2` refuses, so no test or code is written, and autopilot blocks the part. The Gate log records who approved. The default, `high-risk`, keeps today's flow; a move to fewer stops is shown by the trust anchor.
 
 ### Changed

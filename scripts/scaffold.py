@@ -1053,6 +1053,30 @@ def cmd_approval(p, a):
     return {"approval": sdlc_scopes.approval_configured(gate), "effective": sdlc_scopes.approval(gate)}
 
 
+def cmd_guard(p, a):
+    """An opt-in guard (config `guards`, ADR 0032): `s-tests`. With on or off, records it; the trust anchor shows a
+    guard turned off to the user at the next turn end."""
+    names = {sdlc_scopes.guard_name(k): k for k in sdlc_scopes.GUARDS}
+    if a.name is not None:
+        if a.name not in names or a.state not in ("on", "off"):
+            raise Refused(f"guard takes one of {', '.join(names)} and on or off")
+        gate_of(p)
+        p.config = p.config or {}
+        listed = p.config.get("guards") if isinstance(p.config.get("guards"), dict) else {}
+        if a.state == "on":
+            listed[names[a.name]] = True
+        else:
+            listed.pop(names[a.name], None)
+        if listed:
+            p.config["guards"] = listed
+        else:
+            p.config.pop("guards", None)
+        p.save()
+    gate = sdlc_scopes.gate_root(p.root, session=False) or p.root
+    show = lambda keys: [sdlc_scopes.guard_name(k) for k in keys]  # noqa: E731
+    return {"guards": show(sdlc_scopes.guards_configured(gate)), "effective": show(sdlc_scopes.guards(gate))}
+
+
 def cmd_skip(p, a):
     """The steps a full-mode repo skips (config's `skip`): any of security-review, code-review, ui-review, pr. With
     names, records them; --clear removes the list. The trust anchor shows a newly skipped step to the user."""
@@ -3418,6 +3442,10 @@ def build_parser():
     s.add_argument("steps", nargs="*")
     s.add_argument("--clear", action="store_true", help="skip nothing")
     s.set_defaults(fn=cmd_skip)
+    s = sub.add_parser("guard", help="an opt-in guard: s-tests (an S feature's red step locks its tests); on or off")
+    s.add_argument("name", nargs="?")
+    s.add_argument("state", nargs="?")
+    s.set_defaults(fn=cmd_guard)
     s = sub.add_parser("approval", help="which plans wait for the user's approval before Build: high-risk (default), "
                                         "ml (every M and L) or always (S too); with a value, record it")
     s.add_argument("value", nargs="?")

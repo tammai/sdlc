@@ -33,7 +33,7 @@ flowchart LR
 ```
 
 - An AC whose command exits 0 after running no tests (`Ran 0 tests`, `no tests ran`) fails as **not run**.
-- **Test lock** (M, L, and every track in a spec-backed repo): `verify.py red` stores each test file's hash under `## Test lock`. A locked test that later changes or is deleted fails the run unless a `test-change <file> What: … Why: …` deviation names it and `verify.py red --at <Base> <ACs>` shows it still fails on Base. S locks nothing.
+- **Test lock** (M, L, S with config `guards.s_tests`, and every track in a spec-backed repo): `verify.py red` stores each test file's hash under `## Test lock`. A locked test that later changes or is deleted fails the run unless a `test-change <file> What: … Why: …` deviation names it and `verify.py red --at <Base> <ACs>` shows it still fails on Base. S without that guard locks nothing.
 - **`verify.py trace`**: when ACs cite a written spec (`AC-003 … prd.md §4.2`), it reports cited sections the spec lacks and any `FR-nnn` that no AC names and `## Out of scope` doesn't set aside. L's self-approval runs it, and a full run prints the same findings as advisory `trace:` notes.
 - **`--json`**: `verify.py`, `ship.py` and `.sdlc/ci/invariants.py` print one JSON document: a `result`, plus each problem as `{severity, code, message, target, fix}`. Codes are stable (`red_not_recorded`, `test_lock_changed`, …). The plain output and exit codes don't change.
 
