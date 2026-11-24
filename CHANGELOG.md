@@ -5,6 +5,7 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 ## Unreleased
 
 ### Changed
+- **A review agent dispatched without a model is told to use `model: opus`.** The model router's refusal used to list the tiers, so an agent often retried a review on sonnet and was refused again; it now names the one model a review takes.
 - **Learn reads as what it is: a judgment, not a gate** ([#96](https://github.com/tammai/sdlc/issues/96)). The change file's `Lessons filed` line may say `None` or be left out when nothing was learned, the Ship gate reads "Learn considered", and `knowledge/log.md` is optional in `managing-knowledge`; no script checks either, and the flow, template, releaser agent and specs 02 and 07 now say so instead of reading as required.
 
 ## 3.15.0 — 2026-11-23
