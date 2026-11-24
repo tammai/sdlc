@@ -541,11 +541,15 @@ TEST_OUTPUT = 1_000_000  # characters of a failing test step's output kept for t
 
 def locks_tests(root, feature):
     """Whether the red step locks builder-written tests (spec 03 S4): on every track in a spec-backed repo (3.5.0),
-    and on M and L in every repo (#56 P3). S, and a state file with no `Track:`, lock nothing."""
+    and on M and L in every repo (#56 P3); on S too with config's `guards.s_tests` (ADR 0032). A state file with no
+    `Track:` locks nothing."""
     if spec_lock.spec_backed_repo(root):
         return True
     text = read(os.path.join(root, sdlc_layout.paths(root, feature)["state"])) or ""
     m = re.search(r"^Track:[ \t]*([A-Za-z]+)", text, re.M)
+    if bool(m) and m.group(1) == "S":
+        import sdlc_scopes  # noqa: PLC0415
+        return "s_tests" in sdlc_scopes.guards(sdlc_scopes.gate_root(root) or root)
     return bool(m) and m.group(1) in ("M", "L")
 
 
@@ -607,10 +611,11 @@ def red_at(root, feature, ref, acs, timeout=1800):
     """`red --at <ref>` (spec 03 S4): the ACs' test files as they are now, run in a temporary worktree at `ref` (the
     code without the feature); each must fail there. Recorded per AC with the file's hash, all or nothing; the
     worktree is always removed."""
-    if not locks_tests(root, feature):
-        return None, [P.problem("red_at_no_lock", "red --at: the test lock is on for M and L features and in a spec-backed repo (an rspec "
-                      "criteria.lock.json, config spec_lock or acceptance/manifest.json); here a changed test needs "
-                      "no re-red", severity="info")]
+    held = state.test_lock(read(os.path.join(root, sdlc_layout.paths(root, feature)["state"])) or "")
+    if not locks_tests(root, feature) and not held:  # a lock already written still needs its re-red (a guard since off)
+        return None, [P.problem("red_at_no_lock", "red --at: the test lock is on for M and L features, S ones with "
+                      "config guards.s_tests, and in a spec-backed repo (an rspec criteria.lock.json, config spec_lock "
+                      "or acceptance/manifest.json); here a changed test needs no re-red", severity="info")]
     rows = test_rows(acceptance(root, feature)[1])
     chosen, reasons = [], []
     for ac in acs:
@@ -928,7 +933,7 @@ def red(root, feature, acs, timeout=1800):
         build.close()
     if reasons:
         return None, reasons
-    # The test lock (spec 03 S4), on M and L and in a spec-backed repo: each builder-written test, as it was when it
+    # The test lock (spec 03 S4), on M and L, S with config guards.s_tests, and in a spec-backed repo: each builder-written test, as it was when it
     # failed; recorded tests have their manifest's hash instead
     entries = []
     for row in test_rows(rows) if locks_tests(root, feature) else ():

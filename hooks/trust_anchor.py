@@ -260,13 +260,19 @@ def config_notice(root, saved, replied):
                                                   "approval": sdlc_scopes.approval_committed(gate)}
     if "approval" not in entry:  # a record from before 3.16: the committed policy is the accepted one
         entry["approval"] = sdlc_scopes.approval_committed(gate)
+    if "guards" not in entry:  # likewise the committed guards
+        entry["guards"] = sdlc_scopes.guards_committed(gate)
+    known = [g for g in entry["guards"] if g in sdlc_scopes.GUARDS]  # compared here; the rest kept for the version
+    foreign = [g for g in entry["guards"] if g not in sdlc_scopes.GUARDS]  # that knows them (a mixed-version repo)
+    want_guards = sdlc_scopes.guards_configured(gate)
     want_mode, want_skip = sdlc_scopes.configured(gate)
     want_approval = sdlc_scopes.approval_configured(gate)
     order = sdlc_scopes.APPROVALS
     if replied:
         shown = entry.pop("shown", None)
         if sdlc_scopes.valid_record(shown):
-            entry.update(mode=shown["mode"], skip=list(shown["skip"]), approval=shown.get("approval", entry["approval"]))
+            entry.update(mode=shown["mode"], skip=list(shown["skip"]), approval=shown.get("approval", entry["approval"]),
+                         guards=list(shown.get("guards", known)) + foreign)
             ACCEPTED.append(shown)  # said to the agent now: the session status line was built at its start
         entry["notices"] = []
         notice = None
@@ -279,15 +285,19 @@ def config_notice(root, saved, replied):
             relaxed.append(f"skip: now skips {', '.join(added)}")
         if order.index(want_approval) < order.index(entry["approval"]):
             relaxed.append(f"approval: {entry['approval']} → {want_approval} (fewer plans wait for your approval)")
+        dropped = sorted(set(known) - set(want_guards))
+        if dropped:
+            relaxed.append(f"guards: turns off {', '.join(sdlc_scopes.guard_name(g) for g in dropped)}")
         if not relaxed:
-            if (want_mode, want_skip, want_approval) != (entry["mode"], sorted(entry["skip"]), entry["approval"]):
-                entry.update(mode=want_mode, skip=want_skip, approval=want_approval)  # as strict or stricter: at once
+            if (want_mode, want_skip, want_approval, want_guards) != (entry["mode"], sorted(entry["skip"]),
+                                                                      entry["approval"], sorted(known)):
+                entry.update(mode=want_mode, skip=want_skip, approval=want_approval, guards=want_guards + foreign)
             entry.pop("shown", None)
             entry["notices"] = []
             notice = None
         else:
             notice = "; ".join(relaxed) + " (.sdlc/config.json)"
-            entry["shown"] = {"mode": want_mode, "skip": want_skip, "approval": want_approval}
+            entry["shown"] = {"mode": want_mode, "skip": want_skip, "approval": want_approval, "guards": want_guards}
             fresh = notice not in entry.get("notices", [])
             entry["notices"] = [notice]
             notice = notice if fresh else None
@@ -388,8 +398,9 @@ def main():
         said = ("advisory: no sdlc hook, gate or flow applies; use the skills and agents on request"
                 if mode == "advisory" else f"full, skip {', '.join(skip)}" if skip else "full, nothing skipped")
         print(json.dumps({"hookSpecificOutput": {"hookEventName": event, "additionalContext":
-                          f"sdlc: the user accepted the repo's mode, skips and approval policy; they are now {said}; plan approval "
-                          f"{sdlc_scopes.approval(sdlc_scopes.gate_root(root) or root)}."}}))
+                          f"sdlc: the user accepted the repo's mode, skips, approval policy and guards; they are now {said}; plan "
+                          f"approval {sdlc_scopes.approval(sdlc_scopes.gate_root(root) or root)}; guards "
+                          f"{', '.join(sdlc_scopes.guard_name(g) for g in sdlc_scopes.guards(sdlc_scopes.gate_root(root) or root)) or 'none'}."}}))
 
 
 if __name__ == "__main__":

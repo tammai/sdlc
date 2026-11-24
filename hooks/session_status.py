@@ -52,6 +52,13 @@ def status_line(root):
                      + (": every M and L" if honoured_approval == "ml" else ": every change" if honoured_approval == "always"
                         else "") + (" waits for the user's plan approval (state.py advance 2 refuses before it)"
                                     if honoured_approval != "high-risk" else ""))
+    asked_guards, honoured_guards = sdlc_scopes.guards_configured(gate), sdlc_scopes.guards(gate)
+    if honoured[0] == "full" and honoured_guards:
+        waiting_off = [sdlc_scopes.guard_name(g) for g in honoured_guards if g not in asked_guards]
+        parts.append(f"guards {', '.join(sdlc_scopes.guard_name(g) for g in honoured_guards)}"
+                     + (f" ({', '.join(waiting_off)} off asked, not yet accepted)" if waiting_off else "")
+                     + (" (s-tests: an S feature's red step locks its tests, as on M and L)"
+                        if "s_tests" in honoured_guards else ""))
     prd = sdlc_layout.prd(root)
     parts.append(f"PRD {prd if os.path.isfile(os.path.join(root, prd)) else 'none'}")
     if st.get("pending_migrations"):

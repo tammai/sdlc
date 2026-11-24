@@ -11,7 +11,8 @@ from helpers import HOOKS, PLUGIN_ROOT, ProjectTestCase, run_hook
 sys.path.insert(0, HOOKS)
 STATE_PY = os.path.join(PLUGIN_ROOT, "scripts", "state.py")
 SCAFFOLD = os.path.join(PLUGIN_ROOT, "scripts", "scaffold.py")
-HOOK = lambda name: ["python3", os.path.join(HOOKS, name)]  # noqa: E731
+HOOK = lambda name: [sys.executable, os.path.join(HOOKS, name)]  # noqa: E731  (as hooks.json runs them)
+UTF8 = {"PYTHONUTF8": "1"}
 
 
 class ApprovalTest(ProjectTestCase):
@@ -59,16 +60,16 @@ class ApprovalTest(ProjectTestCase):
              "options": [{"label": "Approve"}, {"label": "Change something"}]}
         run_hook(HOOK("user_answer.py"), {"hook_event_name": "PreToolUse", "cwd": self.root,
                                           "tool_name": "AskUserQuestion", "tool_use_id": use_id,
-                                          "tool_input": {"questions": [q]}}, self.root)
+                                          "tool_input": {"questions": [q]}}, self.root, UTF8)
         given = {q["question"]: label}
         run_hook(HOOK("plan_approval.py"), {"hook_event_name": "PostToolUse", "cwd": self.root,
                                             "tool_name": "AskUserQuestion", "tool_use_id": use_id,
                                             "tool_input": {"questions": [q], "answers": given},
-                                            "tool_response": {"questions": [q], "answers": given}}, self.root)
+                                            "tool_response": {"questions": [q], "answers": given}}, self.root, UTF8)
 
     def prompt(self, text):
         run_hook(HOOK("plan_approval.py"), {"hook_event_name": "UserPromptSubmit", "cwd": self.root, "prompt": text},
-                 self.root)
+                 self.root, UTF8)
 
     # AC-001
     def test_ml_refuses_the_build_until_approved(self):
@@ -125,7 +126,7 @@ class ApprovalTest(ProjectTestCase):
         self.prompt("Approve")
         self.assertEqual(self.advance()[0], 0)
         self.new("signup")
-        self.prompt("approve signup")
+        self.prompt("Approve signup.")  # a capital and a full stop still name it
         self.assertEqual(self.advance("signup")[0], 0)
 
     # AC-005
@@ -147,14 +148,14 @@ class ApprovalTest(ProjectTestCase):
         self.config(approval="ml", accept=False)  # stricter: honoured at once
         self.assertEqual(sdlc_scopes.approval(self.root), "ml")
         stop = {"hook_event_name": "Stop", "cwd": self.root, "stop_hook_active": False}
-        run_hook(HOOK("trust_anchor.py"), stop, self.root)
+        run_hook(HOOK("trust_anchor.py"), stop, self.root, UTF8)
         self.config(approval="high-risk", accept=False)  # fewer stops: waits
         self.assertEqual(sdlc_scopes.approval(self.root), "ml")
-        _, out, raw, _ = run_hook(HOOK("trust_anchor.py"), stop, self.root)
+        _, out, raw, _ = run_hook(HOOK("trust_anchor.py"), stop, self.root, UTF8)
         self.assertEqual((out or {}).get("decision"), "block", raw)
         self.assertIn("approval", raw)
         run_hook(HOOK("trust_anchor.py"), {"hook_event_name": "UserPromptSubmit", "cwd": self.root, "prompt": "ok"},
-                 self.root)
+                 self.root, UTF8)
         self.assertEqual(sdlc_scopes.approval(self.root), "high-risk")
 
     # AC-007
@@ -168,11 +169,11 @@ class ApprovalTest(ProjectTestCase):
         with open(self.path(".sdlc/config.json"), encoding="utf-8") as f:
             self.assertEqual(json.load(f)["approval"], "ml")
         start = {"hook_event_name": "SessionStart", "cwd": self.root, "source": "startup"}
-        _, _, raw, _ = run_hook(HOOK("session_status.py"), start, self.root)
+        _, _, raw, _ = run_hook(HOOK("session_status.py"), start, self.root, UTF8)
         self.assertIn("approval ml", raw)
         self.config(approval="ml")  # the trust anchor recorded it
         self.config(approval="high-risk", accept=False)
-        _, _, raw, _ = run_hook(HOOK("session_status.py"), start, self.root)
+        _, _, raw, _ = run_hook(HOOK("session_status.py"), start, self.root, UTF8)
         self.assertIn("high-risk asked, not yet accepted", raw)
 
 

@@ -208,10 +208,42 @@ class StandaloneLockTest(VerifyBase):
         self.assertEqual(code, 0, out)
 
 
+class GuardedSLockTest(StandaloneLockTest):
+    """#92 part 2: config `guards.s_tests` makes an S feature's red step lock its tests too."""
+
+    def setUp(self):
+        super().setUp()
+        self.track("S")
+        self.write(".sdlc/config.json", json.dumps({"commands": {"test": "python3 -c \"print('ok')\""},
+                                                    "guards": {"s_tests": True}}))
+
+    # AC-001
+    def test_s_locks_its_tests_with_the_guard_on(self):
+        self.red()
+        self.assertIn("## Test lock", self.read_state())
+        self.write("tests/t.py", "assert answer\n")
+        code, out, _ = self.verify()
+        self.assertEqual(code, 1, out)
+        self.assertIn("test lock: tests/t.py changed since its red run (AC-001)", out)
+
+    # AC-001 (code review r1 CR1): a lock written under the guard can still be re-red once the guard is off
+    def test_a_lock_from_the_guard_can_be_re_red_after_it_is_off(self):
+        self.red()
+        self.write(".sdlc/config.json", json.dumps({"commands": {"test": "python3 -c \"print('ok')\""}}))
+        self.write(".sdlc/.work/trust-anchor.json", json.dumps({"_config": {"mode": "full", "skip": [], "guards": []}}))
+        self.write("tests/t.py", "assert answer == 42, 'the answer'\n")
+        self.deviation("test-change tests/t.py What: a message on the assert. Why: the failure didn't say what.")
+        base = re.search(r"^Base:\s*(\S+)", self.read_state(), re.M).group(1)
+        code, out, _ = self.verify("red", "--at", base, "AC-001")
+        self.assertEqual(code, 0, out)
+        code, out, _ = self.verify()
+        self.assertEqual(code, 0, out)
+
+
 def load_tests(loader, tests, pattern):
     """Only the tests this file defines: the fixture classes it extends run in their own files."""
     suite = unittest.TestSuite()
-    for cls in (TestLockTest, StandaloneLockTest):
+    for cls in (TestLockTest, StandaloneLockTest, GuardedSLockTest):
         for name in loader.getTestCaseNames(cls):
             if name in vars(cls):
                 suite.addTest(cls(name))

@@ -312,7 +312,8 @@ def valid_record(entry):
     damaged (never as accepted)."""
     return (isinstance(entry, dict) and entry.get("mode") in MODES and isinstance(entry.get("skip"), list)
             and all(isinstance(x, str) and x in SKIPPABLE for x in entry["skip"])
-            and entry.get("approval", APPROVALS[0]) in APPROVALS)
+            and entry.get("approval", APPROVALS[0]) in APPROVALS
+            and isinstance(entry.get("guards", []), list))  # a guard name this version doesn't know is skipped, not damage
 
 
 # Plan approval (ADR 0031), in order of more stops: `high-risk` (default, the flow's own stops, unenforced), `ml`
@@ -366,6 +367,58 @@ def approval(root):
         return want if APPROVALS.index(want) >= APPROVALS.index(ok) else ok
     except Exception:
         return APPROVALS[0]
+
+
+# Opt-in guards (ADR 0032), each `"guards": {"<key>": true}` in config; the name people type is the key with dashes
+GUARDS = ("s_tests",)
+
+
+def guard_name(key):
+    return key.replace("_", "-")
+
+
+def _guards(raw):
+    listed = raw.get("guards") if isinstance(raw, dict) else None
+    return sorted(k for k in GUARDS if isinstance(listed, dict) and listed.get(k) is True)
+
+
+def guards_configured(root):
+    """The guards the working config at `root` turns on, accepted or not."""
+    return _guards(_config(root))
+
+
+def guards_committed(root):
+    """The guards HEAD's committed config turns on (none when git can't say)."""
+    import json
+    import subprocess
+    try:
+        p = subprocess.run(["git", "-C", root, "show", "HEAD:./.sdlc/config.json"], capture_output=True,
+                           encoding="utf-8", errors="replace", timeout=2)
+        return _guards(json.loads(p.stdout)) if p.returncode == 0 else []
+    except Exception:
+        return []
+
+
+def guards_accepted(root):
+    """The guards the user accepted here: the trust anchor's record (without one, HEAD's committed config)."""
+    import json
+    try:
+        with open_regular(_inside(root, ANCHOR)) as f:
+            entry = json.load(f).get(CONFIG_KEY)
+        if valid_record(entry) and "guards" in entry:
+            return sorted(x for x in entry["guards"] if x in GUARDS)
+    except Exception:
+        pass
+    return guards_committed(root)
+
+
+def guards(root):
+    """The guards the gates honour at `root`: one config turns on counts at once; one it turns off stays on until
+    the trust anchor has shown that and the user replied. Never raises."""
+    try:
+        return sorted(set(guards_configured(root)) | set(guards_accepted(root)))
+    except Exception:
+        return []
 
 
 def needs_approval(policy, track):
