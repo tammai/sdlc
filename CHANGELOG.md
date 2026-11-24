@@ -8,9 +8,22 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 No migration: every new config key (`approval`, `guards`) keeps 3.15's behaviour when absent, a trust-anchor record from 3.15 stays valid, and `/sdlc:upgrade` regenerates the changed templates. A team turns the new checks on with `/sdlc:setup checks shared`.
 
+Checked on 2026-11-24 at commit 8267bf9, on Windows 11:
+- **Tests:** the full suite (906 tests, 9 skipped, Python 3.10), `claude plugin validate .` and `hosts.py check`.
+- **Smoke test:** run in real headless sessions loading the checkout with `--plugin-dir`, in four groups at once (A+B; C then E and H in C's repo; G; K). Every must item passed. The new C9 (solo or shared), E12 (plan approval) and E13 (guarded changes) passed too.
+- **Out of scope:** D and F, since the release doesn't touch the guardrails or the security hooks.
+- **Not run:** C4's installed-plugin and `--team` variants, C6–C8, E8 and E9.
+- **How the dialogs were checked:** a headless session has no question tool, so `Approve plan`, `Allow change` and the trust-anchor dialogs were answered as typed replies. Their rendering wasn't seen; the hooks and scripts behind them were.
+
 ### Known issues
 - **The layer diagram (`docs/diagrams/sdlc_plugin_layers.svg`) still shows 3.1's hooks and commands**; the plan-approval and guarded-changes hooks need a relayout, not a text edit.
 - **A brownfield repo's generated CI fails while its baseline lists a failing test** (carried over from 3.15.0).
+- **Smoke-test notes (should).**
+  - Setup in a repo with no commits renames `sdlc/setup` to `main`.
+  - A `rules.plan` line can leak words into a task's Files line.
+  - The 3.6.0 migration asks for the deploy target when config already has one.
+  - Eject leaves `.sdlc/state/*.json` and `*.events.jsonl` untracked.
+  - `state.py repo` in a workbench with no commits says it isn't on a branch.
 - The open items from this release's reviews (hardening of the guarded-change detection, an approval in a workbench session started inside an app repo) are listed in `.sdlc/todo.md`.
 
 ### Added
