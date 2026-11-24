@@ -37,7 +37,7 @@ One line per doc: path — what it answers (≤12 words). Keep this file under ~
 - [gotchas/zsh-does-not-split-a-command-variable.md](gotchas/zsh-does-not-split-a-command-variable.md) — `S="python3 x"; $S` fails in zsh; use a function
 - [gotchas/macos-stock-bash-and-no-timeout.md](gotchas/macos-stock-bash-and-no-timeout.md) — bash 3.2 has no EPOCHREALTIME; a Mac has no timeout binary
 - [gotchas/review-refuses-heredocs-so-helpers-read-a-file.md](gotchas/review-refuses-heredocs-so-helpers-read-a-file.md) — a script run in Review takes a file the Write tool made, not stdin
-- [gotchas/question-tool-answer-is-not-a-prompt.md](gotchas/question-tool-answer-is-not-a-prompt.md) — gates trust an AskUserQuestion answer only via user_answer.py's Pre record
+- [gotchas/question-tool-answer-is-not-a-prompt.md](gotchas/question-tool-answer-is-not-a-prompt.md) — gates trust an AskUserQuestion answer only via user_answer.py's Pre record; 12-char headers; one answer per question
 - [gotchas/rebased-changelog-lands-in-a-released-section.md](gotchas/rebased-changelog-lands-in-a-released-section.md) — a rebase can move an Unreleased note under a released version
 - [gotchas/review-budget-kills-the-suite-here.md](gotchas/review-budget-kills-the-suite-here.md) — in Review the full suite dies at 120 s here; run it in Build or Ship
 - [gotchas/reviewers-are-read-only.md](gotchas/reviewers-are-read-only.md) — a fact a review needs from a script goes in its prompt

@@ -4,6 +4,15 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
+## 3.16.0 — 2026-11-24
+
+No migration: every new config key (`approval`, `guards`) keeps 3.15's behaviour when absent, a trust-anchor record from 3.15 stays valid, and `/sdlc:upgrade` regenerates the changed templates. A team turns the new checks on with `/sdlc:setup checks shared`.
+
+### Known issues
+- **The layer diagram (`docs/diagrams/sdlc_plugin_layers.svg`) still shows 3.1's hooks and commands**; the plan-approval and guarded-changes hooks need a relayout, not a text edit.
+- **A brownfield repo's generated CI fails while its baseline lists a failing test** (carried over from 3.15.0).
+- The open items from this release's reviews (hardening of the guarded-change detection, an approval in a workbench session started inside an app repo) are listed in `.sdlc/todo.md`.
+
 ### Added
 - **UI evidence and solo or shared checks** (`/sdlc:setup guard ui-evidence on`, `/sdlc:setup checks shared`, part 4 of [#92](https://github.com/tammai/sdlc/issues/92)). With UI evidence on, Ship needs screenshots (or a manual reason) for a change touching your UI and lists them in the PR. Setup now asks whether the repo is solo or shared; shared turns on plan approval for every M and L and every guard at once.
 - **Guarded changes** (`/sdlc:setup guard dependencies on`, `/sdlc:setup guard lint-config on`, [ADR 0032](docs/adr/0032-opt-in-guards.md), part 3 of [#92](https://github.com/tammai/sdlc/issues/92)). With them on, verify fails on a new dependency, a changed lint or type config, or an added suppression comment (`@ts-ignore`, `eslint-disable`, `# type: ignore`, …) until you allow it in the `Allow change` dialog or by typing `allow`. An allowed dependency gets the dependency audit in Review, and Ship writes what you allowed into the record. Off by default.

@@ -16,3 +16,7 @@ An `AskUserQuestion` answer comes back as the tool's result inside the same turn
 
 ## Fix
 `hooks/user_answer.py` runs on PreToolUse for AskUserQuestion. It denies a call whose `answers` is already filled and records the `tool_use_id` of every other call. The gates then run on PostToolUse for AskUserQuestion and accept an answer (`user_answer.answered`) only when its id was recorded and the question's header names the gate (`Review cap`, `Trust anchor`). Checked under Claude Code 2.1.322: PreToolUse sees `tool_input` without `answers` on a clean call and with them on a pre-filled one, and PostToolUse carries the user's pick in both `tool_input.answers` and `tool_response.answers`. Other hosts don't wire this, so the gates there stay typed replies.
+
+Two more traps, found building the plan-approval and guarded-change gates (3.16.0):
+- **A header holds at most 12 characters**, so a gate's header is short (`Approve plan`, `Allow change`; `Guarded change` was too long).
+- **One call can hold up to 4 questions with the same header.** `answered()` returns the first one's answer, so a gate that allows several items must read each question's own answer from `answers` by its question text, and compare the answer to the option exactly (after stripping ` (Recommended)`). A prefix match lets `Approve with changes` approve.

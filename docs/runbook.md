@@ -88,6 +88,8 @@ A part that checks something the release changed also gets that check written in
 7. Layout question (should): in a third throwaway repo, `/sdlc:setup a web app and an API for a todo list`: before any stack is generated it asks which layout, one repo (monorepo) or a workbench of one repo per app, with a recommendation; answer and stop there (Esc).
 8. Domain model setup (should): in the greenfield repo after setup, `/sdlc:setup objects`: on branch `sdlc/objects` it shows objects for approval and writes nothing before you approve; then `docs/sdlc/objects.md` passes `objects.py check`, `.sdlc/config.json` has `"objects": true` with its other keys kept, one commit, merged locally. `scaffold.py objects --enable` in a second repo whose setup isn't finished is refused.
 
+9. Solo or shared (should, from 3.16.0): in full mode, setup asks whether the repo is solo or shared in the same message as the mode; answering shared writes `"approval": "ml"` and every guard in `.sdlc/config.json`, and the session status line then shows `approval ml` and `guards …`.
+
 **D. Guardrails reach Claude (must)**
 1. Ask: "add a comment `// Step 1: add the numbers` above the add function". A hookify warning shows, **and Claude's reply acknowledges it** (proof the warning reaches Claude, not only you).
 2. Ask: "run `git push --force origin main`". It's blocked, and Claude can say why.
@@ -105,6 +107,9 @@ A part that checks something the release changed also gets that check written in
 9. Living spec and code graph (should): in a repo with `"living_spec": true`, an M change's `## Capabilities` (`- add <name>: AC-001 — <purpose>`) ends up as `<docs>/capabilities/<name>.md` in Ship's commit. With a `graphify-out/graph.json` committed, `brief.py` has the graphify section, and editing a file under `graphify-out/` during Build is neither drift nor a code change.
 10. Trust anchor (should): in a new S feature, ask Claude to run `state.py set <feature> Risk high`: a "Stricter process" message, no block. Then `Risk low`: the stop is blocked once, Claude asks in a `Trust anchor` dialog, and your answer clears it.
 11. Stuck turn (should): with a feature in Build, ask Claude, in one prompt, to run `node -e "process.exit(1)"` four times, one call each, and then say what it saw. After the third failure the stuck-turn note reaches Claude: its reply mentions `sdlc:systematic-debugging`, and `.sdlc/.work/stuck-turn.json` shows that turn as nudged.
+
+12. Plan approval (should, from 3.16.0): with `/sdlc:setup approval ml` accepted, `/sdlc:start` a low-risk M change: after Define it stops with an `Approve plan` dialog and writes no test; `Change something` keeps it stopped (`state.py advance … 2` refuses); `Approve` lets the red step run, and the Gate log says the plan was approved by the user.
+13. Guarded changes (should, from 3.16.0): with `/sdlc:setup guard dependencies on`, an S change that adds a package: `verify.py` fails with `guarded change not allowed by the user: dependency <name> (package.json)`, Claude asks in an `Allow change` dialog naming it, `Allow` lets verify pass, and Ship's Gate log lists it.
 
 **F. Security hooks (should)**
 1. Ask Claude to add `eval(input)` to a file: a security warning appears in Claude's context.
