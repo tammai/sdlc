@@ -35,6 +35,6 @@ Decisions about how the plugin itself is built: what was decided, why, and what 
 | [0029](0029-configurable-review-round-cap.md) | The review round cap is config's `review_rounds` (2 to 5); the agent's edit can only lower it; a raise counts from the next feature's Base, or at once when the user types `/sdlc:setup review-rounds <n>` | Accepted |
 | [0030](0030-modes-and-skips.md) | `mode` full or advisory (advisory: skills and agents as aids, every hook silent but a workbench's read-only guard); in full mode `skip` may list security-review, code-review, ui-review, pr; a relaxing change is a trust-anchor notice | Accepted |
 | [0031](0031-approval-policy.md) | `approval` high-risk (default), ml (every M and L) or always (S too): `state.py advance 2` refuses until the user's `Approve plan` answer or typed `approve <feature>` is recorded; a move to fewer stops is a trust-anchor notice | Accepted |
-| [0032](0032-opt-in-guards.md) | Opt-in `guards` in config (`s_tests`: S locks its tests at the red step, as M and L do); turning one off is a trust-anchor notice | Accepted |
+| [0032](0032-opt-in-guards.md) | Opt-in `guards` in config: `s_tests` (S locks its tests at the red step), `dependencies` and `lint_config` (verify fails on a new dependency, a changed lint config or an added suppression until the user allows it, header `Allow change`); turning one off is a trust-anchor notice | Accepted |
 
 New ADR: copy the shape of an existing one (Status, Context, Decision, Consequences), take the next number, and add a row here.
