@@ -11,6 +11,7 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 - **Plan approval for teams** (`/sdlc:setup approval ml|always`, [ADR 0031](docs/adr/0031-approval-policy.md), part 1 of [#92](https://github.com/tammai/sdlc/issues/92)). Under `ml` every M and L waits after Define for your approval, and L no longer approves itself; under `always` S does too. Answer the `Approve plan` question with Approve (or type `approve <feature>` where there's no dialog): until then `state.py advance 2` refuses, so no test or code is written, and autopilot blocks the part. The Gate log records who approved. The default, `high-risk`, keeps today's flow; a move to fewer stops is shown by the trust anchor.
 
 ### Changed
+- **A review agent dispatched without a model is told to use `model: opus`.** The model router's refusal used to list the tiers, so an agent often retried a review on sonnet and was refused again; it now names the one model a review takes.
 - **Learn reads as what it is: a judgment, not a gate** ([#96](https://github.com/tammai/sdlc/issues/96)). The change file's `Lessons filed` line may say `None` or be left out when nothing was learned, the Ship gate reads "Learn considered", and `knowledge/log.md` is optional in `managing-knowledge`; no script checks either, and the flow, template, releaser agent and specs 02 and 07 now say so instead of reading as required.
 
 ## 3.15.0 — 2026-11-23
