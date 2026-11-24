@@ -1039,6 +1039,20 @@ def gating_report(p):
     return out
 
 
+def cmd_approval(p, a):
+    """The repo's plan approval policy (config `approval`, ADR 0031): high-risk (default), ml or always. With a value,
+    records it; the trust anchor shows a move to fewer stops to the user at the next turn end."""
+    if a.value is not None:
+        if a.value not in sdlc_scopes.APPROVALS:
+            raise Refused(f"approval is one of {', '.join(sdlc_scopes.APPROVALS)}, not {a.value!r}")
+        gate_of(p)
+        p.config = p.config or {}
+        p.config["approval"] = a.value
+        p.save()
+    gate = sdlc_scopes.gate_root(p.root, session=False) or p.root
+    return {"approval": sdlc_scopes.approval_configured(gate), "effective": sdlc_scopes.approval(gate)}
+
+
 def cmd_skip(p, a):
     """The steps a full-mode repo skips (config's `skip`): any of security-review, code-review, ui-review, pr. With
     names, records them; --clear removes the list. The trust anchor shows a newly skipped step to the user."""
@@ -3404,6 +3418,10 @@ def build_parser():
     s.add_argument("steps", nargs="*")
     s.add_argument("--clear", action="store_true", help="skip nothing")
     s.set_defaults(fn=cmd_skip)
+    s = sub.add_parser("approval", help="which plans wait for the user's approval before Build: high-risk (default), "
+                                        "ml (every M and L) or always (S too); with a value, record it")
+    s.add_argument("value", nargs="?")
+    s.set_defaults(fn=cmd_approval)
     s = sub.add_parser("guardrails", help="the guardrails setup renders for this repo's design mode")
     s.add_argument("--render", action="store_true",
                    help="write every one (seeded), leaving edited, foreign and declined ones as they are")

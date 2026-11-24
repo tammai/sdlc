@@ -307,10 +307,70 @@ def write_record(base, rel, data):
 
 
 def valid_record(entry):
-    """The trust anchor's accepted mode-and-skips record is well formed: a known mode and a list of known step
-    names. Anything else counts as damaged (never as accepted)."""
+    """The trust anchor's accepted mode-and-skips record is well formed: a known mode, a list of known step
+    names and, when present, a known approval policy (a record from before 3.16 has none). Anything else counts as
+    damaged (never as accepted)."""
     return (isinstance(entry, dict) and entry.get("mode") in MODES and isinstance(entry.get("skip"), list)
-            and all(isinstance(x, str) and x in SKIPPABLE for x in entry["skip"]))
+            and all(isinstance(x, str) and x in SKIPPABLE for x in entry["skip"])
+            and entry.get("approval", APPROVALS[0]) in APPROVALS)
+
+
+# Plan approval (ADR 0031), in order of more stops: `high-risk` (default, the flow's own stops, unenforced), `ml`
+# (every M and L waits for the user's approval before Build), `always` (S too)
+APPROVALS = ("high-risk", "ml", "always")
+APPROVAL_TRACKS = {"high-risk": (), "ml": ("M", "L"), "always": ("S", "M", "L")}
+
+
+def _approval(raw):
+    value = raw.get("approval") if isinstance(raw, dict) else None
+    return value if value in APPROVALS else APPROVALS[0]
+
+
+def approval_configured(root):
+    """The approval policy the working config at `root` asks for, accepted or not."""
+    return _approval(_config(root))
+
+
+def approval_committed(root):
+    """The approval policy HEAD's committed config states (high-risk when git can't say)."""
+    import json
+    import subprocess
+    try:
+        p = subprocess.run(["git", "-C", root, "show", "HEAD:./.sdlc/config.json"], capture_output=True,
+                           encoding="utf-8", errors="replace", timeout=2)
+        return _approval(json.loads(p.stdout)) if p.returncode == 0 else APPROVALS[0]
+    except Exception:
+        return APPROVALS[0]
+
+
+def approval_accepted(root):
+    """The approval policy the user accepted here: the trust anchor's record (a record without one, or none,
+    falls back to HEAD's committed config)."""
+    import json
+    try:
+        with open_regular(_inside(root, ANCHOR)) as f:
+            entry = json.load(f).get(CONFIG_KEY)
+        if valid_record(entry) and "approval" in entry:
+            return entry["approval"]
+    except Exception:
+        pass
+    return approval_committed(root)
+
+
+def approval(root):
+    """The approval policy the gates honour at `root`: config's, but a move to fewer stops counts only once the trust
+    anchor has shown it and the user replied; a stricter one at once. Never raises."""
+    try:
+        want = approval_configured(root)
+        ok = approval_accepted(root)
+        return want if APPROVALS.index(want) >= APPROVALS.index(ok) else ok
+    except Exception:
+        return APPROVALS[0]
+
+
+def needs_approval(policy, track):
+    """Whether a feature on `track` (S, M, L) waits for the user's plan approval under `policy`."""
+    return track in APPROVAL_TRACKS.get(policy, ())
 
 
 def effective(root):

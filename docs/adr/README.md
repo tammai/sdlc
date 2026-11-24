@@ -34,5 +34,6 @@ Decisions about how the plugin itself is built: what was decided, why, and what 
 | [0028](0028-domain-model-objects-md.md) | An opt-in domain model in `objects.md` (not rspec's `domain.md`), checked by a script in Define's gate and doctor, never a model turn | Accepted |
 | [0029](0029-configurable-review-round-cap.md) | The review round cap is config's `review_rounds` (2 to 5); the agent's edit can only lower it; a raise counts from the next feature's Base, or at once when the user types `/sdlc:setup review-rounds <n>` | Accepted |
 | [0030](0030-modes-and-skips.md) | `mode` full or advisory (advisory: skills and agents as aids, every hook silent but a workbench's read-only guard); in full mode `skip` may list security-review, code-review, ui-review, pr; a relaxing change is a trust-anchor notice | Accepted |
+| [0031](0031-approval-policy.md) | `approval` high-risk (default), ml (every M and L) or always (S too): `state.py advance 2` refuses until the user's `Approve plan` answer or typed `approve <feature>` is recorded; a move to fewer stops is a trust-anchor notice | Accepted |
 
 New ADR: copy the shape of an existing one (Status, Context, Decision, Consequences), take the next number, and add a row here.

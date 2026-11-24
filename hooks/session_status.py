@@ -45,6 +45,13 @@ def status_line(root):
         waiting = [x for x in skip if x not in honoured[1]]
         parts.append(f"skip {', '.join(honoured[1]) or 'none'}"
                      + (f" ({', '.join(waiting)} asked, not yet accepted)" if waiting else ""))
+    asked, honoured_approval = sdlc_scopes.approval_configured(gate), sdlc_scopes.approval(gate)
+    if honoured[0] == "full" and (asked != "high-risk" or honoured_approval != "high-risk"):
+        parts.append(f"approval {honoured_approval}"
+                     + (f" ({asked} asked, not yet accepted)" if asked != honoured_approval else "")
+                     + (": every M and L" if honoured_approval == "ml" else ": every change" if honoured_approval == "always"
+                        else "") + (" waits for the user's plan approval (state.py advance 2 refuses before it)"
+                                    if honoured_approval != "high-risk" else ""))
     prd = sdlc_layout.prd(root)
     parts.append(f"PRD {prd if os.path.isfile(os.path.join(root, prd)) else 'none'}")
     if st.get("pending_migrations"):
