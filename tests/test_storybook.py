@@ -13,7 +13,9 @@ DOCTOR = os.path.join(PLUGIN_ROOT, "scripts", "doctor.py")
 sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
 
 
-class StorybookTest(ProjectTestCase):
+class StorybookCase(ProjectTestCase):
+    """Helpers only: a test class that subclassed one with tests ran those tests twice."""
+
     def sc(self, *args):
         p = subprocess.run([sys.executable, SCAFFOLD, "--root", self.root, *args], capture_output=True,
                            encoding="utf-8", errors="replace")
@@ -27,6 +29,8 @@ class StorybookTest(ProjectTestCase):
         code, out = self.sc("init", "--kind", "greenfield", "--host", "claude-code")
         self.assertEqual(code, 0, out)
 
+
+class StorybookTest(StorybookCase):
     # AC-001
     def test_storybook_is_turned_on_only_where_it_exists_and_in_builtin_mode(self):
         self.init()
@@ -85,7 +89,7 @@ class StorybookTest(ProjectTestCase):
                       .replace("$S storybook", "scaffold.py\" storybook"))
 
 
-class StorybookRound1Test(StorybookTest):
+class StorybookRound1Test(StorybookCase):
     """Code review r1 of 2026-11-23-m-storybook-opt-in."""
 
     def test_impeccable_mode_turns_storybook_off(self):

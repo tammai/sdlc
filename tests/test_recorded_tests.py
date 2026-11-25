@@ -82,6 +82,30 @@ class AcceptanceBundleTest(VerifyBase):
             s.settimeout(1)
             self.assertNotEqual(s.connect_ex(("127.0.0.1", self.port)), 0)
 
+    def test_a_local_port_nothing_listens_on_is_seen_at_once(self):
+        # Windows retries a refused loopback connection for 2 s (4 s for localhost: ::1, then 127.0.0.1), which
+        # every verify run that starts a build paid before it started, and on each poll while it came up
+        import socket
+        import threading
+        import http.server
+        sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
+        import verify
+        with socket.socket() as s:
+            s.bind(("127.0.0.1", 0))
+            port = s.getsockname()[1]
+        for url in (f"http://127.0.0.1:{port}", f"http://localhost:{port}/"):
+            start = time.perf_counter()
+            self.assertFalse(verify.answers(url), url)
+            self.assertLess(time.perf_counter() - start, 1.5, url)
+        server = http.server.HTTPServer(("127.0.0.1", port), http.server.BaseHTTPRequestHandler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        try:
+            self.assertTrue(verify.answers(f"http://127.0.0.1:{port}"))  # an error status is an answer too
+            self.assertTrue(verify.answers(f"http://localhost:{port}"))
+        finally:
+            server.shutdown()
+            server.server_close()
+
     def port_open(self):
         import socket
         with socket.socket() as s:
