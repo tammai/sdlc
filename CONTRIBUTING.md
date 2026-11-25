@@ -102,7 +102,8 @@ Original to this plugin: the orchestrator and setting-up-projects skills (with `
 ```bash
 claude plugin validate .                          # manifest and components parse
 claude --plugin-dir .                             # load this checkout for one session
-py -3.10 -m unittest discover -s tests -t tests  # full suite, stdlib only, once, on Python 3.10 (macOS/Linux: python3.10)
+py -3.10 tests/run_parallel.py                    # full suite in parallel, stdlib only, once, on Python 3.10 (macOS/Linux: python3.10)
+py -3.10 tests/run_parallel.py test_ship          # only modules whose name contains test_ship
 python3 scripts/doctor.py --format md             # health check against the current repo
 ```
 
