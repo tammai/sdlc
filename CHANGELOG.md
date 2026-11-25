@@ -4,6 +4,12 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
+### Changed
+- **Guarded changes see more** ([ADR 0032](docs/adr/0032-opt-in-guards.md)), with `guards.dependencies` or `guards.lint_config` on.
+  - A changed dependency source is an item: an index URL or `-e` line in a requirements file, package.json's `overrides`, `resolutions` and `pnpm.overrides`, go.mod's `replace`, Cargo's `[patch.*]` and `[replace]`, and `.npmrc`, `.yarnrc*`, `pip.conf` and `pip.ini`.
+  - More suppressions count: `# ruff: noqa`, `# flake8: noqa`, `# mypy: ignore-errors`, pyright file-level settings, `/* eslint <rule>: … */`, `oxlint-disable` and `deno-lint-ignore`.
+  - `dev-requirements.txt`, `requirements.in` and an inline `optional-dependencies = { dev = [...] }` table are read.
+
 ### Fixed
 - **Plan approval holds against a hand-edited track and a re-created feature** ([ADR 0031](docs/adr/0031-approval-policy.md)).
   - Under a policy that covers some track, `state.py new` writes an `Approval floor:` line into the state file.
@@ -14,6 +20,12 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
   - Any approval is used up when the feature leaves Define, so a feature sent back to Define needs a new one.
 - **A dialog Approve from a workbench's app repo counts.** In a session started in an app repo with its own `.sdlc`, the question is now recorded when the feature waits at the workbench.
 - **`scaffold.py approval`, `checks` and `guard` report what this session's scripts read** when the session covers `--root` (a nested repo included), and `--root`'s own config otherwise. Before, they always read `--root`'s own gate.
+- **Guarded changes:**
+  - A file moved with `mv`, not yet staged, no longer has its suppressions flagged again.
+  - A Base manifest that can't be read flags each dependency by name instead of one "unreadable" item.
+  - An Allow whose question excludes something (`all except …`) allows nothing.
+  - An Allow covers another feature's item only when the question names that feature.
+  - An error anywhere in the check reports `guarded_not_checked` instead of a traceback.
 
 ## 3.16.0 — 2026-11-24
 

@@ -2,6 +2,9 @@
 """sdlc guarded changes (ADR 0032, #92 part 3): with config `guards.dependencies` or `guards.lint_config` on, the
 items a feature adds since its Base that the user must allow before verify passes:
   - a dependency name new in a known manifest (a version bump isn't one);
+  - a changed dependency source: a requirements option line (`--index-url`, `-e`), package.json's `overrides`,
+    `resolutions` and `pnpm.overrides`, go.mod's `replace`, Cargo's `[patch.*]` and `[replace]`, or any change to
+    `.npmrc`, `.yarnrc`, `.yarnrc.yml`, `pip.conf` or `pip.ini`;
   - any change to a known lint or type config file, or to its section of pyproject.toml, setup.cfg or tox.ini;
   - a suppression comment whose count in a source file grew (a removed or moved one is free).
 The file names come from this list, never from the repo's config. An item's id carries its content, so a later change
@@ -26,10 +29,12 @@ import sys
 import sdlc_scopes  # sibling module: the guards honoured, guarded reads and writes
 
 HEADER = "Allow change"  # the question tool caps a header at 12 characters
+EXCLUDING = re.compile(r"\b(?:except|excluding|but not|other than|apart from|without)\b", re.I)
 STORE = os.path.join(".sdlc", ".work", "guarded.json")
 TYPED = re.compile(r"allow[.!]?", re.I)
 
 MANIFESTS = ("package.json", "composer.json", "pyproject.toml", "cargo.toml", "pubspec.yaml", "go.mod", "gemfile")
+SOURCE_FILES = (".npmrc", ".yarnrc", ".yarnrc.yml", "pip.conf", "pip.ini")  # where packages come from, whole
 LINT_FILES = ("tsconfig*.json", "jsconfig.json", ".eslintrc", ".eslintrc.*", "eslint.config.*", "biome.json",
               "biome.jsonc", "ruff.toml", ".ruff.toml", "mypy.ini", ".mypy.ini", ".flake8", ".pylintrc", "pylintrc",
               "pyrightconfig.json", ".golangci.yml", ".golangci.yaml", ".golangci.toml", ".golangci.json",
@@ -46,7 +51,12 @@ SUPPRESSIONS = (("@ts-ignore", r"@ts-ignore"), ("@ts-nocheck", r"@ts-nocheck"), 
                 ("nolint", r"\bnolint\b"), ("#[allow(", r"#!?\[allow\("), ("@Suppress(", r"@Suppress\("),
                 ("@SuppressWarnings(", r"@SuppressWarnings\("), ("swiftlint:disable", r"swiftlint:disable"),
                 ("// ignore:", r"//\s*ignore(?:_for_file)?:"), ("rubocop:disable", r"rubocop:disable"),
-                ("@phpstan-ignore", r"@phpstan-ignore"), ("@psalm-suppress", r"@psalm-suppress"))
+                ("@phpstan-ignore", r"@phpstan-ignore"), ("@psalm-suppress", r"@psalm-suppress"),
+                ("# ruff: noqa", r"#\s*ruff:\s*noqa"), ("# flake8: noqa", r"#\s*flake8:\s*noqa"),
+                ("# mypy: ignore-errors", r"#\s*mypy:\s*ignore-errors"),
+                ("# pyright: config", r"#\s*pyright:\s*(?:basic\b|\w+\s*=\s*(?:false|none|information|warning)\b)"),
+                ("/* eslint rule */", r"/\*\s*eslint\s+[\w@/-]+\s*:"), ("oxlint-disable", r"oxlint-disable"),
+                ("deno-lint-ignore", r"deno-lint-ignore"))
 NAME = re.compile(r"[A-Za-z0-9@](?:[A-Za-z0-9._/@-]*[A-Za-z0-9])?")
 CONTROL = re.compile("[" + "".join(re.escape(chr(c)) for c in [*range(0x20), *range(0x7f, 0xa0), 0x200e, 0x200f,
                                                                    *range(0x202a, 0x202f), *range(0x2066, 0x206a)]) + "]")
@@ -184,6 +194,8 @@ def _toml_names(text):
         if value.strip().startswith("[") and ("depend" in key.lower() or dep_table):
             names |= {n for n in (_req_name(q) for q in quoted) if n}
             array = delta
+        elif value.strip().startswith("{") and "depend" in key.lower() and not dep_table:
+            names |= {n for n in (_req_name(q) for q in quoted) if n}  # optional-dependencies = { dev = [...] }
         elif dep_table and key and key.lower() != "python":
             names.add(key.split(".")[0])
     return names
@@ -228,9 +240,11 @@ def _gemfile_names(text):
 
 
 def is_requirements(path):
+    """requirements.txt and its kin: requirements-dev.txt, dev-requirements.txt, requirements.in (pip-tools), and
+    any .txt or .in in a requirements/ folder."""
     base = os.path.basename(path).lower()
-    return bool(re.match(r"requirements.*\.txt$", base)) or (
-        base.endswith(".txt") and os.path.basename(os.path.dirname(path)).lower() == "requirements")
+    return bool(re.match(r"(?:.*[-_.])?requirements.*\.(?:txt|in)$", base)) or (
+        base.endswith((".txt", ".in")) and os.path.basename(os.path.dirname(path)).lower() == "requirements")
 
 
 def dependency_names(path, text):
@@ -251,6 +265,43 @@ def dependency_names(path, text):
         return {n for n in (_req_name(l) for l in text.splitlines() if l.strip() and not l.lstrip().startswith(("#", "-")))
                 if n}
     return set()
+
+
+def source_part(path, text):
+    """The part of a manifest or config that says where dependencies come from, as text to compare; "" when it has
+    none, or can't be read (an unreadable package.json is its own item)."""
+    base = os.path.basename(path).lower()
+    if base in SOURCE_FILES:
+        return text
+    if is_requirements(path):
+        return "\n".join(l.strip() for l in text.splitlines() if l.strip().startswith("-"))
+    if base == "package.json":
+        try:
+            data = json.loads(text) if text.strip() else {}
+        except ValueError:
+            return ""
+        if not isinstance(data, dict):
+            return ""
+        pnpm = data.get("pnpm") if isinstance(data.get("pnpm"), dict) else {}
+        part = {k: data[k] for k in ("overrides", "resolutions") if k in data}
+        if "overrides" in pnpm:
+            part["pnpm.overrides"] = pnpm["overrides"]
+        return json.dumps(part, sort_keys=True) if part else ""
+    if base == "go.mod":
+        out, block = [], False
+        for line in text.splitlines():
+            s = line.split("//", 1)[0].strip()
+            if block:
+                block = not s.startswith(")")
+                out += [s] if block and s else []
+            elif re.match(r"replace\s*\($", s):
+                block = True
+            elif s.startswith("replace "):
+                out.append(s)
+        return "\n".join(out)
+    if base == "cargo.toml":
+        return _sections(text, r"(patch(\..*)?|replace)$")
+    return ""
 
 
 # --- lint config and suppressions -----------------------------------------------------------------------------
@@ -326,13 +377,21 @@ def items(root, base, guards, prefix=""):
     for path in changed:
         name = os.path.basename(path).lower()
         shown = clean(prefix + path)
-        if "dependencies" in guards and (name in MANIFESTS or is_requirements(path)):
-            new = now(root, path)
+        if "dependencies" in guards and (name in MANIFESTS or name in SOURCE_FILES or is_requirements(path)):
+            new, old = now(root, path), at_base(root, base, path)
             try:
-                added = dependency_names(path, new) - dependency_names(path, at_base(root, base, path))
+                new_names = dependency_names(path, new)
             except Unreadable:
                 found.append((f"manifest:{shown}:{short(new)}", f"manifest {shown} unreadable ({short(new)})"))
-                added = set()
+                new_names = set()
+            try:
+                old_names = dependency_names(path, old)
+            except Unreadable:  # a Base that can't be read: each dependency named now is new (fail closed)
+                old_names = set()
+            added = new_names - old_names
+            part = source_part(path, new)
+            if part != source_part(path, old):
+                found.append((f"source:{shown}:{short(part)}", f"dependency source {shown} ({short(part)})"))
             for dep in sorted(added):
                 if NAME.fullmatch(dep):
                     found.append((f"dependency:{shown}:{dep}", f"dependency {dep} ({shown})"))
@@ -355,9 +414,13 @@ def items(root, base, guards, prefix=""):
     if "lint_config" in guards:
         sources = {p for p in changed if p.lower().endswith(SOURCE)}
         counts = suppression_counts(root, base, {p for p in sources - untracked if os.path.isfile(os.path.join(root, p))})
-        for path in sources & untracked:  # untracked: everything in it is added
+        gone = [p for p in sources - untracked if not os.path.lexists(os.path.join(root, p))]
+        for path in sources & untracked:  # untracked: everything in it is added, unless it's a deleted file moved here
+            was = [g for g in gone if os.path.basename(g) == os.path.basename(path)]
+            old = _count(at_base(root, base, was[0])) if len(was) == 1 else {}
             for sname, n in _count(now(root, path)).items():
-                counts[(path, sname)] = n
+                if n > old.get(sname, 0):
+                    counts[(path, sname)] = n - old.get(sname, 0)
         for (path, sname), n in sorted(counts.items()):
             if n > 0:
                 shown = clean(prefix + path)
@@ -441,10 +504,22 @@ def main():
             if not isinstance(q, dict) or (q.get("header") or "").strip().lower() != HEADER.lower():
                 continue
             answer = answers.get(q.get("question")) if isinstance(answers, dict) else None
+            text = str(q.get("question") or "")
+            if EXCLUDING.search(text):
+                continue  # "all except X": allows nothing; the question names only what it allows
             if isinstance(answer, str) and re.sub(r"\s*\(recommended\)\s*$", "", answer, flags=re.I).strip().lower() == "allow":
-                allowing.append(str(q.get("question") or ""))
-        chosen = {f: [i for i, label in pending.items() if any(label in a for a in allowing)]
-                  for f, pending in store["pending"].items()}
+                allowing.append(text)
+        import sdlc_layout  # noqa: PLC0415
+        active = {name for name, _ in sdlc_layout.active(root)}
+        live = [f for f in store["pending"] if f in active] or list(store["pending"])  # an abandoned one aside
+        chosen = {}
+        for text in allowing:
+            named = [f for f in store["pending"] if re.search(rf"(?<![\w-]){re.escape(f)}(?![\w-])", text)]
+            for f in named or live:  # the feature the question names, else the live ones
+                for i, label in store["pending"][f].items():
+                    shared = sum(label in store["pending"][g].values() for g in live) > 1
+                    if label in text and (named or not shared):  # several features wait on it: say which
+                        chosen.setdefault(f, []).append(i)
     else:
         if not TYPED.fullmatch((data.get("prompt") or "").strip()):
             return
