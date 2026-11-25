@@ -4,7 +4,10 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
+No migration: `/sdlc:upgrade` regenerates an unedited `sdlc-verify.yml` and `.sdlc/ci/invariants.py`, which a brownfield repo needs for the CI baseline waiver. Keep the two together: a regenerated workflow with an edited, older `invariants.py` fails a red run with an `unrecognized arguments: --baseline-tests` error.
+
 ### Changed
+- **A brownfield repo's CI passes when only baselined tests fail.** When `sdlc-verify.yml` is generated while `.sdlc/baseline.md` lists a failing test, its test step tees its output. A red run is handed to `.sdlc/ci/invariants.py --baseline-tests`, which passes it only when every failing test the runner names is listed. It matches names by the same rule as `ship.py --waive-baseline`. Before, every PR was red from the start (3.15.0 known issue).
 - **Guarded changes see more** ([ADR 0032](docs/adr/0032-opt-in-guards.md)), with `guards.dependencies` or `guards.lint_config` on.
   - A changed dependency source is an item: an index URL or `-e` line in a requirements file, package.json's `overrides`, `resolutions` and `pnpm.overrides`, go.mod's `replace`, Cargo's `[patch.*]` and `[replace]`, and `.npmrc`, `.yarnrc*`, `pip.conf` and `pip.ini`.
   - More suppressions count: `# ruff: noqa`, `# flake8: noqa`, `# mypy: ignore-errors`, pyright file-level settings, `/* eslint <rule>: … */`, `oxlint-disable` and `deno-lint-ignore`.

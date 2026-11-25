@@ -1640,6 +1640,54 @@ def project_stacks(config, package=None):
     return found
 
 
+# A brownfield repo's test step while .sdlc/baseline.md lists failing tests: a red run passes only when every failing
+# test it names is listed (invariants.py --baseline-tests, ship.py --waive-baseline's rule). Without the check script
+# or a Python, the step keeps the test command's own failure.
+# The command keeps the step's own `set -e` (a subshell outside any condition, its lines on lines of their own, so a
+# trailing comment can't swallow what follows), and Python is a working 3.9+ (Windows' Store stub isn't).
+BASELINE_TEST_STEP = """set -o pipefail
+log="${{RUNNER_TEMP:-/tmp}}/sdlc-test-$$.log"
+set +e
+(
+set -e
+{cmd}
+) 2>&1 | tee "$log"
+status=$?
+set -e
+if [ "$status" -eq 0 ]; then exit 0; fi
+check="$GITHUB_WORKSPACE/.sdlc/ci/invariants.py"
+py=""
+for c in python3 python "py -3"; do
+  if $c -c 'import sys; sys.exit(sys.version_info < (3, 9))' >/dev/null 2>&1; then py="$c"; break; fi
+done
+if [ -n "$py" ] && [ -f "$check" ]; then
+  $py "$check" --baseline-tests "$log"
+else
+  echo "sdlc: $check or Python 3.9+ missing: the baseline can't waive this failure"
+  exit "$status"
+fi"""
+
+
+def baselined_tests(p):
+    """Whether the baseline (config's `baseline`, else .sdlc/baseline.md, as invariants.py reads it) lists a failing
+    test: its Failing tests rows, not the template's 'none' row."""
+    path = effective_config(p.config).get("baseline") or ".sdlc/baseline.md"
+    try:
+        if not isinstance(path, str) or not inside_repo(p.root, path) or git_internal(path, p.root):
+            return False
+        with open(p.path(path), encoding="utf-8", errors="replace") as f:  # a person's file: maybe not UTF-8
+            text = f.read()
+    except OSError:
+        return False
+    section = re.search(r"^## Failing tests\s*$(.*?)(?=^## |\Z)", text, re.M | re.S)
+    for line in (section.group(1) if section else "").splitlines():
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if line.startswith("|") and len(cells) >= 2 and not set(cells[0]) <= set("-: ") \
+                and cells[0] not in ("Package", "—", "-") and cells[1].lower() not in ("none", ""):
+            return True
+    return False
+
+
 def generate_ci(p, package=None):
     """One workflow for every package, or (`package`) one that runs only when that package or a shared one changes."""
     cfg = effective_config(p.config)
@@ -1702,12 +1750,15 @@ def generate_ci(p, package=None):
                 lines.append(pad + f"# TODO: add the toolchain setup for '{st}'")
         if not package:
             lines += [pad + x for x in workbench_checkout(p)]
+        waive = baselined_tests(p)
         for step in steps:
             label = step["step"] if step["scope"] == ROOT_SCOPE else f"{step['scope']} · {step['step']}"
             lines.append(pad + f"- name: {json.dumps(label, ensure_ascii=False)}")
             if step["cwd"] != ".":
                 lines.append(pad + f"  working-directory: {step['cwd']}")
-            lines += [pad + "  run: |", pad + "    " + step["run"]]
+            run = (BASELINE_TEST_STEP.format(cmd=step["run"]) if waive and step["step"] == "test"
+                   else step["run"]).splitlines()  # each line inside the run block
+            lines += [pad + "  run: |", *(pad + "    " + x if x else "" for x in run)]
     return "\n".join(lines) + "\n"
 
 
