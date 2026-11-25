@@ -4,6 +4,17 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ## Unreleased
 
+### Fixed
+- **Plan approval holds against a hand-edited track and a re-created feature** ([ADR 0031](docs/adr/0031-approval-policy.md)).
+  - Under a policy that covers some track, `state.py new` writes an `Approval floor:` line into the state file.
+  - `set Track` raises the floor at any stage, and at Define takes back an approval of the smaller plan. Only an approved downsize lowers it.
+  - The approval check takes the stricter of the floor and `Track:`, so editing `Track:` from M to S no longer skips the stop under `approval: ml`.
+  - A feature started before the policy has no floor and is judged by its track, as in 3.16.
+  - A feature deleted by hand and re-created under the same name no longer inherits the old approval.
+  - Any approval is used up when the feature leaves Define, so a feature sent back to Define needs a new one.
+- **A dialog Approve from a workbench's app repo counts.** In a session started in an app repo with its own `.sdlc`, the question is now recorded when the feature waits at the workbench.
+- **`scaffold.py approval`, `checks` and `guard` report what this session's scripts read** when the session covers `--root` (a nested repo included), and `--root`'s own config otherwise. Before, they always read `--root`'s own gate.
+
 ## 3.16.0 — 2026-11-24
 
 No migration: every new config key (`approval`, `guards`) keeps 3.15's behaviour when absent, a trust-anchor record from 3.15 stays valid, and `/sdlc:upgrade` regenerates the changed templates. A team turns the new checks on with `/sdlc:setup checks shared`.

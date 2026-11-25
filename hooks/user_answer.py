@@ -9,8 +9,9 @@ field the caller may fill. So:
   - PostToolUse (trust_anchor.py, review_rounds.py, on AskUserQuestion): `answered()` counts the call as the user's
     reply only when its id was recorded here, and only for the question whose header names that gate. Its answers
     then come from the dialog, since only the harness runs a tool and reports PostToolUse.
-Silent outside an active feature; any error: no output, which leaves the call allowed but unrecorded, so its answer
-lifts nothing.
+Silent outside an active feature (at the project root, or at the gate root its config is read from: the
+workbench of an app repo the session started in); any error: no output, which leaves the call allowed but
+unrecorded, so its answer lifts nothing.
 """
 import json
 import os
@@ -56,8 +57,12 @@ def main():
         return
     root = vf.project_root(data.get("cwd"))
     import sdlc_scopes  # noqa: PLC0415
-    if not root or sdlc_scopes.advisory_from(root) or not list(sdlc_layout.active(root)):  # setup asks too, before it ignores .sdlc/.work/
+    if not root or sdlc_scopes.advisory_from(root):
         return
+    gate = sdlc_scopes.gate_root(root) or root  # a workbench's app repo: its features wait at the workbench
+    if not list(sdlc_layout.active(root)) and not (os.path.realpath(gate) != os.path.realpath(root)
+                                                   and list(sdlc_layout.active(gate))):
+        return  # setup asks too, before it ignores .sdlc/.work/
     if (data.get("tool_input") or {}).get("answers"):
         print(json.dumps({"hookSpecificOutput": {
             "hookEventName": "PreToolUse", "permissionDecision": "deny",
@@ -66,10 +71,7 @@ def main():
     if not data.get("tool_use_id"):
         return
     ids = (load(root) + [data["tool_use_id"]])[-KEEP:]
-    path = os.path.join(root, STATE)
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(ids, f)
+    sdlc_scopes.write_record(root, STATE, ids)  # a fresh .sdlc/.work ignores itself (an app repo's included)
 
 
 if __name__ == "__main__":

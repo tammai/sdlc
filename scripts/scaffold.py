@@ -1024,13 +1024,32 @@ def cmd_mode(p, a):
     return {**gating_report(p), **out}
 
 
+def report_gate(p):
+    """The folder whose mode and skips this session's hooks read for --root: the session's gate when the session
+    covers --root, else gate_root from --root; None when the session covers --root but its hooks read no config
+    there (nothing but the defaults counts)."""
+    covered, session = session_gate(p)
+    if covered and not session:
+        return None
+    return session or sdlc_scopes.gate_root(p.root, session=False) or p.root
+
+
+def script_gate(p):
+    """The folder whose approval policy and guards are reported for --root: in a session that covers --root, what
+    state.py, verify.py and ship.py read (sdlc_scopes.gate_root from the session's folder, else --root itself);
+    otherwise --root's own gate, the folder a value given here is written to (as report_gate does for the mode)."""
+    covered, _ = session_gate(p)
+    if not covered:
+        return sdlc_scopes.gate_root(p.root, session=False) or p.root
+    return sdlc_scopes.gate_root(p.root) or p.root
+
+
 def gating_report(p):
     """What config asks (`mode`, `skip`) and what the hooks honour now (`effective`): a relaxation counts once the
     trust anchor has shown it and the user replied."""
-    covered, session = session_gate(p)
-    if covered and not session:  # the hooks read no mode here: nothing counts but full
+    gate = report_gate(p)
+    if gate is None:  # the hooks read no mode here: nothing counts but full
         return {"mode": "full", "skip": [], "effective": {"mode": "full", "skip": []}}
-    gate = session or sdlc_scopes.gate_root(p.root, session=False) or p.root  # what the hooks read
     mode, skip = sdlc_scopes.configured(gate)
     honoured = sdlc_scopes.effective(gate)
     out = {"mode": mode, "skip": skip, "effective": {"mode": honoured[0], "skip": honoured[1]}}
@@ -1049,7 +1068,7 @@ def cmd_approval(p, a):
         p.config = p.config or {}
         p.config["approval"] = a.value
         p.save()
-    gate = sdlc_scopes.gate_root(p.root, session=False) or p.root
+    gate = script_gate(p)
     return {"approval": sdlc_scopes.approval_configured(gate), "effective": sdlc_scopes.approval(gate)}
 
 
@@ -1070,7 +1089,7 @@ def cmd_checks(p, a):
         p.config["approval"] = max(now, "ml", key=order.index)
         p.config["guards"] = {k: True for k in sdlc_scopes.GUARDS}
     p.save()
-    gate = sdlc_scopes.gate_root(p.root, session=False) or p.root
+    gate = script_gate(p)
     show = lambda keys: [sdlc_scopes.guard_name(k) for k in keys]  # noqa: E731
     return {"checks": a.name, "approval": sdlc_scopes.approval_configured(gate),
             "guards": show(sdlc_scopes.guards_configured(gate)),
@@ -1096,7 +1115,7 @@ def cmd_guard(p, a):
         else:
             p.config.pop("guards", None)
         p.save()
-    gate = sdlc_scopes.gate_root(p.root, session=False) or p.root
+    gate = script_gate(p)
     show = lambda keys: [sdlc_scopes.guard_name(k) for k in keys]  # noqa: E731
     return {"guards": show(sdlc_scopes.guards_configured(gate)), "effective": show(sdlc_scopes.guards(gate))}
 

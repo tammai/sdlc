@@ -73,6 +73,7 @@ Status: active
 Process: 3
 Change: <change>   (this feature's record for people)
 Track: M | L   (sized up because: <named signal, or "—">; footprint: <n> files)
+Approval floor: M | L   (only under config `approval`; `set Track` raises it, only an approved downsize lowers it)
 Risk: low | high   (<signal: auth, payments, secrets, PII, migration, public API>)
 Top model: opus   (fable only if the user chose it)
 Commands: test: `<commands.test>`   (monorepo: one per package)
