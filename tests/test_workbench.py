@@ -423,10 +423,29 @@ CHECK = "import os, sys; sys.exit(1 if os.path.exists('broken') else 0)\n"
 
 class WorkbenchFeatureCase(WorkbenchTestCase):
     """A workbench on branch feat-x with a feature `feat`; api/ and web/ are writable app repos on main, specs/ a
-    read-only repo."""
+    read-only repo.
+
+    The tree (four git repos, five commits and a `state.py new`) is built once per class and copied into each
+    test's own folder: building it per test was most of this file's run time."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        import tempfile
+        cls._template = os.path.realpath(tempfile.mkdtemp(prefix="sdlc-wb-template-"))
+        cls.addClassCleanup(rmtree, cls._template)
+        builder = cls("__init__")  # an instance only for its helpers, pointed at the template
+        builder.root = cls._template
+        builder._build_feature_tree()
 
     def setUp(self):
-        super().setUp()
+        ProjectTestCase.setUp(self)  # the template already holds WorkbenchTestCase's repo and config
+        import shutil
+        shutil.copytree(self._template, self.root, symlinks=True, dirs_exist_ok=True)
+
+    def _build_feature_tree(self):
+        git(self.root, "init", "-q")
+        self.write_json(".sdlc/config.json", {"workbench": True})
         self.write_json("workbench.json", {"repos": [
             {"name": "api", "url": "u1", "role": "app", "write": True},
             {"name": "web", "url": "u2", "role": "app", "write": True},
@@ -448,7 +467,8 @@ class WorkbenchFeatureCase(WorkbenchTestCase):
             git(d, "add", "-A")
             git(d, "commit", "-q", "-m", "init")
         code, out = self.state("new", "feat", "--track", "M", "--risk", "low", "--task", "x | AC-001 | api/a.py")
-        self.assertEqual(code, 0, out)
+        if code != 0:
+            raise RuntimeError("state.py new failed: " + out)
 
     def state(self, *args):
         import subprocess
