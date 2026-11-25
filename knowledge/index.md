@@ -18,6 +18,7 @@ One line per doc: path — what it answers (≤12 words). Keep this file under ~
 - [gotchas/crlf-checkout.md](gotchas/crlf-checkout.md) — exact-match edits fail on Windows checkouts with CRLF
 - [gotchas/windows-stdout-encoding.md](gotchas/windows-stdout-encoding.md) — why scripts crash printing non-ASCII on Windows; write UTF-8
 - [gotchas/windows-bash-is-wsl.md](gotchas/windows-bash-is-wsl.md) — why a bare "bash" subprocess runs WSL on Windows
+- [gotchas/windows-refused-loopback-waits-2s.md](gotchas/windows-refused-loopback-waits-2s.md) — a closed local port takes 2 s to refuse on Windows; probe briefly
 - [gotchas/windows-file-writes.md](gotchas/windows-file-writes.md) — os.access ignores ACLs, atomic replace drops owner/ACL/links, OS locks don't cross WSL
 - [gotchas/hook-inputs.md](gotchas/hook-inputs.md) — failed Bash is PostToolUseFailure; agent_type; CLAUDE_PROJECT_DIR isn't the repo
 - [gotchas/stop-review-session-state.md](gotchas/stop-review-session-state.md) — touched_paths clears every Stop (use turn_touched); only the first repo's baseline moves; testing Stop with a fake API
