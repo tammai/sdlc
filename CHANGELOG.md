@@ -6,6 +6,13 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 No migration: `/sdlc:upgrade` regenerates an unedited `sdlc-verify.yml` and `.sdlc/ci/invariants.py`, which a brownfield repo needs for the CI baseline waiver. Keep the two together: a regenerated workflow with an edited, older `invariants.py` fails a red run with an `unrecognized arguments: --baseline-tests` error.
 
+Checked on 2026-11-25 at commit cacfad8, on Windows 11:
+- **Tests:** the full suite (949 tests, 9 skipped, Python 3.10, `tests/run_parallel.py`), `claude plugin validate .` and `hosts.py check`.
+- **Smoke test, partial:** run in real headless sessions loading the checkout with `--plugin-dir`. A+B, G and K passed every item, including the new G5 (the brownfield CI baseline waiver: passes with only the baselined test failing, fails naming a new one) and K5 (a plan approved from a session inside a workbench's app repo counts at the workbench).
+- **Not run:** C, E and H (greenfield setup, the feature flow, upgrade and eject), skipped at the maintainer's call. That leaves this release's approval-floor and guarded-change changes covered by the test suite only.
+- **Out of scope:** D and F, since the release doesn't touch the guardrails or the security hooks.
+- **Partly exercised:** G2's audit step (setup skipped the audit for the tiny sample repo). Dialogs were answered as typed replies, as headless sessions have no question tool, so K5 checked a typed approval, not the dialog this release fixed.
+
 ### Changed
 - **A brownfield repo's CI passes when only baselined tests fail.** When `sdlc-verify.yml` is generated while `.sdlc/baseline.md` lists a failing test, its test step tees its output. A red run is handed to `.sdlc/ci/invariants.py --baseline-tests`, which passes it only when every failing test the runner names is listed. It matches names by the same rule as `ship.py --waive-baseline`. Before, every PR was red from the start (3.15.0 known issue).
 - **Guarded changes see more** ([ADR 0032](docs/adr/0032-opt-in-guards.md)), with `guards.dependencies` or `guards.lint_config` on.
