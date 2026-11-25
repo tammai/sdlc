@@ -21,13 +21,16 @@ S is the most common track and usually gets no review. Since #56 P3, the red ste
    A trust-anchor record without `guards` stays valid.
 3. **`guards.dependencies` and `guards.lint_config`** (#92 part 3, `.sdlc/2026-11-24-m-gh-92-guarded-changes/change.md`).
    - **What fails.** `verify.py`'s full run fails on each guarded change since the feature's Base that the user hasn't allowed:
-     - a dependency name new in a known manifest (`package.json`, `composer.json`, `pyproject.toml`, `Cargo.toml`, `pubspec.yaml`, `go.mod`, `Gemfile`, `requirements*.txt`);
+     - a dependency name new in a known manifest (`package.json`, `composer.json`, `pyproject.toml`, `Cargo.toml`, `pubspec.yaml`, `go.mod`, `Gemfile`, a requirements `.txt` or `.in`), against an empty list when the Base manifest can't be read;
+     - since 3.17, a changed dependency source: requirements option lines, package.json `overrides`, `resolutions` and `pnpm.overrides`, go.mod `replace`, Cargo `[patch.*]` and `[replace]`, or `.npmrc`, `.yarnrc*` and `pip.conf`/`pip.ini`, one item per file;
      - any change to a known lint or type config file, or to its lint sections in `pyproject.toml`, `setup.cfg` or `tox.ini`;
      - a suppression comment (`@ts-ignore`, `eslint-disable`, `# type: ignore`, `# noqa`, …) whose count in a source file grew.
-   - **What doesn't.** A version bump, or a removed or moved suppression.
+   - **What doesn't.** A version bump, or a removed or moved suppression. A file moved with `mv` before it's staged is compared with its old self.
    - **The lists are the plugin's**, never the repo's config. TOML, YAML and `go.mod` are read by a name rule that over-flags rather than misses, since there's no `tomllib` before Python 3.11.
    - **Why verify is the gate.** It runs before every part's commit, Review and Ship, and sees every route: file tools, a package manager in the shell, other hosts. The edit itself isn't prevented, only kept from being built on, reviewed or shipped.
    - **How the user allows an item.** `hooks/guarded_changes.py` records the answer `Allow` to a question headed `Allow change` that names the item's label (or a typed `allow`, which allows every item the last verify listed).
+     - A question that excludes something (`except`, `but not`, …) allows nothing.
+     - When two active features wait on the same label, only a question naming the feature allows it.
    - **Item ids carry content**: the name, the file's hash, the suppression's count. A later change asks again.
    - **Allowed items are logged.** `ship.py` writes them into the Gate log.
    - **An allowed dependency makes Review run the stack's dependency audit** (instructed).

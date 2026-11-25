@@ -561,14 +561,14 @@ def guarded_failures(root, feature):
     guards = [g for g in sdlc_scopes.guards(sdlc_scopes.gate_root(root) or root) if g in ("dependencies", "lint_config")]
     if not guards:
         return []
-    text = read(os.path.join(root, sdlc_layout.paths(root, feature)["state"])) or ""
-    m = re.search(r"^Base:\s*`?([0-9a-f]{4,40})`?\s*$", text, re.M)  # a commit, and nothing git could read as an option
     import guarded_changes  # noqa: PLC0415  (sibling hook: the items and the user's allow)
-    repos = branched_repos(root, feature)
-    if not m and not repos:
-        return [P.problem("guarded_not_checked", "guarded changes not checked: the state file has no Base: commit",
-                          target="Base")]
     try:
+        text = read(os.path.join(root, sdlc_layout.paths(root, feature)["state"])) or ""
+        m = re.search(r"^Base:\s*`?([0-9a-f]{4,40})`?\s*$", text, re.M)  # a commit, nothing git reads as an option
+        repos = branched_repos(root, feature)
+        if not m and not repos:
+            return [P.problem("guarded_not_checked", "guarded changes not checked: the state file has no Base: commit",
+                              target="Base")]
         left = guarded_changes.unallowed(root, m.group(1) if m else None, guards, feature, repos)
     except Exception as e:  # git failing, or anything unexpected: fail closed, never a traceback
         return [P.problem("guarded_not_checked", f"guarded changes not checked: {e}", target="Base")]
