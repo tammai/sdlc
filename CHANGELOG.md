@@ -23,6 +23,11 @@ No migration: `/sdlc:upgrade` regenerates an unedited `sdlc-verify.yml` and `.sd
   - Any approval is used up when the feature leaves Define, so a feature sent back to Define needs a new one.
 - **A dialog Approve from a workbench's app repo counts.** In a session started in an app repo with its own `.sdlc`, the question is now recorded when the feature waits at the workbench.
 - **`scaffold.py approval`, `checks` and `guard` report what this session's scripts read** when the session covers `--root` (a nested repo included), and `--root`'s own config otherwise. Before, they always read `--root`'s own gate.
+- **UI evidence** (`guards.ui_evidence`):
+  - In a workbench, an app repo's own `areas.ui` now counts for its files, beside the workbench's.
+  - A git failure inside the check reports `ui_evidence_not_checked` instead of `git_failed`.
+  - ADR 0032 now says a deleted UI file counts as a UI change.
+- **Setup asks the monorepo's profile and the solo or shared checks as two questions**, inferring neither from the other. A small team is `lean` and shared.
 - **Guarded changes:**
   - A file moved with `mv`, not yet staged, no longer has its suppressions flagged again.
   - A Base manifest that can't be read flags each dependency by name instead of one "unreadable" item.
