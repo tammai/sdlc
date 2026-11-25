@@ -78,7 +78,7 @@ def now():
 
 
 def project_root(cwd):
-    root = os.environ.get("CLAUDE_PROJECT_DIR") or cwd or os.getcwd()
+    root = sdlc_scopes.session_project(cwd) or cwd or os.getcwd()
     d = os.path.abspath(root)
     while True:
         if os.path.isdir(os.path.join(d, ".sdlc")):

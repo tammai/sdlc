@@ -190,14 +190,58 @@ ANCHOR = ".sdlc/.work/trust-anchor.json"  # the trust anchor's record; its `_con
 CONFIG_KEY = "_config"
 
 
+def session_project(cwd=None):
+    """The session's project folder for a call made in `cwd`: CLAUDE_PROJECT_DIR, except when `cwd` is inside it in a
+    linked worktree of the project's own repo (`git worktree add`, Claude Code's .claude/worktrees/), which is then the
+    project: the main checkout's features and config don't gate a call there. Only a worktree git registered counts
+    (its admin folder under the project's .git/worktrees/ names this checkout), so a hand-made .git file doesn't. A
+    separate repo inside the project (a workbench's app repo, a nested repo) keeps the project. None when unset."""
+    import os
+    project = os.environ.get("CLAUDE_PROJECT_DIR") or None
+    if not project or not isinstance(cwd, str) or not cwd:
+        return project
+    try:
+        top = os.path.normcase(os.path.realpath(project))
+        d = os.path.realpath(cwd if os.path.isdir(cwd) else os.path.dirname(cwd))
+        while os.path.normcase(d).startswith(top.rstrip(os.sep) + os.sep):
+            dot = os.path.join(d, ".git")
+            if os.path.isdir(dot):
+                return project  # a repo of its own
+            if os.path.isfile(dot):
+                return d if _registered_worktree(project, d) else project
+            d = os.path.dirname(d)
+    except (OSError, ValueError):
+        pass
+    return project
+
+
+def _registered_worktree(project, checkout):
+    """True when `checkout` is a linked worktree of the repo at `project`: its .git file names
+    <project>/.git/worktrees/<name>, whose gitdir file names `checkout`/.git back."""
+    import os
+
+    def first_line(path):
+        with open(path, encoding="utf-8", errors="replace") as f:
+            return f.readline().strip()
+    line = first_line(os.path.join(checkout, ".git"))
+    if not line.startswith("gitdir:"):
+        return False
+    admin = os.path.realpath(os.path.join(checkout, line[len("gitdir:"):].strip()))
+    worktrees = os.path.realpath(os.path.join(project, ".git", "worktrees"))
+    if os.path.normcase(os.path.dirname(admin)) != os.path.normcase(worktrees):
+        return False
+    back = os.path.realpath(os.path.join(admin, first_line(os.path.join(admin, "gitdir"))))
+    return os.path.normcase(back) == os.path.normcase(os.path.realpath(os.path.join(checkout, ".git")))
+
+
 def gate_root(path, session=True):
     """The folder whose config sets the mode and skips for a call at `path`, the same for every reader and the trust
-    anchor: from the session's project folder (CLAUDE_PROJECT_DIR) when set, else `path`, the outermost folder
+    anchor: from the session's project folder (session_project) when set, else `path`, the outermost folder
     holding `.sdlc` up to its git top level (a nested `.sdlc` inside the repo can't redirect it), else the nearest one
     up; for an app repo of a workbench, the workbench. None when no folder up holds `.sdlc`: nothing is read or
     written then."""
     import os
-    start = os.path.abspath((os.environ.get("CLAUDE_PROJECT_DIR") if session else None) or path or os.getcwd())
+    start = os.path.abspath((session_project(path or os.getcwd()) if session else None) or path or os.getcwd())
     d = start if os.path.isdir(start) else os.path.dirname(start)
     held = []
     probe = d
