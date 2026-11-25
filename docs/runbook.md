@@ -58,7 +58,7 @@ The test suite runs hooks and scripts as subprocesses; this checks the installed
 | Part | Runs when the release touches |
 |---|---|
 | C greenfield setup | `skills/setting-up-projects/`, `scripts/scaffold.py`, `scripts/context_diet.py`, `templates/`, `commands/setup.md`, `commands/context-diet.md` |
-| D guardrails | `hooks/pretooluse.py`, `hooks/userpromptsubmit.py`, `skills/hookify/`, `core/`, `matchers/`, `utils/`, hookify templates in `templates/` |
+| D guardrails | `hooks/pretooluse.py`, `hooks/userpromptsubmit.py`, `skills/hookify/`, `core/`, hookify templates in `templates/` |
 | E feature flow | `skills/orchestrator/`, `commands/start.md`, `scripts/state.py`, `verify.py`, `brief.py`, `ship.py`, `review_report.py`, `diff_stats.py`, `backlog.py`, any hook not named in D or F, `agents/` |
 | F security hooks | `hooks/security_reminder_hook.py`, `hooks/review_api.py`, `hooks/llm.py`, `hooks/ensure_agent_sdk.py`, `hooks/sdlc_review_gate.py` |
 | G brownfield setup | what C covers, and the baseline in `scripts/verify.py` |

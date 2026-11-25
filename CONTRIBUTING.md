@@ -42,7 +42,6 @@ sdlc/
 │   ├── globmatch.py         committed globs (security areas, rule paths) matched in bounded time (original)
 │   └── sdlc_review_gate.py  while a feature is active: one commit security review per review-ready diff, skipped unless security-touched (original)
 ├── core/                    hookify rule loader and engine (vendored, patched; see NOTICE.md)
-├── matchers/, utils/        empty hookify packages (vendored)
 ├── knowledge/               this repo's own knowledge, same 3-tier spec as projects (sdlc:managing-knowledge)
 ├── scripts/
 │   ├── scaffold.py          setup/upgrade/eject bookkeeping: lock, file classes, commands, CI generator
