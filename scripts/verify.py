@@ -932,8 +932,32 @@ class Build:
             self.proc.kill()
 
 
+def nothing_listens_here(url):
+    """True when `url` names this machine and no address of it accepts on its port. Windows retries a refused
+    loopback connection for about 2 s (twice for localhost: ::1, then 127.0.0.1), so a short connect timeout
+    answers instead; a local port that something listens on accepts at once. Other hosts: False, so the HTTP
+    request decides."""
+    import socket
+    import urllib.parse
+    try:
+        parts = urllib.parse.urlsplit(url)
+        host, port = parts.hostname or "", parts.port or (443 if parts.scheme == "https" else 80)
+        if host not in ("localhost", "::1") and not host.startswith("127."):
+            return False
+        for family, kind, proto, _, addr in socket.getaddrinfo(host, port, type=socket.SOCK_STREAM):
+            with socket.socket(family, kind, proto) as s:
+                s.settimeout(0.5)
+                if s.connect_ex(addr) == 0:
+                    return False
+        return True
+    except (OSError, ValueError):  # a bad port or a name that doesn't resolve: the HTTP request says
+        return False
+
+
 def answers(url):
     """Any HTTP answer from `url`, an error status included."""
+    if nothing_listens_here(url):
+        return False
     try:
         urllib.request.build_opener(urllib.request.ProxyHandler({})).open(url, timeout=2).close()
         return True

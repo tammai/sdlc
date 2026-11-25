@@ -15,6 +15,7 @@ No migration: `/sdlc:upgrade` regenerates an unedited `sdlc-verify.yml` and `.sd
 - **The plugin's own test suite runs in parallel** (maintainers only, nothing changes in projects). `tests/run_parallel.py` runs the same tests as `unittest discover` on every core, one job per test class, with a private temp, plugin-data and security-state folder per worker: 953 tests in about 100 s on a 16-core Windows machine, against about 12 minutes one at a time. CI and the runbook use it.
 
 ### Fixed
+- **`verify.py` no longer waits 2 s on Windows each time it checks a local build that isn't up.** Windows retries a refused loopback connection for about 2 s (4 s for `localhost`), which a run with `accept.start` paid before starting the build and again on every poll while it came up. A short connect to the local port now answers first; other hosts are asked as before.
 - **Plan approval holds against a hand-edited track and a re-created feature** ([ADR 0031](docs/adr/0031-approval-policy.md)).
   - Under a policy that covers some track, `state.py new` writes an `Approval floor:` line into the state file.
   - `set Track` raises the floor at any stage, and at Define takes back an approval of the smaller plan. Only an approved downsize lowers it.

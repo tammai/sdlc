@@ -18,7 +18,7 @@ import unittest
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 TESTS = os.path.dirname(os.path.abspath(__file__))
-CHUNK = 6  # tests per job; no class uses setUpClass, so a class can be split freely
+CHUNK = 6  # tests per job; a class split into jobs runs its setUpClass once per job, which stays correct
 
 
 def _ids(suite):
