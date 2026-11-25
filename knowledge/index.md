@@ -41,6 +41,7 @@ One line per doc: path — what it answers (≤12 words). Keep this file under ~
 - [gotchas/rebased-changelog-lands-in-a-released-section.md](gotchas/rebased-changelog-lands-in-a-released-section.md) — a rebase can move an Unreleased note under a released version
 - [gotchas/review-budget-kills-the-suite-here.md](gotchas/review-budget-kills-the-suite-here.md) — in Review the full suite dies at 120 s here; run it in Build or Ship
 - [gotchas/reviewers-are-read-only.md](gotchas/reviewers-are-read-only.md) — a fact a review needs from a script goes in its prompt
+- [gotchas/text-guards-dont-converge.md](gotchas/text-guards-dont-converge.md) — a command-text guard on an agent-writable record never converges; cut scope
 
 ## Runbooks
 - [../docs/runbook.md](../docs/runbook.md) — maintainer procedures: releases, smoke test, phase rules, scaffold internals

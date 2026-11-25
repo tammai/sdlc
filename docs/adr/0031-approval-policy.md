@@ -26,10 +26,16 @@ By default only a high-risk M stops for the plan. A low-risk M builds straight a
 
    A record from before 3.16 has no `approval` field and stays valid.
 5. **An approval covers the plan the user saw.** The move to Build uses it up, so a feature sent back to Define needs a new one, and resizing a feature at Define to a track the policy doesn't cover is refused until the plan is approved.
+   - Since 3.17, `state.py new` writes an `Approval floor:` line into the state file under a policy that covers some track.
+   - `set Track` raises the floor at any stage, taking back the approval at Define. `set` can't name the floor itself, so only an approved downsize lowers it.
+   - The check takes the stricter of the floor and `Track:`, so an edit of the `Track:` line alone can't lower it.
+   - A feature started before the policy has no floor and is judged by its track.
+   - `new` clears any approval left under the feature's key by a feature deleted by hand.
+   - Leaving Define uses up any approval, needed or not, so a feature sent back to Define needs a new one.
 6. **Autopilot never self-approves.** No one can answer in an `--autopilot` session, so it blocks the part instead.
 
 ## Consequences
 
 - A team turns on real plan review with one config key. Solo repos see no change.
-- The approval record is agent-writable like the other `.sdlc/.work` stores. It is a notice-level protection, stated in `docs/wiki/Limitations.md`.
+- The approval record is agent-writable like the other `.sdlc/.work` stores. It is a notice-level protection, stated in `docs/wiki/Limitations.md`. A guard on the file tools and shell commands that write it was tried in 3.17 and dropped: each review round found another spelling past it (a glob through a link, a dangling symlink, PowerShell's dot-matching wildcards).
 - Headless Cursor sends no prompt event, so a typed approval can't arrive there. Under `ml` or `always`, a headless Cursor run stops at the refusal.

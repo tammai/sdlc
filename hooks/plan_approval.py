@@ -9,7 +9,9 @@ Two signals count, both the user's own:
   - UserPromptSubmit: a prompt that is exactly `approve` (the only feature waiting) or `approve <feature>`, for hosts
     without the dialog. Any other prompt approves nothing (a resumed session's first prompt or autopilot's is a prompt
     too) and takes back the waiting features' approvals: it may ask for a change to the plan.
-The record is .sdlc/.work/approvals.json. Prints nothing; any error leaves nothing recorded.
+The record is .sdlc/.work/approvals.json, agent-writable like the other .sdlc/.work records (a notice-level
+protection, docs/wiki/Limitations.md). The track a plan is approved at lives in the state file (`Approval floor:`,
+state.py). Prints nothing; any error leaves nothing recorded.
 """
 import json
 import os
@@ -48,10 +50,38 @@ def approved(root, feature):
 
 
 def forget(root, feature):
-    """Drop `feature`'s approval: the plan it covered changed, or the move to Build used it."""
+    """Drop `feature`'s approval: the plan it covered changed, or the move to Build used it. No write when there is
+    none (every prompt calls it for each waiting feature). False when there was one and it couldn't be dropped."""
     data = load(root)
     if data.pop(feature, None) is not None:
-        sdlc_scopes.write_record(root, STORE, data)
+        return sdlc_scopes.write_record(root, STORE, data)
+    return True
+
+
+def _read(root):
+    """The store's entries; None when there is no store; raises when one is there but can't be read as an object."""
+    path = sdlc_scopes._inside(root, STORE)
+    if not os.path.lexists(path):
+        return None
+    with sdlc_scopes.open_regular(path) as f:
+        data = json.load(f)
+    if not isinstance(data, dict):
+        raise ValueError(f"{STORE} isn't a JSON object")
+    return data
+
+
+def started(root, feature):
+    """`state.py new` created `feature`: an approval left under its name by a feature deleted by hand never carries
+    over, whatever the policy (this hook records approvals under any). False when that can't be made sure: a store
+    there that can't be read (left as it is: it holds other features' approvals) or written."""
+    try:
+        data = _read(root)
+    except Exception:
+        return False
+    if data is None or feature not in data:
+        return True
+    data.pop(feature)
+    return sdlc_scopes.write_record(root, STORE, data)
 
 
 def waiting(root):

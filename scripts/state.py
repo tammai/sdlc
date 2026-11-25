@@ -332,16 +332,49 @@ def approval_policy(root):
     return "high-risk" if sdlc_scopes.advisory(gate) else sdlc_scopes.approval(gate)
 
 
+TRACKS = ("S", "M", "L")
+FLOOR = "Approval floor"  # ADR 0031: the smallest track plan approval treats a feature as; `new` writes it, `set Track`
+                          # raises it at any stage, only an approved downsize lowers it (it isn't in FIELDS), so a hand
+                          # edit of `Track:` can't skip the stop
+
+
+def approval_floor(text):
+    m = re.search(rf"^{FLOOR}:\s*(\S+)", text, re.M)
+    return m.group(1).upper() if m and m.group(1).upper() in TRACKS else None
+
+
+def with_floor(text, track):
+    """The state text with its approval floor raised to `track` (added after `Track:` when missing); never lowered."""
+    now = approval_floor(text)
+    if track not in TRACKS or now and TRACKS.index(track) <= TRACKS.index(now):
+        return text
+    return set_floor(text, track)
+
+
+def set_floor(text, track):
+    """The state text with its approval floor set to `track`, up or down (an approved downsize)."""
+    line = f"{FLOOR}: {track}   (plan approval treats this feature as at least this track; set Track raises it)"
+    if re.search(rf"^{FLOOR}:", text, re.M):
+        return re.sub(rf"^{FLOOR}:.*$", lambda _: line, text, count=1, flags=re.M)
+    return re.sub(r"^(Track:.*)$", lambda m: f"{m.group(1)}\n{line}", text, count=1, flags=re.M)
+
+
+def approval_store(root):
+    """Where plan_approval.py records the user's approvals for features at root."""
+    import sdlc_scopes  # noqa: PLC0415
+    return sdlc_scopes.gate_root(root) or root
+
+
 def plan_approval_by(root, feature, text):
     """How the user approved this feature's plan, when config's `approval` needs it; None when it doesn't. Refused
-    when it needs one and none is recorded."""
+    when it needs one and none is recorded. The track it is judged at is the stricter of `Track:` and the floor."""
     import plan_approval  # noqa: PLC0415  (sibling hook: the user's recorded approval)
     import sdlc_scopes  # noqa: PLC0415
     policy = approval_policy(root)
-    track = (re.search(r"^Track:\s*(\S+)", text, re.M) or [None, ""])[1]
-    if not sdlc_scopes.needs_approval(policy, track):
+    track = (re.search(r"^Track:\s*(\S+)", text, re.M) or [None, ""])[1].upper()
+    if not (sdlc_scopes.needs_approval(policy, track) or sdlc_scopes.needs_approval(policy, approval_floor(text))):
         return None
-    by = plan_approval.approved(sdlc_scopes.gate_root(root) or root, feature)  # where the hook records it
+    by = plan_approval.approved(approval_store(root), feature)
     if by:
         return by
     raise Refused(f"plan approval needed (config approval: {policy}): show the plan, then ask the user with "
@@ -366,7 +399,9 @@ def apply(a, text, backlog_raw):
             if by:
                 a.note = f"{a.note}; " if a.note else ""
                 a.note += f"plan approved by the user ({by})"
-                spent = a.feature  # run() drops it once the move is written: back at Define, it needs approving again
+            # Any approval is spent on leaving Define, needed or not (one kept by an approved downsize included): run()
+            # drops it once the move is written, so back at Define the plan needs approving again
+            spent = a.feature
         if a.verified:  # a phase's end records its passing verify in the same call
             text = set_line(text, "Verified", f"{a.verified[0]} tree {a.verified[1]}")
         if a.gate:
@@ -539,17 +574,29 @@ def apply(a, text, backlog_raw):
     if a.cmd == "set":
         if a.field not in FIELDS:
             raise Refused(f"set takes one of: {', '.join(FIELDS)}")
-        if a.field == "Track" and stage == 1:  # ADR 0031: resizing at Define can't step around the plan stop
+        forget = None
+        if a.field == "Track":  # ADR 0031: resizing can't step around the plan stop, at Define or after
             import sdlc_scopes  # noqa: PLC0415
             policy = approval_policy(a.root)
-            old = (re.search(r"^Track:\s*(\S+)", text, re.M) or [None, ""])[1]
-            if sdlc_scopes.needs_approval(policy, old) and not sdlc_scopes.needs_approval(policy, a.value.split()[0]
-                                                                                       if a.value.split() else ""):
+            old = (re.search(r"^Track:\s*(\S+)", text, re.M) or [None, ""])[1].upper()
+            new_track = a.value.split()[0].upper() if a.value.split() else ""  # `m` is M, as the hooks read it
+            floor = approval_floor(text)
+            judged = max((t for t in (old, floor) if t in TRACKS), key=TRACKS.index, default=old)
+            if (stage == 1 and sdlc_scopes.needs_approval(policy, judged)
+                    and not sdlc_scopes.needs_approval(policy, new_track)):
                 plan_approval_by(a.root, a.feature, text)  # refuses until the user approved the plan as it stands
+                if floor and new_track in TRACKS:
+                    text = set_floor(text, new_track)  # the approved downsize: the plan the user saw is the new size
+            elif new_track in TRACKS:
+                if policy != "high-risk":  # no floor yet: the track as it stood
+                    text = with_floor(with_floor(text, floor or old), new_track)
+                if stage == 1 and judged in TRACKS and TRACKS.index(new_track) > TRACKS.index(judged):
+                    forget = a.feature  # a bigger plan than any approval recorded (under any policy) covered
         text = set_slice_gates(text, a.value) if a.field == "Slice gates" else set_line(text, a.field, a.value)
         if a.field == "Status" and a.value == "done":
             return text, None, {"type": "feature_done"}
-        return text, None, {"type": "field_set", "field": a.field, "value": a.value}
+        return text, None, {"type": "field_set", "field": a.field, "value": a.value,
+                            **({"_forget": forget} if forget else {})}
     return text, None, None  # sync
 
 
@@ -781,6 +828,14 @@ def create(a):
     if a.feature in sdlc_layout.features(a.root):
         raise Refused(f"{a.feature} already has a state file: pick another name (add -2) or resume it")
     rel, text = new_state(a)
+    import plan_approval  # noqa: PLC0415  (ADR 0031: no approval from a namesake, under any policy)
+    store, policy = approval_store(a.root), approval_policy(a.root)
+    if not plan_approval.started(store, a.feature) and policy != "high-risk":  # the default never reads it
+        raise Refused(f"couldn't clear an earlier approval under the name {a.feature} in "
+                      f"{os.path.join(store, plan_approval.STORE)}: it (or the folder holding it) can't be read or "
+                      "written. Fix or remove it, then run new again")
+    if policy != "high-risk":  # the track plan approval treats it as, at least
+        text = with_floor(text, a.track)
     path = os.path.join(a.root, rel)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     write_atomic(path, text)
@@ -860,7 +915,10 @@ def run(a):
     if effects.get("_forget"):  # the approval the move used, only once the move is written
         import plan_approval  # noqa: PLC0415
         import sdlc_scopes  # noqa: PLC0415
-        plan_approval.forget(sdlc_scopes.gate_root(a.root) or a.root, effects["_forget"])
+        if not plan_approval.forget(approval_store(a.root), effects["_forget"]):
+            raise Refused(f"state written, but {effects['_forget']}'s plan approval couldn't be taken back in "
+                          f"{os.path.join(approval_store(a.root), plan_approval.STORE)} (it can't be written): remove "
+                          "that entry before the feature is back at Define, or an old approval would pass a new plan")
     try:  # answered questions' files, after the state that resolves them; one left behind is filed next time
         for src, dst in effects.get("_move", []):
             if os.path.exists(os.path.join(a.root, src)):

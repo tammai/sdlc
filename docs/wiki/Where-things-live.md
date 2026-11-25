@@ -42,6 +42,7 @@ Status: active
 Process: 3
 Change: <change>   (this feature's record for people)
 Track: S | M | L   (sized up because: <named signal, or "—">; footprint: <n> files)
+Approval floor: S | M | L   (only under config `approval` ml or always: the smallest track plan approval treats it as)
 Risk: low | high   (<signal: auth, payments, secrets, PII, migration, public API>)
 Top model: opus   (fable only if you chose it)
 Commands: test: `<test command>`   (monorepo: one per package; no setup: the detected command)
@@ -94,7 +95,7 @@ Put in tier 1 only what nearly every task needs. **Learn** (before the final com
 | Living spec, if on | `docs/sdlc/capabilities/<name>.md` (old layout: `.sdlc/capabilities/`), written by Ship |
 | Domain model, if on | `docs/sdlc/objects.md` (old layout: `.sdlc/objects.md`) |
 | Work folder (committed) | `.sdlc/state/<feature>/`: `backlog.md`, `plan-B<n>.md`, `qa-report.md`, `release.md` (only if you ask) |
-| Scratch (git-ignored) | `.sdlc/.work/`: `verify.json`, `verify-freshness.json`, `trust-anchor.json` (its `_config` entry: the mode, skips, approval policy and guards you accepted), `asked.json` (question dialogs the hooks may count as your answer), `approvals.json` (plans you approved), `guarded.json` (guarded changes waiting and the ones you allowed, per feature), `review-rounds.json` (per feature: round reached, rounds your answers allow, the cap's ceiling), `stuck-turn.json`, `dispatches.jsonl`, `findings/<feature>/` (review reports) |
+| Scratch (git-ignored) | `.sdlc/.work/`: `verify.json`, `verify-freshness.json`, `trust-anchor.json` (its `_config` entry: the mode, skips, approval policy and guards you accepted), `asked.json` (question dialogs the hooks may count as your answer), `approvals.json` (plans you approved, by feature name; the track an approval covers is the state file's `Approval floor:`), `guarded.json` (guarded changes waiting and the ones you allowed, per feature), `review-rounds.json` (per feature: round reached, rounds your answers allow, the cap's ceiling), `stuck-turn.json`, `dispatches.jsonl`, `findings/<feature>/` (review reports) |
 | Ralph loop state | `.claude/ralph-loop.local.md` |
 | Personal hookify rules | `.claude/hookify.<name>.local.md` (git-ignored) |
 | Team hookify rules | `.claude/hookify/<name>.md` (committed) |
