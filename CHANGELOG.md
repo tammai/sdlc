@@ -2,7 +2,7 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
-## Unreleased
+## 3.17.0 — 2026-11-25
 
 No migration: `/sdlc:upgrade` regenerates an unedited `sdlc-verify.yml` and `.sdlc/ci/invariants.py`, which a brownfield repo needs for the CI baseline waiver. Keep the two together: a regenerated workflow with an edited, older `invariants.py` fails a red run with an `unrecognized arguments: --baseline-tests` error.
 
@@ -12,7 +12,7 @@ No migration: `/sdlc:upgrade` regenerates an unedited `sdlc-verify.yml` and `.sd
   - A changed dependency source is an item: an index URL or `-e` line in a requirements file, package.json's `overrides`, `resolutions` and `pnpm.overrides`, go.mod's `replace`, Cargo's `[patch.*]` and `[replace]`, and `.npmrc`, `.yarnrc*`, `pip.conf` and `pip.ini`.
   - More suppressions count: `# ruff: noqa`, `# flake8: noqa`, `# mypy: ignore-errors`, pyright file-level settings, `/* eslint <rule>: … */`, `oxlint-disable` and `deno-lint-ignore`.
   - `dev-requirements.txt`, `requirements.in` and an inline `optional-dependencies = { dev = [...] }` table are read.
-- **The plugin's own test suite runs in parallel** (maintainers only, nothing changes in projects). `tests/run_parallel.py` runs the same tests as `unittest discover` on every core, one job per test class, with a private temp, plugin-data and security-state folder per worker: 953 tests in about 100 s on a 16-core Windows machine, against about 12 minutes one at a time. CI and the runbook use it.
+- **The plugin's own test suite runs in parallel** (maintainers only, nothing changes in projects). `tests/run_parallel.py` runs the same tests as `unittest discover` on every core, one job per test class, with a private temp, plugin-data and security-state folder per worker: 949 tests in about 100 s on a 16-core Windows machine, against about 12 minutes one at a time. CI and the runbook use it.
 
 ### Fixed
 - **`verify.py` no longer waits 2 s on Windows each time it checks a local build that isn't up.** Windows retries a refused loopback connection for about 2 s (4 s for `localhost`), which a run with `accept.start` paid before starting the build and again on every poll while it came up. A short connect to the local port now answers first; other hosts are asked as before.
@@ -36,6 +36,12 @@ No migration: `/sdlc:upgrade` regenerates an unedited `sdlc-verify.yml` and `.sd
   - An Allow whose question excludes something (`all except …`) allows nothing.
   - An Allow covers another feature's item only when the question names that feature.
   - An error anywhere in the check reports `guarded_not_checked` instead of a traceback.
+
+### Known issues
+- **The layer diagram (`docs/diagrams/sdlc_plugin_layers.svg`) still shows 3.1's hooks and commands** (carried over from 3.16.0); it needs a relayout, not a text edit.
+- **A repo whose config moves `baseline` away from `.sdlc/baseline.md`** gets CI baseline waivers that `ship.py --waive-baseline` refuses: Ship still reads only `.sdlc/baseline.md`.
+- **Plan approval in a nested repo** records by the feature's bare name, so same-named features in the outer and nested repo share one approval, and a session started in the outer repo can't approve a nested repo's waiting feature.
+- The other open items from this release's reviews are in `.sdlc/todo.md`.
 
 ## 3.16.0 — 2026-11-24
 
