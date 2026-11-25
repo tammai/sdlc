@@ -9,7 +9,7 @@
   state/<feature>/             work folder: backlog.md, plan-B<n>.md, qa-report.md, release.md
   state/<feature>.json         control contract + <feature>.events.jsonl (git-ignored)
   lint/                        lint snippets your ESLint/Ruff config imports (seeded)
-  ci/invariants.py             CI check of reports, baseline, change files, test lock (seeded)
+  ci/invariants.py             CI check of reports, baseline, change files, test lock; waives baselined test failures (seeded)
   ci/contract-check.sh         API contract check (multi-app repos that chose it; seeded)
   .work/                       scratch, git-ignored: verify record, freshness, dispatch log, findings
 docs/sdlc/                     DOCUMENTS PEOPLE READ (docs_dir; setup asks if docs/ is a site)

@@ -11,6 +11,8 @@ Only active features count (`Status: active` in their state file):
     changed since then is checked too, active or not: Ship marks it done in the commit that finishes it.
 
 Usage: python3 .sdlc/ci/invariants.py [--base REF] [--json] [--require-ancestor]   (--require-ancestor: unused since 2.0)
+       python3 .sdlc/ci/invariants.py --baseline-tests LOG   (the generated test step, after a failed run: exit 0 when
+       every failing test LOG names is in the baseline's Failing tests and the names match the runner's count)
 Exits 1 and prints one line per problem. As a pre-commit hook: python3 .sdlc/ci/invariants.py --base HEAD
 --json: one JSON document instead, `{result: ok|fail, problems: [{severity, code, message, target?, fix?}]}`, the
 message being the line's text after `sdlc invariants: `; codes are stable, for tools to match on.
@@ -48,9 +50,11 @@ def git(*args):
     return p.returncode, p.stdout
 
 
-def read(path):
+def read(path, tolerant=False):
+    """A text file's content, or None. `tolerant`: a file a person saves by hand (the baseline, from a Windows
+    editor) needn't be UTF-8, so undecodable bytes become U+FFFD instead of an error; the record files stay strict."""
     try:
-        with open(path, encoding="utf-8") as f:
+        with open(path, encoding="utf-8", errors="replace" if tolerant else "strict") as f:
             return f.read().replace("\r\n", "\n")
     except OSError:
         return None
@@ -186,7 +190,7 @@ def check_baseline(base, deviations):
     if not old:
         return []  # no baseline at the base yet: the first fill is the recording, not growth
     problems = []
-    for key, count in baseline_rows(read(path)).items():
+    for key, count in baseline_rows(read(path, tolerant=True)).items():
         if count <= old.get(key, 0):
             continue
         names = [key[2]] if key[0] == "test" else [key[3], key[4]]
@@ -198,13 +202,108 @@ def check_baseline(base, deviations):
     return problems
 
 
+# --baseline-tests: a failed test run passes when only baselined tests failed (ship.py --waive-baseline's rule)
+NAMED = (
+    re.compile(r"^(?:FAILED|ERROR) ([^\s(]\S*)", re.M),  # pytest's short summary
+    re.compile(r"^\s*● (?!Console$)(.+?)\s*$", re.M),  # jest
+    re.compile(r"^\s*FAIL\s+(\S+ > .+?)\s*$", re.M),  # vitest
+    re.compile(r"^not ok \d+ - (.+?)\s*$", re.M),  # node --test, TAP, top-level tests
+    re.compile(r"^\s*✖ (?!failing tests:)(.+?)(?: \([\d.]+m?s\))?\s*$", re.M),  # node --test, spec reporter
+)
+COUNTED = (
+    re.compile(r"^\s*Tests:?\s+(\d+) failed", re.M),  # jest, vitest
+    re.compile(r"^[#ℹ] fail (\d+)\s*$", re.M),  # node --test
+)
+PYTEST_SUMMARY = re.compile(r"^[= ]*\d+ (?:failed|passed|errors?|skipped|deselected|xfailed|xpassed|warnings?)\b"
+                            r".* in [\d.]+s\b", re.M)
+
+
+def failing_tests(out):
+    """([names], count): the failing tests a run's output names (pytest, unittest, jest, vitest, go test, node --test)
+    and the count the runners' own summaries give; count is None when no summary was found."""
+    names, count = [], None
+    for pattern in NAMED:
+        for m in pattern.finditer(out):
+            if m.group(1) not in names:
+                names.append(m.group(1))
+    for m in re.finditer(r"^(?:FAIL|ERROR): (\w+) \(([\w.]+)\)", out, re.M):  # unittest
+        method, where = m.groups()
+        name = where if where.endswith("." + method) else f"{where}.{method}"
+        if name not in names:
+            names.append(name)
+    found = [int(n) for p in COUNTED for n in p.findall(out)]
+    found += [int(n) for line in PYTEST_SUMMARY.findall(out) for n in re.findall(r"(\d+) (?:failed|errors?)\b", line)]
+    found += [int(n) for m in re.finditer(r"^FAILED \(([^)]*)\)", out, re.M)
+              for n in re.findall(r"(?:failures|errors)=(\d+)", m.group(1))]
+    go = re.findall(r"^\s*--- FAIL: (\S+)", out, re.M)
+    for n in go:  # one at a time, as ship.py: a name failing in two packages is one name, counted twice
+        if n not in names:
+            names.append(n)
+    if found or go:
+        count = sum(found) + len(go)
+    return names, count
+
+
+def leaves(name):
+    """A test's name and its shorter forms: after `::`, ` › `, ` > ` or a dotted name's last `.`; a go subtest's
+    parent. The same rule as ship.py --waive-baseline, so CI waives exactly what Ship does."""
+    out = {name.strip()}
+    for sep in ("::", " › ", " > "):
+        if sep in name:
+            out.add(name.rsplit(sep, 1)[1].strip())
+    for n in list(out):
+        if re.fullmatch(r"[\w.]+", n) and "." in n:
+            out.add(n.rsplit(".", 1)[1])
+        if re.match(r"Test\w*/", n):
+            out.add(n.split("/", 1)[0])
+    return out
+
+
+def check_test_log(log_path):
+    """Problems with a failed test run whose output is at log_path: none when every failing test it names is in the
+    baseline's Failing tests and the names match the runner's own count."""
+    path = str(config().get("baseline") or os.path.join(SDLC, "baseline.md")).replace("\\", "/")
+    listed = [key[2] for key in baseline_rows(read(path, tolerant=True)) if key[0] == "test"]
+    try:  # a runner's raw output: cp1252 on a Windows runner, so never a decode error
+        with open(log_path, encoding="utf-8", errors="replace") as f:
+            text = f.read()
+    except OSError:
+        text = ""
+    text = re.sub(r"\x1b\[[0-9;?]*[A-Za-z]", "", text)  # runners colour their output when CI is set
+    names, count = failing_tests(text)
+    if not names or count != len(names):
+        counted = "no summary count" if count is None else f"its summary counts {count}"
+        return [Problem("baseline_unmatched", f"the test run failed and its output named {len(names)} failing test(s) "
+                        f"while {counted}, so it can't be matched to {path}", log_path,
+                        "fix the failing tests, or use a runner whose report names each failure")]
+    listed_leaves = set().union(*(leaves(cell) for cell in listed)) if listed else set()
+    unlisted = [n for n in names if not leaves(n) & listed_leaves]
+    return [Problem("baseline_test_failed", f"failing test not in {path}: {n}", n,
+                    "fix it; adding it to the baseline needs the user's OK and a Deviations line") for n in unlisted]
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--base", help="the commit to compare the baseline against")
+    ap.add_argument("--baseline-tests", metavar="LOG",
+                    help="a failed test run's output: pass when every failing test it names is in the baseline")
     ap.add_argument("--json", action="store_true", help="one JSON document: result and each problem's code")
     ap.add_argument("--require-ancestor", action="store_true", help="accepted for old CI workflows; unused since 2.0")
     a = ap.parse_args(argv)
     sys.stdout.reconfigure(encoding="utf-8")  # file names and messages aren't ASCII; Windows consoles default to cp1252
+    if a.baseline_tests:  # the generated test step's check, from any package folder: the repo is two folders up
+        log = os.path.abspath(a.baseline_tests)
+        os.chdir(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+        problems = check_test_log(log)
+        if a.json:
+            print(json.dumps({"result": "fail" if problems else "ok", "problems": [p.as_dict() for p in problems]},
+                             indent=2, ensure_ascii=False))
+            return 1 if problems else 0
+        for line in problems:
+            print(f"sdlc invariants: {line}")
+        if not problems:
+            print("sdlc invariants: every failing test is listed in the baseline; this run passes")
+        return 1 if problems else 0
     problems, deviations = [], ""
     changed = changed_since(a.base) if a.base else None
     for name, (state_path, change_path) in features().items():
