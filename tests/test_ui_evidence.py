@@ -88,6 +88,38 @@ class WorkbenchUiEvidenceTest(test_workbench.WorkbenchShipCase):
         self.assertIn("UI evidence", out)
 
 
+class WorkbenchOwnGlobsTest(test_workbench.WorkbenchShipCase):
+    # AC-002 (2026-11-25-m-ui-evidence-leftovers): an app repo's own areas.ui counts for its files
+    def test_an_app_repos_own_ui_glob_counts(self):
+        with open(self.path(".sdlc/config.json"), encoding="utf-8") as f:
+            cfg = json.load(f)
+        self.write(".sdlc/config.json", json.dumps({**cfg, "guards": {"ui_evidence": True}}))
+        self.assertEqual(self.state("repo", "feat", "web")[0], 0)
+        self.write("web/.sdlc/config.json", json.dumps({"workbench": "shop-workbench",
+                                                        "commands": {"test": "python3 check.py"},
+                                                        "areas": {"ui": ["screens/**"]}}))
+        self.write("web/screens/home.layout", "title: Home\n")
+        self.state("deviation", "feat", "web/screens/home.layout web/.sdlc/config.json .sdlc/config.json "
+                                        "workbench.json What: a screen. Why: test. Effect: none.")
+        self.state("deviation", "feat", "task 1 What: none done. Why: test. Effect: none.")
+        code, out = self.ship("--review", "No review ran: test.")
+        self.assertNotEqual(code, 0, out)
+        self.assertIn("UI evidence", out)
+
+
+class UiEvidenceGitTest(ProjectTestCase):
+    # AC-001 (2026-11-25-m-ui-evidence-leftovers): git failing inside the check is "not checked"
+    def test_a_git_failure_is_not_checked(self):
+        subprocess.run(["git", "init", "-q", self.root], check=True)
+        self.write(".sdlc/config.json", json.dumps({"guards": {"ui_evidence": True}}))
+        sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
+        import ship
+        import sdlc_layout
+        with self.assertRaises(ship.Refused) as caught:
+            ship.ui_evidence(self.root, "login", sdlc_layout.paths(self.root, "login"), "abcdef1")
+        self.assertEqual(caught.exception.code, "ui_evidence_not_checked", str(caught.exception))
+
+
 class ChecksTest(ProjectTestCase):
     def sc(self, *a):
         p = subprocess.run([sys.executable, SCAFFOLD, "--root", self.root, *a], capture_output=True,
@@ -120,7 +152,7 @@ class ChecksTest(ProjectTestCase):
 
 def load_tests(loader, tests, pattern):
     suite = unittest.TestSuite()
-    for cls in (UiEvidenceTest, WorkbenchUiEvidenceTest, ChecksTest):
+    for cls in (UiEvidenceTest, WorkbenchUiEvidenceTest, WorkbenchOwnGlobsTest, UiEvidenceGitTest, ChecksTest):
         for name in loader.getTestCaseNames(cls):
             if name in cls.__dict__:
                 suite.addTest(cls(name))

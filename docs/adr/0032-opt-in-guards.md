@@ -37,6 +37,10 @@ S is the most common track and usually gets no review. Since #56 P3, the red ste
    - With no guard on, nothing is checked: the only read is the guards lookup itself. Git failing, or no Base, fails verify (`guarded changes not checked`) rather than passing. A workbench feature's branched repos are checked too, their items named from the workbench (`api/package.json`).
 4. **`guards.ui_evidence`** (#92 part 4, `.sdlc/2026-11-24-m-gh-92-ui-evidence-profile/change.md`).
    - **What Ship needs.** A change touching `areas.ui` needs at least one screenshot in the feature's `<work>/ui/`, or a `- manual: <reason>` line under `## UI evidence` in its change file. `ship.py` refuses it otherwise.
+   - **What touches `areas.ui`.** Any path changed since Base, a deleted one included: a removed screen is a change the user sees.
+     - In a workbench, an app repo's files match the workbench's globs (prefixed with the repo's folder) and, since 3.17, that repo's own `areas.ui`.
+     - Config can add areas, never remove the plugin's.
+     - When git can't say what changed, Ship refuses with `ui_evidence_not_checked`.
    - **The PR body.** `ship.py` lists the evidence in the commit message, which `gh pr create --fill` turns into the PR body. `gh` can't attach images, so the images are committed in the work folder.
    - **Who takes the screenshots.** Build takes them with the agent's browser tool, as an instruction (`ui-work.md`).
 5. **`scaffold.py checks solo|shared`**, asked in setup with the mode.

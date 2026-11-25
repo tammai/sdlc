@@ -316,7 +316,9 @@ def ui_evidence(root, feature, paths, base):
         return None
     try:
         return _ui_evidence(root, feature, paths, base)
-    except Refused:
+    except Refused as e:
+        if e.code == "git_failed":  # git couldn't say what changed: the evidence wasn't checked (fail closed)
+            raise Refused(f"UI evidence not checked: {e}", "ui_evidence_not_checked")
         raise
     except Exception as e:
         raise Refused(f"UI evidence not checked: {e}", "ui_evidence_not_checked")
@@ -350,11 +352,14 @@ def _ui_evidence(root, feature, paths, base):
     repos = verify.branched_repos(root, feature)
     if not m and not repos:
         raise Refused("UI evidence not checked: the state file has no Base: commit", "ui_evidence_not_checked")
-    changed = changed_since(root, m.group(1)) if m else []
-    for name, repo_base in repos:  # a workbench: the app repos' code, matched against the workbench's areas.ui
-        changed += [f"{name}/{f}" for f in changed_since(os.path.join(root, name), repo_base)]
     globs = ui_globs(root)
-    if not any(globmatch.glob_match(g, f) for g in globs for f in changed):
+    touched = any(globmatch.glob_match(g, f) for g in globs for f in (changed_since(root, m.group(1)) if m else []))
+    for name, repo_base in repos:  # a workbench: each app repo's code, against the workbench's areas.ui (paths
+        # prefixed with the repo's folder) and the app repo's own, which can add areas, never remove one
+        own = changed_since(os.path.join(root, name), repo_base)
+        touched = touched or any(globmatch.glob_match(g, f"{name}/{f}") for g in globs for f in own) \
+            or any(globmatch.glob_match(g, f) for g in ui_globs(os.path.join(root, name)) for f in own)
+    if not touched:
         return None
     folder = os.path.join(root, paths["work"], "ui")
     real = os.path.realpath(folder)
