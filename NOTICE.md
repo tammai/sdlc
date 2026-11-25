@@ -25,7 +25,7 @@ https://github.com/anthropics/claude-plugins-official — `licenses/anthropic-pl
 - **code-review:** command `code-review`
 - **commit-commands:** commands `commit`, `commit-push-pr`, `clean_gone` (renamed `clean-gone` here)
 - **claude-md-management:** command `revise-claude-md` (modified to route lessons into the 3 knowledge tiers), skill `claude-md-improver` (now `skills/managing-knowledge/references/claude-md-improver.md` and its folder; its `update-guidelines.md` folded into `revise-claude-md`)
-- **hookify:** command `hookify` (now `skills/hookify/SKILL.md`); commands `list` → `hookify-list`, `configure` → `hookify-configure`, `help` → `hookify-help` and agent `conversation-analyzer` (in `plugins/sdlc-extras/`); skill `writing-rules` (now `skills/hookify/references/rule-syntax.md`); `core/`, `matchers/`, `utils/`, hook scripts, examples
+- **hookify:** command `hookify` (now `skills/hookify/SKILL.md`); commands `list` → `hookify-list`, `configure` → `hookify-configure`, `help` → `hookify-help` and agent `conversation-analyzer` (in `plugins/sdlc-extras/`); skill `writing-rules` (now `skills/hookify/references/rule-syntax.md`); `core/`, hook scripts, examples (its empty `matchers/` and `utils/` packages were dropped after 3.17.0)
 - **ralph-loop:** commands `ralph-loop`, `cancel-ralph`, `help` → `ralph-help`; `hooks/stop-hook.sh`; `scripts/setup-ralph-loop.sh` (all in `plugins/sdlc-extras/`)
 - **security-guidance:** hook scripts in `hooks/` (`security_reminder_hook.py` and its modules, `sg-python.sh`; the launcher now starts every sdlc hook, remembers the interpreter it found and words its errors for all of them)
 - **typescript-lsp:** language server config, now `.lsp.json`

@@ -179,11 +179,6 @@ def done_config(root):
     return ([], problem) if problem else ([x.strip() for x in items], None)
 
 
-def definition_of_done(root):
-    """The repo's Definition of Done items, [] when there is none or it isn't valid (done_config says why)."""
-    return done_config(root)[0]
-
-
 MODES = ("full", "advisory")
 SKIPPABLE = ("security-review", "code-review", "ui-review", "pr")
 ANCHOR = ".sdlc/.work/trust-anchor.json"  # the trust anchor's record; its `_config` holds the accepted mode and skips
