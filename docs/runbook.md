@@ -120,6 +120,7 @@ A part that checks something the release changed also gets that check written in
 2. `/sdlc:setup`: it records the existing commands per package and **asks you to approve** them; it writes `.sdlc/baseline.md` listing the failing test; audit drafts are shown in batches and nothing is written before you approve.
 3. `/sdlc:start` a small M change; at Build's gate the known failure is logged against the baseline, and a new failure would fail it.
 4. Monorepo (should): edit a file in one package during Review; the block names only that package and its command.
+5. CI baseline waiver (must, from 3.17.0): the generated `sdlc-verify.yml` test step tees its output and, on a failure, runs `.sdlc/ci/invariants.py --baseline-tests <log>`. Run that by hand: with only the baselined test failing it exits 0; with a new failing test added it exits non-zero, naming that test.
 
 **H. Upgrade and eject (must)**
 1. In the greenfield repo, edit one guardrail file in `.claude/hookify/` and simulate an older scaffold: set `scaffold_version` in `.sdlc/scaffold.lock.json` to an older release, such as `3.0.0` (the only time to edit the lock by hand).
@@ -134,6 +135,7 @@ A part that checks something the release changed also gets that check written in
 2. Start `claude` in the workbench. Ask it to append a line to `specs/README.md`: denied, naming `@org/ba`. Ask it to run `(cd specs && echo x >> README.md)`: denied too.
 3. Make the change yourself in another terminal (`echo x >> specs/README.md`), then ask Claude for any small edit in the workbench: after that call it's told a read-only repo changed, naming `specs/`, and ending the turn is blocked once. Send `accept read-only specs` as your message: it's accepted, and the next turn ends normally.
 4. `/sdlc:start` a tiny S change in `api/`: before its first edit there, it runs `state.py repo <feature> api` (a write into `api/` before that is denied, naming the command), and Ship lists the workbench and `api` with a commit message and PR body each.
+5. Approval from an app repo (should, from 3.17.0): with `"approval": "ml"` committed in the workbench's config and `api/` holding its own `.sdlc/config.json`, `state.py new` an M feature at the workbench root; a session started inside `api/` asks for the plan approval, and after `Approve` there, `state.py advance <feature> 2` at the workbench root succeeds.
 
 **I. Windows (should, if the team uses it).** A teammate runs B–E on Windows in Git Bash.
 

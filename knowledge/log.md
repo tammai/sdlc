@@ -45,3 +45,5 @@
 - 2026-11-19 update knowledge/gotchas/hook-inputs.md — Codex started inside a Claude Code session inherits its CLAUDE_* variables (from 3.13.0 release distill)
 - 2026-11-19 update .claude/rules/tests.md — a test helper named after a TestCase method (fail) swallows every assertion (from 3.13.0 release distill)
 - 2026-11-20 update knowledge/gotchas/hooks-module-validator-and-test-kit.md — done-at-Ship feature on the bar, /clear fires session.end and no session.start, test stubs before the first $ call (from 3.13.1 release distill)
+- 2026-11-25 add knowledge/gotchas/windows-refused-loopback-waits-2s.md — verify.py paid 2 s per local build probe on Windows (from 3.17.0 release distill)
+- 2026-11-25 update knowledge/gotchas/review-budget-kills-the-suite-here.md — the suite takes about 2 min with tests/run_parallel.py (from 3.17.0 release distill)

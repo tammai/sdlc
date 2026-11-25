@@ -2,9 +2,16 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
-## Unreleased
+## 3.17.0 — 2026-11-25
 
 No migration: `/sdlc:upgrade` regenerates an unedited `sdlc-verify.yml` and `.sdlc/ci/invariants.py`, which a brownfield repo needs for the CI baseline waiver. Keep the two together: a regenerated workflow with an edited, older `invariants.py` fails a red run with an `unrecognized arguments: --baseline-tests` error.
+
+Checked on 2026-11-25 at commit cacfad8, on Windows 11:
+- **Tests:** the full suite (949 tests, 9 skipped, Python 3.10, `tests/run_parallel.py`), `claude plugin validate .` and `hosts.py check`.
+- **Smoke test, partial:** run in real headless sessions loading the checkout with `--plugin-dir`. A+B, G and K passed every item, including the new G5 (the brownfield CI baseline waiver: passes with only the baselined test failing, fails naming a new one) and K5 (a plan approved from a session inside a workbench's app repo counts at the workbench).
+- **Not run:** C, E and H (greenfield setup, the feature flow, upgrade and eject), skipped at the maintainer's call. That leaves this release's approval-floor and guarded-change changes covered by the test suite only.
+- **Out of scope:** D and F, since the release doesn't touch the guardrails or the security hooks.
+- **Partly exercised:** G2's audit step (setup skipped the audit for the tiny sample repo). Dialogs were answered as typed replies, as headless sessions have no question tool, so K5 checked a typed approval, not the dialog this release fixed.
 
 ### Changed
 - **A brownfield repo's CI passes when only baselined tests fail.** When `sdlc-verify.yml` is generated while `.sdlc/baseline.md` lists a failing test, its test step tees its output. A red run is handed to `.sdlc/ci/invariants.py --baseline-tests`, which passes it only when every failing test the runner names is listed. It matches names by the same rule as `ship.py --waive-baseline`. Before, every PR was red from the start (3.15.0 known issue).
@@ -12,7 +19,7 @@ No migration: `/sdlc:upgrade` regenerates an unedited `sdlc-verify.yml` and `.sd
   - A changed dependency source is an item: an index URL or `-e` line in a requirements file, package.json's `overrides`, `resolutions` and `pnpm.overrides`, go.mod's `replace`, Cargo's `[patch.*]` and `[replace]`, and `.npmrc`, `.yarnrc*`, `pip.conf` and `pip.ini`.
   - More suppressions count: `# ruff: noqa`, `# flake8: noqa`, `# mypy: ignore-errors`, pyright file-level settings, `/* eslint <rule>: … */`, `oxlint-disable` and `deno-lint-ignore`.
   - `dev-requirements.txt`, `requirements.in` and an inline `optional-dependencies = { dev = [...] }` table are read.
-- **The plugin's own test suite runs in parallel** (maintainers only, nothing changes in projects). `tests/run_parallel.py` runs the same tests as `unittest discover` on every core, one job per test class, with a private temp, plugin-data and security-state folder per worker: 953 tests in about 100 s on a 16-core Windows machine, against about 12 minutes one at a time. CI and the runbook use it.
+- **The plugin's own test suite runs in parallel** (maintainers only, nothing changes in projects). `tests/run_parallel.py` runs the same tests as `unittest discover` on every core, one job per test class, with a private temp, plugin-data and security-state folder per worker: 949 tests in about 100 s on a 16-core Windows machine, against about 12 minutes one at a time. CI and the runbook use it.
 
 ### Fixed
 - **`verify.py` no longer waits 2 s on Windows each time it checks a local build that isn't up.** Windows retries a refused loopback connection for about 2 s (4 s for `localhost`), which a run with `accept.start` paid before starting the build and again on every poll while it came up. A short connect to the local port now answers first; other hosts are asked as before.
@@ -36,6 +43,12 @@ No migration: `/sdlc:upgrade` regenerates an unedited `sdlc-verify.yml` and `.sd
   - An Allow whose question excludes something (`all except …`) allows nothing.
   - An Allow covers another feature's item only when the question names that feature.
   - An error anywhere in the check reports `guarded_not_checked` instead of a traceback.
+
+### Known issues
+- **The layer diagram (`docs/diagrams/sdlc_plugin_layers.svg`) still shows 3.1's hooks and commands** (carried over from 3.16.0); it needs a relayout, not a text edit.
+- **A repo whose config moves `baseline` away from `.sdlc/baseline.md`** gets CI baseline waivers that `ship.py --waive-baseline` refuses: Ship still reads only `.sdlc/baseline.md`.
+- **Plan approval in a nested repo** records by the feature's bare name, so same-named features in the outer and nested repo share one approval, and a session started in the outer repo can't approve a nested repo's waiting feature.
+- The other open items from this release's reviews are in `.sdlc/todo.md`.
 
 ## 3.16.0 — 2026-11-24
 
