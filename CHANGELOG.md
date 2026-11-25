@@ -2,6 +2,11 @@
 
 Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the version they were set up or upgraded with; `/sdlc:upgrade` brings them forward.
 
+## Unreleased
+
+### Fixed
+- **A session moved into a git worktree inside its project is gated by that worktree.** Claude Code keeps `CLAUDE_PROJECT_DIR` on the main checkout when a session enters a worktree (`git worktree add`, `.claude/worktrees/`), so every hook read the main checkout's features and config: a feature in Review there put a call in the worktree under its 120 s budget and its round cap. The hooks now take a linked worktree of the project's own repo, registered with git, as the project for calls made in it (`sdlc_scopes.session_project`). A separate repo inside the project (a workbench's app repo, a nested repo) is judged as before.
+
 ## 3.17.0 — 2026-11-25
 
 No migration: `/sdlc:upgrade` regenerates an unedited `sdlc-verify.yml` and `.sdlc/ci/invariants.py`, which a brownfield repo needs for the CI baseline waiver. Keep the two together: a regenerated workflow with an edited, older `invariants.py` fails a red run with an `unrecognized arguments: --baseline-tests` error.

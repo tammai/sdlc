@@ -25,7 +25,8 @@ def _target_repo(input_data):
     """The sdlc repo below a session started above it that this call acts in, or None (sdlc_layout.target_repo)."""
     try:
         import sdlc_layout
-        return sdlc_layout.target_repo(os.environ.get('CLAUDE_PROJECT_DIR'), input_data.get('tool_name', ''),
+        import sdlc_scopes
+        return sdlc_layout.target_repo(sdlc_scopes.session_project(input_data.get('cwd')), input_data.get('tool_name', ''),
                                        input_data.get('tool_input'), input_data.get('cwd'))
     except Exception:
         return None
@@ -37,7 +38,9 @@ def _recorded_test_write(input_data):
     It runs here because this hook already runs on exactly these tools, for every host (hosts/hook.py)."""
     try:
         import role_guard
-        project = os.path.abspath(os.environ.get('CLAUDE_PROJECT_DIR') or input_data.get('cwd') or os.getcwd())
+        import sdlc_scopes
+        project = os.path.abspath(sdlc_scopes.session_project(input_data.get('cwd')) or input_data.get('cwd')
+                                  or os.getcwd())
         target = _target_repo(input_data)
         # The repo the call is routed to, and the session's own root: at a workbench's root that covers every app
         # repo's recorded tests, whatever path or folder change the command uses to reach them
@@ -53,7 +56,7 @@ def _unbranched_write(input_data):
         import role_guard
         import sdlc_scopes
         cwd = input_data.get('cwd') or os.getcwd()
-        root = os.path.abspath(os.environ.get('CLAUDE_PROJECT_DIR')
+        root = os.path.abspath(sdlc_scopes.session_project(cwd)
                                or sdlc_scopes.workbench_root(cwd, guarded=True) or cwd)
         return role_guard.unbranched_problem(input_data, root)
     except Exception:
@@ -66,7 +69,7 @@ def role_guard_read_only(input_data):
         import role_guard
         import sdlc_scopes
         cwd = input_data.get('cwd') or os.getcwd()
-        root = os.path.abspath(os.environ.get('CLAUDE_PROJECT_DIR')
+        root = os.path.abspath(sdlc_scopes.session_project(cwd)
                                or sdlc_scopes.workbench_root(cwd, guarded=True) or cwd)
         return role_guard.read_only_problem(input_data, root)
     except Exception:

@@ -69,8 +69,8 @@ def main():
         data = json.load(sys.stdin)
         if data.get("tool_name") not in ("Agent", "Task"):
             return
-        root = os.environ.get("CLAUDE_PROJECT_DIR") or data.get("cwd") or os.getcwd()
         import sdlc_scopes  # noqa: PLC0415
+        root = sdlc_scopes.session_project(data.get("cwd")) or data.get("cwd") or os.getcwd()
         if sdlc_scopes.advisory_from(data.get("cwd") or root):  # advisory: nothing gates
             return
         states = active_states(root)

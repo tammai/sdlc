@@ -288,7 +288,7 @@ def message(report):
 
 
 def project_root(cwd):
-    root = os.environ.get("CLAUDE_PROJECT_DIR") or sdlc_scopes.workbench_root(cwd, guarded=True)
+    root = sdlc_scopes.session_project(cwd) or sdlc_scopes.workbench_root(cwd, guarded=True)
     return os.path.abspath(root) if root and sdlc_scopes.guarded_workbench(root) else None
 
 

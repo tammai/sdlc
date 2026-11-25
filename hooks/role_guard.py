@@ -901,11 +901,11 @@ def main():
     try:
         data = json.load(sys.stdin)
         agent = str(data.get("agent_type") or "")
-        root = os.path.abspath(os.environ.get("CLAUDE_PROJECT_DIR") or data.get("cwd") or os.getcwd())
+        import sdlc_scopes  # noqa: PLC0415
+        root = os.path.abspath(sdlc_scopes.session_project(data.get("cwd")) or data.get("cwd") or os.getcwd())
         # A session started above the repo (a workbench of repos): judge the call against the repo it acts in
         root = sdlc_layout.target_repo(root, data.get("tool_name", ""), data.get("tool_input"), data.get("cwd")) or root
         reason = None
-        import sdlc_scopes  # noqa: PLC0415
         if agent.startswith(("sdlc:", "sdlc-extras:")) and not sdlc_scopes.advisory_from(root):  # sdlc-extras: the companion's reviewers
             rel = rel_path(root, data.get("tool_input") or {}, data.get("cwd"))
             reason = problem(agent.split(":", 1)[1], data.get("tool_name", ""), rel, root)
