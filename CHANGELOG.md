@@ -12,6 +12,7 @@ No migration: `/sdlc:upgrade` regenerates an unedited `sdlc-verify.yml` and `.sd
   - A changed dependency source is an item: an index URL or `-e` line in a requirements file, package.json's `overrides`, `resolutions` and `pnpm.overrides`, go.mod's `replace`, Cargo's `[patch.*]` and `[replace]`, and `.npmrc`, `.yarnrc*`, `pip.conf` and `pip.ini`.
   - More suppressions count: `# ruff: noqa`, `# flake8: noqa`, `# mypy: ignore-errors`, pyright file-level settings, `/* eslint <rule>: … */`, `oxlint-disable` and `deno-lint-ignore`.
   - `dev-requirements.txt`, `requirements.in` and an inline `optional-dependencies = { dev = [...] }` table are read.
+- **The plugin's own test suite runs in parallel** (maintainers only, nothing changes in projects). `tests/run_parallel.py` runs the same tests as `unittest discover` on every core, one job per test class, with a private temp, plugin-data and security-state folder per worker: 953 tests in about 100 s on a 16-core Windows machine, against about 12 minutes one at a time. CI and the runbook use it.
 
 ### Fixed
 - **Plan approval holds against a hand-edited track and a re-created feature** ([ADR 0031](docs/adr/0031-approval-policy.md)).
