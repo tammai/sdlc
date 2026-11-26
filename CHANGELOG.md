@@ -6,6 +6,7 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 
 ### Fixed
 - **A session moved into a git worktree inside its project is gated by that worktree.** Claude Code keeps `CLAUDE_PROJECT_DIR` on the main checkout when a session enters a worktree (`git worktree add`, `.claude/worktrees/`), so every hook read the main checkout's features and config: a feature in Review there put a call in the worktree under its 120 s budget and its round cap. The hooks now take a linked worktree of the project's own repo, registered with git, as the project for calls made in it (`sdlc_scopes.session_project`). A separate repo inside the project (a workbench's app repo, a nested repo) is judged as before.
+- **`ship.py --waive-baseline` reads the baseline config's `baseline` names**, as doctor, scaffold and CI's `invariants.py --baseline-tests` do, so a repo that moved its baseline no longer gets CI waivers Ship refuses (3.17.0 known issue). Since the trust anchor watches only `.sdlc/baseline.md`, a moved baseline counts only as it was at `Base:`. A move made in the feature waives nothing, and neither does a test added to the file since. A path that leaves the repo, or holds a control character, is never read. A refusal says why, and the refusals and the Gate log name the file read.
 
 ## 3.17.0 — 2026-11-25
 
