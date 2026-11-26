@@ -2094,6 +2094,35 @@ class PluginReviewWorkbench(WorkbenchFeatureCase):
         self.assertEqual(e.exception.problem.code, "drift_unchecked")
         self.assertIn("app repo api not scanned", str(e.exception))
 
+    def test_every_base_drift_cant_use_is_reported_in_one_run(self):
+        # 2026-11-26-s-verify-every-base AC-001: the root's Base: and each app repo's, not the first one only
+        import re
+        import verify
+        from unittest import mock
+        self.assertEqual(self.state("repo", "feat", "api")[0], 0)
+        api = self.path("api")
+        state = self.state_text()
+        self.write(".sdlc/feat/state.md", re.sub(r"^Base: .*$", "Base: " + "1" * 40, state, flags=re.M))
+        git(api, "switch", "-q", "--orphan", "elsewhere")  # api's recorded base isn't behind its HEAD
+        git(api, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "--allow-empty", "-m", "off")
+        [(_, api_base)] = verify.branched_repos(self.root, "feat")
+        with mock.patch.object(verify, "branched_repos", return_value=[("api", api_base), ("web", "0" * 40)]):
+            with self.assertRaises(verify.DriftUnchecked) as e:
+                verify.drift(self.root, "feat")
+        got = [(p.code, str(p).split(" can't")[0].split(" isn't")[0]) for p in e.exception.problems]
+        self.assertEqual(got, [("base_missing", "Base: " + "1" * 40), ("base_not_ancestor", f"Base: {api_base} of api"),
+                               ("base_missing", "Base: " + "0" * 40 + " of web")], got)
+        self.assertIs(e.exception.problem, e.exception.problems[0])
+
+    def test_verify_lists_every_base_problem_as_a_failure(self):
+        # AC-002: full() records each problem drift raised, not the first one only
+        import verify
+        from unittest import mock
+        two = [verify.P.problem("base_missing", "a"), verify.P.problem("base_missing", "b")]
+        with mock.patch.object(verify, "drift", side_effect=verify.DriftUnchecked(two)):
+            last, _ = verify.full(self.root, "feat")
+        self.assertEqual([str(f) for f in last["failures"] if getattr(f, "code", "") == "base_missing"], ["a", "b"])
+
     def test_an_app_repos_base_no_longer_behind_its_head_fails_drift(self):
         import verify
         self.assertEqual(self.state("repo", "feat", "api")[0], 0)
