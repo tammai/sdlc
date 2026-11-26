@@ -316,6 +316,30 @@ def covered(item, deviations):
                for line in deviations.splitlines())
 
 
+class DriftUnchecked(Exception):
+    """git couldn't diff against the feature's Base: drift wasn't checked, which fails verify (fail closed)."""
+
+    def __init__(self, problem):
+        super().__init__(str(problem))
+        self.problem = problem
+
+
+def unresolved(repo, base):
+    """Why git can't resolve `base` to a commit in `repo` (missing, ambiguous), or None. DriftUnchecked when git
+    can't run or stalls (a partial clone's lazy fetch never prompts: GIT_TERMINAL_PROMPT=0, bounded)."""
+    try:
+        p = subprocess.run(["git", "-C", repo, "rev-parse", "--verify", f"{base}^{{commit}}"], capture_output=True,
+                           encoding="utf-8", errors="replace", timeout=60,
+                           env=dict(os.environ, GIT_TERMINAL_PROMPT="0"))
+    except (OSError, subprocess.TimeoutExpired) as e:
+        raise DriftUnchecked(P.problem("drift_unchecked", f"drift not checked: git can't run in {repo}: {e}",
+                                       target="Base", fix="check that git runs here, then run verify again"))
+    if p.returncode == 0:
+        return None
+    said = [line.strip() for line in p.stderr.splitlines() if line.strip().startswith(("error:", "fatal:"))]
+    return "; ".join(said) or "not found"
+
+
 def drift(root, feature, later=()):
     """[{item, kind, covered}] for what the change did that the plan didn't say, or None without a Base or a plan.
     A task whose ACs are all in `later` (parts not started yet) isn't expected to have changed its files."""
@@ -326,7 +350,26 @@ def drift(root, feature, later=()):
     m = re.search(r"^Base:\s*`?([0-9a-f]{7,40})\b", state, re.M)
     if not m:
         return None
-    facts = diff_stats.collect(root, m.group(1), [plan_path] if os.path.exists(plan_path) else [])
+    for repo, base, of in [(root, m.group(1), "")] + [(os.path.join(root, n), b, f" of {n}")
+                                                       for n, b in branched_repos(root, feature)]:
+        error = unresolved(repo, base)
+        if error:
+            raise DriftUnchecked(P.problem(
+                "base_missing", f"Base: {base}{of} can't be resolved in {'its' if of else 'this'} clone ({error}), so "
+                "drift can't be checked", target="Base",
+                fix=(f"fetch the commit in it (git -C {of[4:]} fetch --unshallow, or the branch that holds it), or "
+                     f"correct its base in the state file's ## Repos line with a Deviations line" if of else
+                     "fetch the commit (git fetch --unshallow, or the branch that holds it), or, after a rebase, "
+                     f"state.py set {feature} Base <the new base> with a Deviations line")))
+    try:
+        facts = diff_stats.collect(root, m.group(1), [plan_path] if os.path.exists(plan_path) else [])
+    except (RuntimeError, OSError) as e:  # git couldn't diff, or can't run: not checked, so it fails (fail closed)
+        raise DriftUnchecked(P.problem("drift_unchecked", f"drift not checked: {e}", target="Base",
+                                       fix="check that git runs here and can read the repo, then run verify again"))
+    unscanned = [f for f in facts.get("flags", []) if f.startswith("app repo ") and " not scanned: " in f]
+    if unscanned:  # collect skips an app repo git can't diff; drift can't pass on what it never saw
+        raise DriftUnchecked(P.problem("drift_unchecked", "drift not checked: " + "; ".join(unscanned),
+                                       target="Base", fix="check that git can read that repo, then run verify again"))
     docs_dir = sdlc_layout.docs_dir(root)
     in_repos = repo_changes(root, feature)  # a workbench: what the feature changed in each app repo
     every = sorted(set(facts["changed_files"]) | set(in_repos))
@@ -505,7 +548,11 @@ def full(root, feature, timeout=1800, whole=False):
     backed = spec_lock.spec_backed_repo(root)  # sdlc 3.5: cited criteria, in such a repo only
     failures += lock_failures(root, feature, rows or [], rec)  # whatever lock the red step wrote (#56 P3)
     failures += guarded_failures(root, feature)  # #92 part 3: what the user must allow first
-    drifted = drift(root, feature, later)
+    try:
+        drifted = drift(root, feature, later)
+    except DriftUnchecked as e:
+        drifted = []
+        failures.append(e.problem)
     if drifted is None:
         notes.append(P.problem("drift_not_checked", "no plan (the state file's ## Tasks) or no Base:, so drift "
                                "wasn't checked", severity="warning"))

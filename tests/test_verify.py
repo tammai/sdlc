@@ -174,6 +174,42 @@ class VerifyTest(ProjectTestCase):
         self.assertEqual(code, 0, out)
         self.assertEqual(rec["last"]["drift"][0]["covered"], True)
 
+    def test_a_base_commit_missing_from_the_clone_fails_with_a_message_not_a_traceback(self):
+        # todo (2026-11-26-s-ship-baseline-config-path): diff_stats raised `fatal: bad object` through verify
+        self.spec()
+        self.state = STATE.format(base="0123456789abcdef0123456789abcdef01234567")
+        self.plan([], tasks=["1. **Store** — FR-001\n   - Files: `src/store.py`"])
+        self.write("src/store.py", "x = 1\n")
+        p = subprocess.run([sys.executable, SCRIPT, "--root", self.root, "--json"], capture_output=True,
+                           encoding="utf-8", errors="replace")
+        self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
+        self.assertNotIn("Traceback", p.stderr)
+        base_missing = [x for x in json.loads(p.stdout)["problems"] if x["code"] == "base_missing"]
+        self.assertEqual(len(base_missing), 1, p.stdout)
+        self.assertIn("Base: 0123456789abcdef0123456789abcdef01234567 can't be resolved in this clone",
+                      base_missing[0]["message"])
+        self.assertIn("state.py set login Base", base_missing[0]["fix"])
+        self.assertEqual(self.record()["last"]["result"], "fail")
+
+    def test_a_git_failure_in_the_drift_diff_fails_as_drift_unchecked(self):
+        sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
+        import verify
+        from unittest import mock
+        self.spec()
+        self.plan([], tasks=["1. **Store** — FR-001\n   - Files: `src/store.py`"])
+        for error in (RuntimeError("git diff: fatal: something"), FileNotFoundError("git")):
+            with mock.patch.object(verify.diff_stats, "collect", side_effect=error):
+                with self.assertRaises(verify.DriftUnchecked) as e:
+                    verify.drift(self.root, "login")
+            self.assertEqual(e.exception.problem.code, "drift_unchecked")
+            self.assertTrue(e.exception.problem.fix)
+        # code review r2: git not running was reported as a missing Base
+        with mock.patch.object(verify.subprocess, "run", side_effect=FileNotFoundError("git")):
+            with self.assertRaises(verify.DriftUnchecked) as e:
+                verify.drift(self.root, "login")
+        self.assertEqual(e.exception.problem.code, "drift_unchecked")
+        self.assertIn("git can't run", str(e.exception))
+
     def test_a_task_that_changes_only_markdown_is_not_drift(self):
         self.spec()
         self.plan([], tasks=["1. **Docs** — FR-001\n   - Files: `README.md`"])

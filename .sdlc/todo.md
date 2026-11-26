@@ -7,6 +7,8 @@
 - [ ] Guarded changes: a git-ignored lint config or manifest, or a change to `.gitignore` / `.git/info/exclude` that hides one, isn't seen; seeing it means listing ignored files, an open set (left out of 2026-11-25-m-guarded-changes-hardening) — push security review of PR #139 (2026-11-24)
 - [ ] `ship.py --waive-baseline` reads only `.sdlc/baseline.md`, while doctor, scaffold and CI's `invariants.py --baseline-tests` read config's `baseline`: a repo that moved its baseline gets CI waivers Ship refuses — code review r3 of 2026-11-25-m-brownfield-ci-baseline, pre-existing (2026-11-25)
 - [ ] A baseline waiver (Ship and CI) matches short names loosely, waives a non-test failure (coverage) beside a listed test failure, and can't see tests a fail-fast run skipped; documented in Limitations — code review of 2026-11-25-m-brownfield-ci-baseline (2026-11-25)
+- [ ] Drift after a local rebase: a `Base:` still in the clone but no longer an ancestor of HEAD passes verify's base check, and drift is diffed against the old commit (`git merge-base --is-ancestor` would catch it). Code review r1 of 2026-11-26-s-verify-missing-base, pre-existing (2026-11-26)
+- [ ] Verify reports only the first `Base:` it can't resolve (the feature's or an app repo's) and skips the root's drift meanwhile, so several missing bases take one run each. Code review r2 of 2026-11-26-s-verify-missing-base, low (2026-11-26)
 
 ## Done
 - [x] UI evidence and checks leftovers: app repo globs, git failure as not checked, deletions documented, profile and checks as two questions (2026-11-25-m-ui-evidence-leftovers)

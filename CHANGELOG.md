@@ -5,6 +5,7 @@ Versions follow the `version` in `.claude-plugin/plugin.json`. Repos record the 
 ## Unreleased
 
 ### Fixed
+- **`verify.py` names a `Base:` commit it can't resolve** (missing from a shallow clone, or an ambiguous short id), the feature's or a workbench app repo's, and fails with `base_missing` and git's reason. Before, it crashed with a `fatal: bad object` traceback, and so did `ship.py`, which runs it; an app repo's was skipped without a word. Any other git failure in the drift diff, or git not running, fails as `drift_unchecked`.
 - **A session moved into a git worktree inside its project is gated by that worktree.** Claude Code keeps `CLAUDE_PROJECT_DIR` on the main checkout when a session enters a worktree (`git worktree add`, `.claude/worktrees/`), so every hook read the main checkout's features and config: a feature in Review there put a call in the worktree under its 120 s budget and its round cap. The hooks now take a linked worktree of the project's own repo, registered with git, as the project for calls made in it (`sdlc_scopes.session_project`). A separate repo inside the project (a workbench's app repo, a nested repo) is judged as before.
 
 ## 3.17.0 — 2026-11-25
