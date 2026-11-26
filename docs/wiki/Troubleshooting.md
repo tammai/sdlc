@@ -169,10 +169,10 @@ A plugin file you deleted is offered back once; declining it forgets it.
 
 ## R16. `verify.py` blames the feature for an old failure, or the baseline looks wrong
 
-1. Check `.sdlc/baseline.md`. It lists failing tests (file › name) and lint/type errors as counts per rule and file. A count that went **up** counts as new.
+1. Check `.sdlc/baseline.md`, or the file config's `baseline` names. It lists failing tests (file › name) and lint/type errors as counts per rule and file. A count that went **up** counts as new.
 2. A brownfield repo with no baseline: rerun setup's baseline step.
 3. Adding a pre-existing failure is **your** call. Add it with a note and record it with `state.py deviation`. During a feature this raises a notice ([R19](#r19-a-trust-anchor-notice-stops-the-turn)).
-4. `verify.py` doesn't read the baseline. When only the test step fails and every failure is baselined, Build logs it (`state.py log`) and passes the gate. Ship needs `ship.py <feature> --waive-baseline`, which matches failing test names from the runner's report. If it says it "couldn't match the failing tests", fix the failures or use a reporter it reads (pytest, unittest, jest, vitest, go test, node --test). See [spec 04 Known gaps](../specs/04-verification.md#known-gaps).
+4. `verify.py` doesn't read the baseline. When only the test step fails and every failure is baselined, Build logs it (`state.py log`) and passes the gate. Ship needs `ship.py <feature> --waive-baseline`, which matches failing test names from the runner's report. If it says it "couldn't match the failing tests", fix the failures or use a reporter it reads (pytest, unittest, jest, vitest, go test, node --test). With a baseline moved out of `.sdlc/`, only tests it listed at `Base:` are waived, and a move made in the feature itself waives nothing: ship the move on its own first. See [spec 04 Known gaps](../specs/04-verification.md#known-gaps).
 
 ## R16a. Drift lists files only `main` changed, or the base is wrong
 
