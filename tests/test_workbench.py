@@ -2072,6 +2072,28 @@ class PluginReviewWorkbench(WorkbenchFeatureCase):
         self.assertNotIn("api/.sdlc/config.json", items)
         self.assertEqual(items.count("api/b.py"), 1, items)
 
+    def test_an_app_repos_base_missing_from_its_clone_fails_drift(self):
+        # code review r1 of 2026-11-26-s-verify-missing-base: collect only flagged it, so drift passed unchecked
+        import verify
+        from unittest import mock
+        self.assertEqual(self.state("repo", "feat", "api")[0], 0)
+        with mock.patch.object(verify, "branched_repos", return_value=[("api", "0" * 40)]):
+            with self.assertRaises(verify.DriftUnchecked) as e:
+                verify.drift(self.root, "feat")
+        self.assertEqual(e.exception.problem.code, "base_missing")
+        self.assertIn("Base: " + "0" * 40 + " of api can't be resolved in its clone", str(e.exception))
+        self.assertIn("git -C api fetch", e.exception.problem.fix)
+        self.assertNotIn("hint:", str(e.exception))
+        # code review r2: an app repo whose base resolves but can't be diffed was only flagged, so drift passed
+        real = verify.diff_stats.scan
+        with mock.patch.object(verify.diff_stats, "scan", side_effect=lambda repo, base: real(repo, base)
+                               if os.path.realpath(repo) == os.path.realpath(self.root) else
+                               (_ for _ in ()).throw(RuntimeError("git diff: fatal: unreadable"))):
+            with self.assertRaises(verify.DriftUnchecked) as e:
+                verify.drift(self.root, "feat")
+        self.assertEqual(e.exception.problem.code, "drift_unchecked")
+        self.assertIn("app repo api not scanned", str(e.exception))
+
     def test_an_existing_clone_added_read_only_cannot_push(self):
         url = self.origin("tests")
         git(self.root, "clone", "-q", url, "tests")
