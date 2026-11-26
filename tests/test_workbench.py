@@ -2094,6 +2094,43 @@ class PluginReviewWorkbench(WorkbenchFeatureCase):
         self.assertEqual(e.exception.problem.code, "drift_unchecked")
         self.assertIn("app repo api not scanned", str(e.exception))
 
+    def test_an_app_repos_base_no_longer_behind_its_head_fails_drift(self):
+        import verify
+        self.assertEqual(self.state("repo", "feat", "api")[0], 0)
+        api = self.path("api")
+        branch = git_out(api, "branch", "--show-current").strip()
+        [(name, base)] = verify.branched_repos(self.root, "feat")
+        git(api, "switch", "-q", "--orphan", "elsewhere")  # a branch that doesn't descend from the recorded base
+        git(api, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "--allow-empty", "-m", "off")
+        with self.assertRaises(verify.DriftUnchecked) as e:
+            verify.drift(self.root, "feat")
+        self.assertEqual(e.exception.problem.code, "base_not_ancestor", str(e.exception))
+        self.assertIn(f"Base: {base} of api isn't behind HEAD", str(e.exception))
+        self.assertIn("## Repos line", e.exception.problem.fix)
+        self.assertIn(f"git -C api switch {branch}", e.exception.problem.fix)  # code review r2: named, not <its branch>
+        self.assertIn("ask the user", e.exception.problem.fix)  # the trust anchor doesn't show that line
+
+    def test_a_branch_line_sdlc_leaves_alone_doesnt_stop_the_roots_drift(self):
+        # code review r2: only a repo git failed to diff is drift_unchecked; a dropped line is repo_failures' to report
+        import re
+        import verify
+        self.assertEqual(verify.scan_errors(["app repo api not scanned: not in workbench.json",
+                                             "app repo web not scanned (git failed): fatal: bad"]),
+                         ["app repo web not scanned (git failed): fatal: bad"])
+        # Through drift() with diff_stats' own flag (code review r5): a branch line for specs/, which the manifest
+        # doesn't list as writable, is left alone, and the root's drift still counts
+        self.assertEqual(self.state("repo", "feat", "api")[0], 0)
+        state = self.state_text()
+        specs = git_out(self.path("specs"), "rev-parse", "HEAD")
+        line = re.search(r"^- api: branch .*$", state, re.M).group(0)
+        self.write(".sdlc/feat/state.md", state.replace(line, f"{line}\n- specs: branch feat-x base {specs}"))
+        self.write("stray.py", "z = 1\n")  # no task names it: drift
+        plan = verify.sdlc_layout.paths(self.root, "feat")["state"]
+        flags = verify.diff_stats.collect(self.root, git_out(self.root, "rev-parse", "HEAD"), [self.path(plan)])
+        self.assertTrue(any(f.startswith("app repo specs not scanned: ") for f in flags["flags"]), flags["flags"])
+        items = [d["item"] for d in verify.drift(self.root, "feat") or []]
+        self.assertIn("stray.py", items)
+
     def test_an_existing_clone_added_read_only_cannot_push(self):
         url = self.origin("tests")
         git(self.root, "clone", "-q", url, "tests")

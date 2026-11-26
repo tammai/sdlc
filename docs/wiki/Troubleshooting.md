@@ -23,6 +23,7 @@ Below, `state.py` means `python3 <plugin>/scripts/state.py <command> <feature> â
 | Upgrade keeps asking about a file | [R14](#r14-an-upgrade-wont-overwrite-a-file-or-keeps-asking-about-it) |
 | Want a declined migration back | [R15](#r15-a-migration-was-declined-and-you-want-it-after-all) |
 | Old failure blamed on your feature | [R16](#r16-verifypy-blames-the-feature-for-an-old-failure-or-the-baseline-looks-wrong) |
+| Drift lists files only `main` changed | [R16a](#r16a-drift-lists-files-only-main-changed-or-the-base-is-wrong) |
 | Eject broke the build | [R17](#r17-eject-left-something-behind-or-broke-the-build) |
 | Subagent dispatch denied | [R18](#r18-a-subagent-dispatch-is-denied-by-the-model-router) |
 | "Verification anchors changed" | [R19](#r19-a-trust-anchor-notice-stops-the-turn) |
@@ -172,6 +173,15 @@ A plugin file you deleted is offered back once; declining it forgets it.
 2. A brownfield repo with no baseline: rerun setup's baseline step.
 3. Adding a pre-existing failure is **your** call. Add it with a note and record it with `state.py deviation`. During a feature this raises a notice ([R19](#r19-a-trust-anchor-notice-stops-the-turn)).
 4. `verify.py` doesn't read the baseline. When only the test step fails and every failure is baselined, Build logs it (`state.py log`) and passes the gate. Ship needs `ship.py <feature> --waive-baseline`, which matches failing test names from the runner's report. If it says it "couldn't match the failing tests", fix the failures or use a reporter it reads (pytest, unittest, jest, vitest, go test, node --test). With a baseline moved out of `.sdlc/`, only tests it listed at `Base:` are waived, and a move made in the feature itself waives nothing: ship the move on its own first. See [spec 04 Known gaps](../specs/04-verification.md#known-gaps).
+
+## R16a. Drift lists files only `main` changed, or the base is wrong
+
+Drift counts everything changed since the state file's `Base:`, the commit the feature started from.
+
+1. **After a rebase onto, or a merge of, a newer `main`:** the commits `main` gained since `Base:` count as drift too. Verify doesn't guess where the branch now forks, because the refs it would read are the agent's to move. Find the fork point yourself (`git merge-base HEAD origin/main`) and check that the commits between `Base:` and it are `main`'s, not the feature's. Then `state.py set <feature> Base <it>`, with a Deviations line. The trust anchor shows the change to you ([R19](#r19-a-trust-anchor-notice-stops-the-turn)).
+2. **`base_missing`:** git can't find the commit. In a shallow clone, `git fetch --unshallow`. In a complete clone, fetch it from the remote that has it. For an ambiguous short id, set the full sha.
+3. **`base_not_ancestor`:** HEAD doesn't descend from `Base:`. Switch back to the feature's branch. If the history really was rewritten, set `Base:` to where the branch now starts. For a workbench app repo the base is in the state file's `## Repos` line, which the trust anchor doesn't show, so the agent asks you first.
+4. **`drift_unchecked`:** git failed while diffing. Check that git runs and can read the repo.
 
 ## R17. Eject left something behind or broke the build
 

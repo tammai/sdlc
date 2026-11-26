@@ -313,7 +313,7 @@ def collect(root, base, plans=()):
         except RuntimeError as e:
             if not prefix:
                 raise
-            flags.append(f"app repo {prefix.rstrip('/')} not scanned: {e}")
+            flags.append(f"app repo {prefix.rstrip('/')} not scanned (git failed): {e}")
             continue
         new_set |= {prefix + n for n in new}
         changed_set |= {prefix + n for n in changed}
