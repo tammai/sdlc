@@ -30,7 +30,7 @@
 
 ## Must never break
 
-- A single missing or rewritten `Base:` still fails as `base_missing` or `base_not_ancestor` with its fix (`tests/test_verify.py`, `test_an_app_repos_base_missing_from_its_clone_fails_drift`, `test_an_app_repos_base_no_longer_behind_its_head_fails_drift`).
+- A single missing or rewritten `Base:` still fails as `base_missing` or `base_not_ancestor` with its fix (`tests/test_workbench.py` › `test_an_app_repos_base_missing_from_its_clone_fails_drift`, `test_an_app_repos_base_no_longer_behind_its_head_fails_drift`).
 
 ## Out of scope
 
