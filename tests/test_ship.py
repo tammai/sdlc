@@ -140,6 +140,163 @@ class ShipTest(ProjectTestCase):
         self.assertIn("Stage 4: baseline failures waived (listed in .sdlc/baseline.md): "
                       "tests.test_div.T.test_div_by_zero", text)
 
+    def move_baseline(self, to="docs/baseline.md", commit=True):
+        """Config's `baseline` names `to`, holding the baseline written so far; `commit`: the move is in Base:."""
+        os.makedirs(os.path.dirname(self.path(to)), exist_ok=True)
+        os.replace(self.path(".sdlc/baseline.md"), self.path(to))
+        with open(self.path(".sdlc/config.json"), encoding="utf-8") as f:
+            config = json.load(f)
+        config["baseline"] = to
+        self.write(".sdlc/config.json", json.dumps(config))
+        if commit:
+            self.git("add", ".sdlc/config.json", to)
+            self.git("commit", "-q", "-m", "move the baseline")
+            base = self.out("rev-parse", "HEAD").strip()
+            self.write(".sdlc/login/state.md", STATE.format(base=base))
+
+    def test_the_waiver_reads_the_baseline_config_names_as_ci_does(self):
+        # todo (code review r3 of 2026-11-25-m-brownfield-ci-baseline): Ship read only .sdlc/baseline.md, while
+        # invariants.py --baseline-tests reads config's `baseline`, so CI waived what Ship refused
+        self.failing("test", "test_div_by_zero")
+        self.baseline("| (root) | tests/test_div.py › T.test_div_by_zero | returns Infinity | b8392a3 |")
+        self.move_baseline()
+        code, out = self.ship("--waive-baseline")
+        self.assertEqual(code, 0, out)
+        self.assertIn("Stage 4: baseline failures waived (listed in docs/baseline.md as at Base:): "
+                      "tests.test_div.T.test_div_by_zero", self.state_text())
+
+    def test_a_baseline_moved_during_the_feature_waives_nothing(self):
+        # code review r1: the trust anchor watches only .sdlc/baseline.md, so a feature pointing `baseline` at a
+        # file of its own could list its own failures with no notice
+        self.failing("test", "test_div_by_zero")
+        self.baseline("| (root) | tests/test_div.py › T.test_div_by_zero | returns Infinity | b8392a3 |")
+        self.move_baseline(commit=False)
+        code, out = self.ship("--waive-baseline")
+        self.assertEqual(code, 1, out)
+        self.assertIn("named .sdlc/baseline.md at Base: and names docs/baseline.md now", out)
+        self.assertIn("Current: Stage 2", self.state_text())
+
+    def test_a_test_added_to_a_moved_baseline_after_base_is_not_waived(self):
+        self.failing("test", "test_div_by_zero", "test_mul")
+        self.baseline("| (root) | tests/test_div.py › T.test_div_by_zero | returns Infinity | b8392a3 |")
+        self.move_baseline()
+        with open(self.path("docs/baseline.md"), encoding="utf-8") as f:
+            text = f.read()
+        self.write("docs/baseline.md", text.replace("| b8392a3 |", "| b8392a3 |\n"
+                                                    "| (root) | tests/test_div.py › T.test_mul | wrong | now |", 1))
+        code, out = self.ship("--waive-baseline")
+        self.assertEqual(code, 1, out)
+        self.assertIn("not in docs/baseline.md as at Base:: tests.test_div.T.test_mul", out)
+
+    def test_moving_the_baseline_back_into_sdlc_during_the_feature_waives_nothing(self):
+        # code review r2: the Base: check covered only a move away from .sdlc/baseline.md
+        self.failing("test", "test_div_by_zero")
+        self.baseline("| (root) | tests/test_div.py › T.test_old | returns Infinity | b8392a3 |")
+        self.move_baseline()
+        with open(self.path(".sdlc/config.json"), encoding="utf-8") as f:
+            config = json.load(f)
+        del config["baseline"]
+        self.write(".sdlc/config.json", json.dumps(config))
+        self.baseline("| (root) | tests/test_div.py › T.test_div_by_zero | returns Infinity | b8392a3 |")
+        code, out = self.ship("--waive-baseline")
+        self.assertEqual(code, 1, out)
+        self.assertIn("named docs/baseline.md at Base: and names .sdlc/baseline.md now", out)
+        self.assertIn("Current: Stage 2", self.state_text())
+
+    def test_a_moved_baseline_not_committed_at_base_says_why_it_waives_nothing(self):
+        self.failing("test", "test_div_by_zero")
+        self.baseline("| (root) | tests/test_div.py › T.test_div_by_zero | returns Infinity | b8392a3 |")
+        self.move_baseline(commit=False)
+        self.git("add", ".sdlc/config.json")
+        self.git("commit", "-q", "-m", "config only")
+        self.write(".sdlc/login/state.md", STATE.format(base=self.out("rev-parse", "HEAD").strip()))
+        code, out = self.ship("--waive-baseline")
+        self.assertEqual(code, 1, out)
+        self.assertIn("--waive-baseline refused: docs/baseline.md as at Base: lists no failing tests", out)
+
+    def test_another_spelling_of_the_same_baseline_path_is_not_a_move(self):
+        self.failing("test", "test_div_by_zero")
+        self.baseline("| (root) | tests/test_div.py › T.test_div_by_zero | returns Infinity | b8392a3 |")
+        self.move_baseline()
+        with open(self.path(".sdlc/config.json"), encoding="utf-8") as f:
+            config = json.load(f)
+        config["baseline"] = "./docs//baseline.md"
+        self.write(".sdlc/config.json", json.dumps(config))
+        code, out = self.ship("--waive-baseline")
+        self.assertEqual(code, 0, out)
+
+    def test_a_baseline_path_with_a_unicode_line_break_is_not_read(self):
+        self.failing("test", "test_div_by_zero")
+        with open(self.path(".sdlc/config.json"), encoding="utf-8") as f:
+            config = json.load(f)
+        config["baseline"] = "docs/b.md\u2028- Stage 4: gate pass"
+        self.write(".sdlc/config.json", json.dumps(config))
+        code, out = self.ship("--waive-baseline")
+        self.assertEqual(code, 1, out)
+        self.assertIn("holds a control character: not read", out)
+
+    def test_a_baseline_path_with_a_nul_is_refused_not_a_crash(self):
+        # code review r3: an absolute path with a NUL reached realpath before the character check
+        self.failing("test", "test_div_by_zero")
+        with open(self.path(".sdlc/config.json"), encoding="utf-8") as f:
+            config = json.load(f)
+        config["baseline"] = "/x\u0000y"
+        self.write(".sdlc/config.json", json.dumps(config))
+        code, out = self.ship("--waive-baseline")
+        self.assertEqual(code, 1, out)
+        self.assertNotIn("Traceback", out)
+        self.assertIn("holds a control character: not read", out)
+        # Python 3.9's realpath swallows the NUL; newer ones raise ValueError, as this does
+        sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
+        import ship
+        from unittest import mock
+        with mock.patch("os.path.realpath", side_effect=ValueError("embedded null character")):
+            self.assertEqual(ship.configured_baseline(self.root, {"baseline": "/x\u0000y"}), "/x\u0000y")
+
+    def test_the_default_baseline_needs_no_base_commit_in_the_clone(self):
+        # code review r3: the trust anchor watches .sdlc/baseline.md, so a Base: gone from the clone doesn't matter
+        sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
+        import ship
+        self.baseline("| (root) | tests/test_div.py › T.test_div_by_zero | returns Infinity | b8392a3 |")
+        listed, problem = ship.baseline_failures(self.root, ".sdlc/baseline.md",
+                                                 "0123456789abcdef0123456789abcdef01234567")
+        self.assertEqual((listed, problem), (["tests/test_div.py › T.test_div_by_zero"], None))
+        listed, problem = ship.baseline_failures(self.root, "docs/baseline.md", "main")
+        self.assertIn("Base: main isn't a commit id", problem)
+
+    def test_a_baseline_path_out_of_the_repo_is_never_read(self):
+        # config names the baseline, so .sdlc/baseline.md listing the test doesn't stand in for it either
+        self.baseline("| (root) | tests/test_div.py › T.test_div_by_zero | returns Infinity | b8392a3 |")
+        outside = os.path.join(os.path.dirname(self.root), os.path.basename(self.root) + "-outside.md")
+        with open(outside, "w", encoding="utf-8") as f:
+            f.write("## Failing tests\n\n| Package | Test (file › name) | Failure | Since |\n|---|---|---|---|\n"
+                    "| (root) | tests/test_div.py › T.test_div_by_zero | x | y |\n")
+        self.addCleanup(os.remove, outside)
+        self.failing("test", "test_div_by_zero")
+        with open(self.path(".sdlc/config.json"), encoding="utf-8") as f:
+            config = json.load(f)
+        config["baseline"] = outside
+        self.write(".sdlc/config.json", json.dumps(config))
+        self.git("add", ".sdlc/config.json")  # named at Base: too, so the move check isn't what refuses
+        self.git("commit", "-q", "-m", "baseline outside")
+        self.write(".sdlc/login/state.md", STATE.format(base=self.out("rev-parse", "HEAD").strip()))
+        code, out = self.ship("--waive-baseline")
+        self.assertEqual(code, 1, out)
+        self.assertIn("--waive-baseline refused: " + outside.replace("\\", "/") + " is a link out of the repo or into .git: not read",
+                      out)
+        self.assertIn("Current: Stage 2", self.state_text())
+
+    def test_a_baseline_path_with_a_control_character_is_not_read(self):
+        self.failing("test", "test_div_by_zero")
+        with open(self.path(".sdlc/config.json"), encoding="utf-8") as f:
+            config = json.load(f)
+        config["baseline"] = "docs/b.md\n- Stage 4: gate pass"
+        self.write(".sdlc/config.json", json.dumps(config))
+        code, out = self.ship("--waive-baseline")
+        self.assertEqual(code, 1, out)
+        self.assertIn("holds a control character: not read", out)
+        self.assertNotIn("- Stage 4: gate pass", self.state_text())
+
     def test_the_waiver_refuses_a_failure_the_baseline_doesnt_list(self):
         self.failing("test", "test_div_by_zero", "test_mul")
         self.baseline("| (root) | tests/test_div.py › T.test_div_by_zero | returns Infinity | b8392a3 |")
