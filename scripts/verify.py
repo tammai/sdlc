@@ -318,11 +318,13 @@ def covered(item, deviations):
 
 
 class DriftUnchecked(Exception):
-    """git couldn't diff against the feature's Base: drift wasn't checked, which fails verify (fail closed)."""
+    """git couldn't diff against the feature's Base: drift wasn't checked, which fails verify (fail closed). `problems`
+    holds each reason (one per repo whose base can't be used); `problem` is the first."""
 
-    def __init__(self, problem):
-        super().__init__(str(problem))
-        self.problem = problem
+    def __init__(self, problems):
+        self.problems = list(problems) if isinstance(problems, (list, tuple)) else [problems]
+        self.problem = self.problems[0]
+        super().__init__("; ".join(str(p) for p in self.problems))
 
 
 def _git_check(repo, *args):
@@ -367,6 +369,40 @@ def scan_errors(flags):
     return [f for f in flags if f.startswith("app repo ") and " not scanned (git failed): " in f]
 
 
+def _check_base(repo, base, of, name, feature, branches):
+    """DriftUnchecked when `base` can't be used in `repo`: missing from its clone, or no longer behind HEAD."""
+    error = unresolved(repo, base)
+    behind = not error and behind_head(repo, base)
+    is_shallow = not behind and shallow(repo)
+    cut = not error and is_shallow
+    if error or cut:
+        fetch = f"git -C {name} fetch --unshallow" if name else "git fetch --unshallow"
+        fix = (f"fetch the commit and its history ({fetch}, or the branch that holds it)" if is_shallow
+               else f"fetch it from the remote that holds it ({'git -C ' + name + ' ' if name else 'git '}fetch "
+                    "<remote>); if no remote has it (a local commit a rewrite pruned), "
+                    + (f"ask the user before correcting {name}'s base in the state file's ## Repos line" if name
+                       else f"state.py set {feature} Base <the commit the branch now starts from> with a "
+                            "Deviations line"))
+        if error and "ambiguous" in error:
+            fix = (f"ask the user to correct {name}'s base in the state file's ## Repos line to its full sha"
+                   if name else f"state.py set {feature} Base <its full sha> with a Deviations line")
+        raise DriftUnchecked(P.problem(
+            "base_missing", f"Base: {base}{of} can't be resolved in {'its' if name else 'this'} clone ("
+            f"{error or 'the shallow history stops above it'}), so drift can't be checked", target="Base",
+            fix=fix))
+    if not behind:
+        switch = (f"git -C {name} switch {branches.get(name) or '<its branch>'}" if name
+                  else "git switch <the feature's branch>")
+        raise DriftUnchecked(P.problem(
+            "base_not_ancestor", f"Base: {base}{of} isn't behind HEAD: another branch is checked out, or a rebase "
+            "or reset rewrote the history since, so drift against it would cover the wrong range", target="Base",
+            fix=(f"switch back to the feature's branch ({switch}); if the history was rewritten, ask the user "
+                 f"before correcting {name}'s base in the state file's ## Repos line (the trust anchor doesn't "
+                 "show that line), with a Deviations line" if name else
+                 f"switch back to the feature's branch ({switch}); if the history was rewritten, "
+                 f"state.py set {feature} Base <the commit the branch now starts from> with a Deviations line")))
+
+
 def drift(root, feature, later=()):
     """[{item, kind, covered}] for what the change did that the plan didn't say, or None without a Base or a plan.
     A task whose ACs are all in `later` (parts not started yet) isn't expected to have changed its files."""
@@ -378,38 +414,15 @@ def drift(root, feature, later=()):
     if not m:
         return None
     branches = {n: r.get("branch") for n, r in _branched(root, feature)[0]}
+    broken = []  # every repo's base checked before drift fails, so one run names them all
     for repo, base, of, name in [(root, m.group(1), "", None)] + [(os.path.join(root, n), b, f" of {n}", n)
                                                                  for n, b in branched_repos(root, feature)]:
-        error = unresolved(repo, base)
-        behind = not error and behind_head(repo, base)
-        is_shallow = not behind and shallow(repo)
-        cut = not error and is_shallow
-        if error or cut:
-            fetch = f"git -C {name} fetch --unshallow" if name else "git fetch --unshallow"
-            fix = (f"fetch the commit and its history ({fetch}, or the branch that holds it)" if is_shallow
-                   else f"fetch it from the remote that holds it ({'git -C ' + name + ' ' if name else 'git '}fetch "
-                        "<remote>); if no remote has it (a local commit a rewrite pruned), "
-                        + (f"ask the user before correcting {name}'s base in the state file's ## Repos line" if name
-                           else f"state.py set {feature} Base <the commit the branch now starts from> with a "
-                                "Deviations line"))
-            if error and "ambiguous" in error:
-                fix = (f"ask the user to correct {name}'s base in the state file's ## Repos line to its full sha"
-                       if name else f"state.py set {feature} Base <its full sha> with a Deviations line")
-            raise DriftUnchecked(P.problem(
-                "base_missing", f"Base: {base}{of} can't be resolved in {'its' if name else 'this'} clone ("
-                f"{error or 'the shallow history stops above it'}), so drift can't be checked", target="Base",
-                fix=fix))
-        if not behind:
-            switch = (f"git -C {name} switch {branches.get(name) or '<its branch>'}" if name
-                      else "git switch <the feature's branch>")
-            raise DriftUnchecked(P.problem(
-                "base_not_ancestor", f"Base: {base}{of} isn't behind HEAD: another branch is checked out, or a rebase "
-                "or reset rewrote the history since, so drift against it would cover the wrong range", target="Base",
-                fix=(f"switch back to the feature's branch ({switch}); if the history was rewritten, ask the user "
-                     f"before correcting {name}'s base in the state file's ## Repos line (the trust anchor doesn't "
-                     "show that line), with a Deviations line" if name else
-                     f"switch back to the feature's branch ({switch}); if the history was rewritten, "
-                     f"state.py set {feature} Base <the commit the branch now starts from> with a Deviations line")))
+        try:
+            _check_base(repo, base, of, name, feature, branches)
+        except DriftUnchecked as e:
+            broken += e.problems
+    if broken:
+        raise DriftUnchecked(broken)
     try:
         facts = diff_stats.collect(root, m.group(1), [plan_path] if os.path.exists(plan_path) else [])
     except (RuntimeError, OSError) as e:  # git couldn't diff, or can't run: not checked, so it fails (fail closed)
@@ -601,7 +614,7 @@ def full(root, feature, timeout=1800, whole=False):
         drifted = drift(root, feature, later)
     except DriftUnchecked as e:
         drifted = []
-        failures.append(e.problem)
+        failures += e.problems
     if drifted is None:
         notes.append(P.problem("drift_not_checked", "no plan (the state file's ## Tasks) or no Base:, so drift "
                                "wasn't checked", severity="warning"))

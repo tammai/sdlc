@@ -176,7 +176,7 @@ A plugin file you deleted is offered back once; declining it forgets it.
 
 ## R16a. Drift lists files only `main` changed, or the base is wrong
 
-Drift counts everything changed since the state file's `Base:`, the commit the feature started from.
+Drift counts everything changed since the state file's `Base:`, the commit the feature started from. Verify names every base it can't use in one run, the feature's and each app repo's.
 
 1. **After a rebase onto, or a merge of, a newer `main`:** the commits `main` gained since `Base:` count as drift too. Verify doesn't guess where the branch now forks, because the refs it would read are the agent's to move. Find the fork point yourself (`git merge-base HEAD origin/main`) and check that the commits between `Base:` and it are `main`'s, not the feature's. Then `state.py set <feature> Base <it>`, with a Deviations line. The trust anchor shows the change to you ([R19](#r19-a-trust-anchor-notice-stops-the-turn)).
 2. **`base_missing`:** git can't find the commit. In a shallow clone, `git fetch --unshallow`. In a complete clone, fetch it from the remote that has it. For an ambiguous short id, set the full sha.
