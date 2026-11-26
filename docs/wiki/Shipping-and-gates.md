@@ -47,7 +47,7 @@ The agent explains what changed and why, then asks in a `Trust anchor` dialog. I
 |---|---|
 | `Track:` up, or `Risk:` low → high ("Stricter process: …") | No |
 | `Track:` down, `Risk:` high → low, or `Top model:`, `Base:`, `Process:` changed | Once |
-| A failing test added to `.sdlc/baseline.md`, or the commands or Definition of Done (`done`) in `.sdlc/config.json` changed since `Base:` (ticking the change file's `## Definition of Done` at Ship is not a notice) | Once |
+| A failing test added to `.sdlc/baseline.md` (a baseline config's `baseline` moved elsewhere isn't watched: Ship waives only what it listed at `Base:`), or the commands or Definition of Done (`done`) in `.sdlc/config.json` changed since `Base:` (ticking the change file's `## Definition of Done` at Ship is not a notice) | Once |
 | Change file edited above `## Review` (criteria, tests) after Review started | Once |
 | Leaving Review without a passing full run of the current code, or with code changed since that run | Once |
 | Leaving Review while a review's latest report says `VERDICT: FAIL`, unless a `waived round <N>` deviation covers it | Once |
