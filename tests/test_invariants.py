@@ -89,6 +89,158 @@ class InvariantsTest(ProjectTestCase):
         self.assertEqual(self.check("--base", recorded)[0], 0)
 
 
+class BaselinePathTest(InvariantsTest):
+    """2026-11-26-s-ci-baseline-path: CI reads config's `baseline` as ship.py does (configured_baseline)."""
+    LISTED = "| api | t.py › test_a | boom | abc |"
+    LOG = "FAILED t.py::test_a - assert 1 == 2\n=========== 1 failed, 3 passed in 0.12s ===========\n"
+
+    def configure(self, value):
+        self.write(".sdlc/config.json", json.dumps({"docs_dir": "docs/sdlc", "baseline": value}) + "\n")
+
+    def grown(self, path=".sdlc/baseline.md"):
+        """A baseline at `path` committed with test_a, then test_b added: the growth check's base."""
+        self.write(path, BASELINE.format(rows=self.LISTED))
+        base = self.commit()
+        self.write(path, BASELINE.format(rows=self.LISTED + "\n| api | t.py › test_b | bang | def |"))
+        return base
+
+    def waive(self):
+        with open(SCRIPT, encoding="utf-8") as f:
+            self.write(".sdlc/ci/invariants.py", f.read())
+        log = self.write("test.log", self.LOG)
+        p = subprocess.run([sys.executable, self.path(".sdlc/ci/invariants.py"), "--baseline-tests", log],
+                           cwd=self.root, capture_output=True, encoding="utf-8")
+        return p.returncode, p.stdout
+
+    def test_a_blank_or_non_string_baseline_is_the_default_file(self):
+        # AC-001: Ship reads .sdlc/baseline.md for these; CI took them as a literal path and checked nothing
+        for value in ("  ", 7, ["docs/b.md"]):
+            with self.subTest(value=value):
+                self.configure(value)
+                base = self.grown()
+                code, out = self.check("--base", base)
+                self.assertEqual(code, 1, out)
+                self.assertIn("t.py › test_b", out)
+                self.write(".sdlc/baseline.md", BASELINE.format(rows=self.LISTED))
+                self.assertEqual(self.waive()[0], 0)
+
+    def test_an_absolute_path_in_the_repo_is_checked_as_its_relative_path(self):
+        # AC-002: `git show <base>:/abs/path` failed, so the growth check passed unchecked
+        self.configure(os.path.join(os.path.realpath(self.root), "docs", "baseline.md"))
+        base = self.grown("docs/baseline.md")
+        code, out = self.check("--base", base)
+        self.assertEqual(code, 1, out)
+        self.assertIn("docs/baseline.md: `t.py › test_b`", out)
+
+    def test_a_path_out_of_the_repo_fails_and_is_never_read(self):
+        # AC-003: outside, the growth check was skipped and the waiver read a file anyone could write
+        outside = os.path.realpath(self.root) + "-outside.md"
+        with open(outside, "w", encoding="utf-8") as f:
+            f.write(BASELINE.format(rows=self.LISTED))
+        self.addCleanup(os.remove, outside)
+        for value in (outside, "../" + os.path.basename(outside)):
+            with self.subTest(value=value):
+                self.configure(value)
+                base = self.commit()
+                for code, out in (self.check("--base", base), self.waive()):
+                    self.assertEqual(code, 1, out)
+                    self.assertIn("baseline", out)
+                    self.assertIn("leaves the repo: not read", out)
+
+    def test_a_baseline_that_is_a_link_fails_and_is_never_read(self):
+        # AC-004: git show gives the link's text at the base, so the growth check counted every row as new
+        self.write("docs/real.md", BASELINE.format(rows=self.LISTED))
+        os.makedirs(self.path("docs"), exist_ok=True)
+        os.symlink("real.md", self.path("docs/baseline.md"))
+        self.configure("docs/baseline.md")
+        base = self.commit()
+        for code, out in (self.check("--base", base), self.waive()):
+            self.assertEqual(code, 1, out)
+            self.assertIn("docs/baseline.md is a link: not read", out)
+        # the default path too: the trust anchor watches .sdlc/baseline.md, not where a link leads
+        self.write(".sdlc/config.json", '{"docs_dir": "docs/sdlc"}\n')
+        os.symlink("../docs/real.md", self.path(".sdlc/baseline.md"))
+        for code, out in (self.check("--base", base), self.waive()):
+            self.assertEqual(code, 1, out)
+            self.assertIn(".sdlc/baseline.md is a link: not read", out)
+
+
+    def test_a_baseline_only_the_filesystem_finds_fails_and_is_never_read(self):
+        # security review r1 S1, S4: a folder link, a case variant or a path into .git passed the growth check
+        # unchecked (git show at the base found nothing) while the waiver read the file
+        self.write("real/baseline.md", BASELINE.format(rows=self.LISTED))
+        os.makedirs(self.path("docs"), exist_ok=True)
+        os.symlink("../real", self.path("docs/sub"))
+        spellings = ["docs/sub/baseline.md", ".git/config"]
+        self.write(".sdlc/baseline.md", BASELINE.format(rows=self.LISTED))
+        if os.path.exists(self.path(".SDLC/BASELINE.md")):  # a case-insensitive filesystem
+            spellings.append(".SDLC/BASELINE.md")
+        base = self.commit()
+        for value in spellings:
+            with self.subTest(value=value):
+                self.configure(value)
+                why = ("docs/sub/baseline.md goes through a link: not read" if value.startswith("docs/sub")
+                       else "isn't a file the repo tracks under that name: not read")
+                for code, out in (self.check("--base", base), self.waive()):
+                    self.assertEqual(code, 1, out)
+                    self.assertIn(why, out)
+
+    def test_an_absolute_path_out_of_the_repo_is_refused_by_its_text(self):
+        # security review r1 S2: realpath ran on the value first (a UNC path opens a remote share on Windows)
+        from unittest import mock
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("inv", SCRIPT)
+        inv = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(inv)
+        cwd = os.getcwd()
+        os.chdir(self.root)
+        self.addCleanup(os.chdir, cwd)
+        for value in ("//host/share/b.md", "/elsewhere/b.md"):
+            with self.subTest(value=value), mock.patch.object(inv, "config", return_value={"baseline": value}), \
+                    mock.patch.object(inv.os.path, "realpath", wraps=os.path.realpath) as real:
+                path, problem = inv.baseline_path()
+                self.assertIsNone(path)
+                self.assertIn("leaves the repo: not read", problem)
+                self.assertNotIn(value, [c.args[0] for c in real.call_args_list])
+
+    def test_a_config_that_isnt_an_object_is_read_as_empty(self):
+        # security review r1 S3: config().get raised, so --json printed a traceback
+        self.write(".sdlc/config.json", "[]\n")
+        self.write(".sdlc/baseline.md", BASELINE.format(rows=self.LISTED))
+        self.commit()
+        with open(SCRIPT, encoding="utf-8") as f:
+            self.write(".sdlc/ci/invariants.py", f.read())
+        log = self.write("test.log", self.LOG)
+        p = subprocess.run([sys.executable, self.path(".sdlc/ci/invariants.py"), "--baseline-tests", log, "--json"],
+                           cwd=self.root, capture_output=True, encoding="utf-8")
+        self.assertEqual(json.loads(p.stdout)["result"], "ok", p.stdout + p.stderr)
+
+    def test_the_waiver_runs_where_git_isnt_installed(self):
+        # security review r2 L2: baseline_path called git, so a test job in an image without git got a traceback
+        self.write(".sdlc/baseline.md", BASELINE.format(rows=self.LISTED))
+        with open(SCRIPT, encoding="utf-8") as f:
+            self.write(".sdlc/ci/invariants.py", f.read())
+        log = self.write("test.log", self.LOG)
+        p = subprocess.run([sys.executable, self.path(".sdlc/ci/invariants.py"), "--baseline-tests", log, "--json"],
+                           cwd=self.root, capture_output=True, encoding="utf-8", env=dict(os.environ, PATH=""))
+        self.assertEqual(json.loads(p.stdout or "{}").get("result"), "ok", p.stdout + p.stderr)
+
+    @unittest.skipUnless(hasattr(os, "mkfifo"), "no FIFOs here")
+    def test_a_fifo_at_the_baseline_path_is_refused_not_waited_on(self):
+        # security review r1 S5: the waiver open()ed it and blocked until the job timed out
+        self.configure("docs/baseline.md")
+        self.write("docs/baseline.md", BASELINE.format(rows=self.LISTED))
+        self.commit()
+        os.remove(self.path("docs/baseline.md"))
+        os.mkfifo(self.path("docs/baseline.md"))
+        with open(SCRIPT, encoding="utf-8") as f:
+            self.write(".sdlc/ci/invariants.py", f.read())
+        log = self.write("test.log", self.LOG)
+        p = subprocess.run([sys.executable, self.path(".sdlc/ci/invariants.py"), "--baseline-tests", log],
+                           cwd=self.root, capture_output=True, encoding="utf-8", timeout=30)
+        self.assertEqual(p.returncode, 1, p.stdout)
+        self.assertIn("docs/baseline.md isn't a regular file: not read", p.stdout)
+
 class TestLockTest(InvariantsTest):
     """#56 P6: the test lock and each AC's test file, checked in CI."""
     TEST = TEST
@@ -152,9 +304,9 @@ class TestLockTest(InvariantsTest):
 
 
 def load_tests(loader, tests, pattern):
-    """Each class's own tests once: TestLockTest extends InvariantsTest for its fixture only."""
+    """Each class's own tests once: TestLockTest and BaselinePathTest extend InvariantsTest for its fixture only."""
     suite = unittest.TestSuite()
-    for cls in (InvariantsTest, TestLockTest):
+    for cls in (InvariantsTest, TestLockTest, BaselinePathTest):
         for name in loader.getTestCaseNames(cls):
             if name in vars(cls):
                 suite.addTest(cls(name))

@@ -23,6 +23,7 @@ import glob
 import hashlib
 import json
 import os
+import posixpath
 import re
 import subprocess
 import sys
@@ -61,10 +62,12 @@ def read(path, tolerant=False):
 
 
 def config():
+    """config.json as an object; {} when it's missing, not JSON or not an object."""
     try:
-        return json.loads(read(os.path.join(SDLC, "config.json")) or "{}")
+        data = json.loads(read(os.path.join(SDLC, "config.json")) or "{}")
     except ValueError:
         return {}
+    return data if isinstance(data, dict) else {}
 
 
 def features():
@@ -183,8 +186,63 @@ def baseline_rows(text):
     return rows
 
 
+def baseline_path():
+    """(path, problem): config's `baseline` read by ship.py's rules (configured_baseline): a blank or non-string value
+    is .sdlc/baseline.md, `\\` is `/`, an absolute path in the repo is made relative. Only a regular file the repo
+    tracks under exactly that name is read (in a git repo), so the growth check's `git show <base>:<path>` and the
+    waiver read the same file: a path that leaves the repo, a link (the file or a folder on the way), a case variant,
+    a path into .git or a control character is refused (problem says why) and the check fails."""
+    import stat
+    import unicodedata
+    value = config().get("baseline")
+    if not isinstance(value, str) or not value.strip():
+        value = SDLC + "/baseline.md"
+    path = value.replace("\\", "/")
+    fix = "set config's `baseline` to a file the repo tracks, or remove it to use .sdlc/baseline.md"
+    if any(unicodedata.category(c) in ("Cc", "Cf", "Zl", "Zp") for c in path):
+        return None, Problem("baseline_refused", "config's `baseline` holds a control character: not read",
+                             "baseline", fix)
+    leaves = Problem("baseline_refused", f"config's `baseline` ({value}) leaves the repo: not read", "baseline", fix)
+    if os.path.isabs(path) or path.startswith("//") or re.match(r"[A-Za-z]:", path):
+        # by its text first: resolving a value out of the repo would open it (a UNC path: a remote share)
+        for root in (os.getcwd(), os.path.realpath(".")):
+            prefix = root.replace("\\", "/").rstrip("/") + "/"
+            if os.path.normcase(path).startswith(os.path.normcase(prefix)):
+                path = path[len(prefix):]
+                break
+        else:
+            return None, leaves
+    path = posixpath.normpath(path)
+    if path == ".." or path.startswith(("../", "/")):
+        return None, leaves
+    parts = path.split("/")  # each folder on the way checked first, so no call follows a link it holds
+    if any(os.path.islink("/".join(parts[:i])) for i in range(1, len(parts))):
+        return None, Problem("baseline_refused", f"{path} goes through a link: not read", path, fix)
+    if not os.path.lexists(path):
+        return path, None  # no baseline: nothing listed
+    if os.path.islink(path):
+        return None, Problem("baseline_refused", f"{path} is a link: not read", path,
+                             "make it a regular file: at the base, git reads a link as its target's name")
+    if not stat.S_ISREG(os.stat(path).st_mode):  # a FIFO would stall the job
+        return None, Problem("baseline_refused", f"{path} isn't a regular file: not read", path, fix)
+    try:
+        outside_git = git("rev-parse", "--git-dir")[0] != 0
+    except OSError:  # git isn't installed (a test job's slim image)
+        outside_git = True
+    if outside_git:
+        return path, None  # not a git repo, or no git (a CI checkout always is one): no growth check to disagree
+    code, out = git("ls-files", "-s", "-z", "--", f":(literal){path}")
+    entries = [e.split("\t", 1) for e in out.split("\0") if "\t" in e]
+    if code or len(entries) != 1 or entries[0][1] != path or entries[0][0].split()[0] not in ("100644", "100755"):
+        return None, Problem("baseline_refused", f"{path} isn't a file the repo tracks under that name: not read "
+                             "(a folder link, another case, or a path into .git)", path, fix)
+    return path, None
+
+
 def check_baseline(base, deviations):
-    path = str(config().get("baseline") or os.path.join(SDLC, "baseline.md")).replace("\\", "/")
+    path, refused = baseline_path()
+    if refused:
+        return [refused]
     code, before = git("show", f"{base}:{path}")
     old = baseline_rows(before) if code == 0 else {}
     if not old:
@@ -262,7 +320,9 @@ def leaves(name):
 def check_test_log(log_path):
     """Problems with a failed test run whose output is at log_path: none when every failing test it names is in the
     baseline's Failing tests and the names match the runner's own count."""
-    path = str(config().get("baseline") or os.path.join(SDLC, "baseline.md")).replace("\\", "/")
+    path, refused = baseline_path()
+    if refused:
+        return [refused]
     listed = [key[2] for key in baseline_rows(read(path, tolerant=True)) if key[0] == "test"]
     try:  # a runner's raw output: cp1252 on a Windows runner, so never a decode error
         with open(log_path, encoding="utf-8", errors="replace") as f:
