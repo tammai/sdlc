@@ -188,8 +188,42 @@ class VerifyTest(ProjectTestCase):
         self.assertEqual(len(base_missing), 1, p.stdout)
         self.assertIn("Base: 0123456789abcdef0123456789abcdef01234567 can't be resolved in this clone",
                       base_missing[0]["message"])
-        self.assertIn("state.py set login Base", base_missing[0]["fix"])
+        self.assertIn("fetch --unshallow", base_missing[0]["fix"])
+        self.assertNotIn("rebase", base_missing[0]["fix"])  # code review r2: a rebase is base_not_ancestor's case
         self.assertEqual(self.record()["last"]["result"], "fail")
+
+    def test_a_base_no_longer_behind_head_fails_drift(self):
+        # todo (code review r1 of 2026-11-26-s-verify-missing-base): after a rebase the old Base stays in the clone,
+        # and drift was diffed against it
+        self.git("switch", "-q", "-c", "old")
+        self.write("src/old.py", "x = 1\n")
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "the commit the feature started from, before a rebase")
+        old = subprocess.run(["git", "-C", self.root, "rev-parse", "HEAD"], capture_output=True,
+                             encoding="utf-8").stdout.strip()
+        self.git("switch", "-q", "main")
+        self.spec()
+        self.state = STATE.format(base=old)
+        self.plan([], tasks=["1. **Store** — FR-001\n   - Files: `src/store.py`"])
+        self.write("src/store.py", "x = 1\n")
+        p = subprocess.run([sys.executable, SCRIPT, "--root", self.root, "--json"], capture_output=True,
+                           encoding="utf-8", errors="replace")
+        self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
+        found = [x for x in json.loads(p.stdout)["problems"] if x["code"] == "base_not_ancestor"]
+        self.assertEqual(len(found), 1, p.stdout)
+        self.assertIn(f"Base: {old} isn't behind HEAD", found[0]["message"])
+        self.assertIn("state.py set login Base", found[0]["fix"])
+        self.assertIn("another branch is checked out", found[0]["message"])  # code review r1: not always a rebase
+        self.assertIn("switch back", found[0]["fix"])
+        # code review r2: in a shallow clone the history can stop above a Base that resolves
+        sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
+        import verify
+        from unittest import mock
+        with mock.patch.object(verify, "shallow", return_value=True):
+            with self.assertRaises(verify.DriftUnchecked) as e:
+                verify.drift(self.root, "login")
+        self.assertEqual(e.exception.problem.code, "base_missing")
+        self.assertIn("fetch --unshallow", e.exception.problem.fix)
 
     def test_a_git_failure_in_the_drift_diff_fails_as_drift_unchecked(self):
         sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))

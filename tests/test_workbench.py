@@ -2094,6 +2094,21 @@ class PluginReviewWorkbench(WorkbenchFeatureCase):
         self.assertEqual(e.exception.problem.code, "drift_unchecked")
         self.assertIn("app repo api not scanned", str(e.exception))
 
+    def test_an_app_repos_base_no_longer_behind_its_head_fails_drift(self):
+        import verify
+        self.assertEqual(self.state("repo", "feat", "api")[0], 0)
+        api = self.path("api")
+        branch = git_out(api, "branch", "--show-current").strip()
+        [(name, base)] = verify.branched_repos(self.root, "feat")
+        git(api, "switch", "-q", "--orphan", "elsewhere")  # a branch that doesn't descend from the recorded base
+        git(api, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "--allow-empty", "-m", "off")
+        with self.assertRaises(verify.DriftUnchecked) as e:
+            verify.drift(self.root, "feat")
+        self.assertEqual(e.exception.problem.code, "base_not_ancestor", str(e.exception))
+        self.assertIn(f"Base: {base} of api isn't behind HEAD", str(e.exception))
+        self.assertIn("## Repos line", e.exception.problem.fix)
+        self.assertIn(f"git -C api switch {branch}", e.exception.problem.fix)  # code review r2: named, not <its branch>
+
     def test_an_existing_clone_added_read_only_cannot_push(self):
         url = self.origin("tests")
         git(self.root, "clone", "-q", url, "tests")
