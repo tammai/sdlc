@@ -9,7 +9,8 @@ Usage: ship.py [--root DIR] FEATURE [--message SUBJECT] [--review TEXT] [--note 
      review ran on); one written already is left as it is.
   3. The last passing verify.py run is reused when the code hasn't changed since (`verify.py status`); otherwise
      verify.py runs now, and a failure stops here with nothing moved, unless `--waive-baseline` and only the test
-     step failed and every failing test its report names is listed in .sdlc/baseline.md: the user's brownfield repo
+     step failed and every failing test its report names is listed in the baseline (config's `baseline`, else
+     .sdlc/baseline.md, as CI's invariants.py reads it): the user's brownfield repo
      then ships past failures it already had. Output that doesn't name its failures (or names fewer than its summary
      counts) is refused, as is any failure the baseline doesn't list. The waived tests are written to the Gate log.
   4. On the default branch (and not on a branch named after the feature, which origin/HEAD can name on a repo whose
@@ -39,6 +40,7 @@ Exit 0 ready to commit, 1 refused or verify failed, 2 usage. Stdlib only, Python
 import argparse
 import json
 import os
+import posixpath
 import re
 import shlex
 import subprocess
@@ -95,10 +97,43 @@ def add_review(root, change, text):
     return True
 
 
-def baseline_failures(root):
-    """The failing tests .sdlc/baseline.md lists: its Failing tests rows, not the template's 'none' row."""
-    text = verify.read(os.path.join(root, ".sdlc", "baseline.md")) or ""
-    section = re.search(r"^## Failing tests\s*$(.*?)(?=^## |\Z)", text, re.M | re.S)
+DEFAULT_BASELINE = ".sdlc/baseline.md"
+
+
+def configured_baseline(root, cfg):
+    """Config's `baseline` (a non-blank string), else .sdlc/baseline.md, spelled one way (`./`, `//` and `..` folded,
+    an absolute path in the repo made relative). CI's invariants.py reads the same value, but takes any value as a
+    path (a blank one waives nothing there) and reads outside the repo; Ship reads only inside it."""
+    path = cfg.get("baseline") if isinstance(cfg, dict) else None
+    if not isinstance(path, str) or not path.strip():
+        return DEFAULT_BASELINE
+    path = path.replace("\\", "/")
+    if sdlc_scopes.odd_name(path):
+        return path  # refused by baseline_failures before any filesystem call sees it
+    if os.path.isabs(path) and in_repo(root, path):
+        path = os.path.relpath(os.path.realpath(path), os.path.realpath(root)).replace(os.sep, "/")
+    return posixpath.normpath(path)
+
+
+def in_repo(root, path):
+    try:
+        sdlc_scopes._inside(root, path)
+        return True
+    except (OSError, ValueError):  # ValueError: a NUL on a Python whose realpath raises it
+        return False
+
+
+def baseline_path(root):
+    try:
+        cfg = sdlc_scopes.read_repo_json(root, ".sdlc/config.json")
+    except (OSError, ValueError):
+        cfg = None
+    return configured_baseline(root, cfg)
+
+
+def baseline_rows(text):
+    """The Failing tests rows' Test cells, not the template's 'none' row."""
+    section = re.search(r"^## Failing tests\s*$(.*?)(?=^## |\Z)", text or "", re.M | re.S)
     listed = []
     for line in (section.group(1) if section else "").splitlines():
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
@@ -108,7 +143,48 @@ def baseline_failures(root):
     return listed
 
 
-def verified(root, feature, timeout, waive_baseline=False):
+def baseline_failures(root, path, base=None):
+    """(listed, problem): the failing tests the baseline at `path` lists, or a problem saying why none count.
+    It is read only inside the repo, as a regular file (a FIFO can't stall Ship), undecodable bytes replaced (a file
+    saved by hand). The trust anchor shows the user a failing test added to .sdlc/baseline.md, and nothing watches a
+    baseline moved elsewhere, so config must name the same path at `base` as now (a move in the feature waives
+    nothing, either way), and a moved file's tests count only as it listed them at `base`."""
+    if sdlc_scopes.odd_name(path):
+        return [], "config's `baseline` holds a control character: not read"
+    m = re.match(r"`?([0-9a-f]{7,64})\b", (base or "").strip())
+    commit = m and m.group(1)
+    if commit and not git(root, "rev-parse", "--verify", "--quiet", f"{commit}^{{commit}}", check=False).strip():
+        if path != DEFAULT_BASELINE:  # the trust anchor watches the default: it needs no Base: to compare against
+            return [], f"Base: {commit} isn't in this clone, so the baseline at Base: can't be checked (fetch it)"
+        commit = None
+    if commit:
+        try:
+            named = configured_baseline(root, json.loads(
+                git(root, "show", f"{commit}:./.sdlc/config.json", check=False) or "{}"))
+        except ValueError:
+            named = DEFAULT_BASELINE
+        if named != path:
+            shown = "another path" if sdlc_scopes.odd_name(named) else named
+            return [], (f"config's `baseline` named {shown} at Base: and names {path} now: nothing watches a baseline "
+                        "moved during the feature, so ship the move on its own first")
+    elif path != DEFAULT_BASELINE:
+        return [], (f"Base: {base.strip()} isn't a commit id, so {path} (config's `baseline`) can't be checked as it "
+                    "was at Base:" if (base or "").strip() and not sdlc_scopes.odd_name(base) else
+                    f"{path} (config's `baseline`) counts only as it was at Base:, and the state file has no Base:")
+    try:
+        with sdlc_scopes.open_regular(sdlc_scopes._inside(root, path)) as f:
+            listed = baseline_rows(f.buffer.read().decode("utf-8", "replace"))
+    except FileNotFoundError:
+        return [], f"{path} not found"
+    except OSError as e:
+        return [], str(e)
+    if path == DEFAULT_BASELINE:
+        return listed, None
+    at_base = set(baseline_rows(git(root, "show", f"{commit}:./{path}", check=False)))
+    return [t for t in listed if t in at_base], None
+
+
+def verified(root, feature, timeout, waive_baseline=False, base=None):
     """(head, tree, waiver): waiver is a Gate log line when a failed run was let through on the baseline, else None."""
     st = verify.status(root, feature)
     if st["reuse"]:
@@ -116,26 +192,35 @@ def verified(root, feature, timeout, waive_baseline=False):
     last, notes = verify.full(root, feature, timeout, whole=True)
     if last["result"] == "pass":
         return last["head"], last["tree"], None
-    listed = baseline_failures(root)
+    where = baseline_path(root)
+    listed, unread = baseline_failures(root, where, base)
+    if where != DEFAULT_BASELINE:
+        where += " as at Base:"
+    if waive_baseline and not unread and not listed and where != DEFAULT_BASELINE:
+        unread = f"{where} lists no failing tests"
+    if waive_baseline and unread:
+        problem = f"--waive-baseline refused: {unread}"
+        raise Refused("verify failed:\n" + "\n".join(notes + last["failures"]) + "\n" + problem, "verify_failed",
+                      problems=notes + last["failures"] + [P.problem("baseline_waiver_refused", problem)])
     # The workbench's baseline lists its own tests: an app repo's failure (`api: … test: exit`) is never waived by it
     apps = tuple(f"{name}: " for name, _ in verify.branched_repos(root, feature))
     if waive_baseline and listed and all(re.match(r"[^\n]*\btest: exit", f) and not (apps and f.startswith(apps))
                                          for f in last["failures"]):
-        problem, waived = baseline_match(last, listed)
+        problem, waived = baseline_match(last, listed, where)
         if not problem:
-            return last["head"], last["tree"], ("Stage 4: baseline failures waived (listed in .sdlc/baseline.md): "
+            return last["head"], last["tree"], (f"Stage 4: baseline failures waived (listed in {where}): "
                                                 + ", ".join(waived))
         raise Refused("verify failed:\n" + "\n".join(notes + last["failures"]) + "\n" + problem, "verify_failed",
                       problems=notes + last["failures"] + [P.problem("baseline_waiver_refused", problem)])
     waivable = listed and not (apps and any(f.startswith(apps) for f in last["failures"]))
-    hint = ("\nIf only the test step failed and every failure is in .sdlc/baseline.md, rerun with --waive-baseline."
+    hint = (f"\nIf only the test step failed and every failure is in {where}, rerun with --waive-baseline."
             if waivable else "")
     if waive_baseline and waivable:
         # The flag was given but another step failed too: say what the waiver can't cover, and still name a failing
         # test the baseline doesn't list, so one fix round sees both (3.15.0 smoke test G)
         tests = [f for f in last["failures"] if re.match(r"[^\n]*\btest: exit", f)]
-        unlisted = baseline_match(dict(last, failures=tests), listed)[0] if tests else None
-        hint = ("\n--waive-baseline covers only the test step's failures that .sdlc/baseline.md lists; fix the others "
+        unlisted = baseline_match(dict(last, failures=tests), listed, where)[0] if tests else None
+        hint = (f"\n--waive-baseline covers only the test step's failures that {where} lists; fix the others "
                 "first." + (f"\n{unlisted}" if unlisted else ""))
         waivable = False
     raise Refused("verify failed:\n" + "\n".join(notes + last["failures"]) + hint, "verify_failed",
@@ -201,7 +286,7 @@ def leaves(name):
     return out
 
 
-def baseline_match(last, listed):
+def baseline_match(last, listed, where=".sdlc/baseline.md"):
     """(problem, None) when a failing test isn't in the baseline or the failures can't be named; else (None, names).
     Each failing test step's output (verify.json `last.test_output`) must name as many tests as its summary counts."""
     outputs = last.get("test_output") or {}
@@ -212,13 +297,13 @@ def baseline_match(last, listed):
         found, count = failing_tests(outputs.get(step) or "")
         if not found or count != len(found):
             counted = "no summary count" if count is None else f"its summary counts {count}"
-            return (f"--waive-baseline refused: couldn't match the failing tests to .sdlc/baseline.md: {step} named "
+            return (f"--waive-baseline refused: couldn't match the failing tests to {where}: {step} named "
                     f"{len(found)} failing test(s) and {counted}. Fix them, or, with the user's OK, rerun the tests "
                     "with a runner whose report names each failure"), None
         names += found
     unlisted = [n for n in names if not leaves(n) & listed_leaves]
     if unlisted:
-        return (f"--waive-baseline refused: failing tests not in .sdlc/baseline.md: {', '.join(unlisted)}. Fix them; "
+        return (f"--waive-baseline refused: failing tests not in {where}: {', '.join(unlisted)}. Fix them; "
                 "adding one to the baseline needs the user's OK and a Deviations line"), None
     return None, names
 
@@ -271,7 +356,7 @@ def ship(root, feature, message, review=None, note=None, timeout=1800, waive_bas
     # Every refusal comes before the state moves, so a refusal leaves the state file as it was
     repos = check_repos(root, state) if sdlc_scopes.is_workbench(root) else None
     living_spec(root, feature)
-    head, tree, waiver = verified(root, feature, timeout, waive_baseline)
+    head, tree, waiver = verified(root, feature, timeout, waive_baseline, field(state, "Base"))
     branch = None
     if git(root, "branch", "--show-current").strip() != feature and on_default_branch(root):
         if git(root, "rev-parse", "--verify", "--quiet", f"refs/heads/{feature}", check=False).strip():
@@ -615,7 +700,7 @@ def main(argv=None):
     ap.add_argument("--review")
     ap.add_argument("--note")
     ap.add_argument("--waive-baseline", action="store_true",
-                    help="ship past a failed test step when .sdlc/baseline.md lists failing tests")
+                    help="ship past a failed test step when the baseline (config's `baseline`) lists failing tests")
     ap.add_argument("--timeout", type=int, default=1800)
     ap.add_argument("--json", action="store_true",
                     help="a refusal as one JSON document too: result, then each problem's code, message and fix")
