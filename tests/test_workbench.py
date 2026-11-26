@@ -2108,6 +2108,14 @@ class PluginReviewWorkbench(WorkbenchFeatureCase):
         self.assertIn(f"Base: {base} of api isn't behind HEAD", str(e.exception))
         self.assertIn("## Repos line", e.exception.problem.fix)
         self.assertIn(f"git -C api switch {branch}", e.exception.problem.fix)  # code review r2: named, not <its branch>
+        self.assertIn("ask the user", e.exception.problem.fix)  # the trust anchor doesn't show that line
+
+    def test_a_branch_line_sdlc_leaves_alone_doesnt_stop_the_roots_drift(self):
+        # code review r2: only a repo git failed to diff is drift_unchecked; a dropped line is repo_failures' to report
+        import verify
+        self.assertEqual(verify.scan_errors(["app repo api not scanned: not in workbench.json",
+                                             "app repo web not scanned (git failed): fatal: bad"]),
+                         ["app repo web not scanned (git failed): fatal: bad"])
 
     def test_an_existing_clone_added_read_only_cannot_push(self):
         url = self.origin("tests")

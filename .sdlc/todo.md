@@ -8,9 +8,10 @@
 - [ ] `ship.py --waive-baseline` reads only `.sdlc/baseline.md`, while doctor, scaffold and CI's `invariants.py --baseline-tests` read config's `baseline`: a repo that moved its baseline gets CI waivers Ship refuses — code review r3 of 2026-11-25-m-brownfield-ci-baseline, pre-existing (2026-11-25)
 - [ ] A baseline waiver (Ship and CI) matches short names loosely, waives a non-test failure (coverage) beside a listed test failure, and can't see tests a fail-fast run skipped; documented in Limitations — code review of 2026-11-25-m-brownfield-ci-baseline (2026-11-25)
 - [ ] Verify reports only the first `Base:` it can't resolve (the feature's or an app repo's) and skips the root's drift meanwhile, so several missing bases take one run each. Code review r2 of 2026-11-26-s-verify-missing-base and of 2026-11-26-s-drift-base-not-ancestor, low (2026-11-26)
-- [ ] Drift after a rebase onto, or a merge of, a newer main: the old `Base:` stays an ancestor of HEAD, so drift is diffed two-dot from it and counts every upstream change as the feature's. A check that `Base:` is the merge-base with the default branch (or a three-dot diff) would catch it. Code review r1 of 2026-11-26-s-drift-base-not-ancestor, pre-existing (2026-11-26)
+- [ ] `scan_errors` (2026-11-26-s-drift-from-fork-point) is tested on flag strings only, not through `drift()` with a branch line sdlc leaves alone; a reworded diff_stats flag would pass unseen. Code review r5, low (2026-11-26)
 
 ## Done
+- [x] Drift after a rebase onto, or a merge of, a newer main: Troubleshooting R16a says how to move `Base:`; verify doesn't guess the fork point, since its refs are the agent's to move (2026-11-26-s-drift-from-fork-point)
 - [x] Drift after a rewritten history or another branch checked out: verify refuses a `Base:` HEAD doesn't descend from (2026-11-26-s-drift-base-not-ancestor)
 - [x] UI evidence and checks leftovers: app repo globs, git failure as not checked, deletions documented, profile and checks as two questions (2026-11-25-m-ui-evidence-leftovers)
 - [x] Brownfield: the generated `sdlc-verify.yml` failed every PR while the baseline listed a failing test — the test step waives listed failures through invariants.py --baseline-tests (2026-11-25-m-brownfield-ci-baseline)

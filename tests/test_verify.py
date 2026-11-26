@@ -188,7 +188,8 @@ class VerifyTest(ProjectTestCase):
         self.assertEqual(len(base_missing), 1, p.stdout)
         self.assertIn("Base: 0123456789abcdef0123456789abcdef01234567 can't be resolved in this clone",
                       base_missing[0]["message"])
-        self.assertIn("fetch --unshallow", base_missing[0]["fix"])
+        self.assertIn("fetch it from the remote that holds it", base_missing[0]["fix"])  # not --unshallow, nor origin
+        self.assertIn("state.py set login Base", base_missing[0]["fix"])  # code review r4: a pruned local commit
         self.assertNotIn("rebase", base_missing[0]["fix"])  # code review r2: a rebase is base_not_ancestor's case
         self.assertEqual(self.record()["last"]["result"], "fail")
 
@@ -224,6 +225,110 @@ class VerifyTest(ProjectTestCase):
                 verify.drift(self.root, "login")
         self.assertEqual(e.exception.problem.code, "base_missing")
         self.assertIn("fetch --unshallow", e.exception.problem.fix)
+
+    def upstream_moves(self, how):
+        """A feature branch from Base with a commit of its own; main then gains src/other.py, which the branch takes
+        in by `how`."""
+        self.git("switch", "-q", "-c", "feat")
+        self.write("src/store.py", "x = 0\n")
+        self.git("add", "src/store.py")
+        self.git("commit", "-q", "-m", "the feature's own commit")
+        self.git("switch", "-q", "main")
+        self.write("src/other.py", "y = 1\n")
+        self.git("add", "src/other.py")
+        self.git("commit", "-q", "-m", "upstream")
+        self.git("switch", "-q", "feat")
+        self.git(how, "-q", *(["--no-edit"] if how == "merge" else []), "main")
+        return subprocess.run(["git", "-C", self.root, "rev-parse", "main"], capture_output=True,
+                              encoding="utf-8").stdout.strip()
+
+    def test_after_taking_in_a_newer_main_moving_base_clears_upstream_drift(self):
+        # todo (code review r1 of 2026-11-26-s-drift-base-not-ancestor): upstream files count as drift after a rebase
+        # onto a newer main. Verify doesn't guess where the branch forks (the refs are the agent's to move: code
+        # review r1-r4 of 2026-11-26-s-drift-from-fork-point); the user moves Base:, which the trust anchor shows
+        for how in ("rebase", "merge"):
+            with self.subTest(how=how):
+                self.doCleanups()
+                self.setUp()
+                self.spec()
+                fork = self.upstream_moves(how)
+                self.plan([], tasks=["1. **Store** — FR-001\n   - Files: `src/store.py`"])
+                code, out, _ = self.verify()
+                self.assertEqual(code, 1, out)
+                self.assertIn("drift: src/other.py", out)
+                self.state = STATE.format(base=fork[:7])  # the user's choice, through the trust anchor
+                self.plan([], tasks=["1. **Store** — FR-001\n   - Files: `src/store.py`"])
+                code, out, _ = self.verify()
+                self.assertEqual(code, 0, out)
+
+    def test_moving_main_onto_the_feature_never_hides_its_committed_drift(self):
+        # code review r1: the agent can move a local branch ref; drift must still count from Base:
+        self.git("switch", "-q", "-c", "feat")
+        self.spec()
+        self.plan([], tasks=["1. **Store** — FR-001\n   - Files: `src/store.py`"])
+        self.write("src/store.py", "x = 1\n")
+        self.write("src/unplanned.py", "z = 1\n")
+        self.git("add", "src")
+        self.git("commit", "-q", "-m", "work")
+        self.git("branch", "-f", "main", "HEAD")
+        code, out, _ = self.verify()
+        self.assertEqual(code, 1, out)
+        self.assertIn("drift: src/unplanned.py", out)
+
+    def test_a_main_holding_some_feature_commits_never_names_one(self):
+        # code review r3: local main moved onto HEAD~1 made the note suggest Base: on the feature's own commit
+        self.git("switch", "-q", "-c", "feat")
+        self.spec()
+        self.plan([], tasks=["1. **Store** — FR-001\n   - Files: `src/store.py`"])
+        self.write("src/unplanned.py", "z = 1\n")
+        self.git("add", "src")
+        self.git("commit", "-q", "-m", "f1")
+        f1 = subprocess.run(["git", "-C", self.root, "rev-parse", "HEAD"], capture_output=True,
+                            encoding="utf-8").stdout.strip()
+        self.write("src/store.py", "x = 1\n")
+        self.git("add", "src")
+        self.git("commit", "-q", "-m", "f2")
+        self.git("branch", "-f", "main", "HEAD~1")
+        code, out, _ = self.verify()
+        self.assertEqual(code, 1, out)
+        self.assertIn("drift: src/unplanned.py", out)
+        self.assertNotIn(f1[:7], out)
+
+    def test_gits_checks_run_in_the_c_locale(self):
+        # code review r4: git's error text is matched in English (the ambiguous-id fix reads it)
+        sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
+        import verify
+        from unittest import mock
+        seen = []
+        real_run = verify.subprocess.run
+        with mock.patch.object(verify.subprocess, "run", side_effect=lambda *a, **k: seen.append(k.get("env")) or
+                               real_run(*a, **k)):
+            verify._git_check(self.root, "rev-parse", "HEAD")
+        self.assertEqual((seen[0]["LC_ALL"], seen[0]["GIT_TERMINAL_PROMPT"]), ("C", "0"))
+
+    def test_base_missing_gives_the_fix_that_fits_the_cause(self):
+        # code review r2: --unshallow fails on a complete clone; an ambiguous short id needs the full sha
+        sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
+        import verify
+        from unittest import mock
+        self.spec()
+        self.plan([], tasks=["1. **Store** — FR-001\n   - Files: `src/store.py`"])
+        with mock.patch.object(verify, "unresolved", return_value="error: short object ID 0123 is ambiguous"):
+            with self.assertRaises(verify.DriftUnchecked) as e:
+                verify.drift(self.root, "login")
+        self.assertIn("state.py set login Base <its full sha>", e.exception.problem.fix)
+        self.assertNotIn("unshallow", e.exception.problem.fix)
+
+    def test_on_the_default_branch_drift_still_counts_from_base(self):
+        self.spec()
+        self.write("src/other.py", "y = 1\n")
+        self.git("add", "src/other.py")
+        self.git("commit", "-q", "-m", "committed on main after Base")
+        self.plan([], tasks=["1. **Store** — FR-001\n   - Files: `src/store.py`"])
+        self.write("src/store.py", "x = 1\n")
+        code, out, _ = self.verify()
+        self.assertEqual(code, 1, out)
+        self.assertIn("drift: src/other.py", out)
 
     def test_a_git_failure_in_the_drift_diff_fails_as_drift_unchecked(self):
         sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))

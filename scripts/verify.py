@@ -326,11 +326,12 @@ class DriftUnchecked(Exception):
 
 
 def _git_check(repo, *args):
-    """(exit code, git's error:/fatal: lines) of a read-only git check, bounded and never prompting (a partial
-    clone's lazy fetch can't stall verify). DriftUnchecked when git can't run or stalls."""
+    """(exit code, git's error:/fatal: lines, stdout) of a read-only git check, bounded and never prompting (a partial
+    clone's lazy fetch can't stall verify), in the C locale so its messages read the same everywhere. DriftUnchecked
+    when git can't run or stalls."""
     try:
         p = subprocess.run(["git", "-C", repo, *args], capture_output=True, encoding="utf-8", errors="replace",
-                           timeout=60, env=dict(os.environ, GIT_TERMINAL_PROMPT="0"))
+                           timeout=60, env=dict(os.environ, GIT_TERMINAL_PROMPT="0", LC_ALL="C", LANGUAGE="C"))
     except (OSError, subprocess.TimeoutExpired) as e:
         raise DriftUnchecked(P.problem("drift_unchecked", f"drift not checked: git can't run in {repo}: {e}",
                                        target="Base", fix="check that git runs here, then run verify again"))
@@ -360,6 +361,12 @@ def shallow(repo):
     return _git_check(repo, "rev-parse", "--is-shallow-repository")[2].strip() == "true"
 
 
+def scan_errors(flags):
+    """collect's flags for an app repo git failed to diff: drift there wasn't checked. A branch line sdlc leaves alone
+    (`not scanned: <why>`) isn't one: repo_failures reports it, and the root's drift still counts."""
+    return [f for f in flags if f.startswith("app repo ") and " not scanned (git failed): " in f]
+
+
 def drift(root, feature, later=()):
     """[{item, kind, covered}] for what the change did that the plan didn't say, or None without a Base or a plan.
     A task whose ACs are all in `later` (parts not started yet) isn't expected to have changed its files."""
@@ -373,21 +380,34 @@ def drift(root, feature, later=()):
     branches = {n: r.get("branch") for n, r in _branched(root, feature)[0]}
     for repo, base, of, name in [(root, m.group(1), "", None)] + [(os.path.join(root, n), b, f" of {n}", n)
                                                                  for n, b in branched_repos(root, feature)]:
-        fetch = f"git -C {name} fetch --unshallow" if name else "git fetch --unshallow"
         error = unresolved(repo, base)
-        if error or not behind_head(repo, base) and shallow(repo):
+        behind = not error and behind_head(repo, base)
+        is_shallow = not behind and shallow(repo)
+        cut = not error and is_shallow
+        if error or cut:
+            fetch = f"git -C {name} fetch --unshallow" if name else "git fetch --unshallow"
+            fix = (f"fetch the commit and its history ({fetch}, or the branch that holds it)" if is_shallow
+                   else f"fetch it from the remote that holds it ({'git -C ' + name + ' ' if name else 'git '}fetch "
+                        "<remote>); if no remote has it (a local commit a rewrite pruned), "
+                        + (f"ask the user before correcting {name}'s base in the state file's ## Repos line" if name
+                           else f"state.py set {feature} Base <the commit the branch now starts from> with a "
+                                "Deviations line"))
+            if error and "ambiguous" in error:
+                fix = (f"ask the user to correct {name}'s base in the state file's ## Repos line to its full sha"
+                       if name else f"state.py set {feature} Base <its full sha> with a Deviations line")
             raise DriftUnchecked(P.problem(
                 "base_missing", f"Base: {base}{of} can't be resolved in {'its' if name else 'this'} clone ("
                 f"{error or 'the shallow history stops above it'}), so drift can't be checked", target="Base",
-                fix=f"fetch the commit and its history ({fetch}, or the branch that holds it)"))
-        if not behind_head(repo, base):
-            switch = f"git -C {name} switch {branches.get(name) or '<its branch>'}" if name else "git switch <the feature's branch>"
+                fix=fix))
+        if not behind:
+            switch = (f"git -C {name} switch {branches.get(name) or '<its branch>'}" if name
+                      else "git switch <the feature's branch>")
             raise DriftUnchecked(P.problem(
                 "base_not_ancestor", f"Base: {base}{of} isn't behind HEAD: another branch is checked out, or a rebase "
                 "or reset rewrote the history since, so drift against it would cover the wrong range", target="Base",
-                fix=(f"switch back to the feature's branch ({switch}); if the history was rewritten, correct "
-                     f"{name}'s base in the state file's ## Repos line to the commit its branch now starts from, with "
-                     "a Deviations line" if name else
+                fix=(f"switch back to the feature's branch ({switch}); if the history was rewritten, ask the user "
+                     f"before correcting {name}'s base in the state file's ## Repos line (the trust anchor doesn't "
+                     "show that line), with a Deviations line" if name else
                      f"switch back to the feature's branch ({switch}); if the history was rewritten, "
                      f"state.py set {feature} Base <the commit the branch now starts from> with a Deviations line")))
     try:
@@ -395,7 +415,7 @@ def drift(root, feature, later=()):
     except (RuntimeError, OSError) as e:  # git couldn't diff, or can't run: not checked, so it fails (fail closed)
         raise DriftUnchecked(P.problem("drift_unchecked", f"drift not checked: {e}", target="Base",
                                        fix="check that git runs here and can read the repo, then run verify again"))
-    unscanned = [f for f in facts.get("flags", []) if f.startswith("app repo ") and " not scanned: " in f]
+    unscanned = scan_errors(facts.get("flags", []))
     if unscanned:  # collect skips an app repo git can't diff; drift can't pass on what it never saw
         raise DriftUnchecked(P.problem("drift_unchecked", "drift not checked: " + "; ".join(unscanned),
                                        target="Base", fix="check that git can read that repo, then run verify again"))
