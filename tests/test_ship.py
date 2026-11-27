@@ -214,6 +214,34 @@ class ShipTest(ProjectTestCase):
         self.assertEqual(code, 1, out)
         self.assertIn("--waive-baseline refused: docs/baseline.md as at Base: lists no failing tests", out)
 
+    def test_a_baseline_that_is_a_link_is_refused_by_name(self):
+        # 2026-11-26-s-ci-baseline-path AC-005: read through the link now but as the link's text at Base:, so it
+        # waived nothing without saying why
+        self.failing("test", "test_div_by_zero")
+        self.write("docs/real.md", "## Failing tests\n\n| Package | Test (file › name) | Failure | Since |\n"
+                   "|---|---|---|---|\n| (root) | tests/test_div.py › T.test_div_by_zero | x | y |\n")
+        os.symlink("real.md", self.path("docs/baseline.md"))
+        with open(self.path(".sdlc/config.json"), encoding="utf-8") as f:
+            config = json.load(f)
+        config["baseline"] = "docs/baseline.md"
+        self.write(".sdlc/config.json", json.dumps(config))
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "baseline as a link")
+        self.write(".sdlc/login/state.md", STATE.format(base=self.out("rev-parse", "HEAD").strip()))
+        code, out = self.ship("--waive-baseline")
+        self.assertEqual(code, 1, out)
+        self.assertIn("--waive-baseline refused: docs/baseline.md is a link: not read", out)
+        # security review r1 S1: a folder link waived nothing without saying why
+        os.remove(self.path("docs/baseline.md"))
+        os.rename(self.path("docs/real.md"), self.path("real.md"))
+        os.makedirs(self.path("elsewhere"))
+        os.rename(self.path("real.md"), self.path("elsewhere/baseline.md"))
+        os.rmdir(self.path("docs")) if not os.listdir(self.path("docs")) else None
+        os.symlink("elsewhere", self.path("docs"))
+        code, out = self.ship("--waive-baseline")
+        self.assertEqual(code, 1, out)
+        self.assertIn("--waive-baseline refused: docs/baseline.md goes through a link: not read", out)
+
     def test_another_spelling_of_the_same_baseline_path_is_not_a_move(self):
         self.failing("test", "test_div_by_zero")
         self.baseline("| (root) | tests/test_div.py › T.test_div_by_zero | returns Infinity | b8392a3 |")
@@ -282,8 +310,7 @@ class ShipTest(ProjectTestCase):
         self.write(".sdlc/login/state.md", STATE.format(base=self.out("rev-parse", "HEAD").strip()))
         code, out = self.ship("--waive-baseline")
         self.assertEqual(code, 1, out)
-        self.assertIn("--waive-baseline refused: " + outside.replace("\\", "/") + " is a link out of the repo or into .git: not read",
-                      out)
+        self.assertIn("--waive-baseline refused: " + outside.replace("\\", "/") + " leaves the repo: not read", out)
         self.assertIn("Current: Stage 2", self.state_text())
 
     def test_a_baseline_path_with_a_control_character_is_not_read(self):

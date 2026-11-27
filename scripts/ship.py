@@ -102,16 +102,23 @@ DEFAULT_BASELINE = ".sdlc/baseline.md"
 
 def configured_baseline(root, cfg):
     """Config's `baseline` (a non-blank string), else .sdlc/baseline.md, spelled one way (`./`, `//` and `..` folded,
-    an absolute path in the repo made relative). CI's invariants.py reads the same value, but takes any value as a
-    path (a blank one waives nothing there) and reads outside the repo; Ship reads only inside it."""
+    an absolute path in the repo made relative, by its text). CI's invariants.py (`baseline_path`) reads the same
+    value by the same rules; both read only inside the repo, never through a link."""
     path = cfg.get("baseline") if isinstance(cfg, dict) else None
     if not isinstance(path, str) or not path.strip():
         return DEFAULT_BASELINE
     path = path.replace("\\", "/")
     if sdlc_scopes.odd_name(path):
         return path  # refused by baseline_failures before any filesystem call sees it
-    if os.path.isabs(path) and in_repo(root, path):
-        path = os.path.relpath(os.path.realpath(path), os.path.realpath(root)).replace(os.sep, "/")
+    if os.path.isabs(path) or path.startswith("//") or re.match(r"[A-Za-z]:", path):
+        # by its text: resolving a value out of the repo would open it (a UNC path: a remote share)
+        for prefix in (os.path.abspath(root), os.path.realpath(root)):
+            prefix = prefix.replace("\\", "/").rstrip("/") + "/"
+            if os.path.normcase(path).startswith(os.path.normcase(prefix)):
+                path = path[len(prefix):]
+                break
+        else:
+            return path  # refused by baseline_failures before any filesystem call sees it
     return posixpath.normpath(path)
 
 
@@ -151,6 +158,9 @@ def baseline_failures(root, path, base=None):
     nothing, either way), and a moved file's tests count only as it listed them at `base`."""
     if sdlc_scopes.odd_name(path):
         return [], "config's `baseline` holds a control character: not read"
+    if os.path.isabs(path) or path.startswith("//") or re.match(r"[A-Za-z]:", path) or path == ".." \
+            or path.startswith("../"):
+        return [], f"{path} leaves the repo: not read"
     m = re.match(r"`?([0-9a-f]{7,64})\b", (base or "").strip())
     commit = m and m.group(1)
     if commit and not git(root, "rev-parse", "--verify", "--quiet", f"{commit}^{{commit}}", check=False).strip():
@@ -171,6 +181,11 @@ def baseline_failures(root, path, base=None):
         return [], (f"Base: {base.strip()} isn't a commit id, so {path} (config's `baseline`) can't be checked as it "
                     "was at Base:" if (base or "").strip() and not sdlc_scopes.odd_name(base) else
                     f"{path} (config's `baseline`) counts only as it was at Base:, and the state file has no Base:")
+    parts = path.split("/")  # git show at Base: reads a link as its target's name, and can't pass a folder link;
+    if any(os.path.islink(os.path.join(root, *parts[:i])) for i in range(1, len(parts))):  # folders first: no call
+        return [], f"{path} goes through a link: not read"  # follows a link on the way
+    if os.path.islink(os.path.join(root, path)):
+        return [], f"{path} is a link: not read"
     try:
         with sdlc_scopes.open_regular(sdlc_scopes._inside(root, path)) as f:
             listed = baseline_rows(f.buffer.read().decode("utf-8", "replace"))
